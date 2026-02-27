@@ -1,5 +1,4 @@
 using Godot;
-using OdysseyCards.Character;
 
 namespace OdysseyCards.Card.Effects;
 
@@ -26,7 +25,7 @@ public abstract class CardEffect
     public string DebuffType { get; set; }
     public bool IsUpgraded { get; set; }
 
-    public abstract void Execute(Character caster, Character target);
+    public abstract void Execute(OdysseyCards.Character.Character caster, OdysseyCards.Character.Character target);
 
     public virtual void Upgrade()
     {

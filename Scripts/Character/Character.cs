@@ -162,7 +162,7 @@ public partial class Character : Node
 public abstract class Buff
 {
     public string Name { get; protected set; }
-    public int Stacks { get; protected set; }
+    public int Stacks { get; set; }
     
     public virtual void OnTurnStart(Character owner) { }
     public virtual void OnTurnEnd(Character owner) { }
@@ -171,7 +171,7 @@ public abstract class Buff
 public abstract class Debuff
 {
     public string Name { get; protected set; }
-    public int Stacks { get; protected set; }
+    public int Stacks { get; set; }
     
     public virtual void OnTurnStart(Character owner) { }
     public virtual void OnTurnEnd(Character owner) { }

@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using OdysseyCards.Character;
+using OdysseyCards.Card;
 
 namespace OdysseyCards.Core;
 
@@ -36,7 +37,7 @@ public partial class GameManager : Node
     private Deck CreateStartingDeck()
     {
         var deck = new Deck();
-        
+        deck.Initialize(CardFactory.GetStarterDeck());
         return deck;
     }
 

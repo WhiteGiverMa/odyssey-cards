@@ -140,6 +140,11 @@ public class Deck
         Cards.Remove(card);
     }
 
+    public void Initialize(List<CardData> initialCards)
+    {
+        Cards = initialCards;
+    }
+
     public List<Card.Card> CreateDrawPile()
     {
         var pile = new List<Card.Card>();

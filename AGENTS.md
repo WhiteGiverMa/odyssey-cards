@@ -26,3 +26,7 @@ OdysseyCards/
 
 Godot Editor: `Project -> Tools -> C# -> Create C# Solution` (first time)
 Then: `Build -> Build Solution` or `Ctrl+Shift+B`
+
+## Lint
+
+Run `dotnet format OdysseyCards.sln --verify-no-changes` after code changes to check code style.

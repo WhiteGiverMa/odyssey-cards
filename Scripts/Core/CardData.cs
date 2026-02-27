@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using Godot.Collections;
 
 namespace OdysseyCards.Core;
 
@@ -43,10 +44,10 @@ public partial class CardData : Resource
     [Export] public bool Exhausts { get; set; } = false;
     [Export] public bool Ethereal { get; set; } = false;
     
-    [Export] public Array<CardEffectData> Effects { get; set; }
+    [Export] public Godot.Collections.Array<CardEffectData> Effects { get; set; }
 
     public CardData()
     {
-        Effects = new Array<CardEffectData>();
+        Effects = new Godot.Collections.Array<CardEffectData>();
     }
 }

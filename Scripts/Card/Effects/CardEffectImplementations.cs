@@ -1,6 +1,6 @@
 using Godot;
-using OdysseyCards.Character;
 using OdysseyCards.Card.Effects;
+using OdysseyCards.Character;
 
 namespace OdysseyCards.Card;
 
@@ -16,7 +16,7 @@ public class DamageEffect : CardEffect
         Value = damage;
     }
 
-    public override void Execute(Character caster, Character target)
+    public override void Execute(OdysseyCards.Character.Character caster, OdysseyCards.Character.Character target)
     {
         if (target == null) return;
         
@@ -46,7 +46,7 @@ public class GainBlockEffect : CardEffect
         Value = block;
     }
 
-    public override void Execute(Character caster, Character target)
+    public override void Execute(OdysseyCards.Character.Character caster, OdysseyCards.Character.Character target)
     {
         if (caster == null) return;
         
@@ -76,7 +76,7 @@ public class GainEnergyEffect : CardEffect
         Value = energy;
     }
 
-    public override void Execute(Character caster, Character target)
+    public override void Execute(OdysseyCards.Character.Character caster, OdysseyCards.Character.Character target)
     {
         if (caster == null) return;
         
@@ -104,9 +104,9 @@ public class DrawCardsEffect : CardEffect
         Value = count;
     }
 
-    public override void Execute(Character caster, Character target)
+    public override void Execute(OdysseyCards.Character.Character caster, OdysseyCards.Character.Character target)
     {
-        if (caster is not Player player) return;
+        if (caster is not OdysseyCards.Character.Player player) return;
         
         for (int i = 0; i < Times; i++)
         {
@@ -133,7 +133,7 @@ public class ApplyDebuffEffect : CardEffect
         Value = stacks;
     }
 
-    public override void Execute(Character caster, Character target)
+    public override void Execute(OdysseyCards.Character.Character caster, OdysseyCards.Character.Character target)
     {
         if (target == null) return;
         
@@ -143,7 +143,7 @@ public class ApplyDebuffEffect : CardEffect
         }
     }
 
-    private void ApplyDebuffToTarget(Character target, string debuffType, int stacks)
+    private void ApplyDebuffToTarget(OdysseyCards.Character.Character target, string debuffType, int stacks)
     {
         switch (debuffType.ToLower())
         {
@@ -177,9 +177,9 @@ public class HealEffect : CardEffect
         Value = amount;
     }
 
-    public override void Execute(Character caster, Character target)
+    public override void Execute(OdysseyCards.Character.Character caster, OdysseyCards.Character.Character target)
     {
-        Character targetChar = target ?? caster;
+        OdysseyCards.Character.Character targetChar = target ?? caster;
         if (targetChar == null) return;
         
         targetChar.Heal(Value);

@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using Godot.Collections;
 using OdysseyCards.Core;
 using OdysseyCards.Character;
 using OdysseyCards.Card.Effects;
@@ -26,7 +27,7 @@ public static class CardFactory
             Value = 6
         };
         
-        data.Effects = new Array<CardEffectData> { damageEffect };
+        data.Effects = new Godot.Collections.Array<CardEffectData> { damageEffect };
 
         return Card.Create(data);
     }
@@ -49,7 +50,7 @@ public static class CardFactory
             Value = 5
         };
         
-        data.Effects = new Array<CardEffectData> { blockEffect };
+        data.Effects = new Godot.Collections.Array<CardEffectData> { blockEffect };
 
         return Card.Create(data);
     }
@@ -79,7 +80,7 @@ public static class CardFactory
             DebuffType = "vulnerable"
         };
         
-        data.Effects = new Array<CardEffectData> { damageEffect, vulnerableEffect };
+        data.Effects = new Godot.Collections.Array<CardEffectData> { damageEffect, vulnerableEffect };
 
         return Card.Create(data);
     }
@@ -103,8 +104,8 @@ public static class CardFactory
             Times = 1
         };
         
-        data.Effects = new Array<CardEffectData> { damageEffect };
-
+        data.Effects = new Godot.Collections.Array<CardEffectData> { damageEffect };
+        
         return Card.Create(data);
     }
 
@@ -132,7 +133,7 @@ public static class CardFactory
             Value = 5
         };
         
-        data.Effects = new Array<CardEffectData> { blockEffect, damageEffect };
+        data.Effects = new Godot.Collections.Array<CardEffectData> { blockEffect, damageEffect };
 
         return Card.Create(data);
     }
