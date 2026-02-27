@@ -1,0 +1,181 @@
+[gd_scene load_steps=4 format=3 uid="uid://combat_scene"]
+
+[ext_resource type="Script" path="res://Scripts/Combat/CombatManager.cs" id="1_combat"]
+[ext_resource type="Script" path="res://Scripts/UI/CombatUI.cs" id="2_ui"]
+[ext_resource type="Script" path="res://Scripts/UI/HealthBar.cs" id="3_health"]
+
+[node name="Combat" type="Node2D"]
+script = ExtResource("1_combat")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Background" type="ColorRect" parent="CanvasLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.08, 0.08, 0.12, 1)
+
+[node name="CombatUI" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_ui")
+
+[node name="PlayerPanel" type="Panel" parent="CanvasLayer/CombatUI"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 0.3
+offset_bottom = 150.0
+grow_horizontal = 2
+
+[node name="HealthBar" type="ProgressBar" parent="CanvasLayer/CombatUI/PlayerPanel"]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 0.5
+offset_left = 20.0
+offset_right = -20.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_health")
+
+[node name="HealthLabel" type="Label" parent="CanvasLayer/CombatUI/PlayerPanel/HealthBar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "80/80"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="EnergyLabel" type="Label" parent="CanvasLayer/CombatUI/PlayerPanel"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 10.0
+offset_right = -20.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 32
+text = "3/3"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BlockLabel" type="Label" parent="CanvasLayer/CombatUI/PlayerPanel"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -50.0
+offset_top = 5.0
+offset_right = 50.0
+offset_bottom = 35.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.4, 0.6, 0.8, 1)
+theme_override_font_sizes/font_size = 20
+text = "Block: 0"
+horizontal_alignment = 1
+
+[node name="EnemyContainer" type="HBoxContainer" parent="CanvasLayer/CombatUI"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 0.15
+anchor_right = 0.5
+anchor_bottom = 0.15
+offset_left = -300.0
+offset_top = -75.0
+offset_right = 300.0
+offset_bottom = 75.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HandUI" type="Control" parent="CanvasLayer/CombatUI"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 0.7
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CardContainer" type="HBoxContainer" parent="CanvasLayer/CombatUI/HandUI"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -400.0
+offset_top = -100.0
+offset_right = 400.0
+offset_bottom = 100.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="EndTurnButton" type="Button" parent="CanvasLayer/CombatUI"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -150.0
+offset_top = -60.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 20
+text = "End Turn"
+
+[node name="DrawPileLabel" type="Label" parent="CanvasLayer/CombatUI"]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 20.0
+offset_top = 200.0
+offset_right = 120.0
+offset_bottom = 230.0
+text = "Draw: 5"
+
+[node name="DiscardPileLabel" type="Label" parent="CanvasLayer/CombatUI"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -130.0
+offset_top = 200.0
+offset_right = -20.0
+offset_bottom = 230.0
+grow_horizontal = 0
+text = "Discard: 0"
+
+[node name="ResultLabel" type="Label" parent="CanvasLayer/CombatUI"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -50.0
+offset_right = 150.0
+offset_bottom = 50.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 48
+text = "VICTORY!"
+horizontal_alignment = 1
+vertical_alignment = 1
