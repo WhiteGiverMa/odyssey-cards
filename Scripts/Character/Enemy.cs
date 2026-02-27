@@ -17,6 +17,22 @@ public partial class Enemy : Character
 
     public event Action<EnemyAction> OnActionDecided;
 
+    public void Initialize(EnemyData data)
+    {
+        CharacterName = data.CharacterName;
+        MaxHealth = data.MaxHealth;
+        MaxEnergy = data.MaxEnergy;
+        CurrentHealth = MaxHealth;
+        CurrentEnergy = MaxEnergy;
+
+        List<EnemyAction> actions = new List<EnemyAction>();
+        foreach (EnemyAction action in data.Actions)
+        {
+            actions.Add(action);
+        }
+        Initialize(actions);
+    }
+
     public void Initialize(List<EnemyAction> actions)
     {
         _actionPool = actions;
