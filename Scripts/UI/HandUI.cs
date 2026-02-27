@@ -60,15 +60,27 @@ public partial class HandUI : Control
 
     private void OnCardSelected(Card.Card card)
     {
+        GD.Print($"[HandUI] OnCardSelected called: {card?.Data.CardName}");
+        GD.Print($"[HandUI] OnCardPlayRequested is null: {OnCardPlayRequested == null}");
+        GD.Print($"[HandUI] _player is null: {_player == null}");
+        
         if (OnCardPlayRequested != null && _player != null)
         {
             var enemies = GetTree().GetNodesInGroup("Enemy");
+            GD.Print($"[HandUI] Found {enemies.Count} enemies");
+            
             Character.Character target = null;
             if (card.Data.Target == Core.CardTarget.SingleEnemy && enemies.Count > 0)
             {
                 target = enemies[0] as Character.Character;
             }
+            GD.Print($"[HandUI] Invoking OnCardPlayRequested for {card.Data.CardName}");
             OnCardPlayRequested.Invoke(card, target);
+            GD.Print($"[HandUI] OnCardPlayRequested invoked successfully");
+        }
+        else
+        {
+            GD.PrintErr($"[HandUI] Cannot play card - OnCardPlayRequested null: {OnCardPlayRequested == null}, _player null: {_player == null}");
         }
     }
 }

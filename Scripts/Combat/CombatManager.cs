@@ -171,12 +171,21 @@ public partial class CombatManager : Node
 
     public void PlayCard(Card.Card card, Character.Character target)
     {
+        GD.Print($"[CombatManager] PlayCard called: {card?.Data.CardName}, State: {State}");
+        
         if (State != CombatState.PlayerTurn)
+        {
+            GD.Print($"[CombatManager] Cannot play card - not player turn");
             return;
+        }
 
         if (!card.CanPlay(Player, target))
+        {
+            GD.Print($"[CombatManager] Cannot play card - CanPlay returned false");
             return;
+        }
 
+        GD.Print($"[CombatManager] Playing card {card.Data.CardName}");
         card.Play(Player, target);
 
         if (card.Data.Exhausts)

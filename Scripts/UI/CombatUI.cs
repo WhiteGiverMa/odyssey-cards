@@ -60,6 +60,8 @@ public partial class CombatUI : Control
 
     private void OnCardPlayRequested(Card.Card card, Character.Character target)
     {
+        GD.Print($"[CombatUI] OnCardPlayRequested called: {card?.Data.CardName}, target: {target?.CharacterName}");
+        GD.Print($"[CombatUI] _combatManager is null: {_combatManager == null}");
         _combatManager?.PlayCard(card, target);
     }
 

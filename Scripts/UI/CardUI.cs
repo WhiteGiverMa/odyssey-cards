@@ -21,110 +21,91 @@ public partial class CardUI : Control
     public override void _Ready()
     {
         CustomMinimumSize = new Vector2(180, 260);
+        MouseFilter = MouseFilterEnum.Stop;
         MouseEntered += OnMouseEntered;
         MouseExited += OnMouseExited;
 
         _background = new ColorRect
         {
             Color = new Color(0.2f, 0.2f, 0.25f),
-            AnchorRight = 1f,
-            AnchorBottom = 1f
+            SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.Fill,
+            SizeFlagsVertical = SizeFlags.Expand | SizeFlags.Fill,
+            MouseFilter = MouseFilterEnum.Ignore
         };
+        _background.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         AddChild(_background);
 
-        var topPanel = new ColorRect
-        {
-            Color = new Color(0.15f, 0.15f, 0.2f),
-            AnchorRight = 1f,
-            OffsetBottom = -180f
-        };
-        AddChild(topPanel);
-
-        var costLabelSettings = new LabelSettings
-        {
-            FontColor = new Color(0.9f, 0.8f, 0.2f),
-            FontSize = 24
-        };
         _costLabel = new Label
         {
-            AnchorRight = 1f,
-            OffsetLeft = 8f,
-            OffsetTop = 8f,
-            OffsetRight = -8f,
-            OffsetBottom = 40f,
+            Name = "CostLabel",
+            Text = "0",
             HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Center,
-            LabelSettings = costLabelSettings
+            VerticalAlignment = VerticalAlignment.Top,
+            MouseFilter = MouseFilterEnum.Ignore
         };
-        topPanel.AddChild(_costLabel);
+        _costLabel.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _costLabel.OffsetLeft = 8;
+        _costLabel.OffsetTop = 8;
+        _costLabel.OffsetRight = -8;
+        _costLabel.OffsetBottom = 40;
+        AddChild(_costLabel);
 
-        var nameLabelSettings = new LabelSettings
-        {
-            FontColor = new Color(1f, 1f, 1f),
-            FontSize = 18
-        };
         _nameLabel = new Label
         {
-            AnchorRight = 1f,
-            OffsetLeft = 8f,
-            OffsetTop = 45f,
-            OffsetRight = -8f,
-            OffsetBottom = 80f,
+            Name = "NameLabel",
+            Text = "Card Name",
             HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            LabelSettings = nameLabelSettings
+            VerticalAlignment = VerticalAlignment.Top,
+            MouseFilter = MouseFilterEnum.Ignore
         };
-        topPanel.AddChild(_nameLabel);
+        _nameLabel.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _nameLabel.OffsetLeft = 8;
+        _nameLabel.OffsetTop = 45;
+        _nameLabel.OffsetRight = -8;
+        _nameLabel.OffsetBottom = 80;
+        AddChild(_nameLabel);
 
-        var typeLabelSettings = new LabelSettings
-        {
-            FontColor = new Color(0.7f, 0.7f, 0.7f),
-            FontSize = 12
-        };
         _typeLabel = new Label
         {
-            AnchorRight = 1f,
-            OffsetLeft = 8f,
-            OffsetTop = 85f,
-            OffsetRight = -8f,
-            OffsetBottom = 110f,
+            Name = "TypeLabel",
+            Text = "ATTACK",
             HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            LabelSettings = typeLabelSettings
+            VerticalAlignment = VerticalAlignment.Top,
+            MouseFilter = MouseFilterEnum.Ignore
         };
-        topPanel.AddChild(_typeLabel);
+        _typeLabel.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _typeLabel.OffsetLeft = 8;
+        _typeLabel.OffsetTop = 85;
+        _typeLabel.OffsetRight = -8;
+        _typeLabel.OffsetBottom = 110;
+        AddChild(_typeLabel);
 
-        var centerPanel = new ColorRect
+        var centerBg = new ColorRect
         {
-            Color = new Color(0.3f, 0.3f, 0.35f),
-            AnchorTop = 0.4f,
-            AnchorRight = 1f,
-            AnchorBottom = 0.7f,
-            OffsetLeft = 10f,
-            OffsetTop = -30f,
-            OffsetRight = -10f,
-            OffsetBottom = 30f
+            Color = new Color(0.25f, 0.25f, 0.3f),
+            MouseFilter = MouseFilterEnum.Ignore
         };
-        AddChild(centerPanel);
+        centerBg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        centerBg.OffsetLeft = 10;
+        centerBg.OffsetTop = 120;
+        centerBg.OffsetRight = -10;
+        centerBg.OffsetBottom = -10;
+        AddChild(centerBg);
 
-        var descLabelSettings = new LabelSettings
-        {
-            FontColor = new Color(0.9f, 0.9f, 0.9f),
-            FontSize = 14
-        };
         _descLabel = new Label
         {
-            AnchorRight = 1f,
-            AnchorBottom = 1f,
-            OffsetLeft = 10f,
-            OffsetTop = 10f,
-            OffsetRight = -10f,
-            OffsetBottom = -10f,
+            Name = "DescLabel",
+            Text = "Card description",
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            LabelSettings = descLabelSettings
+            MouseFilter = MouseFilterEnum.Ignore
         };
-        centerPanel.AddChild(_descLabel);
+        _descLabel.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _descLabel.OffsetLeft = 10;
+        _descLabel.OffsetTop = 10;
+        _descLabel.OffsetRight = -10;
+        _descLabel.OffsetBottom = -10;
+        centerBg.AddChild(_descLabel);
     }
 
     public void SetCard(Card.Card card)
@@ -163,13 +144,12 @@ public partial class CardUI : Control
     {
         if (@event is InputEventMouseButton mouseEvent)
         {
-            if (mouseEvent.ButtonIndex == MouseButton.Left)
+            if (mouseEvent.ButtonIndex == MouseButton.Left && mouseEvent.Pressed)
             {
-                if (mouseEvent.Pressed)
-                {
-                    _isSelected = !_isSelected;
-                    OnCardSelected?.Invoke(_card);
-                }
+                GD.Print($"[CardUI] Clicked card: {_card?.Data.CardName}");
+                _isSelected = !_isSelected;
+                OnCardSelected?.Invoke(_card);
+                AcceptEvent();
             }
         }
     }
@@ -177,10 +157,25 @@ public partial class CardUI : Control
     public void OnMouseEntered()
     {
         _isHovered = true;
+        if (_background != null)
+        {
+            _background.Color += new Color(0.1f, 0.1f, 0.1f);
+        }
     }
 
     public void OnMouseExited()
     {
         _isHovered = false;
+        if (_background != null)
+        {
+            var cardColor = _card?.Data.Type switch
+            {
+                Core.CardType.Attack => new Color(0.85f, 0.25f, 0.25f),
+                Core.CardType.Skill => new Color(0.25f, 0.45f, 0.85f),
+                Core.CardType.Power => new Color(0.5f, 0.25f, 0.7f),
+                _ => new Color(0.4f, 0.4f, 0.45f)
+            };
+            _background.Color = cardColor;
+        }
     }
 }
