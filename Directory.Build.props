@@ -6,5 +6,6 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
+    <NoWarn>CA2213;CA2000;CA1003;CA1002;CA1304;CA1305;CA1822;CS8618;CS8625;CS8600;CS8603;CS8604;CA1805;CA1311;CS0067</NoWarn>
   </PropertyGroup>
 </Project>
