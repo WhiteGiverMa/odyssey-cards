@@ -44,6 +44,7 @@ public partial class CombatUI : Control
         if (_handUI != null)
         {
             _handUI.SetPlayer(player);
+            _handUI.SetCombatManager(combatManager);
             _handUI.OnCardPlayRequested += OnCardPlayRequested;
         }
 

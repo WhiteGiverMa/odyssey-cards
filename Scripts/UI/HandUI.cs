@@ -10,6 +10,7 @@ public partial class HandUI : Control
 
     private HBoxContainer _cardContainer;
     private Character.Player _player;
+    private Combat.CombatManager _combatManager;
 
     public Action<Card.Card, Character.Character> OnCardPlayRequested { get; set; }
 
@@ -32,6 +33,11 @@ public partial class HandUI : Control
             _player.OnHandChanged += UpdateHand;
             UpdateHand();
         }
+    }
+
+    public void SetCombatManager(Combat.CombatManager manager)
+    {
+        _combatManager = manager;
     }
 
     private void UpdateHand()
@@ -61,22 +67,30 @@ public partial class HandUI : Control
     private void OnCardSelected(Card.Card card)
     {
         GD.Print($"[HandUI] OnCardSelected called: {card?.Data.CardName}");
-        GD.Print($"[HandUI] OnCardPlayRequested is null: {OnCardPlayRequested == null}");
-        GD.Print($"[HandUI] _player is null: {_player == null}");
         
         if (OnCardPlayRequested != null && _player != null)
         {
-            var enemies = GetTree().GetNodesInGroup("Enemy");
-            GD.Print($"[HandUI] Found {enemies.Count} enemies");
-            
             Character.Character target = null;
-            if (card.Data.Target == Core.CardTarget.SingleEnemy && enemies.Count > 0)
+            
+            if (card.Data.Target == Core.CardTarget.SingleEnemy)
             {
-                target = enemies[0] as Character.Character;
+                if (_combatManager != null && _combatManager.Enemies.Count > 0)
+                {
+                    target = _combatManager.Enemies[0];
+                }
+                else
+                {
+                    var enemies = GetTree().GetNodesInGroup("Enemy");
+                    GD.Print($"[HandUI] Found {enemies.Count} enemies via group");
+                    if (enemies.Count > 0)
+                    {
+                        target = enemies[0] as Character.Character;
+                    }
+                }
             }
-            GD.Print($"[HandUI] Invoking OnCardPlayRequested for {card.Data.CardName}");
+            
+            GD.Print($"[HandUI] Target: {target?.CharacterName ?? "null"}");
             OnCardPlayRequested.Invoke(card, target);
-            GD.Print($"[HandUI] OnCardPlayRequested invoked successfully");
         }
         else
         {
