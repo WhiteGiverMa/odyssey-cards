@@ -42,7 +42,10 @@ public partial class CombatUI : Control
             _playerHealthBar.SetTarget(player);
 
         if (_handUI != null)
+        {
             _handUI.SetPlayer(player);
+            _handUI.OnCardPlayRequested += OnCardPlayRequested;
+        }
 
         _player.OnEnergyChanged += UpdateEnergy;
         _player.OnDrawPileChanged += UpdateDrawPile;
@@ -53,6 +56,11 @@ public partial class CombatUI : Control
         UpdateDiscardPile();
 
         CreateEnemyHealthBars();
+    }
+
+    private void OnCardPlayRequested(Card.Card card, Character.Character target)
+    {
+        _combatManager?.PlayCard(card, target);
     }
 
     private void CreateEnemyHealthBars()
@@ -66,11 +74,70 @@ public partial class CombatUI : Control
 
         foreach (var enemy in _combatManager.Enemies)
         {
-            var healthBar = HealthBarScene.Instantiate<HealthBar>();
-            healthBar.SetTarget(enemy);
-            enemyContainer.AddChild(healthBar);
-            _enemyHealthBars.Add(healthBar);
+            var enemyPanel = CreateEnemyPlaceholder(enemy);
+            enemyContainer.AddChild(enemyPanel);
+            _enemyHealthBars.Add(enemyPanel.GetNode<HealthBar>("HealthBar"));
         }
+    }
+
+    private Control CreateEnemyPlaceholder(Character.Enemy enemy)
+    {
+        var container = new VBoxContainer
+        {
+            CustomMinimumSize = new Vector2(200, 280)
+        };
+        container.AddToGroup("Enemy");
+
+        var placeholder = new ColorRect
+        {
+            CustomMinimumSize = new Vector2(180, 180),
+            Color = new Color(0.5f, 0.4f, 0.35f),
+            SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.ShrinkCenter
+        };
+        container.AddChild(placeholder);
+
+        var nameLabel = new Label
+        {
+            Text = enemy.CharacterName,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            LabelSettings = new LabelSettings { FontColor = new Color(1f, 1f, 1f), FontSize = 20 }
+        };
+        placeholder.AddChild(nameLabel);
+
+        var healthBarContainer = new Control
+        {
+            CustomMinimumSize = new Vector2(180, 50)
+        };
+        container.AddChild(healthBarContainer);
+
+        var healthBar = new ProgressBar
+        {
+            CustomMinimumSize = new Vector2(180, 24),
+            MaxValue = enemy.MaxHealth,
+            Value = enemy.CurrentHealth,
+            ShowPercentage = false
+        };
+        healthBarContainer.AddChild(healthBar);
+
+        var healthLabel = new Label
+        {
+            Text = $"{enemy.CurrentHealth}/{enemy.MaxHealth}",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            LabelSettings = new LabelSettings { FontColor = new Color(1f, 1f, 1f), FontSize = 14 }
+        };
+        healthBar.AddChild(healthLabel);
+
+        enemy.OnHealthChanged += (current, max) =>
+        {
+            healthBar.MaxValue = max;
+            healthBar.Value = current;
+            healthLabel.Text = $"{current}/{max}";
+        };
+
+        container.SetMeta("Enemy", enemy);
+        return container;
     }
 
     private void UpdateEnergy(int current, int max)
