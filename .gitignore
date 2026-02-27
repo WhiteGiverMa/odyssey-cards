@@ -1,0 +1,45 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Godot specific ignores
+*.import
+export.cfg
+export_presets.cfg
+
+# C# / .NET
+bin/
+obj/
+*.sln
+*.csproj.user
+*.tmp
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Visual Studio
+.vs/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
