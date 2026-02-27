@@ -1,5 +1,6 @@
-using Godot;
+using System;
 using System.Collections.Generic;
+using Godot;
 using OdysseyCards.Core;
 
 namespace OdysseyCards.Character;
@@ -107,7 +108,7 @@ public enum ActionType
     Special
 }
 
-public class EnemyAction : Resource
+public partial class EnemyAction : Resource
 {
     [Export] public ActionType Type { get; set; }
     [Export] public int Value { get; set; }

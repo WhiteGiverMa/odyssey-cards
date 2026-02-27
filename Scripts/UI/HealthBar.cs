@@ -1,11 +1,13 @@
+using System;
 using Godot;
-using OdysseyCards.Character;
 
 namespace OdysseyCards.UI;
 
 public partial class HealthBar : Control
 {
-    [Export] public Character Target { get; set; }
+    private Character.Character _target;
+
+    public Character.Character Target => _target;
 
     private ProgressBar _healthBar;
     private Label _healthLabel;
@@ -17,12 +19,12 @@ public partial class HealthBar : Control
         _healthLabel = GetNode<Label>("HealthLabel");
         _blockLabel = GetNode<Label>("BlockLabel");
 
-        if (Target != null)
+        if (_target != null)
         {
-            Target.OnHealthChanged += UpdateHealth;
-            Target.OnBlockChanged += UpdateBlock;
-            UpdateHealth(Target.CurrentHealth, Target.MaxHealth);
-            UpdateBlock(Target.Block);
+            _target.OnHealthChanged += UpdateHealth;
+            _target.OnBlockChanged += UpdateBlock;
+            UpdateHealth(_target.CurrentHealth, _target.MaxHealth);
+            UpdateBlock(_target.Block);
         }
     }
 
@@ -49,22 +51,22 @@ public partial class HealthBar : Control
         }
     }
 
-    public void SetTarget(Character target)
+    public void SetTarget(Character.Character target)
     {
-        if (Target != null)
+        if (_target != null)
         {
-            Target.OnHealthChanged -= UpdateHealth;
-            Target.OnBlockChanged -= UpdateBlock;
+            _target.OnHealthChanged -= UpdateHealth;
+            _target.OnBlockChanged -= UpdateBlock;
         }
 
-        Target = target;
+        _target = target;
 
-        if (Target != null)
+        if (_target != null)
         {
-            Target.OnHealthChanged += UpdateHealth;
-            Target.OnBlockChanged += UpdateBlock;
-            UpdateHealth(Target.CurrentHealth, Target.MaxHealth);
-            UpdateBlock(Target.Block);
+            _target.OnHealthChanged += UpdateHealth;
+            _target.OnBlockChanged += UpdateBlock;
+            UpdateHealth(_target.CurrentHealth, _target.MaxHealth);
+            UpdateBlock(_target.Block);
         }
     }
 }

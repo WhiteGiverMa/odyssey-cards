@@ -2,6 +2,8 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using OdysseyCards.Core;
+using OdysseyCards.Character;
+using OdysseyCards.Card.Effects;
 
 namespace OdysseyCards.Card;
 
@@ -11,7 +13,7 @@ public partial class Card : Node
     public int CurrentCost { get; private set; }
     public bool IsUpgraded { get; private set; }
     
-    private List<Action<Character.Character, Character.Character>> _effects = new();
+    private List<CardEffect> _effects = new();
 
     public static Card Create(CardData data)
     {
@@ -21,7 +23,26 @@ public partial class Card : Node
             CurrentCost = data.Cost,
             IsUpgraded = data.Upgraded
         };
+        
+        card.LoadEffectsFromData();
         return card;
+    }
+
+    private void LoadEffectsFromData()
+    {
+        if (Data?.Effects == null) return;
+        
+        foreach (var effectData in Data.Effects)
+        {
+            if (effectData != null)
+            {
+                var effect = effectData.CreateEffect();
+                if (effect != null)
+                {
+                    _effects.Add(effect);
+                }
+            }
+        }
     }
 
     public bool CanPlay(Character.Character caster, Character.Character target = null)
@@ -56,13 +77,8 @@ public partial class Card : Node
     {
         foreach (var effect in _effects)
         {
-            effect?.Invoke(caster, target);
+            effect?.Execute(caster, target);
         }
-    }
-
-    public void AddEffect(Action<Character.Character, Character.Character> effect)
-    {
-        _effects.Add(effect);
     }
 
     public virtual void Upgrade()

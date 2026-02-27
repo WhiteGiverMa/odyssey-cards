@@ -1,7 +1,6 @@
-using Godot;
+using System;
 using System.Collections.Generic;
-using OdysseyCards.Character;
-using OdysseyCards.Core;
+using Godot;
 
 namespace OdysseyCards.UI;
 
@@ -18,7 +17,7 @@ public partial class CombatUI : Control
     private Label _discardPileLabel;
 
     private Combat.CombatManager _combatManager;
-    private Player.Player _player;
+    private Character.Player _player;
 
     public override void _Ready()
     {
@@ -32,7 +31,7 @@ public partial class CombatUI : Control
         _endTurnButton.Pressed += OnEndTurnPressed;
     }
 
-    public void Initialize(Player.Player player, Combat.CombatManager combatManager)
+    public void Initialize(Character.Player player, Combat.CombatManager combatManager)
     {
         _player = player;
         _combatManager = combatManager;

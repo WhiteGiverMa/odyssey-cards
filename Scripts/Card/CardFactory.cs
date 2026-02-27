@@ -2,6 +2,7 @@ using Godot;
 using System.Collections.Generic;
 using OdysseyCards.Core;
 using OdysseyCards.Character;
+using OdysseyCards.Card.Effects;
 
 namespace OdysseyCards.Card;
 
@@ -19,14 +20,15 @@ public static class CardFactory
             Cost = 1
         };
 
-        var card = Card.Create(data);
-        card.AddEffect((caster, target) =>
+        var damageEffect = new CardEffectData
         {
-            if (target != null)
-                target.TakeDamage(6);
-        });
+            EffectType = CardEffectType.Damage,
+            Value = 6
+        };
+        
+        data.Effects = new Array<CardEffectData> { damageEffect };
 
-        return card;
+        return Card.Create(data);
     }
 
     public static Card CreateDefend()
@@ -41,13 +43,15 @@ public static class CardFactory
             Cost = 1
         };
 
-        var card = Card.Create(data);
-        card.AddEffect((caster, target) =>
+        var blockEffect = new CardEffectData
         {
-            caster.GainBlock(5);
-        });
+            EffectType = CardEffectType.GainBlock,
+            Value = 5
+        };
+        
+        data.Effects = new Array<CardEffectData> { blockEffect };
 
-        return card;
+        return Card.Create(data);
     }
 
     public static Card CreateBash()
@@ -62,16 +66,22 @@ public static class CardFactory
             Cost = 2
         };
 
-        var card = Card.Create(data);
-        card.AddEffect((caster, target) =>
+        var damageEffect = new CardEffectData
         {
-            if (target != null)
-            {
-                target.TakeDamage(8);
-            }
-        });
+            EffectType = CardEffectType.Damage,
+            Value = 8
+        };
+        
+        var vulnerableEffect = new CardEffectData
+        {
+            EffectType = CardEffectType.ApplyDebuff,
+            Value = 2,
+            DebuffType = "vulnerable"
+        };
+        
+        data.Effects = new Array<CardEffectData> { damageEffect, vulnerableEffect };
 
-        return card;
+        return Card.Create(data);
     }
 
     public static Card CreateCleave()
@@ -86,20 +96,16 @@ public static class CardFactory
             Cost = 1
         };
 
-        var card = Card.Create(data);
-        card.AddEffect((caster, target) =>
+        var damageEffect = new CardEffectData
         {
-            if (Combat.CombatManager.Instance != null)
-            {
-                foreach (var enemy in Combat.CombatManager.Instance.Enemies)
-                {
-                    if (!enemy.IsDead)
-                        enemy.TakeDamage(8);
-                }
-            }
-        });
+            EffectType = CardEffectType.Damage,
+            Value = 8,
+            Times = 1
+        };
+        
+        data.Effects = new Array<CardEffectData> { damageEffect };
 
-        return card;
+        return Card.Create(data);
     }
 
     public static Card CreateIronWave()
@@ -114,31 +120,35 @@ public static class CardFactory
             Cost = 1
         };
 
-        var card = Card.Create(data);
-        card.AddEffect((caster, target) =>
+        var blockEffect = new CardEffectData
         {
-            caster.GainBlock(5);
-            if (target != null)
-                target.TakeDamage(5);
-        });
+            EffectType = CardEffectType.GainBlock,
+            Value = 5
+        };
+        
+        var damageEffect = new CardEffectData
+        {
+            EffectType = CardEffectType.Damage,
+            Value = 5
+        };
+        
+        data.Effects = new Array<CardEffectData> { blockEffect, damageEffect };
 
-        return card;
+        return Card.Create(data);
     }
 
     public static List<CardData> GetStarterDeck()
     {
-        return new List<CardData>
-        {
-            CreateStrike().Data,
-            CreateStrike().Data,
-            CreateStrike().Data,
-            CreateStrike().Data,
-            CreateStrike().Data,
-            CreateDefend().Data,
-            CreateDefend().Data,
-            CreateDefend().Data,
-            CreateDefend().Data,
-            CreateBash().Data
-        };
+        var deck = new List<CardData>();
+        
+        for (int i = 0; i < 5; i++)
+            deck.Add(CreateStrike().Data);
+        
+        for (int i = 0; i < 4; i++)
+            deck.Add(CreateDefend().Data);
+        
+        deck.Add(CreateBash().Data);
+        
+        return deck;
     }
 }

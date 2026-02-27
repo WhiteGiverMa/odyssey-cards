@@ -1,7 +1,6 @@
-using Godot;
+using System;
 using System.Collections.Generic;
-using OdysseyCards.Card;
-using OdysseyCards.Core;
+using Godot;
 
 namespace OdysseyCards.UI;
 
@@ -10,14 +9,14 @@ public partial class HandUI : Control
     [Export] public PackedScene CardScene { get; set; }
 
     private HBoxContainer _cardContainer;
-    private Player.Player _player;
+    private Character.Player _player;
 
     public override void _Ready()
     {
         _cardContainer = GetNode<HBoxContainer>("CardContainer");
     }
 
-    public void SetPlayer(Player.Player player)
+    public void SetPlayer(Character.Player player)
     {
         if (_player != null)
         {
@@ -49,7 +48,7 @@ public partial class HandUI : Control
         }
     }
 
-    private void CreateCardUI(Card card)
+    private void CreateCardUI(Card.Card card)
     {
         var cardUI = new CardUI();
         cardUI.SetCard(card);
@@ -59,14 +58,14 @@ public partial class HandUI : Control
 
 public partial class CardUI : Control
 {
-    private Card _card;
+    private Card.Card _card;
     private bool _isHovered = false;
     private bool _isSelected = false;
 
-    public event Action<Card> OnCardSelected;
-    public event Action<Card> OnCardPlayed;
+    public event Action<Card.Card> OnCardSelected;
+    public event Action<Card.Card> OnCardPlayed;
 
-    public void SetCard(Card card)
+    public void SetCard(Card.Card card)
     {
         _card = card;
         UpdateDisplay();

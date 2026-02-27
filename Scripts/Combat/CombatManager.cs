@@ -1,6 +1,6 @@
-using Godot;
+using System;
 using System.Collections.Generic;
-using OdysseyCards.Character;
+using Godot;
 
 namespace OdysseyCards.Combat;
 
@@ -18,8 +18,8 @@ public partial class CombatManager : Node
     public static CombatManager Instance { get; private set; }
 
     public CombatState State { get; private set; } = CombatState.NotStarted;
-    public Player Player { get; private set; }
-    public List<Enemy> Enemies { get; private set; } = new();
+    public Character.Player Player { get; private set; }
+    public List<Character.Enemy> Enemies { get; private set; } = new();
     public int TurnCount { get; private set; }
 
     public event Action OnCombatStart;
@@ -32,7 +32,7 @@ public partial class CombatManager : Node
         Instance = this;
     }
 
-    public void Initialize(Player player, List<Enemy> enemies)
+    public void Initialize(Character.Player player, List<Character.Enemy> enemies)
     {
         Player = player;
         Enemies = enemies;
@@ -136,7 +136,7 @@ public partial class CombatManager : Node
         OnCombatEnd?.Invoke(result);
     }
 
-    public void PlayCard(Card.Card card, Character target)
+    public void PlayCard(Card.Card card, Character.Character target)
     {
         if (State != CombatState.PlayerTurn)
             return;
