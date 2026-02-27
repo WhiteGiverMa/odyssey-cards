@@ -1,0 +1,41 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Godot (Debug)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "G:\\dev\\Godot_v4.6.1\\Godot_v4.6.1-stable_mono_win64_console.exe",
+            "args": [
+                "--path",
+                "${workspaceFolder}",
+                "--editor",
+                "--debug-build"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "externalTerminal",
+            "stopAtEntry": false
+        },
+        {
+            "name": "Launch Godot (Play)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "G:\\dev\\Godot_v4.6.1\\Godot_v4.6.1-stable_mono_win64_console.exe",
+            "args": [
+                "--path",
+                "${workspaceFolder}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "externalTerminal",
+            "stopAtEntry": false
+        },
+        {
+            "name": "Attach to Godot",
+            "type": "coreclr",
+            "request": "attach",
+            "processName": "Godot_v4.6.1"
+        }
+    ]
+}
