@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using OdysseyCards.Card;
+using OdysseyCards.Character;
+using OdysseyCards.Core;
 
 namespace OdysseyCards.Combat;
 
@@ -30,14 +33,44 @@ public partial class CombatManager : Node
     public override void _Ready()
     {
         Instance = this;
+        CallDeferred(nameof(InitializeCombat));
     }
 
-    public void Initialize(Character.Player player, List<Character.Enemy> enemies)
+    private void InitializeCombat()
     {
-        Player = player;
-        Enemies = enemies;
-        State = CombatState.NotStarted;
-        TurnCount = 0;
+        if (GameManager.Instance?.CurrentPlayer == null)
+        {
+            GD.PrintErr("CombatManager: No player found! Creating fallback player.");
+            Player = new Player();
+            Player.CharacterName = "Ironclad";
+            Player.MaxHealth = 80;
+            Player.MaxEnergy = 3;
+            
+            var deck = new Deck();
+            deck.Initialize(CardFactory.GetStarterDeck());
+            Player.Initialize(deck);
+        }
+        else
+        {
+            Player = GameManager.Instance.CurrentPlayer;
+        }
+
+        Enemies = new List<Character.Enemy>();
+        var slimeData = GD.Load<EnemyData>("res://Resources/Enemies/Slime.tres");
+        if (slimeData != null)
+        {
+            var slime = EnemyFactory.FromData(slimeData);
+            Enemies.Add(slime);
+        }
+
+        var ui = GetTree().GetFirstNodeInGroup("CombatUI") as OdysseyCards.UI.CombatUI;
+        if (ui != null)
+        {
+            ui.Initialize(Player, this);
+            OnCombatEnd += (state) => ui.ShowCombatResult(state == CombatState.Victory);
+        }
+
+        StartCombat();
     }
 
     public void StartCombat()

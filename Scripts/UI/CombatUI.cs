@@ -21,6 +21,8 @@ public partial class CombatUI : Control
 
     public override void _Ready()
     {
+        AddToGroup("CombatUI");
+        
         _playerHealthBar = GetNode<HealthBar>("PlayerPanel/HealthBar");
         _handUI = GetNode<HandUI>("HandUI");
         _endTurnButton = GetNode<Button>("EndTurnButton");

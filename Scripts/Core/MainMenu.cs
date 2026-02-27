@@ -1,4 +1,5 @@
 using Godot;
+using OdysseyCards.Character;
 
 namespace OdysseyCards.Core;
 
@@ -16,6 +17,17 @@ public partial class MainMenu : Control
 
     private void OnStartPressed()
     {
+        if (GameManager.Instance == null)
+        {
+            var manager = new Node();
+            manager.Name = "GameManager";
+            GetTree().Root.AddChild(manager);
+            var gmScript = new GameManager();
+            manager.AddChild(gmScript);
+            gmScript._Ready();
+        }
+
+        GameManager.Instance.CreateNewPlayer();
         GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
     }
 }
