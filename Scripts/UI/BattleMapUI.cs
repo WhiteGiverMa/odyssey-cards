@@ -39,12 +39,16 @@ namespace OdysseyCards.UI
 
         public void SetBattleMap(BattleMap battleMap)
         {
+            GD.Print($"[BattleMapUI] SetBattleMap called, battleMap is null: {battleMap == null}");
             _battleMap = battleMap;
+            GD.Print("[BattleMapUI] Calling RebuildUI");
             RebuildUI();
+            GD.Print("[BattleMapUI] SetBattleMap completed");
         }
 
         public void RebuildUI()
         {
+            GD.Print("[BattleMapUI] RebuildUI started");
             foreach (var child in GetChildren())
             {
                 child.QueueFree();
@@ -52,10 +56,17 @@ namespace OdysseyCards.UI
             _nodeUIs.Clear();
             _edgeUIs.Clear();
             
-            if (_battleMap == null) return;
+            if (_battleMap == null)
+            {
+                GD.Print("[BattleMapUI] RebuildUI early return - battleMap is null");
+                return;
+            }
             
+            GD.Print($"[BattleMapUI] Creating edges, count: {_battleMap.Edges.Count}");
             CreateEdgeUIs();
+            GD.Print($"[BattleMapUI] Creating nodes, count: {_battleMap.Nodes.Count}");
             CreateNodeUIs();
+            GD.Print("[BattleMapUI] RebuildUI completed");
         }
 
         private void CreateNodeUIs()

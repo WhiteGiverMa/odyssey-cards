@@ -123,13 +123,20 @@ public partial class CombatUI : Control
 
     private void InitializeBattleMap()
     {
+        GD.Print($"[CombatUI] InitializeBattleMap called, _battleMapUI is null: {_battleMapUI == null}, _combatManager is null: {_combatManager == null}");
+
         if (_battleMapUI == null || _combatManager == null)
         {
+            GD.Print("[CombatUI] InitializeBattleMap early return - null check failed");
             return;
         }
 
+        GD.Print($"[CombatUI] BattleMap is null: {_combatManager.BattleMap == null}");
+        GD.Print("[CombatUI] Calling SetBattleMap");
         _battleMapUI.SetBattleMap(_combatManager.BattleMap);
+        GD.Print("[CombatUI] SetBattleMap completed, connecting OnNodeDropTarget");
         _battleMapUI.OnNodeDropTarget += OnNodeDropTarget;
+        GD.Print("[CombatUI] InitializeBattleMap completed");
     }
 
     private void ConnectCombatManagerEvents()
