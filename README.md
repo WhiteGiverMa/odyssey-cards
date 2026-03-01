@@ -8,7 +8,7 @@
 
 ## 项目简介
 
-OdysseyCards 是一款受《杀戮尖塔》(Slay the Spire) 启发的卡牌构建类 Roguelike 游戏。玩家通过收集卡牌、构建牌组来与敌人战斗。
+OdysseyCards 是一款受《KARDS》启发的卡牌构建类 Roguelike 游戏。玩家通过收集卡牌、构建牌组来与敌人战斗。
 
 ## 技术栈
 
