@@ -25,6 +25,9 @@ namespace OdysseyCards.UI
         private Card.Card _draggingCard = null;
         private int _hoveredNodeId = -1;
         
+        private Vector2 _lastSize = Vector2.Zero;
+        private const float _minResizeThreshold = 10.0f;
+        
         public BattleMap BattleMap => _battleMap;
         public int SelectedNodeId => _selectedNodeId;
         public bool IsDeployMode => _isDeployMode;
@@ -35,6 +38,18 @@ namespace OdysseyCards.UI
             CustomMinimumSize = new Vector2(800, 400);
             AnchorRight = 1.0f;
             AnchorBottom = 1.0f;
+            Resized += OnResized;
+        }
+
+        private void OnResized()
+        {
+            if (_battleMap == null) return;
+            
+            float sizeDelta = (Size - _lastSize).Length();
+            if (sizeDelta < _minResizeThreshold) return;
+            
+            _lastSize = Size;
+            RebuildUI();
         }
 
         public void SetBattleMap(BattleMap battleMap)
@@ -62,6 +77,8 @@ namespace OdysseyCards.UI
                 return;
             }
             
+            _lastSize = Size;
+            
             GD.Print($"[BattleMapUI] Creating edges, count: {_battleMap.Edges.Count}");
             CreateEdgeUIs();
             GD.Print($"[BattleMapUI] Creating nodes, count: {_battleMap.Nodes.Count}");
@@ -71,7 +88,9 @@ namespace OdysseyCards.UI
 
         private void CreateNodeUIs()
         {
-            float cellSize = 80.0f;
+            float cellSize = UIScaler.Instance != null 
+                ? UIScaler.Instance.GetNodeSize(Size.Y) 
+                : 80.0f;
 
             float minX = float.MaxValue, maxX = float.MinValue;
             float minY = float.MaxValue, maxY = float.MinValue;
@@ -99,6 +118,7 @@ namespace OdysseyCards.UI
                 var node = kvp.Value;
                 var nodeUI = new MapNodeUI();
                 nodeUI.SetNode(node);
+                nodeUI.SetSize(cellSize);
 
                 Vector2 position = new Vector2(
                     node.GridPosition.X * cellSize + offsetX,
@@ -115,8 +135,10 @@ namespace OdysseyCards.UI
 
         private void CreateEdgeUIs()
         {
-            float cellSize = 80.0f;
-            Vector2 nodeCenter = new Vector2(30, 30);
+            float cellSize = UIScaler.Instance != null 
+                ? UIScaler.Instance.GetNodeSize(Size.Y) 
+                : 80.0f;
+            float nodeCenter = cellSize / 2.0f;
 
             float minX = float.MaxValue, maxX = float.MinValue;
             float minY = float.MaxValue, maxY = float.MinValue;
@@ -149,12 +171,12 @@ namespace OdysseyCards.UI
                 var edgeUI = new MapEdgeUI();
 
                 Vector2 fromPos = new Vector2(
-                    fromNode.GridPosition.X * cellSize + offsetX + nodeCenter.X,
-                    fromNode.GridPosition.Y * cellSize + offsetY + nodeCenter.Y
+                    fromNode.GridPosition.X * cellSize + offsetX + nodeCenter,
+                    fromNode.GridPosition.Y * cellSize + offsetY + nodeCenter
                 );
                 Vector2 toPos = new Vector2(
-                    toNode.GridPosition.X * cellSize + offsetX + nodeCenter.X,
-                    toNode.GridPosition.Y * cellSize + offsetY + nodeCenter.Y
+                    toNode.GridPosition.X * cellSize + offsetX + nodeCenter,
+                    toNode.GridPosition.Y * cellSize + offsetY + nodeCenter
                 );
 
                 edgeUI.SetEdge(edge, fromPos, toPos);

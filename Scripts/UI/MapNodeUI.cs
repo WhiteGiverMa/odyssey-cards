@@ -12,6 +12,7 @@ namespace OdysseyCards.UI
         private Button _button;
         private bool _isDragHovering;
         private bool _isDropValid;
+        private float _nodeSize = 60f;
         
         public MapNode Node => _node;
         public bool CanDropOnNode { get; set; } = true;
@@ -27,11 +28,11 @@ namespace OdysseyCards.UI
 
         public MapNodeUI()
         {
-            CustomMinimumSize = new Vector2(60, 60);
+            CustomMinimumSize = new Vector2(_nodeSize, _nodeSize);
             MouseFilter = MouseFilterEnum.Stop;
             
             _panel = new Panel();
-            _panel.CustomMinimumSize = new Vector2(50, 50);
+            _panel.CustomMinimumSize = new Vector2(_nodeSize - 10, _nodeSize - 10);
             _panel.Position = new Vector2(5, 5);
             AddChild(_panel);
             
@@ -45,11 +46,11 @@ namespace OdysseyCards.UI
             _distanceLabel = new Label();
             _distanceLabel.Position = new Vector2(8, 8);
             _distanceLabel.AddThemeColorOverride("font_color", Colors.White);
-            _distanceLabel.AddThemeFontSizeOverride("font_size", 10);
+            _distanceLabel.AddThemeFontSizeOverride("font_size", (int)(_nodeSize * 0.15f));
             AddChild(_distanceLabel);
             
             _button = new Button();
-            _button.CustomMinimumSize = new Vector2(50, 50);
+            _button.CustomMinimumSize = new Vector2(_nodeSize - 10, _nodeSize - 10);
             _button.Position = new Vector2(5, 5);
             _button.Modulate = new Color(1, 1, 1, 0);
             AddChild(_button);
@@ -57,6 +58,17 @@ namespace OdysseyCards.UI
 
         public override void _Ready()
         {
+        }
+
+        public void SetSize(float size)
+        {
+            _nodeSize = size;
+            CustomMinimumSize = new Vector2(size, size);
+            _panel.CustomMinimumSize = new Vector2(size - 10, size - 10);
+            _panel.Position = new Vector2(5, 5);
+            _button.CustomMinimumSize = new Vector2(size - 10, size - 10);
+            _button.Position = new Vector2(5, 5);
+            _distanceLabel.AddThemeFontSizeOverride("font_size", (int)(size * 0.15f));
         }
 
         public override bool _CanDropData(Vector2 atPosition, Variant data)

@@ -24,6 +24,23 @@ namespace OdysseyCards.UI
 		{
 			_cardContainer = GetNode<HBoxContainer>("CardContainer");
 			CreateDragLayer();
+
+			if (UIScaler.Instance != null)
+			{
+				UIScaler.Instance.OnResolutionChanged += OnResolutionChangedHandler;
+			}
+
+			_cardContainer.Resized += OnContainerResized;
+		}
+
+		private void OnResolutionChangedHandler()
+		{
+			UpdateHand();
+		}
+
+		private void OnContainerResized()
+		{
+			UpdateHand();
 		}
 
 		private void CreateDragLayer()
@@ -92,16 +109,34 @@ namespace OdysseyCards.UI
 
 		private float CalculateCardScale(int cardCount)
 		{
-			if (cardCount <= 5)
+			if (cardCount <= 0)
 			{
 				return 1.0f;
 			}
 
-			float baseScale = 1.0f;
-			float minScale = 0.6f;
+			if (UIScaler.Instance == null)
+			{
+				return 1.0f;
+			}
 
-			float newScale = baseScale - ((cardCount - 5) * 0.05f);
-			return Mathf.Max(newScale, minScale);
+			float containerWidth = _cardContainer.Size.X;
+			Vector2 cardSize = UIScaler.Instance.GetCardSize();
+			float cardWidth = cardSize.X;
+
+			if (cardWidth <= 0 || containerWidth <= 0)
+			{
+				return 1.0f;
+			}
+
+			float totalCardWidth = cardWidth * cardCount;
+			if (totalCardWidth <= containerWidth)
+			{
+				return 1.0f;
+			}
+
+			float scale = containerWidth / totalCardWidth;
+			float minScale = 0.6f;
+			return Mathf.Max(scale, minScale);
 		}
 
 		private void CreateCardUI(Card.Card card, float scale = 1.0f)

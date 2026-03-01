@@ -88,14 +88,31 @@ public partial class CardUI : Control
 
     public override void _Ready()
     {
-        CustomMinimumSize = new Vector2(180, 260);
+        ApplyScaledSize();
         MouseFilter = MouseFilterEnum.Stop;
         MouseEntered += OnMouseEntered;
         MouseExited += OnMouseExited;
 
+        if (UIScaler.Instance != null)
+        {
+            UIScaler.Instance.OnResolutionChanged += ApplyScaledSize;
+        }
+
         CreateSelectionBorder();
         CreateBackground();
         CreateLabels();
+    }
+
+    private void ApplyScaledSize()
+    {
+        if (UIScaler.Instance != null)
+        {
+            CustomMinimumSize = UIScaler.Instance.GetCardSize();
+        }
+        else
+        {
+            CustomMinimumSize = new Vector2(180, 260);
+        }
     }
 
     private void CreateSelectionBorder()
