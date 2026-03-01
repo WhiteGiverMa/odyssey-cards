@@ -17,6 +17,7 @@ public partial class CombatUI : Control
 
     private BattleMapUI _battleMapUI;
     private DeckViewUI _deckViewUI;
+    private HBoxContainer _enemyHandArea;
 
     private Combat.CombatManager _combatManager;
     private Character.Player _player;
@@ -36,12 +37,23 @@ public partial class CombatUI : Control
         _exhaustPileCountLabel = GetNode<Label>("PlayerArea/PileButtonsContainer/VBoxContainer/ExhaustPileButton/ExhaustPileCount");
 
         _battleMapUI = GetNode<BattleMapUI>("MapArea/BattleMapUI");
+        _enemyHandArea = GetNode<HBoxContainer>("EnemyArea/EnemyHandArea");
 
         GD.Print($"[CombatUI] Node references - HealthBar: {_playerHealthBar != null}, HandUI: {_handUI != null}, EnergyLabel: {_energyLabel != null}");
+        GD.Print($"[CombatUI] PileButtons - DrawPile: {_drawPileButton != null}, ExhaustPile: {_exhaustPileButton != null}");
 
-        _endTurnButton.Pressed += OnEndTurnPressed;
-        _drawPileButton.Pressed += OnDrawPileClicked;
-        _exhaustPileButton.Pressed += OnExhaustPileClicked;
+        if (_endTurnButton != null)
+        {
+            _endTurnButton.Pressed += OnEndTurnPressed;
+        }
+        if (_drawPileButton != null)
+        {
+            _drawPileButton.Pressed += OnDrawPileClicked;
+        }
+        if (_exhaustPileButton != null)
+        {
+            _exhaustPileButton.Pressed += OnExhaustPileClicked;
+        }
 
         CreateDeckViewUI();
     }
@@ -117,8 +129,27 @@ public partial class CombatUI : Control
         InitializeBattleMap();
         GD.Print("[CombatUI] Calling ConnectCombatManagerEvents");
         ConnectCombatManagerEvents();
+        GD.Print("[CombatUI] Calling InitializeEnemyUI");
+        InitializeEnemyUI();
 
         GD.Print("[CombatUI] Initialize completed");
+    }
+
+    private void InitializeEnemyUI()
+    {
+        if (_enemyHandArea == null || _combatManager == null)
+        {
+            GD.Print("[CombatUI] InitializeEnemyUI - null check failed");
+            return;
+        }
+
+        foreach (var enemy in _combatManager.Enemies)
+        {
+            var enemyUI = new EnemyUI();
+            enemyUI.SetEnemy(enemy);
+            _enemyHandArea.AddChild(enemyUI);
+            GD.Print($"[CombatUI] Created EnemyUI for: {enemy.CharacterName}");
+        }
     }
 
     private void InitializeBattleMap()

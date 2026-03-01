@@ -10,13 +10,11 @@ namespace OdysseyCards.UI
         private const float _designWidth = 1152f;
         private const float _designHeight = 648f;
         private const float _cardWidthRatio = 180f / 260f;
-
-        private float _currentScale = 1f;
-        private Vector2 _currentCardSize = new Vector2(180, 260);
+        private Vector2 _currentCardSize = new(180, 260);
 
         public event Action OnResolutionChanged;
 
-        public float CurrentScale => _currentScale;
+        public float CurrentScale { get; private set; } = 1f;
         public Vector2 CurrentCardSize => _currentCardSize;
 
         public override void _Ready()
@@ -36,24 +34,24 @@ namespace OdysseyCards.UI
             Vector2 viewportSize = GetViewport().GetVisibleRect().Size;
             float widthRatio = viewportSize.X / _designWidth;
             float heightRatio = viewportSize.Y / _designHeight;
-            _currentScale = Mathf.Min(widthRatio, heightRatio);
+            CurrentScale = Mathf.Min(widthRatio, heightRatio);
             _currentCardSize = GetCardSize();
             OnResolutionChanged?.Invoke();
         }
 
         public float GetScaleFactor()
         {
-            return _currentScale;
+            return CurrentScale;
         }
 
         public int GetScaledFontSize(int baseSize)
         {
-            return Mathf.RoundToInt(baseSize * _currentScale);
+            return Mathf.RoundToInt(baseSize * CurrentScale);
         }
 
         public Vector2 GetScaledSize(Vector2 baseSize)
         {
-            return baseSize * _currentScale;
+            return baseSize * CurrentScale;
         }
 
         public Vector2 GetCardSize()
