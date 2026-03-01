@@ -104,6 +104,7 @@ public partial class CombatUI : Control
             _handUI.SetPlayer(player);
             _handUI.SetCombatManager(combatManager);
             _handUI.OnCardPlayRequested += OnCardPlayRequested;
+            _handUI.OnCardDroppedOnNode += OnCardDroppedOnNode;
         }
         else
         {
@@ -186,6 +187,21 @@ public partial class CombatUI : Control
 
     private void OnNodeDropTarget(int nodeId, Card.Card card)
     {
+        if (_combatManager == null)
+        {
+            return;
+        }
+
+        if (_combatManager.CurrentSelectionMode == Combat.SelectionMode.DeployUnit)
+        {
+            _ = _combatManager.OnNodeSelected(nodeId);
+        }
+    }
+
+    private void OnCardDroppedOnNode(Card.Card card, int nodeId)
+    {
+        GD.Print($"[CombatUI] OnCardDroppedOnNode: {card?.CardName} -> Node {nodeId}");
+
         if (_combatManager == null)
         {
             return;
