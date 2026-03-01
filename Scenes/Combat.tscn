@@ -1,5 +1,4 @@
-[gd_scene load_steps=6 format
-=3 uid="uid://combat_scene"]
+[gd_scene load_steps=6 format=3 uid="uid://combat_scene"]
 
 [ext_resource type="Script" path="res://Scripts/Combat/CombatManager.cs" id="1_combat"]
 [ext_resource type="Script" path="res://Scripts/UI/CombatUI.cs" id="2_ui"]
@@ -103,16 +102,30 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="DrawPileButton" type="Button" parent="CanvasLayer/CombatUI/PlayerArea"]
+[node name="PileButtonsContainer" type="MarginContainer" parent="CanvasLayer/CombatUI/PlayerArea"]
 layout_mode = 1
 anchors_preset = 0
-offset_left = 10.0
-offset_top = 10.0
-offset_right = 90.0
-offset_bottom = 60.0
+anchor_right = 0.1
+anchor_bottom = 0.5
+offset_right = 115.2
+offset_bottom = 97.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/CombatUI/PlayerArea/PileButtonsContainer"]
+layout_mode = 2
+alignment = 0
+
+[node name="DrawPileButton" type="Button" parent="CanvasLayer/CombatUI/PlayerArea/PileButtonsContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
 text = "抽牌堆"
 
-[node name="DrawPileCount" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/DrawPileButton"]
+[node name="DrawPileCount" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/PileButtonsContainer/VBoxContainer/DrawPileButton"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -131,16 +144,12 @@ text = "10"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ExhaustPileButton" type="Button" parent="CanvasLayer/CombatUI/PlayerArea"]
-layout_mode = 1
-anchors_preset = 0
-offset_left = 10.0
-offset_top = 70.0
-offset_right = 100.0
-offset_bottom = 120.0
+[node name="ExhaustPileButton" type="Button" parent="CanvasLayer/CombatUI/PlayerArea/PileButtonsContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
 text = "消耗堆"
 
-[node name="ExhaustPileCount" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/ExhaustPileButton"]
+[node name="ExhaustPileCount" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/PileButtonsContainer/VBoxContainer/ExhaustPileButton"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -162,23 +171,37 @@ vertical_alignment = 1
 [node name="PlayerPanel" type="Panel" parent="CanvasLayer/CombatUI/PlayerArea"]
 layout_mode = 1
 anchors_preset = 0
-offset_left = 110.0
-offset_top = 10.0
-offset_right = 290.0
-offset_bottom = 120.0
-
-[node name="HealthBar" type="ProgressBar" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel"]
-layout_mode = 1
-anchors_preset = 9
+anchor_left = 0.1
+anchor_right = 0.25
 anchor_bottom = 0.5
-offset_left = 10.0
-offset_right = -10.0
-offset_bottom = -5.0
+offset_left = 5.0
+offset_right = -5.0
+offset_bottom = -10.0
 grow_horizontal = 2
 grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel/MarginContainer"]
+layout_mode = 2
+alignment = 0
+
+[node name="HealthBar" type="ProgressBar" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
 script = ExtResource("3_health")
 
-[node name="HealthLabel" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel/HealthBar"]
+[node name="HealthLabel" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel/MarginContainer/VBoxContainer/HealthBar"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -189,32 +212,15 @@ text = "80/80"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="EnergyLabel" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel"]
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = 5.0
-offset_right = -10.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="EnergyLabel" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "3/3"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="BlockLabel" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel"]
-layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -50.0
-offset_top = 5.0
-offset_right = 50.0
-offset_bottom = 30.0
-grow_horizontal = 2
+[node name="BlockLabel" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
 theme_override_colors/font_color = Color(0.4, 0.6, 0.8, 1)
 theme_override_font_sizes/font_size = 18
 text = "Block: 0"
@@ -232,17 +238,14 @@ script = ExtResource("4_hand")
 
 [node name="CardContainer" type="HBoxContainer" parent="CanvasLayer/CombatUI/PlayerArea/HandUI"]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -400.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 offset_top = -80.0
-offset_right = 400.0
 offset_bottom = 80.0
 grow_horizontal = 2
 grow_vertical = 2
+size_flags_horizontal = 3
 alignment = 1
 
 [node name="EndTurnButton" type="Button" parent="CanvasLayer/CombatUI/PlayerArea"]

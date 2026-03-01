@@ -26,14 +26,14 @@ public partial class CombatUI : Control
         GD.Print("[CombatUI] _Ready called");
         AddToGroup("CombatUI");
 
-        _playerHealthBar = GetNode<HealthBar>("PlayerArea/PlayerPanel/HealthBar");
+        _playerHealthBar = GetNode<HealthBar>("PlayerArea/PlayerPanel/MarginContainer/VBoxContainer/HealthBar");
         _handUI = GetNode<HandUI>("PlayerArea/HandUI");
         _endTurnButton = GetNode<Button>("PlayerArea/EndTurnButton");
-        _energyLabel = GetNode<Label>("PlayerArea/PlayerPanel/EnergyLabel");
-        _drawPileButton = GetNode<Button>("PlayerArea/DrawPileButton");
-        _exhaustPileButton = GetNode<Button>("PlayerArea/ExhaustPileButton");
-        _drawPileCountLabel = GetNode<Label>("PlayerArea/DrawPileButton/DrawPileCount");
-        _exhaustPileCountLabel = GetNode<Label>("PlayerArea/ExhaustPileButton/ExhaustPileCount");
+        _energyLabel = GetNode<Label>("PlayerArea/PlayerPanel/MarginContainer/VBoxContainer/EnergyLabel");
+        _drawPileButton = GetNode<Button>("PlayerArea/PileButtonsContainer/VBoxContainer/DrawPileButton");
+        _exhaustPileButton = GetNode<Button>("PlayerArea/PileButtonsContainer/VBoxContainer/ExhaustPileButton");
+        _drawPileCountLabel = GetNode<Label>("PlayerArea/PileButtonsContainer/VBoxContainer/DrawPileButton/DrawPileCount");
+        _exhaustPileCountLabel = GetNode<Label>("PlayerArea/PileButtonsContainer/VBoxContainer/ExhaustPileButton/ExhaustPileCount");
 
         _battleMapUI = GetNode<BattleMapUI>("MapArea/BattleMapUI");
 
