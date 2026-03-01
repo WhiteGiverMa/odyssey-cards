@@ -160,6 +160,8 @@ namespace OdysseyCards.Combat
 
         private void InitializeCombat()
         {
+            GD.Print("[CombatManager] InitializeCombat started");
+
             BattleMap = new BattleMap();
             AddChild(BattleMap);
 
@@ -180,6 +182,7 @@ namespace OdysseyCards.Combat
             else
             {
                 Player = GameManager.Instance.CurrentPlayer;
+                GD.Print($"[CombatManager] Got player from GameManager: {Player.CharacterName}");
             }
 
             if (GameManager.Instance != null)
@@ -197,12 +200,19 @@ namespace OdysseyCards.Combat
             enemy.Initialize(enemyDeckData);
             Enemies.Add(enemy);
 
+            GD.Print("[CombatManager] Looking for CombatUI in group");
             if (GetTree().GetFirstNodeInGroup("CombatUI") is UI.CombatUI ui)
             {
+                GD.Print("[CombatManager] Found CombatUI, initializing...");
                 ui.Initialize(Player, this);
                 OnCombatEnd += (state) => ui.ShowCombatResult(state == CombatState.Victory);
             }
+            else
+            {
+                GD.PrintErr("[CombatManager] CombatUI not found in group!");
+            }
 
+            GD.Print("[CombatManager] Starting combat");
             StartCombat();
         }
 
@@ -211,10 +221,14 @@ namespace OdysseyCards.Combat
         /// </summary>
         public void StartCombat()
         {
+            GD.Print("[CombatManager] StartCombat called");
+
             var random = new RandomNumberGenerator();
             random.Randomize();
             IsPlayerFirst = random.Randf() > 0.5f;
             _isFirstTurn = true;
+
+            GD.Print($"[CombatManager] IsPlayerFirst: {IsPlayerFirst}");
 
             TurnCount = 1;
 
@@ -227,18 +241,22 @@ namespace OdysseyCards.Combat
             {
                 State = CombatState.PlayerTurn;
                 Player.SetEnergy(1, 1);
+                GD.Print("[CombatManager] Player first, drawing 4 cards");
                 Player.DrawCards(4);
             }
             else
             {
                 State = CombatState.EnemyTurn;
                 Player.SetEnergy(0, 0);
+                GD.Print("[CombatManager] Enemy first, drawing 5 cards");
                 Player.DrawCards(5);
                 ExecuteEnemyTurns();
             }
 
             OnCombatStart?.Invoke();
             OnTurnStart?.Invoke();
+
+            GD.Print($"[CombatManager] Combat started, player hand count: {Player.Hand.Count}");
         }
 
         /// <summary>

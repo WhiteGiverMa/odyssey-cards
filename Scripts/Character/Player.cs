@@ -99,6 +99,8 @@ public partial class Player : Character
     /// <param name="count">Number of cards to draw.</param>
     public void DrawCards(int count)
     {
+        GD.Print($"[Player] DrawCards called, count: {count}, current hand: {Hand.Count}, draw pile: {DrawPile.Count}");
+
         int cardsToDraw = Mathf.Min(count, MaxHandSize - Hand.Count);
 
         for (int i = 0; i < cardsToDraw; i++)
@@ -116,9 +118,11 @@ public partial class Player : Character
                 Card.Card card = DrawPile[0];
                 DrawPile.RemoveAt(0);
                 Hand.Add(card);
+                GD.Print($"[Player] Drew card: {card.CardName}");
             }
         }
 
+        GD.Print($"[Player] After draw, hand count: {Hand.Count}, triggering OnHandChanged");
         OnHandChanged?.Invoke();
         OnDrawPileChanged?.Invoke();
     }

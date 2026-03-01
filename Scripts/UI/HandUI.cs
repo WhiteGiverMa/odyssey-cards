@@ -3,155 +3,163 @@ using Godot;
 
 namespace OdysseyCards.UI
 {
-    public partial class HandUI : Control
-    {
-        [Export] public PackedScene CardScene { get; set; }
+	public partial class HandUI : Control
+	{
+		[Export] public PackedScene CardScene { get; set; }
 
-        private HBoxContainer _cardContainer;
-        private Character.Player _player;
-        private Combat.CombatManager _combatManager;
+		private HBoxContainer _cardContainer;
+		private Character.Player _player;
+		private Combat.CombatManager _combatManager;
 
-        public event Action<Card.Card, Character.Character> OnCardPlayRequested;
-        public event Action<Card.Card, Vector2> OnCardDragStarted;
-        public event Action<Card.Card, Vector2> OnCardDragEnded;
-        public event Action<Card.Card, int> OnCardDroppedOnNode;
+		public event Action<Card.Card, Character.Character> OnCardPlayRequested;
+		public event Action<Card.Card, Vector2> OnCardDragStarted;
+		public event Action<Card.Card, Vector2> OnCardDragEnded;
+		public event Action<Card.Card, int> OnCardDroppedOnNode;
 
-        public override void _Ready()
-        {
-            _cardContainer = GetNode<HBoxContainer>("CardContainer");
-        }
+		public override void _Ready()
+		{
+			_cardContainer = GetNode<HBoxContainer>("CardContainer");
+		}
 
-        public void SetPlayer(Character.Player player)
-        {
-            if (_player != null)
-            {
-                _player.OnHandChanged -= UpdateHand;
-            }
+		public void SetPlayer(Character.Player player)
+		{
+			GD.Print($"[HandUI] SetPlayer called, player is null: {player == null}");
 
-            _player = player;
+			if (_player != null)
+			{
+				_player.OnHandChanged -= UpdateHand;
+			}
 
-            if (_player != null)
-            {
-                _player.OnHandChanged += UpdateHand;
-                UpdateHand();
-            }
-        }
+			_player = player;
 
-        public void SetCombatManager(Combat.CombatManager manager)
-        {
-            _combatManager = manager;
-        }
+			if (_player != null)
+			{
+				_player.OnHandChanged += UpdateHand;
+				GD.Print($"[HandUI] Subscribed to OnHandChanged, current hand count: {_player.Hand.Count}");
+				UpdateHand();
+			}
+		}
 
-        private void UpdateHand()
-        {
-            if (_cardContainer == null || _player == null)
-            {
-                return;
-            }
+		public void SetCombatManager(Combat.CombatManager manager)
+		{
+			_combatManager = manager;
+		}
 
-            foreach (Node? child in _cardContainer.GetChildren())
-            {
-                child.QueueFree();
-            }
+		private void UpdateHand()
+		{
+			GD.Print($"[HandUI] UpdateHand called, _cardContainer is null: {_cardContainer == null}, _player is null: {_player == null}");
 
-            int handCount = _player.Hand.Count;
-            float scale = CalculateCardScale(handCount);
+			if (_cardContainer == null || _player == null)
+			{
+				return;
+			}
 
-            foreach (Card.Card card in _player.Hand)
-            {
-                CreateCardUI(card, scale);
-            }
-        }
+			GD.Print($"[HandUI] Hand count: {_player.Hand.Count}");
 
-        private float CalculateCardScale(int cardCount)
-        {
-            if (cardCount <= 5)
-            {
-                return 1.0f;
-            }
+			foreach (Node? child in _cardContainer.GetChildren())
+			{
+				child.QueueFree();
+			}
 
-            float baseScale = 1.0f;
-            float minScale = 0.6f;
+			int handCount = _player.Hand.Count;
+			float scale = CalculateCardScale(handCount);
 
-            float newScale = baseScale - ((cardCount - 5) * 0.05f);
-            return Mathf.Max(newScale, minScale);
-        }
+			foreach (Card.Card card in _player.Hand)
+			{
+				GD.Print($"[HandUI] Creating CardUI for: {card.CardName}");
+				CreateCardUI(card, scale);
+			}
+		}
 
-        private void CreateCardUI(Card.Card card, float scale = 1.0f)
-        {
-            var cardUI = new CardUI();
-            cardUI.SetCard(card);
-            cardUI.OnCardDraggedToTarget += OnCardDraggedToTarget;
-            cardUI.OnDragStarted += OnCardDragStartedHandler;
-            cardUI.OnDragEnded += OnCardDragEndedHandler;
-            cardUI.OnDroppedOnNode += OnCardDroppedOnNodeHandler;
+		private float CalculateCardScale(int cardCount)
+		{
+			if (cardCount <= 5)
+			{
+				return 1.0f;
+			}
 
-            cardUI.Scale = new Vector2(scale, scale);
+			float baseScale = 1.0f;
+			float minScale = 0.6f;
 
-            _cardContainer.AddChild(cardUI);
-        }
+			float newScale = baseScale - ((cardCount - 5) * 0.05f);
+			return Mathf.Max(newScale, minScale);
+		}
 
-        private void OnCardDragStartedHandler(CardUI cardUI, Vector2 position)
-        {
-            if (cardUI.Card == null)
-            {
-                return;
-            }
+		private void CreateCardUI(Card.Card card, float scale = 1.0f)
+		{
+			var cardUI = new CardUI();
+			cardUI.SetCard(card);
+			cardUI.OnCardDraggedToTarget += OnCardDraggedToTarget;
+			cardUI.OnDragStarted += OnCardDragStartedHandler;
+			cardUI.OnDragEnded += OnCardDragEndedHandler;
+			cardUI.OnDroppedOnNode += OnCardDroppedOnNodeHandler;
 
-            GD.Print($"[HandUI] Drag started: {cardUI.Card.CardName}");
+			cardUI.Scale = new Vector2(scale, scale);
 
-            if (cardUI.Card is Card.Unit)
-            {
-                _combatManager?.PlayCard(cardUI.Card, null);
-            }
+			_cardContainer.AddChild(cardUI);
+		}
 
-            OnCardDragStarted?.Invoke(cardUI.Card, position);
-        }
+		private void OnCardDragStartedHandler(CardUI cardUI, Vector2 position)
+		{
+			if (cardUI.Card == null)
+			{
+				return;
+			}
 
-        private void OnCardDragEndedHandler(CardUI cardUI, Vector2 position)
-        {
-            if (cardUI.Card == null)
-            {
-                return;
-            }
+			GD.Print($"[HandUI] Drag started: {cardUI.Card.CardName}");
 
-            GD.Print($"[HandUI] Drag ended: {cardUI.Card.CardName}");
+			if (cardUI.Card is Card.Unit)
+			{
+				_combatManager?.PlayCard(cardUI.Card, null);
+			}
 
-            OnCardDragEnded?.Invoke(cardUI.Card, position);
-        }
+			OnCardDragStarted?.Invoke(cardUI.Card, position);
+		}
 
-        private void OnCardDroppedOnNodeHandler(CardUI cardUI, int nodeId)
-        {
-            if (cardUI.Card == null)
-            {
-                return;
-            }
+		private void OnCardDragEndedHandler(CardUI cardUI, Vector2 position)
+		{
+			if (cardUI.Card == null)
+			{
+				return;
+			}
 
-            GD.Print($"[HandUI] Card dropped on node: {cardUI.Card.CardName} -> Node {nodeId}");
+			GD.Print($"[HandUI] Drag ended: {cardUI.Card.CardName}");
 
-            OnCardDroppedOnNode?.Invoke(cardUI.Card, nodeId);
-        }
+			OnCardDragEnded?.Invoke(cardUI.Card, position);
+		}
 
-        private void OnCardDraggedToTarget(CardUI cardUI, Character.Character target)
-        {
-            GD.Print($"[HandUI] Card dragged to target: {cardUI.Card?.CardName} -> {target.CharacterName}");
+		private void OnCardDroppedOnNodeHandler(CardUI cardUI, int nodeId)
+		{
+			if (cardUI.Card == null)
+			{
+				return;
+			}
 
-            if (cardUI.Card is Card.Order order && order.Target == Core.CardTarget.SingleEnemy)
-            {
-                OnCardPlayRequested?.Invoke(cardUI.Card, target);
+			GD.Print($"[HandUI] Card dropped on node: {cardUI.Card.CardName} -> Node {nodeId}");
 
-                cardUI.ResetDragState();
-            }
-        }
+			OnCardDroppedOnNode?.Invoke(cardUI.Card, nodeId);
+		}
 
-        public void PlayReturnAnimation(CardUI cardUI)
-        {
-            if (cardUI == null || CardAnimation.Instance == null)
-            {
-                return;
-            }
+		private void OnCardDraggedToTarget(CardUI cardUI, Character.Character target)
+		{
+			GD.Print($"[HandUI] Card dragged to target: {cardUI.Card?.CardName} -> {target.CharacterName}");
 
-            CardAnimation.Instance.PlayReturnAnimation(cardUI, cardUI.OriginalPosition);
-        }
-    }
+			if (cardUI.Card is Card.Order order && order.Target == Core.CardTarget.SingleEnemy)
+			{
+				OnCardPlayRequested?.Invoke(cardUI.Card, target);
+
+				cardUI.ResetDragState();
+			}
+		}
+
+		public void PlayReturnAnimation(CardUI cardUI)
+		{
+			if (cardUI == null || CardAnimation.Instance == null)
+			{
+				return;
+			}
+
+			CardAnimation.Instance.PlayReturnAnimation(cardUI, cardUI.OriginalPosition);
+		}
+	}
 }

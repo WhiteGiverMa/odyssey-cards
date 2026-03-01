@@ -77,13 +77,13 @@ public partial class GameManager : Node
     public override void _Ready()
     {
         Instance = this;
+        GD.Print("[GameManager] _Ready called, Instance set");
     }
 
-    /// <summary>
-    /// Creates a new player with default starting values and deck.
-    /// </summary>
     public void CreateNewPlayer()
     {
+        GD.Print("[GameManager] CreateNewPlayer called");
+
         CurrentPlayer = new Player();
         CurrentPlayer.CharacterName = "Ironclad";
         CurrentPlayer.MaxHealth = 80;
@@ -92,6 +92,8 @@ public partial class GameManager : Node
         var startingDeck = CreateStartingDeck();
         CurrentPlayer.Initialize(startingDeck);
         _playerDeck = startingDeck;
+
+        GD.Print($"[GameManager] Player created: {CurrentPlayer.CharacterName}, deck size: {startingDeck.CardCount}");
     }
 
     /// <summary>

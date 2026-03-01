@@ -23,6 +23,7 @@ public partial class CombatUI : Control
 
     public override void _Ready()
     {
+        GD.Print("[CombatUI] _Ready called");
         AddToGroup("CombatUI");
 
         _playerHealthBar = GetNode<HealthBar>("PlayerArea/PlayerPanel/HealthBar");
@@ -35,6 +36,8 @@ public partial class CombatUI : Control
         _exhaustPileCountLabel = GetNode<Label>("PlayerArea/ExhaustPileButton/ExhaustPileCount");
 
         _battleMapUI = GetNode<BattleMapUI>("MapArea/BattleMapUI");
+
+        GD.Print($"[CombatUI] Node references - HealthBar: {_playerHealthBar != null}, HandUI: {_handUI != null}, EnergyLabel: {_energyLabel != null}");
 
         _endTurnButton.Pressed += OnEndTurnPressed;
         _drawPileButton.Pressed += OnDrawPileClicked;
@@ -68,19 +71,31 @@ public partial class CombatUI : Control
 
     public void Initialize(Character.Player player, Combat.CombatManager combatManager)
     {
+        GD.Print($"[CombatUI] Initialize called, player is null: {player == null}, combatManager is null: {combatManager == null}");
+
         _player = player;
         _combatManager = combatManager;
 
         if (_playerHealthBar != null)
         {
+            GD.Print("[CombatUI] Setting health bar target");
             _playerHealthBar.SetTarget(player);
+        }
+        else
+        {
+            GD.PrintErr("[CombatUI] HealthBar is null!");
         }
 
         if (_handUI != null)
         {
+            GD.Print("[CombatUI] Setting HandUI player");
             _handUI.SetPlayer(player);
             _handUI.SetCombatManager(combatManager);
             _handUI.OnCardPlayRequested += OnCardPlayRequested;
+        }
+        else
+        {
+            GD.PrintErr("[CombatUI] HandUI is null!");
         }
 
         _player.OnEnergyChanged += UpdateEnergy;
@@ -93,6 +108,8 @@ public partial class CombatUI : Control
 
         InitializeBattleMap();
         ConnectCombatManagerEvents();
+
+        GD.Print("[CombatUI] Initialize completed");
     }
 
     private void InitializeBattleMap()
