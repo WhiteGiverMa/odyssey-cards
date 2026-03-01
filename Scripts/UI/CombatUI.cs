@@ -102,11 +102,20 @@ public partial class CombatUI : Control
         _player.OnDrawPileChanged += UpdateDrawPile;
         _player.OnExhaustPileChanged += UpdateExhaustPile;
 
-        UpdateEnergy(_player.CurrentEnergy, _player.MaxEnergy);
-        UpdateDrawPile();
-        UpdateExhaustPile();
+        GD.Print("[CombatUI] Event handlers subscribed");
 
+        UpdateEnergy(_player.CurrentEnergy, _player.MaxEnergy);
+        GD.Print("[CombatUI] UpdateEnergy called");
+
+        UpdateDrawPile();
+        GD.Print("[CombatUI] UpdateDrawPile called");
+
+        UpdateExhaustPile();
+        GD.Print("[CombatUI] UpdateExhaustPile called");
+
+        GD.Print("[CombatUI] Calling InitializeBattleMap");
         InitializeBattleMap();
+        GD.Print("[CombatUI] Calling ConnectCombatManagerEvents");
         ConnectCombatManagerEvents();
 
         GD.Print("[CombatUI] Initialize completed");

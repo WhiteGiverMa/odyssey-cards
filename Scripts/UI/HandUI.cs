@@ -37,11 +37,14 @@ namespace OdysseyCards.UI
 				_player.OnHandChanged += UpdateHand;
 				GD.Print($"[HandUI] Subscribed to OnHandChanged, current hand count: {_player.Hand.Count}");
 			}
+			GD.Print("[HandUI] SetPlayer completed");
 		}
 
 		public void SetCombatManager(Combat.CombatManager manager)
 		{
+			GD.Print($"[HandUI] SetCombatManager called, manager is null: {manager == null}");
 			_combatManager = manager;
+			GD.Print("[HandUI] SetCombatManager completed");
 		}
 
 		private void UpdateHand()
