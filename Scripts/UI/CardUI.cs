@@ -12,7 +12,6 @@ public partial class CardUI : Control
 {
     private const float DragThreshold = 10f;
     private const float DragAlpha = 0.7f;
-    private const float ReturnDuration = 0.25f;
 
     private Card.Card _card;
     private bool _isHovered;
@@ -307,21 +306,8 @@ public partial class CardUI : Control
     {
         OnReturnToHandRequested?.Invoke(this);
 
-        if (_returnTween != null && _returnTween.IsValid())
-        {
-            _returnTween.Kill();
-        }
-
         Modulate = new Color(1f, 1f, 1f, 1f);
-
-        _returnTween = CreateTween();
-        _ = _returnTween.SetParallel(true);
-        _ = _returnTween.TweenProperty(this, "global_position", _originalPosition, ReturnDuration)
-            .SetTrans(Tween.TransitionType.Quad)
-            .SetEase(Tween.EaseType.Out);
-        _ = _returnTween.TweenProperty(this, "modulate", new Color(1f, 1f, 1f, 1f), ReturnDuration)
-            .SetTrans(Tween.TransitionType.Quad)
-            .SetEase(Tween.EaseType.Out);
+        ZIndex = 0;
 
         GD.Print($"[CardUI] ReturnToOriginalPosition: {_originalPosition}");
     }

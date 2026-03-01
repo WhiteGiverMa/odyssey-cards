@@ -15,6 +15,7 @@ namespace OdysseyCards.UI
 		private CardUI _draggingCard;
 		private int _draggingCardIndex = -1;
 		private bool _isUpdatingHand = false;
+		private Control _dragPlaceholder;
 
 		public event Action<Card.Card, Character.Character> OnCardPlayRequested;
 		public event Action<Card.Card, Vector2> OnCardDragStarted;
@@ -183,6 +184,15 @@ namespace OdysseyCards.UI
 			_draggingCardIndex = cardUI.GetIndex();
 
 			Vector2 globalPos = cardUI.GlobalPosition;
+
+			_dragPlaceholder = new Control
+			{
+				Name = "DragPlaceholder",
+				CustomMinimumSize = cardUI.CustomMinimumSize
+			};
+			_cardContainer.AddChild(_dragPlaceholder);
+			_cardContainer.MoveChild(_dragPlaceholder, _draggingCardIndex);
+
 			cardUI.Reparent(_dragLayer, false);
 			cardUI.GlobalPosition = globalPos;
 
@@ -203,6 +213,12 @@ namespace OdysseyCards.UI
 
 			GD.Print($"[HandUI] Drag ended: {cardUI.Card.CardName}");
 
+			if (_dragPlaceholder != null)
+			{
+				_dragPlaceholder.QueueFree();
+				_dragPlaceholder = null;
+			}
+
 			_draggingCard = null;
 			_draggingCardIndex = -1;
 
@@ -216,12 +232,19 @@ namespace OdysseyCards.UI
 				return;
 			}
 
-			Vector2 globalPos = cardUI.GlobalPosition;
-			cardUI.Reparent(_cardContainer, false);
-			cardUI.GlobalPosition = globalPos;
+			if (_dragPlaceholder != null)
+			{
+				_dragPlaceholder.QueueFree();
+				_dragPlaceholder = null;
+			}
 
-			int targetIndex = Mathf.Min(_draggingCardIndex >= 0 ? _draggingCardIndex : _cardContainer.GetChildCount(), _cardContainer.GetChildCount());
+			cardUI.Reparent(_cardContainer, false);
+
+			int targetIndex = Mathf.Min(_draggingCardIndex >= 0 ? _draggingCardIndex : _cardContainer.GetChildCount() - 1, _cardContainer.GetChildCount() - 1);
 			_cardContainer.MoveChild(cardUI, targetIndex);
+
+			_draggingCard = null;
+			_draggingCardIndex = -1;
 		}
 
 		private void OnCardDroppedOnNodeHandler(CardUI cardUI, int nodeId)

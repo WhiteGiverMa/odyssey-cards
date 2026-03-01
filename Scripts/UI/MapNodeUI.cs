@@ -154,6 +154,8 @@ namespace OdysseyCards.UI
         public void SetNode(MapNode node)
         {
             _node = node;
+            AddToGroup("MapNode");
+            SetMeta("NodeId", node.Id);
             UpdateVisuals();
         }
 
