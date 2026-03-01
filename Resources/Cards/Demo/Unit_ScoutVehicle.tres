@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="UnitData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/UnitData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "unit_ScoutVehicle"
+CardName = "侦察车"
+Description = "机动x2"
+Rarity = 0
+DeployCost = 1
+ActionCost = 0
+Attack = 1
+MaxHealth = 1
+Range = 2
+Tags = [2, 2]

@@ -1,155 +1,101 @@
 using Godot;
 using System.Collections.Generic;
-using Godot.Collections;
 using OdysseyCards.Core;
-using OdysseyCards.Character;
-using OdysseyCards.Card.Effects;
 
 namespace OdysseyCards.Card;
 
 public static class CardFactory
 {
-    public static Card CreateStrike()
+    public static Unit CreateDetectiveSquad()
     {
-        var data = new CardData
-        {
-            CardName = "Strike",
-            Description = "Deal 6 damage.",
-            Type = CardType.Attack,
-            Rarity = CardRarity.Common,
-            Target = CardTarget.SingleEnemy,
-            Cost = 1
-        };
-
-        var damageEffect = new CardEffectData
-        {
-            EffectType = CardEffectType.Damage,
-            Value = 6
-        };
-        
-        data.Effects = new Godot.Collections.Array<CardEffectData> { damageEffect };
-
-        return Card.Create(data);
+        var data = GD.Load<UnitData>("res://Resources/Cards/Unit_DetectiveSquad.tres");
+        return Unit.Create(data);
     }
 
-    public static Card CreateDefend()
+    public static Unit Create18thRegiment()
     {
-        var data = new CardData
-        {
-            CardName = "Defend",
-            Description = "Gain 5 Block.",
-            Type = CardType.Skill,
-            Rarity = CardRarity.Common,
-            Target = CardTarget.Self,
-            Cost = 1
-        };
-
-        var blockEffect = new CardEffectData
-        {
-            EffectType = CardEffectType.GainBlock,
-            Value = 5
-        };
-        
-        data.Effects = new Godot.Collections.Array<CardEffectData> { blockEffect };
-
-        return Card.Create(data);
+        var data = GD.Load<UnitData>("res://Resources/Cards/Unit_18thRegiment.tres");
+        return Unit.Create(data);
     }
 
-    public static Card CreateBash()
+    public static Unit CreateLianshuScout()
     {
-        var data = new CardData
-        {
-            CardName = "Bash",
-            Description = "Deal 8 damage. Apply 2 Vulnerable.",
-            Type = CardType.Attack,
-            Rarity = CardRarity.Common,
-            Target = CardTarget.SingleEnemy,
-            Cost = 2
-        };
-
-        var damageEffect = new CardEffectData
-        {
-            EffectType = CardEffectType.Damage,
-            Value = 8
-        };
-        
-        var vulnerableEffect = new CardEffectData
-        {
-            EffectType = CardEffectType.ApplyDebuff,
-            Value = 2,
-            DebuffType = "vulnerable"
-        };
-        
-        data.Effects = new Godot.Collections.Array<CardEffectData> { damageEffect, vulnerableEffect };
-
-        return Card.Create(data);
+        var data = GD.Load<UnitData>("res://Resources/Cards/Unit_LianshuScout.tres");
+        return Unit.Create(data);
     }
 
-    public static Card CreateCleave()
+    public static Order CreateStrike()
     {
-        var data = new CardData
-        {
-            CardName = "Cleave",
-            Description = "Deal 8 damage to ALL enemies.",
-            Type = CardType.Attack,
-            Rarity = CardRarity.Common,
-            Target = CardTarget.AllEnemies,
-            Cost = 1
-        };
-
-        var damageEffect = new CardEffectData
-        {
-            EffectType = CardEffectType.Damage,
-            Value = 8,
-            Times = 1
-        };
-        
-        data.Effects = new Godot.Collections.Array<CardEffectData> { damageEffect };
-        
-        return Card.Create(data);
+        var data = GD.Load<OrderData>("res://Resources/Cards/Order_Strike.tres");
+        return Order.Create(data);
     }
 
-    public static Card CreateIronWave()
+    public static Order CreateAssault()
     {
-        var data = new CardData
-        {
-            CardName = "Iron Wave",
-            Description = "Gain 5 Block. Deal 5 damage.",
-            Type = CardType.Attack,
-            Rarity = CardRarity.Common,
-            Target = CardTarget.SingleEnemy,
-            Cost = 1
-        };
-
-        var blockEffect = new CardEffectData
-        {
-            EffectType = CardEffectType.GainBlock,
-            Value = 5
-        };
-        
-        var damageEffect = new CardEffectData
-        {
-            EffectType = CardEffectType.Damage,
-            Value = 5
-        };
-        
-        data.Effects = new Godot.Collections.Array<CardEffectData> { blockEffect, damageEffect };
-
-        return Card.Create(data);
+        var data = GD.Load<OrderData>("res://Resources/Cards/Order_Assault.tres");
+        return Order.Create(data);
     }
 
-    public static List<CardData> GetStarterDeck()
+    public static Order CreateAlert()
     {
-        var deck = new List<CardData>();
-        
-        for (int i = 0; i < 5; i++)
-            deck.Add(CreateStrike().Data);
-        
+        var data = GD.Load<OrderData>("res://Resources/Cards/Order_Alert.tres");
+        return Order.Create(data);
+    }
+
+    public static List<Resource> GetStarterDeck1()
+    {
+        var deck = new List<Resource>();
+
         for (int i = 0; i < 4; i++)
-            deck.Add(CreateDefend().Data);
-        
-        deck.Add(CreateBash().Data);
-        
+            deck.Add(GD.Load<OrderData>("res://Resources/Cards/Order_Strike.tres"));
+
+        for (int i = 0; i < 4; i++)
+            deck.Add(GD.Load<OrderData>("res://Resources/Cards/Order_Assault.tres"));
+
+        for (int i = 0; i < 4; i++)
+            deck.Add(GD.Load<UnitData>("res://Resources/Cards/Unit_18thRegiment.tres"));
+
+        return deck;
+    }
+
+    public static List<Resource> GetStarterDeck2()
+    {
+        var deck = new List<Resource>();
+
+        for (int i = 0; i < 4; i++)
+            deck.Add(GD.Load<UnitData>("res://Resources/Cards/Unit_LianshuScout.tres"));
+
+        for (int i = 0; i < 4; i++)
+            deck.Add(GD.Load<UnitData>("res://Resources/Cards/Unit_DetectiveSquad.tres"));
+
+        for (int i = 0; i < 4; i++)
+            deck.Add(GD.Load<OrderData>("res://Resources/Cards/Order_Alert.tres"));
+
+        return deck;
+    }
+
+    public static List<Resource> GetDemoDeck()
+    {
+        var deck = new List<Resource>();
+
+        deck.Add(GD.Load<UnitData>("res://Resources/Cards/Demo/Unit_AssaultInfantry.tres"));
+        deck.Add(GD.Load<UnitData>("res://Resources/Cards/Demo/Unit_ScoutVehicle.tres"));
+        deck.Add(GD.Load<UnitData>("res://Resources/Cards/Demo/Unit_Veteran.tres"));
+        deck.Add(GD.Load<UnitData>("res://Resources/Cards/Demo/Unit_HeavyArmor.tres"));
+        deck.Add(GD.Load<UnitData>("res://Resources/Cards/Demo/Unit_Guardian.tres"));
+        deck.Add(GD.Load<UnitData>("res://Resources/Cards/Demo/Unit_Ambusher.tres"));
+        deck.Add(GD.Load<UnitData>("res://Resources/Cards/Demo/Unit_ShockTrooper.tres"));
+        deck.Add(GD.Load<UnitData>("res://Resources/Cards/Demo/Unit_Immortal.tres"));
+        deck.Add(GD.Load<UnitData>("res://Resources/Cards/Demo/Unit_JumboTank.tres"));
+        deck.Add(GD.Load<UnitData>("res://Resources/Cards/Demo/Unit_Infiltrator.tres"));
+        deck.Add(GD.Load<UnitData>("res://Resources/Cards/Demo/Unit_RotationInfantry.tres"));
+        deck.Add(GD.Load<UnitData>("res://Resources/Cards/Demo/Unit_Engineer.tres"));
+        deck.Add(GD.Load<UnitData>("res://Resources/Cards/Demo/Unit_Martyr.tres"));
+
+        deck.Add(GD.Load<OrderData>("res://Resources/Cards/Demo/Order_RotationStrike.tres"));
+        deck.Add(GD.Load<OrderData>("res://Resources/Cards/Demo/Order_Heal.tres"));
+        deck.Add(GD.Load<OrderData>("res://Resources/Cards/Demo/Order_Supply.tres"));
+
         return deck;
     }
 }

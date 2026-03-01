@@ -27,7 +27,7 @@ public partial class MainMenu : Control
             gmScript._Ready();
         }
 
-        GameManager.Instance.CreateNewPlayer();
+        GameManager.Instance?.CreateNewPlayer();
         GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
     }
 }

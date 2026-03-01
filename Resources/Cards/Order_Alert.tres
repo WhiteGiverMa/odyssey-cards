@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="OrderData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/OrderData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 2
+Value = 1
+
+[sub_resource type="Resource" id="SubResource_2"]
+script = ExtResource("2_effect")
+EffectType = 4
+Value = 2
+
+[resource]
+script = ExtResource("1_data")
+Id = "order_Alert"
+CardName = "警戒"
+Description = "轮战\n抽1张牌，友方总部获得+2生命值"
+Rarity = 0
+Cost = 2
+Target = 0
+Tags = [3]
+Effects = [SubResource("SubResource_1"), SubResource("SubResource_2")]

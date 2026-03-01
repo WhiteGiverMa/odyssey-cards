@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using Godot;
 
 namespace OdysseyCards.UI;
@@ -9,12 +7,16 @@ public partial class CombatUI : Control
     [Export] public PackedScene HealthBarScene { get; set; }
 
     private HealthBar _playerHealthBar;
-    private List<HealthBar> _enemyHealthBars = new();
     private HandUI _handUI;
     private Button _endTurnButton;
     private Label _energyLabel;
-    private Label _drawPileLabel;
-    private Label _discardPileLabel;
+    private Button _drawPileButton;
+    private Button _exhaustPileButton;
+    private Label _drawPileCountLabel;
+    private Label _exhaustPileCountLabel;
+
+    private BattleMapUI _battleMapUI;
+    private DeckViewUI _deckViewUI;
 
     private Combat.CombatManager _combatManager;
     private Character.Player _player;
@@ -22,15 +24,46 @@ public partial class CombatUI : Control
     public override void _Ready()
     {
         AddToGroup("CombatUI");
-        
-        _playerHealthBar = GetNode<HealthBar>("PlayerPanel/HealthBar");
-        _handUI = GetNode<HandUI>("HandUI");
-        _endTurnButton = GetNode<Button>("EndTurnButton");
-        _energyLabel = GetNode<Label>("PlayerPanel/EnergyLabel");
-        _drawPileLabel = GetNode<Label>("DrawPileLabel");
-        _discardPileLabel = GetNode<Label>("DiscardPileLabel");
+
+        _playerHealthBar = GetNode<HealthBar>("PlayerArea/PlayerPanel/HealthBar");
+        _handUI = GetNode<HandUI>("PlayerArea/HandUI");
+        _endTurnButton = GetNode<Button>("PlayerArea/EndTurnButton");
+        _energyLabel = GetNode<Label>("PlayerArea/PlayerPanel/EnergyLabel");
+        _drawPileButton = GetNode<Button>("PlayerArea/DrawPileButton");
+        _exhaustPileButton = GetNode<Button>("PlayerArea/ExhaustPileButton");
+        _drawPileCountLabel = GetNode<Label>("PlayerArea/DrawPileButton/DrawPileCount");
+        _exhaustPileCountLabel = GetNode<Label>("PlayerArea/ExhaustPileButton/ExhaustPileCount");
+
+        _battleMapUI = GetNode<BattleMapUI>("MapArea/BattleMapUI");
 
         _endTurnButton.Pressed += OnEndTurnPressed;
+        _drawPileButton.Pressed += OnDrawPileClicked;
+        _exhaustPileButton.Pressed += OnExhaustPileClicked;
+
+        CreateDeckViewUI();
+    }
+
+    private void CreateDeckViewUI()
+    {
+        _deckViewUI = new DeckViewUI();
+        _deckViewUI.SetAnchorsPreset(LayoutPreset.FullRect);
+        AddChild(_deckViewUI);
+    }
+
+    private void OnDrawPileClicked()
+    {
+        if (_player != null)
+        {
+            _deckViewUI.ShowDeckList($"抽牌堆 ({_player.DrawPile.Count})", _player.DrawPile);
+        }
+    }
+
+    private void OnExhaustPileClicked()
+    {
+        if (_player != null)
+        {
+            _deckViewUI.ShowDeckList($"消耗堆 ({_player.ExhaustPile.Count})", _player.ExhaustPile);
+        }
     }
 
     public void Initialize(Character.Player player, Combat.CombatManager combatManager)
@@ -39,7 +72,9 @@ public partial class CombatUI : Control
         _combatManager = combatManager;
 
         if (_playerHealthBar != null)
+        {
             _playerHealthBar.SetTarget(player);
+        }
 
         if (_handUI != null)
         {
@@ -50,129 +85,126 @@ public partial class CombatUI : Control
 
         _player.OnEnergyChanged += UpdateEnergy;
         _player.OnDrawPileChanged += UpdateDrawPile;
-        _player.OnDiscardPileChanged += UpdateDiscardPile;
+        _player.OnExhaustPileChanged += UpdateExhaustPile;
 
         UpdateEnergy(_player.CurrentEnergy, _player.MaxEnergy);
         UpdateDrawPile();
-        UpdateDiscardPile();
+        UpdateExhaustPile();
 
-        CreateEnemyHealthBars();
+        InitializeBattleMap();
+        ConnectCombatManagerEvents();
+    }
+
+    private void InitializeBattleMap()
+    {
+        if (_battleMapUI == null || _combatManager == null)
+        {
+            return;
+        }
+
+        _battleMapUI.SetBattleMap(_combatManager.BattleMap);
+        _battleMapUI.OnNodeDropTarget += OnNodeDropTarget;
+    }
+
+    private void ConnectCombatManagerEvents()
+    {
+        if (_combatManager == null)
+        {
+            return;
+        }
+
+        _combatManager.OnUnitDeployed += OnUnitDeployed;
+        _combatManager.OnUnitMoved += OnUnitMoved;
+        _combatManager.OnUnitAttacked += OnUnitAttacked;
+        _combatManager.OnAttackRangeShow += OnAttackRangeShow;
+        _combatManager.OnAttackRangeHide += OnAttackRangeHide;
+    }
+
+    private void OnNodeDropTarget(int nodeId, Card.Card card)
+    {
+        if (_combatManager == null)
+        {
+            return;
+        }
+
+        if (_combatManager.CurrentSelectionMode == Combat.SelectionMode.DeployUnit)
+        {
+            _ = _combatManager.OnNodeSelected(nodeId);
+        }
+    }
+
+    private void OnUnitDeployed(Card.Unit unit)
+    {
+        GD.Print($"[CombatUI] Unit deployed: {unit.CardName} at node {unit.CurrentNode}");
+        UpdateBattleMapDisplay();
+    }
+
+    private void OnUnitMoved(Card.Unit unit, int fromNode, int toNode)
+    {
+        GD.Print($"[CombatUI] Unit moved: {unit.CardName} from {fromNode} to {toNode}");
+        UpdateBattleMapDisplay();
+    }
+
+    private void OnUnitAttacked(Card.Unit attacker, Card.Unit target)
+    {
+        GD.Print($"[CombatUI] Attack: {attacker.CardName} -> {target.CardName}");
+    }
+
+    private void OnAttackRangeShow(System.Collections.Generic.List<int> nodeIds)
+    {
+        if (_battleMapUI != null)
+        {
+            _battleMapUI.SetAttackMode(true, nodeIds);
+        }
+    }
+
+    private void OnAttackRangeHide()
+    {
+        if (_battleMapUI != null)
+        {
+            _battleMapUI.SetAttackMode(false, null);
+        }
+    }
+
+    private void UpdateBattleMapDisplay()
+    {
+        if (_battleMapUI == null)
+        {
+            return;
+        }
+
+        _battleMapUI.RebuildUI();
     }
 
     private void OnCardPlayRequested(Card.Card card, Character.Character target)
     {
-        GD.Print($"[CombatUI] OnCardPlayRequested called: {card?.Data.CardName}, target: {target?.CharacterName}");
+        GD.Print($"[CombatUI] OnCardPlayRequested called: {card?.CardName}, target: {target?.CharacterName}");
         GD.Print($"[CombatUI] _combatManager is null: {_combatManager == null}");
         _combatManager?.PlayCard(card, target);
-    }
-
-    private void CreateEnemyHealthBars()
-    {
-        if (_combatManager == null)
-            return;
-
-        var enemyContainer = GetNodeOrNull<Control>("EnemyContainer");
-        if (enemyContainer == null)
-        {
-            GD.PrintErr("[CombatUI] EnemyContainer not found!");
-            return;
-        }
-
-        GD.Print($"[CombatUI] Creating enemy health bars for {_combatManager.Enemies.Count} enemies");
-
-        foreach (var enemy in _combatManager.Enemies)
-        {
-            var enemyPanel = CreateEnemyPlaceholder(enemy);
-            enemyContainer.AddChild(enemyPanel);
-            GD.Print($"[CombatUI] Added enemy panel: {enemy.CharacterName}");
-        }
-    }
-
-    private Control CreateEnemyPlaceholder(Character.Enemy enemy)
-    {
-        var container = new VBoxContainer
-        {
-            CustomMinimumSize = new Vector2(200, 280),
-            SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.ShrinkCenter
-        };
-        container.AddToGroup("Enemy");
-        container.SetMeta("EnemyObject", enemy);
-
-        var placeholder = new ColorRect
-        {
-            CustomMinimumSize = new Vector2(180, 180),
-            Color = new Color(0.5f, 0.4f, 0.35f),
-            SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.ShrinkCenter,
-            MouseFilter = MouseFilterEnum.Stop
-        };
-        placeholder.GuiInput += (InputEvent evt) =>
-        {
-            if (evt is InputEventMouseButton mouse && mouse.ButtonIndex == MouseButton.Left && mouse.Pressed)
-            {
-                GD.Print($"[CombatUI] Enemy clicked: {enemy.CharacterName}");
-                _handUI?.OnEnemyClicked(enemy);
-            }
-        };
-        container.AddChild(placeholder);
-
-        var nameLabel = new Label
-        {
-            Text = enemy.CharacterName,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            LabelSettings = new LabelSettings { FontColor = new Color(1f, 1f, 1f), FontSize = 20 },
-            MouseFilter = MouseFilterEnum.Ignore
-        };
-        placeholder.AddChild(nameLabel);
-
-        var healthBar = new ProgressBar
-        {
-            CustomMinimumSize = new Vector2(180, 24),
-            MaxValue = enemy.MaxHealth,
-            Value = enemy.CurrentHealth,
-            ShowPercentage = false,
-            SizeFlagsHorizontal = SizeFlags.Expand | SizeFlags.Fill,
-            MouseFilter = MouseFilterEnum.Ignore
-        };
-        container.AddChild(healthBar);
-
-        var healthLabel = new Label
-        {
-            Text = $"{enemy.CurrentHealth}/{enemy.MaxHealth}",
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            LabelSettings = new LabelSettings { FontColor = new Color(1f, 1f, 1f), FontSize = 14 },
-            MouseFilter = MouseFilterEnum.Ignore
-        };
-        healthBar.AddChild(healthLabel);
-
-        enemy.OnHealthChanged += (current, max) =>
-        {
-            healthBar.MaxValue = max;
-            healthBar.Value = current;
-            healthLabel.Text = $"{current}/{max}";
-        };
-
-        container.SetMeta("Enemy", enemy);
-        return container;
     }
 
     private void UpdateEnergy(int current, int max)
     {
         if (_energyLabel != null)
+        {
             _energyLabel.Text = $"{current}/{max}";
+        }
     }
 
     private void UpdateDrawPile()
     {
-        if (_drawPileLabel != null && _player != null)
-            _drawPileLabel.Text = $"Draw: {_player.DrawPile.Count}";
+        if (_drawPileCountLabel != null && _player != null)
+        {
+            _drawPileCountLabel.Text = $"{_player.DrawPile.Count}";
+        }
     }
 
-    private void UpdateDiscardPile()
+    private void UpdateExhaustPile()
     {
-        if (_discardPileLabel != null && _player != null)
-            _discardPileLabel.Text = $"Discard: {_player.DiscardPile.Count}";
+        if (_exhaustPileCountLabel != null && _player != null)
+        {
+            _exhaustPileCountLabel.Text = $"{_player.ExhaustPile.Count}";
+        }
     }
 
     private void OnEndTurnPressed()
@@ -182,11 +214,28 @@ public partial class CombatUI : Control
 
     public void ShowCombatResult(bool victory)
     {
-        var resultLabel = GetNodeOrNull<Label>("ResultLabel");
+        Label resultLabel = GetNodeOrNull<Label>("ResultLabel");
         if (resultLabel != null)
         {
             resultLabel.Text = victory ? "VICTORY!" : "DEFEAT";
             resultLabel.Visible = true;
+        }
+    }
+
+    public override void _ExitTree()
+    {
+        if (_combatManager != null)
+        {
+            _combatManager.OnUnitDeployed -= OnUnitDeployed;
+            _combatManager.OnUnitMoved -= OnUnitMoved;
+            _combatManager.OnUnitAttacked -= OnUnitAttacked;
+            _combatManager.OnAttackRangeShow -= OnAttackRangeShow;
+            _combatManager.OnAttackRangeHide -= OnAttackRangeHide;
+        }
+
+        if (_battleMapUI != null)
+        {
+            _battleMapUI.OnNodeDropTarget -= OnNodeDropTarget;
         }
     }
 }

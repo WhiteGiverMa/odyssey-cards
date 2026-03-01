@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="OrderData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/OrderData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 0
+Value = 3
+
+[resource]
+script = ExtResource("1_data")
+Id = "order_Strike"
+CardName = "打击"
+Description = "造成3点伤害"
+Rarity = 0
+Cost = 1
+Target = 2
+Effects = [SubResource("SubResource_1")]

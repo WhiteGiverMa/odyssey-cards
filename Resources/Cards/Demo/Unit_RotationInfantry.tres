@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="UnitData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/UnitData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "unit_RotationInfantry"
+CardName = "轮战步兵"
+Description = "轮战"
+Rarity = 0
+DeployCost = 1
+ActionCost = 0
+Attack = 1
+MaxHealth = 2
+Range = 1
+Tags = [3]

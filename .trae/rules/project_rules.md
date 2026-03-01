@@ -1,10 +1,8 @@
+---
+alwaysApply: true
+---
 # OdysseyCards Project Rules
 
-## Build Commands
-
-- Build solution: `dotnet build`
-- Build (release): `dotnet build -c Release`
-- Clean build: `dotnet clean; dotnet build`
 
 ## Lint and Format Commands
 
@@ -22,6 +20,10 @@
 - Use 4 spaces for indentation
 - Use CRLF line endings
 - UTF-8 encoding
+
+## Namespace Convention
+
+命名空间不包含 `Scripts` 层级，如 `Scripts/Card/` → `OdysseyCards.Card`
 
 ## Analyzer Settings
 

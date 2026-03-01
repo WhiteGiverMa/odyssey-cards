@@ -18,26 +18,71 @@ public static class PlaceholderAssetGenerator
 
     public static void GenerateCardPlaceholders()
     {
-        var cardNames = new List<string>
+        var cardData = new List<(string name, Color color)>
         {
-            "Strike", "Defend", "Bash", "Cleave", "IronWave",
-            "PommelStrike", "TwinStrike", "Anger", "Clothesline",
-            "HeavyBlade", "ShrugItOff", "Armaments", "Flex",
-            "BattleTrance", "Bloodletting", "FlameBarrier", "Impervious",
-            "Intimidate", "BodySlam", "Rage", "Clash",
-            "Cleave_Upgraded", "Defend_Upgraded", "Strike_Upgraded", "Bash_Upgraded"
+            ("Strike", new Color(0.85f, 0.25f, 0.25f)),
+            ("Strike_Upgraded", new Color(0.85f, 0.25f, 0.25f)),
+            ("Bash", new Color(0.85f, 0.25f, 0.25f)),
+            ("Bash_Upgraded", new Color(0.85f, 0.25f, 0.25f)),
+            ("Cleave", new Color(0.85f, 0.25f, 0.25f)),
+            ("Cleave_Upgraded", new Color(0.85f, 0.25f, 0.25f)),
+            ("IronWave", new Color(0.85f, 0.25f, 0.25f)),
+            ("PommelStrike", new Color(0.85f, 0.25f, 0.25f)),
+            ("TwinStrike", new Color(0.85f, 0.25f, 0.25f)),
+            ("Anger", new Color(0.85f, 0.25f, 0.25f)),
+            ("Clothesline", new Color(0.85f, 0.25f, 0.25f)),
+            ("HeavyBlade", new Color(0.85f, 0.25f, 0.25f)),
+            ("BodySlam", new Color(0.85f, 0.25f, 0.25f)),
+            ("Rage", new Color(0.85f, 0.25f, 0.25f)),
+            ("Clash", new Color(0.85f, 0.25f, 0.25f)),
+            ("Bloodletting", new Color(0.85f, 0.25f, 0.25f)),
+
+            ("Defend", new Color(0.25f, 0.45f, 0.85f)),
+            ("Defend_Upgraded", new Color(0.25f, 0.45f, 0.85f)),
+            ("ShrugItOff", new Color(0.25f, 0.45f, 0.85f)),
+            ("Armaments", new Color(0.25f, 0.45f, 0.85f)),
+            ("Flex", new Color(0.25f, 0.45f, 0.85f)),
+            ("Impervious", new Color(0.25f, 0.45f, 0.85f)),
+            ("Intimidate", new Color(0.25f, 0.45f, 0.85f)),
+
+            ("FlameBarrier", new Color(0.5f, 0.25f, 0.7f)),
+            ("BattleTrance", new Color(0.5f, 0.25f, 0.7f)),
+            ("DemonForm", new Color(0.5f, 0.25f, 0.7f)),
+            ("LimitBreak", new Color(0.5f, 0.25f, 0.7f)),
+            ("Metallicize", new Color(0.5f, 0.25f, 0.7f)),
+            ("PowerThrough", new Color(0.5f, 0.25f, 0.7f)),
+            ("SpotWeakness", new Color(0.5f, 0.25f, 0.7f)),
+            ("TrueGrit", new Color(0.5f, 0.25f, 0.7f)),
+            ("UpperCut", new Color(0.5f, 0.25f, 0.7f)),
+            ("Warcry", new Color(0.5f, 0.25f, 0.7f)),
+            ("DualWield", new Color(0.5f, 0.25f, 0.7f)),
+            ("GhostlyArmor", new Color(0.5f, 0.25f, 0.7f)),
+            ("Shockwave", new Color(0.5f, 0.25f, 0.7f)),
+            ("DoubleTap", new Color(0.5f, 0.25f, 0.7f)),
+            ("Exhume", new Color(0.5f, 0.25f, 0.7f)),
+            ("FiendFire", new Color(0.5f, 0.25f, 0.7f)),
+            ("Hemorrage", new Color(0.5f, 0.25f, 0.7f)),
+            ("Immolate", new Color(0.5f, 0.25f, 0.7f)),
+            ("Inflame", new Color(0.5f, 0.25f, 0.7f)),
+            ("PowerTransfer", new Color(0.5f, 0.25f, 0.7f)),
+            ("Reckless", new Color(0.5f, 0.25f, 0.7f)),
+            ("SearingBlow", new Color(0.5f, 0.25f, 0.7f)),
+            ("SecondWind", new Color(0.5f, 0.25f, 0.7f)),
+            ("SeeingRed", new Color(0.5f, 0.25f, 0.7f)),
+            ("Thermos", new Color(0.5f, 0.25f, 0.7f)),
+            ("Whirlwind", new Color(0.5f, 0.25f, 0.7f))
         };
 
         string outputPath = "res://Assets/Cards";
         EnsureDirectoryExists(outputPath);
 
-        foreach (var cardName in cardNames)
+        foreach (var card in cardData)
         {
-            string fileName = $"{outputPath}/{cardName}.png";
+            string fileName = $"{outputPath}/{card.name}.png";
             string globalPath = ProjectSettings.GlobalizePath(fileName);
             if (!File.Exists(globalPath))
             {
-                GeneratePlaceholderImage(fileName, 256, 256, new Color(0.95f, 0.95f, 0.95f));
+                GeneratePlaceholderImage(fileName, 256, 256, card.color);
             }
         }
         
@@ -46,25 +91,35 @@ public static class PlaceholderAssetGenerator
 
     public static void GenerateEnemyPlaceholders()
     {
-        var enemyNames = new List<string>
+        var enemyData = new List<(string name, Color color)>
         {
-            "Slime_Small", "Slime_Medium", "Slime_Large",
-            "Goblin", "GoblinElite", "Cultist",
-            "JawWorm", "Louse", "FungiBeast",
-            "Gremlin", "Slaver", "SlaverElite",
-            "Boss_Guardian", "Boss_Hexaghost", "Boss_SlimeBoss"
+            ("Slime_Small", new Color(0.3f, 0.8f, 0.4f)),
+            ("Slime_Medium", new Color(0.3f, 0.7f, 0.35f)),
+            ("Slime_Large", new Color(0.3f, 0.6f, 0.3f)),
+            ("Goblin", new Color(0.5f, 0.7f, 0.3f)),
+            ("GoblinElite", new Color(0.45f, 0.6f, 0.25f)),
+            ("Cultist", new Color(0.6f, 0.3f, 0.7f)),
+            ("JawWorm", new Color(0.65f, 0.5f, 0.35f)),
+            ("Louse", new Color(0.7f, 0.4f, 0.5f)),
+            ("FungiBeast", new Color(0.4f, 0.6f, 0.35f)),
+            ("Gremlin", new Color(0.55f, 0.45f, 0.3f)),
+            ("Slaver", new Color(0.6f, 0.4f, 0.35f)),
+            ("SlaverElite", new Color(0.55f, 0.35f, 0.3f)),
+            ("Boss_Guardian", new Color(0.7f, 0.3f, 0.3f)),
+            ("Boss_Hexaghost", new Color(0.5f, 0.2f, 0.8f)),
+            ("Boss_SlimeBoss", new Color(0.25f, 0.65f, 0.3f))
         };
 
         string outputPath = "res://Assets/Enemies";
         EnsureDirectoryExists(outputPath);
 
-        foreach (var enemyName in enemyNames)
+        foreach (var enemy in enemyData)
         {
-            string fileName = $"{outputPath}/{enemyName}.png";
+            string fileName = $"{outputPath}/{enemy.name}.png";
             string globalPath = ProjectSettings.GlobalizePath(fileName);
             if (!File.Exists(globalPath))
             {
-                GeneratePlaceholderImage(fileName, 256, 256, new Color(0.85f, 0.75f, 0.65f));
+                GeneratePlaceholderImage(fileName, 256, 256, enemy.color);
             }
         }
         

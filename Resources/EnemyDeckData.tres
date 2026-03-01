@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="EnemyDeckData" load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/EnemyDeckData.cs" id="1_data"]
+[ext_resource type="Resource" path="res://Resources/Cards/Unit_DetectiveSquad.tres" id="2_unit"]
+[ext_resource type="Resource" path="res://Resources/Cards/Unit_18thRegiment.tres" id="3_unit"]
+[ext_resource type="Resource" path="res://Resources/Cards/Unit_LianshuScout.tres" id="4_unit"]
+[ext_resource type="Resource" path="res://Resources/Cards/Order_Strike.tres" id="5_order"]
+[ext_resource type="Resource" path="res://Resources/Cards/Order_Assault.tres" id="6_order"]
+[ext_resource type="Resource" path="res://Resources/Cards/Order_Alert.tres" id="7_order"]
+
+[resource]
+script = ExtResource("1_data")
+EnemyName = "敌方指挥官"
+StartingHealth = 8
+StartingEnergy = 3
+MaxEnergy = 3
+Units = [ExtResource("2_unit"), ExtResource("3_unit"), ExtResource("4_unit"), ExtResource("2_unit"), ExtResource("3_unit")]
+Orders = [ExtResource("5_order"), ExtResource("6_order"), ExtResource("7_order"), ExtResource("5_order")]

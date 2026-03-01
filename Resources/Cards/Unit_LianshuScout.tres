@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="UnitData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/UnitData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 2
+Value = 1
+
+[resource]
+script = ExtResource("1_data")
+Id = "unit_LianshuScout"
+CardName = "联树机器犬 侦察型"
+Description = "闪击，轮战\n亡语：抽1张牌"
+Rarity = 0
+DeployCost = 0
+ActionCost = 0
+Attack = 1
+MaxHealth = 1
+Range = 1
+Tags = [0, 3]
+LastWordsEffects = [SubResource("SubResource_1")]

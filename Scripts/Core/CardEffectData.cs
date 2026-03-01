@@ -1,34 +1,46 @@
 using Godot;
-using OdysseyCards.Card.Effects;
 
 namespace OdysseyCards.Core;
+
+public enum CardEffectType
+{
+    Damage,
+    Heal,
+    DrawCards,
+    GainEnergy,
+    GainMaxHealth,
+    ApplyDebuff,
+    ApplyBuff,
+    Discard,
+    ReturnToDeck,
+    SummonUnit,
+    Custom
+}
 
 public partial class CardEffectData : Resource
 {
     [Export] public CardEffectType EffectType { get; set; } = CardEffectType.Damage;
-    [Export] public int Value { get; set; } = 6;
-    [Export] public int Times { get; set; } = 1;
-    [Export] public string DebuffType { get; set; } = "";
-    [Export] public bool Upgraded { get; set; } = false;
+    [Export] public int Value { get; set; } = 0;
+    [Export] public int SecondaryValue { get; set; } = 0;
+    [Export] public string TargetType { get; set; } = "default";
+    [Export] public string CustomEffectName { get; set; } = "";
 
-    public CardEffect CreateEffect()
+    public string GetDescription()
     {
-        CardEffect effect = EffectType switch
+        return EffectType switch
         {
-            CardEffectType.Damage => new Card.DamageEffect(Value),
-            CardEffectType.GainBlock => new Card.GainBlockEffect(Value),
-            CardEffectType.GainEnergy => new Card.GainEnergyEffect(Value),
-            CardEffectType.DrawCards => new Card.DrawCardsEffect(Value),
-            CardEffectType.ApplyDebuff => new Card.ApplyDebuffEffect(DebuffType, Value),
-            CardEffectType.Heal => new Card.HealEffect(Value),
-            _ => null
+            CardEffectType.Damage => $"造成{Value}点伤害",
+            CardEffectType.Heal => $"恢复{Value}点生命值",
+            CardEffectType.DrawCards => $"抽{Value}张牌",
+            CardEffectType.GainEnergy => $"获得{Value}点费用",
+            CardEffectType.GainMaxHealth => $"总部获得+{Value}生命值",
+            CardEffectType.ApplyDebuff => $"施加{TargetType}{Value}层",
+            CardEffectType.ApplyBuff => $"获得{TargetType}{Value}层",
+            CardEffectType.Discard => $"弃掉{Value}张牌",
+            CardEffectType.ReturnToDeck => "返回抽牌堆",
+            CardEffectType.SummonUnit => $"召唤{TargetType}",
+            CardEffectType.Custom => CustomEffectName,
+            _ => ""
         };
-
-        if (effect != null && Upgraded)
-        {
-            effect.Upgrade();
-        }
-
-        return effect;
     }
 }

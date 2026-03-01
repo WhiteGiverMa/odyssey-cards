@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="UnitData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/UnitData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "unit_Veteran"
+CardName = "老兵"
+Description = "奋战"
+Rarity = 0
+DeployCost = 2
+ActionCost = 1
+Attack = 2
+MaxHealth = 3
+Range = 1
+Tags = [4]

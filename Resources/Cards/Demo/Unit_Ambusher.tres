@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="UnitData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/UnitData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "unit_Ambusher"
+CardName = "伏击手"
+Description = "伏击"
+Rarity = 0
+DeployCost = 1
+ActionCost = 0
+Attack = 2
+MaxHealth = 1
+Range = 1
+Tags = [9]
