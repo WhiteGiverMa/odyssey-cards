@@ -14,6 +14,7 @@ namespace OdysseyCards.UI
 		private Control _dragLayer;
 		private CardUI _draggingCard;
 		private int _draggingCardIndex = -1;
+		private bool _isUpdatingHand = false;
 
 		public event Action<Card.Card, Character.Character> OnCardPlayRequested;
 		public event Action<Card.Card, Vector2> OnCardDragStarted;
@@ -83,10 +84,18 @@ namespace OdysseyCards.UI
 
 		private void UpdateHand()
 		{
+			if (_isUpdatingHand)
+			{
+				return;
+			}
+
+			_isUpdatingHand = true;
+
 			GD.Print($"[HandUI] UpdateHand called, _cardContainer is null: {_cardContainer == null}, _player is null: {_player == null}");
 
 			if (_cardContainer == null || _player == null)
 			{
+				_isUpdatingHand = false;
 				return;
 			}
 
@@ -105,6 +114,8 @@ namespace OdysseyCards.UI
 				GD.Print($"[HandUI] Creating CardUI for: {card.CardName}");
 				CreateCardUI(card, scale);
 			}
+
+			_isUpdatingHand = false;
 		}
 
 		private float CalculateCardScale(int cardCount)

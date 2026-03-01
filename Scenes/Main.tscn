@@ -1,8 +1,8 @@
-[gd_scene load_steps=2 format=3 uid="uid://main_scene"]
+[gd_scene format=3 uid="uid://cfgpsg7qgxdlr"]
 
-[ext_resource type="Script" path="res://Scripts/Core/MainMenu.cs" id="1_menu"]
+[ext_resource type="Script" uid="uid://cikju8ihobgkk" path="res://Scripts/Core/MainMenu.cs" id="1_menu"]
 
-[node name="Main" type="Control"]
+[node name="Main" type="Control" unique_id=782349508]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,7 +11,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_menu")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=1539090998]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,7 +20,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.1, 0.1, 0.15, 1)
 
-[node name="TitleLabel" type="Label" parent="."]
+[node name="TitleLabel" type="Label" parent="." unique_id=273266334]
 layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
@@ -34,7 +34,7 @@ theme_override_font_sizes/font_size = 48
 text = "Odyssey Cards"
 horizontal_alignment = 1
 
-[node name="StartButton" type="Button" parent="."]
+[node name="StartButton" type="Button" parent="." unique_id=143011150]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
