@@ -25,7 +25,7 @@ namespace OdysseyCards.UI
         public static readonly Color ValidDropColor = new Color(0.2f, 0.8f, 0.4f);
         public static readonly Color InvalidDropColor = new Color(0.8f, 0.2f, 0.2f);
 
-        public override void _Ready()
+        public MapNodeUI()
         {
             CustomMinimumSize = new Vector2(60, 60);
             MouseFilter = MouseFilterEnum.Stop;
@@ -53,6 +53,10 @@ namespace OdysseyCards.UI
             _button.Position = new Vector2(5, 5);
             _button.Modulate = new Color(1, 1, 1, 0);
             AddChild(_button);
+        }
+
+        public override void _Ready()
+        {
         }
 
         public override bool _CanDropData(Vector2 atPosition, Variant data)

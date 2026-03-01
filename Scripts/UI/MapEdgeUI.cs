@@ -10,12 +10,25 @@ namespace OdysseyCards.UI
         
         public MapEdge Edge => _edge;
 
-        public override void _Ready()
+        public MapEdgeUI()
         {
             _line = new Line2D();
             _line.Width = 2.0f;
             _line.DefaultColor = new Color(0.5f, 0.5f, 0.5f);
             AddChild(_line);
+            
+            MouseFilter = MouseFilterEnum.Ignore;
+        }
+
+        public override void _Ready()
+        {
+            if (_line == null)
+            {
+                _line = new Line2D();
+                _line.Width = 2.0f;
+                _line.DefaultColor = new Color(0.5f, 0.5f, 0.5f);
+                AddChild(_line);
+            }
             
             MouseFilter = MouseFilterEnum.Ignore;
         }
