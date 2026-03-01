@@ -36,7 +36,6 @@ namespace OdysseyCards.UI
 			{
 				_player.OnHandChanged += UpdateHand;
 				GD.Print($"[HandUI] Subscribed to OnHandChanged, current hand count: {_player.Hand.Count}");
-				UpdateHand();
 			}
 		}
 

@@ -214,6 +214,8 @@ namespace OdysseyCards.Combat
 
             GD.Print("[CombatManager] Starting combat");
             StartCombat();
+
+            GD.Print($"[CombatManager] After StartCombat, player hand count: {Player.Hand.Count}");
         }
 
         /// <summary>
