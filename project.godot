@@ -18,10 +18,15 @@ config/icon="res://icon.svg"
 [autoload]
 
 GameManager="*res://Scripts/Core/GameManager.cs"
+UIScaler="*res://Scripts/UI/UIScaler.cs"
 
 [dotnet]
 
 project/assembly_name="OdysseyCards"
+
+[editor]
+
+version_control/autoload_on_startup=true
 
 [physics]
 
