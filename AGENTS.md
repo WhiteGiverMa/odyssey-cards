@@ -43,3 +43,7 @@ Then: `Build -> Build Solution` or `Ctrl+Shift+B`
 ## Lint
 
 Run `dotnet format OdysseyCards.sln --verify-no-changes` after code changes to check code style.
+
+## Git
+
+完成代码修改后，及时进行git操作并提交到仓库。
