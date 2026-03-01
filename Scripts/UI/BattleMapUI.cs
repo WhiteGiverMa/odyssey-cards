@@ -72,22 +72,42 @@ namespace OdysseyCards.UI
         private void CreateNodeUIs()
         {
             float cellSize = 80.0f;
-            Vector2 offset = new Vector2(100, 150);
-            
+
+            float minX = float.MaxValue, maxX = float.MinValue;
+            float minY = float.MaxValue, maxY = float.MinValue;
+
+            foreach (var kvp in _battleMap.Nodes)
+            {
+                var node = kvp.Value;
+                minX = Mathf.Min(minX, node.GridPosition.X);
+                maxX = Mathf.Max(maxX, node.GridPosition.X);
+                minY = Mathf.Min(minY, node.GridPosition.Y);
+                maxY = Mathf.Max(maxY, node.GridPosition.Y);
+            }
+
+            float mapWidth = (maxX - minX) * cellSize;
+            float mapHeight = (maxY - minY) * cellSize;
+
+            float containerWidth = Size.X;
+            float containerHeight = Size.Y;
+
+            float offsetX = (containerWidth - mapWidth) / 2.0f - minX * cellSize;
+            float offsetY = (containerHeight - mapHeight) / 2.0f - minY * cellSize;
+
             foreach (var kvp in _battleMap.Nodes)
             {
                 var node = kvp.Value;
                 var nodeUI = new MapNodeUI();
                 nodeUI.SetNode(node);
-                
+
                 Vector2 position = new Vector2(
-                    node.GridPosition.X * cellSize + offset.X,
-                    node.GridPosition.Y * cellSize + offset.Y
+                    node.GridPosition.X * cellSize + offsetX,
+                    node.GridPosition.Y * cellSize + offsetY
                 );
                 nodeUI.Position = position;
-                
+
                 nodeUI.ConnectButtonPressed(Callable.From(() => OnNodeClicked(node.Id)));
-                
+
                 AddChild(nodeUI);
                 _nodeUIs[node.Id] = nodeUI;
             }
@@ -96,27 +116,47 @@ namespace OdysseyCards.UI
         private void CreateEdgeUIs()
         {
             float cellSize = 80.0f;
-            Vector2 offset = new Vector2(100, 150);
             Vector2 nodeCenter = new Vector2(30, 30);
-            
+
+            float minX = float.MaxValue, maxX = float.MinValue;
+            float minY = float.MaxValue, maxY = float.MinValue;
+
+            foreach (var kvp in _battleMap.Nodes)
+            {
+                var node = kvp.Value;
+                minX = Mathf.Min(minX, node.GridPosition.X);
+                maxX = Mathf.Max(maxX, node.GridPosition.X);
+                minY = Mathf.Min(minY, node.GridPosition.Y);
+                maxY = Mathf.Max(maxY, node.GridPosition.Y);
+            }
+
+            float mapWidth = (maxX - minX) * cellSize;
+            float mapHeight = (maxY - minY) * cellSize;
+
+            float containerWidth = Size.X;
+            float containerHeight = Size.Y;
+
+            float offsetX = (containerWidth - mapWidth) / 2.0f - minX * cellSize;
+            float offsetY = (containerHeight - mapHeight) / 2.0f - minY * cellSize;
+
             foreach (var edge in _battleMap.Edges)
             {
                 var fromNode = _battleMap.GetNode(edge.FromNodeId);
                 var toNode = _battleMap.GetNode(edge.ToNodeId);
-                
+
                 if (fromNode == null || toNode == null) continue;
-                
+
                 var edgeUI = new MapEdgeUI();
-                
+
                 Vector2 fromPos = new Vector2(
-                    fromNode.GridPosition.X * cellSize + offset.X + nodeCenter.X,
-                    fromNode.GridPosition.Y * cellSize + offset.Y + nodeCenter.Y
+                    fromNode.GridPosition.X * cellSize + offsetX + nodeCenter.X,
+                    fromNode.GridPosition.Y * cellSize + offsetY + nodeCenter.Y
                 );
                 Vector2 toPos = new Vector2(
-                    toNode.GridPosition.X * cellSize + offset.X + nodeCenter.X,
-                    toNode.GridPosition.Y * cellSize + offset.Y + nodeCenter.Y
+                    toNode.GridPosition.X * cellSize + offsetX + nodeCenter.X,
+                    toNode.GridPosition.Y * cellSize + offsetY + nodeCenter.Y
                 );
-                
+
                 edgeUI.SetEdge(edge, fromPos, toPos);
                 AddChild(edgeUI);
                 _edgeUIs.Add(edgeUI);

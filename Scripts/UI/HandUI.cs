@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using System.Collections.Generic;
 
 namespace OdysseyCards.UI
 {
@@ -10,6 +11,9 @@ namespace OdysseyCards.UI
 		private HBoxContainer _cardContainer;
 		private Character.Player _player;
 		private Combat.CombatManager _combatManager;
+		private Control _dragLayer;
+		private CardUI _draggingCard;
+		private int _draggingCardIndex = -1;
 
 		public event Action<Card.Card, Character.Character> OnCardPlayRequested;
 		public event Action<Card.Card, Vector2> OnCardDragStarted;
@@ -19,6 +23,19 @@ namespace OdysseyCards.UI
 		public override void _Ready()
 		{
 			_cardContainer = GetNode<HBoxContainer>("CardContainer");
+			CreateDragLayer();
+		}
+
+		private void CreateDragLayer()
+		{
+			_dragLayer = new Control
+			{
+				Name = "DragLayer",
+				MouseFilter = MouseFilterEnum.Ignore
+			};
+			_dragLayer.SetAnchorsPreset(LayoutPreset.FullRect);
+			AddChild(_dragLayer);
+			_dragLayer.ZIndex = 1000;
 		}
 
 		public void SetPlayer(Character.Player player)
@@ -95,10 +112,16 @@ namespace OdysseyCards.UI
 			cardUI.OnDragStarted += OnCardDragStartedHandler;
 			cardUI.OnDragEnded += OnCardDragEndedHandler;
 			cardUI.OnDroppedOnNode += OnCardDroppedOnNodeHandler;
+			cardUI.OnReturnToHandRequested += OnReturnToHandRequestedHandler;
 
 			cardUI.Scale = new Vector2(scale, scale);
 
 			_cardContainer.AddChild(cardUI);
+		}
+
+		private void OnReturnToHandRequestedHandler(CardUI cardUI)
+		{
+			ReturnCardToHand(cardUI);
 		}
 
 		private void OnCardDragStartedHandler(CardUI cardUI, Vector2 position)
@@ -109,6 +132,13 @@ namespace OdysseyCards.UI
 			}
 
 			GD.Print($"[HandUI] Drag started: {cardUI.Card.CardName}");
+
+			_draggingCard = cardUI;
+			_draggingCardIndex = cardUI.GetIndex();
+
+			Vector2 globalPos = cardUI.GlobalPosition;
+			cardUI.Reparent(_dragLayer, false);
+			cardUI.GlobalPosition = globalPos;
 
 			if (cardUI.Card is Card.Unit)
 			{
@@ -127,7 +157,25 @@ namespace OdysseyCards.UI
 
 			GD.Print($"[HandUI] Drag ended: {cardUI.Card.CardName}");
 
+			_draggingCard = null;
+			_draggingCardIndex = -1;
+
 			OnCardDragEnded?.Invoke(cardUI.Card, position);
+		}
+
+		public void ReturnCardToHand(CardUI cardUI)
+		{
+			if (cardUI == null || _cardContainer == null)
+			{
+				return;
+			}
+
+			Vector2 globalPos = cardUI.GlobalPosition;
+			cardUI.Reparent(_cardContainer, false);
+			cardUI.GlobalPosition = globalPos;
+
+			int targetIndex = Mathf.Min(_draggingCardIndex >= 0 ? _draggingCardIndex : _cardContainer.GetChildCount(), _cardContainer.GetChildCount());
+			_cardContainer.MoveChild(cardUI, targetIndex);
 		}
 
 		private void OnCardDroppedOnNodeHandler(CardUI cardUI, int nodeId)

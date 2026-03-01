@@ -62,6 +62,11 @@ public partial class CardUI : Control
     public event Action<CardUI, int> OnDroppedOnNode;
 
     /// <summary>
+    /// Fired when card needs to return to hand.
+    /// </summary>
+    public event Action<CardUI> OnReturnToHandRequested;
+
+    /// <summary>
     /// Whether this card is currently being dragged.
     /// </summary>
     public bool IsDragging => _isDragging;
@@ -283,6 +288,8 @@ public partial class CardUI : Control
     /// </summary>
     public void ReturnToOriginalPosition()
     {
+        OnReturnToHandRequested?.Invoke(this);
+
         if (_returnTween != null && _returnTween.IsValid())
         {
             _returnTween.Kill();
