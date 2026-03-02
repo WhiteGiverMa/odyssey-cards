@@ -7,15 +7,22 @@ public interface ILocalizable
     string LocalizationPrefix { get; }
     string LocalizationId { get; }
 
-    LocalStr Local(string field, Dictionary<string, object> parameters = null)
+    LocalStr Local(string field, Dictionary<string, object> parameters = null);
+
+    bool HasLocal(string field);
+}
+
+public static class LocalizableExtensions
+{
+    public static LocalStr Local(this ILocalizable localizable, string field, Dictionary<string, object> parameters = null)
     {
-        string key = $"{LocalizationPrefix}.{LocalizationId}.{field}";
+        string key = $"{localizable.LocalizationPrefix}.{localizable.LocalizationId}.{field}";
         return new LocalStr(key, parameters);
     }
 
-    bool HasLocal(string field)
+    public static bool HasLocal(this ILocalizable localizable, string field)
     {
-        string key = $"{LocalizationPrefix}.{LocalizationId}.{field}";
+        string key = $"{localizable.LocalizationPrefix}.{localizable.LocalizationId}.{field}";
         return Localization.HasKey(key);
     }
 }

@@ -1,11 +1,12 @@
 using Godot;
 using OdysseyCards.Core;
+using OdysseyCards.Localization;
 using System.Collections.Generic;
 using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.Core;
 
-public partial class OrderData : Resource, ICardData
+public partial class OrderData : Resource, ICardData, ILocalizable
 {
     public CardType Type => CardType.Order;
     [Export] public string Id { get; set; } = "";
@@ -20,14 +21,28 @@ public partial class OrderData : Resource, ICardData
     [Export] public Godot.Collections.Array<CardTag> Tags { get; set; } = new();
     [Export] public Godot.Collections.Array<CardEffectData> Effects { get; set; } = new();
 
+    public string LocalizationPrefix => "cards";
+
+    public string LocalizationId => Id;
+
+    public LocalStr Local(string field, Dictionary<string, object> parameters = null)
+    {
+        return new LocalStr($"cards.{Id}.{field}", parameters);
+    }
+
+    public bool HasLocal(string field)
+    {
+        return Loc.HasKey($"cards.{Id}.{field}");
+    }
+
     public string GetLocalizedName()
     {
-        return Loc.T($"cards.{Id}.name", CardName);
+        return this.Local("name").Resolve();
     }
 
     public string GetLocalizedDescription(Dictionary<string, object> parameters = null)
     {
-        return Loc.T($"cards.{Id}.description", Description, parameters);
+        return this.Local("description", parameters).Resolve();
     }
 
     public bool HasTag(CardTag tag)
