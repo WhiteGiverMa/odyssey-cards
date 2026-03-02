@@ -38,10 +38,10 @@ class Action:
 class ActionQueue:
     def __init__(self):
         self.queue: List[Action] = []
-    
+
     def add_action(self, action, to_front=False):
         # 可添加到队首或队尾
-    
+
     def execute_next(self) -> BaseResult:
         # 执行下一个 Action，返回结果
 ```
@@ -102,18 +102,18 @@ slay-the-model 有精心设计的伤害计算管道：
 def resolve_potential_damage(base_damage, attacker, target, card) -> int:
     """
     伤害计算的唯一真理之源 (Single Source of Truth)
-    
+
     Phase order (CRITICAL - additive before multiplicative before capping):
     1. Normalize: 标准化 (callable/list -> int)
     2. ADDITIVE: 加算 (Strength +3, Dexterity for block)
     3. MULTIPLICATIVE: 乘算 (Vulnerable 1.5x, Weak 0.75x, PenNib 2x)
     4. CAPPING: 限定 (Intangible caps to 1)
     5. Clamp: 取整 (max 0)
-    
+
     For each phase: Powers -> Relics
     """
     damage = base_damage
-    
+
     # Phase 2: ADDITIVE
     for power in attacker.powers:
         if power.modify_phase == DamagePhase.ADDITIVE:
@@ -121,18 +121,18 @@ def resolve_potential_damage(base_damage, attacker, target, card) -> int:
     for relic in attacker.relics:
         if relic.modify_phase == DamagePhase.ADDITIVE:
             damage = relic.modify_damage_dealt(damage, card, target)
-    
+
     # Phase 3: MULTIPLICATIVE
     for power in attacker.powers:
         if power.modify_phase == DamagePhase.MULTIPLICATIVE:
             damage = power.modify_damage_dealt(damage)
     # ... target's Vulnerable, etc.
-    
+
     # Phase 4: CAPPING
     for power in target.powers:
         if power.modify_phase == DamagePhase.CAPPING:
             damage = power.modify_damage_taken(damage)
-    
+
     return max(0, int(damage))
 ```
 
@@ -157,11 +157,11 @@ class Enemy(Creature):
         self.intentions: Dict[str, Intention] = {}  # 所有可能的意图
         self.current_intention: Intention = None    # 当前意图
         self.history_intentions: List[str] = []     # 历史记录
-    
+
     def on_player_turn_start(self):
         # 在玩家回合开始时决定下一个意图
         self.current_intention = self.determine_next_intention()
-    
+
     def execute_intention(self) -> List[Action]:
         # 执行当前意图，返回 Action 列表
         return self.current_intention.execute()
@@ -175,7 +175,7 @@ class Intention:
     name: str                    # 意图名称
     damage: int = 0              # 伤害值 (用于显示)
     description: BaseLocalStr    # 描述文本
-    
+
     def execute(self) -> List[Action]:
         # 执行意图，返回 Action 列表
 ```
@@ -206,11 +206,11 @@ class Card:
     base_damage = 6
     base_block = 0
     base_cost = 1
-    
+
     # 升级后的值
     upgrade_damage = 9
     upgrade_cost = 1
-    
+
     def on_play(self, targets) -> List[Action]:
         """卡牌被打出时触发，返回 Action 列表"""
         actions = []
@@ -219,15 +219,15 @@ class Card:
         if self.block > 0:
             actions.append(GainBlockAction(block=self.block, target=self.owner))
         return actions
-    
+
     def on_draw(self) -> List[Action]:
         """抽到时触发"""
         return []
-    
+
     def on_discard(self) -> List[Action]:
         """弃置时触发"""
         return []
-    
+
     def on_exhaust(self) -> List[Action]:
         """消耗时触发"""
         return []
@@ -250,22 +250,22 @@ class GameState:
         # 多章节支持
         self.current_act: int = 1
         self.floor_in_act: int = 0
-        
+
         # 全局 Action 队列
         self.action_queue = ActionQueue()
-        
+
         # 当前战斗
         self.current_combat: Optional[Combat] = None
-        
+
         # 玩家
         self.player = create_player(config.character)
-        
+
         # 遗物追踪
         self.obtained_relics: set = set()
-        
+
         # 遭遇历史
         self.encounter_history: List[str] = []
-    
+
     def execute_all_actions(self) -> BaseResult:
         """执行队列中所有 Action"""
         while not self.action_queue.is_empty():
@@ -361,6 +361,236 @@ game_state = GameState()
 
 - [slay-the-model GitHub](https://github.com/wkzMagician/slay-the-model)
 - 本地克隆路径：`G:\dev\slay-the-model`
+
+---
+
+## 下一步学习计划
+
+> 基于 slay-the-model docs 目录和 OdysseyCards 当前实现状态分析
+
+### OdysseyCards 现状分析
+
+| 模块 | 实现状态 | 对比 slay-the-model |
+|------|---------|---------------------|
+| 战斗系统 | ✅ 基础完成 | 事件驱动，无 Action 队列 |
+| 敌人 AI | ✅ 简单实现 | 无意图系统，决策逻辑简单 |
+| 卡牌系统 | ✅ Unit/Order | 数据驱动，无生命周期钩子 |
+| 战斗地图 | ✅ BattleMap | 有战场地图，非游戏地图 |
+| 游戏地图 | ❌ 未实现 | 缺少 Slay the Spire 风格的地图导航 |
+| 遗物系统 | ❌ 未实现 | - |
+| 药剂系统 | ❌ 未实现 | - |
+| 房间系统 | ❌ 未实现 | - |
+
+### slay-the-model docs 目录内容摘要
+
+| 文档 | 核心内容 | 学习价值 |
+|------|---------|---------|
+| `combat.md` | 回合结构、意图系统、Boss/精英战 | 战斗流程优化 |
+| `cards.md` | 5种卡牌类型、稀有度、升级机制 | 卡牌系统完善 |
+| `rooms.md` | 7种房间类型、奖励机制 | 游戏地图系统设计 |
+| `relics.md` | 遗物稀有度、功能分类 | 遗物系统设计 |
+| `potions.md` | 药剂类型、获得方式 | 药剂系统设计 |
+| `map_system_design.md` | 地图生成算法、防交叉连接 | 地图系统实现 |
+
+---
+
+### 学习优先级
+
+#### 🔴 高优先级（核心体验提升）
+
+**1. 敌人意图系统**
+
+slay-the-model 的敌人意图系统是策略深度的核心：
+
+```python
+# enemies/intention.py
+class Intention:
+    name: str           # "Attack", "Defend", "Buff", "Debuff", "Special"
+    damage: int = 0     # 用于 UI 显示伤害值
+    description: str    # 描述文本
+
+    def execute(self) -> List[Action]:
+        """执行意图，返回 Action 列表"""
+```
+
+**OdysseyCards 当前问题：**
+- `EnemyAI.DecideAction()` 是即时决策，玩家无法预知
+- 缺少 `Intention` 类和意图显示
+
+**学习目标：**
+- 创建 `Intention` 类定义意图类型
+- 敌人在玩家回合开始时决定下一回合意图
+- UI 显示意图图标和数值
+
+**参考代码：**
+- `G:\dev\slay-the-model\enemies\base.py` - 敌人意图管理
+- `G:\dev\slay-the-model\enemies\intention.py` - Intention 类设计
+- `G:\dev\slay-the-model\docs\combat.md` - 意图系统说明
+
+---
+
+**2. 统一伤害计算管道**
+
+slay-the-model 的伤害计算是"唯一真理之源"：
+
+```python
+# utils/dynamic_values.py
+def resolve_potential_damage(base_damage, attacker, target, card) -> int:
+    """
+    Phase order (CRITICAL):
+    1. Normalize: 标准化
+    2. ADDITIVE: 加算 (Strength +3)
+    3. MULTIPLICATIVE: 乘算 (Vulnerable 1.5x)
+    4. CAPPING: 限定 (Intangible caps to 1)
+    5. Clamp: 取整 (max 0)
+    """
+```
+
+**OdysseyCards 当前问题：**
+- 伤害计算分散在 `ExecuteAttack()` 等方法中
+- 无修改器阶段概念
+- 难以添加新的伤害修改效果
+
+**学习目标：**
+- 创建 `DamageResolver` 类
+- 定义 `DamagePhase` 枚举
+- 所有伤害计算走统一管道
+
+**参考代码：**
+- `G:\dev\slay-the-model\utils\dynamic_values.py`
+- `G:\dev\slay-the-model\utils\damage_phase.py`
+
+---
+
+#### 🟡 中优先级（架构改进）
+
+**3. Action 队列系统**
+
+slay-the-model 的核心架构：
+
+```python
+class Action:
+    def execute(self) -> BaseResult:
+        # 返回 Result，可能队列更多 Action
+        return NoneResult()
+
+class ActionQueue:
+    def execute_next(self) -> BaseResult:
+        action = self.queue.pop(0)
+        result = action.execute()
+        # 根据 Result 类型处理后续
+```
+
+**学习目标：**
+- 创建 `GameAction` 基类
+- 创建 `ActionResult` 类型系统
+- 重构卡牌效果返回 `List<GameAction>`
+
+**参考代码：**
+- `G:\dev\slay-the-model\actions\base.py`
+- `G:\dev\slay-the-model\utils\result_types.py`
+
+---
+
+**4. 游戏地图系统**
+
+slay-the-model 有完整的地图导航系统：
+
+```
+Floor 0: 3 个起始节点
+Floor 8: 宝箱层
+Floor 14: 休息层
+Floor 15: Boss 层
+
+房间类型: MONSTER(53%), ELITE(8%), REST(12%), MERCHANT(5%), UNKNOWN(22%)
+```
+
+**OdysseyCards 当前状态：**
+- 有 `BattleMap`（战斗战场）
+- 无游戏地图导航系统
+
+**学习目标：**
+- 创建 `GameMap` 和 `MapNode` 类
+- 实现地图生成算法
+- 实现房间类型和奖励
+
+**参考代码：**
+- `G:\dev\slay-the-model\map\map_manager.py`
+- `G:\dev\slay-the-model\map\map_data.py`
+- `G:\dev\slay-the-model\docs\map_system_design.md`
+- `G:\dev\slay-the-model\docs\rooms.md`
+
+---
+
+**5. 卡牌生命周期钩子**
+
+slay-the-model 的卡牌有完整生命周期：
+
+```python
+class Card:
+    def on_play(self, targets) -> List[Action]:   # 打出时
+    def on_draw(self) -> List[Action]:            # 抽到时
+    def on_discard(self) -> List[Action]:         # 弃置时
+    def on_exhaust(self) -> List[Action]:         # 消耗时
+```
+
+**学习目标：**
+- 在 `CardBase` 中添加生命周期方法
+- 在 `CombatManager` 中调用相应钩子
+
+**参考代码：**
+- `G:\dev\slay-the-model\cards\base.py`
+- `G:\dev\slay-the-model\docs\cards.md`
+
+---
+
+#### 🟢 低优先级（功能扩展）
+
+**6. 遗物系统**
+
+- 参考：`G:\dev\slay-the-model\docs\relics.md`
+- 稀有度：Common, Uncommon, Rare, Boss
+- 功能分类：攻击增强、防御生存、资源管理、卡组优化
+
+**7. 药剂系统**
+
+- 参考：`G:\dev\slay-the-model\docs\potions.md`
+- 战斗中使用的消耗品
+- 携带数量限制（通常最多 3 瓶）
+
+---
+
+### 推荐学习顺序
+
+```
+Week 1: 敌人意图系统
+├── 阅读 enemies/base.py, enemies/intention.py
+├── 设计 OdysseyCards 的 Intention 类
+└── 实现意图显示 UI
+
+Week 2: 统一伤害计算
+├── 阅读 utils/dynamic_values.py
+├── 创建 DamageResolver 类
+└── 重构现有伤害计算
+
+Week 3: Action 队列系统
+├── 阅读 actions/base.py, utils/result_types.py
+├── 设计 GameAction 基类
+└── 逐步迁移现有逻辑
+
+Week 4: 游戏地图系统
+├── 阅读 map/map_manager.py, docs/map_system_design.md
+├── 设计 GameMap 类
+└── 实现房间类型
+```
+
+---
+
+## 相关资源
+
+- [slay-the-model GitHub](https://github.com/wkzMagician/slay-the-model)
+- 本地克隆路径：`G:\dev\slay-the-model`
+- slay-the-model 文档路径：`G:\dev\slay-the-model\docs\`
 
 ---
 
