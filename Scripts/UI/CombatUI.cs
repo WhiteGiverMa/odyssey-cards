@@ -1,4 +1,5 @@
 using Godot;
+using OdysseyCards.Localization;
 
 namespace OdysseyCards.UI;
 
@@ -55,6 +56,8 @@ public partial class CombatUI : Control
             _exhaustPileButton.Pressed += OnExhaustPileClicked;
         }
 
+        Localization.Localization.OnLanguageChanged += OnLanguageChanged;
+
         CreateDeckViewUI();
     }
 
@@ -70,7 +73,8 @@ public partial class CombatUI : Control
         GD.Print($"[CombatUI] OnDrawPileClicked, _player is null: {_player == null}, _deckViewUI is null: {_deckViewUI == null}");
         if (_player != null && _deckViewUI != null)
         {
-            _deckViewUI.ShowDeckList($"抽牌堆 ({_player.DrawPile.Count})", _player.DrawPile);
+            string title = Localization.Localization.T("ui.combat.draw_pile", "抽牌堆", ("count", _player.DrawPile.Count.ToString()));
+            _deckViewUI.ShowDeckList(title, _player.DrawPile);
         }
     }
 
@@ -79,7 +83,8 @@ public partial class CombatUI : Control
         GD.Print($"[CombatUI] OnExhaustPileClicked, _player is null: {_player == null}, _deckViewUI is null: {_deckViewUI == null}");
         if (_player != null && _deckViewUI != null)
         {
-            _deckViewUI.ShowDeckList($"消耗堆 ({_player.ExhaustPile.Count})", _player.ExhaustPile);
+            string title = Localization.Localization.T("ui.combat.exhaust_pile", "消耗堆", ("count", _player.ExhaustPile.Count.ToString()));
+            _deckViewUI.ShowDeckList(title, _player.ExhaustPile);
         }
     }
 
@@ -299,13 +304,17 @@ public partial class CombatUI : Control
         Label resultLabel = GetNodeOrNull<Label>("ResultLabel");
         if (resultLabel != null)
         {
-            resultLabel.Text = victory ? "VICTORY!" : "DEFEAT";
+            resultLabel.Text = victory
+                ? Localization.Localization.T("ui.combat.victory", "VICTORY!")
+                : Localization.Localization.T("ui.combat.defeat", "DEFEAT");
             resultLabel.Visible = true;
         }
     }
 
     public override void _ExitTree()
     {
+        Localization.Localization.OnLanguageChanged -= OnLanguageChanged;
+
         if (_combatManager != null)
         {
             _combatManager.OnUnitDeployed -= OnUnitDeployed;
@@ -319,5 +328,16 @@ public partial class CombatUI : Control
         {
             _battleMapUI.OnNodeDropTarget -= OnNodeDropTarget;
         }
+    }
+
+    private void OnLanguageChanged(string newLanguage)
+    {
+        UpdatePileLabels();
+    }
+
+    private void UpdatePileLabels()
+    {
+        UpdateDrawPile();
+        UpdateExhaustPile();
     }
 }

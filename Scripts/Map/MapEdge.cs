@@ -24,8 +24,10 @@ namespace OdysseyCards.Map
 
         public int GetOtherNode(int nodeId)
         {
-            if (FromNodeId == nodeId) return ToNodeId;
-            if (ToNodeId == nodeId) return FromNodeId;
+            if (FromNodeId == nodeId)
+                return ToNodeId;
+            if (ToNodeId == nodeId)
+                return FromNodeId;
             return -1;
         }
     }

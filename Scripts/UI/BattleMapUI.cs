@@ -11,23 +11,23 @@ namespace OdysseyCards.UI
     {
         public delegate void NodeDropTargetHandler(int nodeId, Card.Card card);
         public event NodeDropTargetHandler OnNodeDropTarget;
-        
+
         private BattleMap _battleMap;
         private Dictionary<int, MapNodeUI> _nodeUIs = new Dictionary<int, MapNodeUI>();
         private List<MapEdgeUI> _edgeUIs = new List<MapEdgeUI>();
-        
+
         private int _selectedNodeId = -1;
         private List<int> _highlightedNodes = new List<int>();
-        
+
         private bool _isDeployMode = false;
         private bool _isAttackMode = false;
         private List<int> _attackTargetNodes = new List<int>();
         private Card.Card _draggingCard = null;
         private int _hoveredNodeId = -1;
-        
+
         private Vector2 _lastSize = Vector2.Zero;
         private const float _minResizeThreshold = 10.0f;
-        
+
         public BattleMap BattleMap => _battleMap;
         public int SelectedNodeId => _selectedNodeId;
         public bool IsDeployMode => _isDeployMode;
@@ -43,11 +43,13 @@ namespace OdysseyCards.UI
 
         private void OnResized()
         {
-            if (_battleMap == null) return;
-            
+            if (_battleMap == null)
+                return;
+
             float sizeDelta = (Size - _lastSize).Length();
-            if (sizeDelta < _minResizeThreshold) return;
-            
+            if (sizeDelta < _minResizeThreshold)
+                return;
+
             _lastSize = Size;
             RebuildUI();
         }
@@ -70,15 +72,15 @@ namespace OdysseyCards.UI
             }
             _nodeUIs.Clear();
             _edgeUIs.Clear();
-            
+
             if (_battleMap == null)
             {
                 GD.Print("[BattleMapUI] RebuildUI early return - battleMap is null");
                 return;
             }
-            
+
             _lastSize = Size;
-            
+
             GD.Print($"[BattleMapUI] Creating edges, count: {_battleMap.Edges.Count}");
             CreateEdgeUIs();
             GD.Print($"[BattleMapUI] Creating nodes, count: {_battleMap.Nodes.Count}");
@@ -88,8 +90,8 @@ namespace OdysseyCards.UI
 
         private void CreateNodeUIs()
         {
-            float cellSize = UIScaler.Instance != null 
-                ? UIScaler.Instance.GetNodeSize(Size.Y) 
+            float cellSize = UIScaler.Instance != null
+                ? UIScaler.Instance.GetNodeSize(Size.Y)
                 : 80.0f;
 
             float minX = float.MaxValue, maxX = float.MinValue;
@@ -135,8 +137,8 @@ namespace OdysseyCards.UI
 
         private void CreateEdgeUIs()
         {
-            float cellSize = UIScaler.Instance != null 
-                ? UIScaler.Instance.GetNodeSize(Size.Y) 
+            float cellSize = UIScaler.Instance != null
+                ? UIScaler.Instance.GetNodeSize(Size.Y)
                 : 80.0f;
             float nodeCenter = cellSize / 2.0f;
 
@@ -166,7 +168,8 @@ namespace OdysseyCards.UI
                 var fromNode = _battleMap.GetNode(edge.FromNodeId);
                 var toNode = _battleMap.GetNode(edge.ToNodeId);
 
-                if (fromNode == null || toNode == null) continue;
+                if (fromNode == null || toNode == null)
+                    continue;
 
                 var edgeUI = new MapEdgeUI();
 
@@ -194,7 +197,7 @@ namespace OdysseyCards.UI
         public void HighlightNodes(List<int> nodeIds, Color? color = null)
         {
             ClearHighlights();
-            
+
             foreach (var nodeId in nodeIds)
             {
                 if (_nodeUIs.TryGetValue(nodeId, out var nodeUI))
@@ -244,7 +247,7 @@ namespace OdysseyCards.UI
         {
             Vector2 localPos = GetGlobalRect().Position;
             Vector2 relativePos = globalPos - localPos;
-            
+
             foreach (var kvp in _nodeUIs)
             {
                 var nodeUI = kvp.Value;
@@ -264,7 +267,7 @@ namespace OdysseyCards.UI
                 ClearHighlights();
                 return;
             }
-            
+
             var deploymentNodeIds = new List<int>();
             foreach (var kvp in _battleMap.Nodes)
             {
@@ -283,7 +286,7 @@ namespace OdysseyCards.UI
                 ClearHighlights();
                 return;
             }
-            
+
             HighlightNodes(nodeIds, Colors.Red);
         }
 
@@ -292,7 +295,7 @@ namespace OdysseyCards.UI
             _isDeployMode = active;
             _isAttackMode = false;
             _attackTargetNodes.Clear();
-            
+
             if (active)
             {
                 HighlightDeploymentNodes(true);
@@ -308,7 +311,7 @@ namespace OdysseyCards.UI
             _isAttackMode = active;
             _isDeployMode = false;
             _attackTargetNodes = targetNodes ?? new List<int>();
-            
+
             if (active && _attackTargetNodes.Count > 0)
             {
                 HighlightAttackTargets(_attackTargetNodes);
@@ -323,7 +326,7 @@ namespace OdysseyCards.UI
         {
             _draggingCard = card;
             _hoveredNodeId = -1;
-            
+
             if (card != null && IsUnitCard(card))
             {
                 SetDeployMode(true);
@@ -336,7 +339,7 @@ namespace OdysseyCards.UI
             {
                 OnNodeDropTarget?.Invoke(_hoveredNodeId, _draggingCard);
             }
-            
+
             _draggingCard = null;
             _hoveredNodeId = -1;
             SetDeployMode(false);
@@ -345,8 +348,9 @@ namespace OdysseyCards.UI
 
         public void UpdateDragPosition(Vector2 globalPos)
         {
-            if (_draggingCard == null) return;
-            
+            if (_draggingCard == null)
+                return;
+
             int newNodeId = GetNodeAtPosition(globalPos);
             if (newNodeId != _hoveredNodeId)
             {
@@ -361,10 +365,10 @@ namespace OdysseyCards.UI
             {
                 foreach (var kvp in _nodeUIs)
                 {
-                    bool isDeploymentPoint = _battleMap.Nodes.ContainsKey(kvp.Key) && 
+                    bool isDeploymentPoint = _battleMap.Nodes.ContainsKey(kvp.Key) &&
                                              _battleMap.Nodes[kvp.Key].IsPlayerDeploymentPoint;
                     bool isHovered = kvp.Key == _hoveredNodeId;
-                    
+
                     if (isDeploymentPoint)
                     {
                         kvp.Value.SetHighlight(true, isHovered ? Colors.Green : MapNodeUI.DeploymentColor);

@@ -8,10 +8,10 @@ namespace OdysseyCards.Map
     {
         public Dictionary<int, MapNode> Nodes { get; private set; } = new Dictionary<int, MapNode>();
         public List<MapEdge> Edges { get; private set; } = new List<MapEdge>();
-        
+
         public Headquarters PlayerHQ { get; private set; }
         public Headquarters EnemyHQ { get; private set; }
-        
+
         public int PlayerDeploymentNodeId { get; private set; } = -1;
         public int EnemyDeploymentNodeId { get; private set; } = -1;
 
@@ -36,7 +36,7 @@ namespace OdysseyCards.Map
         {
             int playerDeployId = CreateNode(new Vector2I(0, 0), NodeOwner.Player, true, true);
             int enemyDeployId = CreateNode(new Vector2I(4, 0), NodeOwner.Enemy, true, false);
-            
+
             PlayerDeploymentNodeId = playerDeployId;
             EnemyDeploymentNodeId = enemyDeployId;
 
@@ -110,14 +110,14 @@ namespace OdysseyCards.Map
 
             var visited = new HashSet<int>();
             var queue = new Queue<(int nodeId, int distance)>();
-            
+
             queue.Enqueue((fromNodeId, 0));
             visited.Add(fromNodeId);
 
             while (queue.Count > 0)
             {
                 var (currentId, distance) = queue.Dequeue();
-                
+
                 var current = Nodes[currentId];
                 foreach (var neighborId in current.NeighborIds)
                 {
@@ -149,10 +149,10 @@ namespace OdysseyCards.Map
         {
             if (!Nodes.TryGetValue(unitNodeId, out var unitNode) || !Nodes.TryGetValue(targetNodeId, out var targetNode))
                 return false;
-            
+
             if (targetNode.IsEnemyDeploymentPoint && unitOwner == NodeOwner.Player)
                 return false;
-            
+
             if (targetNode.IsPlayerDeploymentPoint && unitOwner == NodeOwner.Enemy)
                 return false;
 
@@ -163,10 +163,10 @@ namespace OdysseyCards.Map
         {
             if (!Nodes.TryGetValue(targetNodeId, out var targetNode))
                 return false;
-            
+
             if (owner == NodeOwner.Player)
                 return targetNode.IsPlayerDeploymentPoint;
-            
+
             if (owner == NodeOwner.Enemy)
                 return targetNode.IsEnemyDeploymentPoint;
 
@@ -176,7 +176,7 @@ namespace OdysseyCards.Map
         public List<int> GetMovableNodes(int fromNodeId, NodeOwner owner)
         {
             var result = new List<int>();
-            
+
             if (!Nodes.TryGetValue(fromNodeId, out var node))
                 return result;
 
@@ -194,7 +194,7 @@ namespace OdysseyCards.Map
         public List<int> GetNodesInRange(int fromNodeId, int range)
         {
             var result = new List<int>();
-            
+
             foreach (var node in Nodes.Values)
             {
                 if (node.Id != fromNodeId)

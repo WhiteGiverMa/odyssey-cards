@@ -94,8 +94,8 @@ namespace OdysseyCards.Core
             {
                 if (modifier.Phase == phase)
                 {
-                    damage = isDealt 
-                        ? modifier.ModifyDamageDealt(damage, context) 
+                    damage = isDealt
+                        ? modifier.ModifyDamageDealt(damage, context)
                         : modifier.ModifyDamageTaken(damage, context);
                 }
             }

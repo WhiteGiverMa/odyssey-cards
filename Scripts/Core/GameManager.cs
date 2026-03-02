@@ -85,11 +85,10 @@ public partial class GameManager : Node
     public override void _Ready()
     {
         Instance = this;
-        GD.Print("[GameManager] _Ready called, Instance set");
-
+        Localization.Localization.Initialize();
         LoadLanguagePreference();
-        Localization.Initialize();
-        Localization.SetLanguage(_currentLanguage);
+        Localization.Localization.SetLanguage(_currentLanguage);
+        GD.Print("[GameManager] _Ready called, Instance set");
     }
 
     private void LoadLanguagePreference()
@@ -104,7 +103,7 @@ public partial class GameManager : Node
     public void SetLanguage(string language)
     {
         _currentLanguage = language;
-        Localization.SetLanguage(language);
+        Localization.Localization.SetLanguage(language);
         ConfigFile config = new();
         config.SetValue("settings", "language", language);
         config.Save("user://settings.cfg");

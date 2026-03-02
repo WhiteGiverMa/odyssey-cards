@@ -18,13 +18,15 @@ public class Headquarters
     public void TakeDamage(int damage)
     {
         CurrentHealth -= damage;
-        if (CurrentHealth < 0) CurrentHealth = 0;
+        if (CurrentHealth < 0)
+            CurrentHealth = 0;
     }
 
     public void Heal(int amount)
     {
         CurrentHealth += amount;
-        if (CurrentHealth > MaxHealth) CurrentHealth = MaxHealth;
+        if (CurrentHealth > MaxHealth)
+            CurrentHealth = MaxHealth;
     }
 
     public void IncreaseMaxHealth(int amount)

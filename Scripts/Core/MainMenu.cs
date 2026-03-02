@@ -10,7 +10,7 @@ public partial class MainMenu : Control
     public override void _Ready()
     {
         PlaceholderAssetGenerator.GenerateAllPlaceholders();
-        
+
         _startButton = GetNode<Button>("StartButton");
         _startButton.Pressed += OnStartPressed;
     }

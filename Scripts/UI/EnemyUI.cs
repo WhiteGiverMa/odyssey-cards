@@ -1,5 +1,6 @@
 using Godot;
 using OdysseyCards.Character;
+using OdysseyCards.Localization;
 
 namespace OdysseyCards.UI;
 
@@ -17,6 +18,8 @@ public partial class EnemyUI : Control
         CustomMinimumSize = new Vector2(150, 100);
         MouseFilter = MouseFilterEnum.Stop;
         AddToGroup("Enemy");
+
+        Localization.Localization.OnLanguageChanged += OnLanguageChanged;
 
         CreateUI();
     }
@@ -118,11 +121,13 @@ public partial class EnemyUI : Control
 
     public void UpdateDisplay()
     {
-        if (_enemy == null) return;
+        if (_enemy == null)
+            return;
 
         if (_nameLabel != null)
         {
-            _nameLabel.Text = _enemy.CharacterName;
+            string enemyId = _enemy.CharacterName.ToLower().Replace(" ", "_");
+            _nameLabel.Text = Localization.Localization.T($"enemies.{enemyId}.name", _enemy.CharacterName);
         }
 
         if (_hqHealthLabel != null)
@@ -131,8 +136,15 @@ public partial class EnemyUI : Control
         }
     }
 
+    private void OnLanguageChanged(string newLanguage)
+    {
+        UpdateDisplay();
+    }
+
     public override void _ExitTree()
     {
+        Localization.Localization.OnLanguageChanged -= OnLanguageChanged;
+
         if (_enemy != null)
         {
             _enemy.OnHandChanged -= UpdateDisplay;

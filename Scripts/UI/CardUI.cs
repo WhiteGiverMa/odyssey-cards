@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using OdysseyCards.Core;
+using OdysseyCards.Localization;
 
 namespace OdysseyCards.UI;
 
@@ -96,6 +97,8 @@ public partial class CardUI : Control
         {
             UIScaler.Instance.OnResolutionChanged += ApplyScaledSize;
         }
+
+        Localization.Localization.OnLanguageChanged += OnLanguageChanged;
 
         CreateSelectionBorder();
         CreateBackground();
@@ -629,6 +632,39 @@ public partial class CardUI : Control
         if (_background != null && !_isSelected)
         {
             UpdateDisplay();
+        }
+    }
+
+    private void OnLanguageChanged(string newLanguage)
+    {
+        UpdateLocalizedText();
+    }
+
+    public void UpdateLocalizedText()
+    {
+        if (_card == null)
+        {
+            return;
+        }
+
+        if (_nameLabel != null)
+        {
+            _nameLabel.Text = _card.CardName;
+        }
+
+        if (_descLabel != null)
+        {
+            _descLabel.Text = _card.Description;
+        }
+    }
+
+    public override void _ExitTree()
+    {
+        Localization.Localization.OnLanguageChanged -= OnLanguageChanged;
+
+        if (UIScaler.Instance != null)
+        {
+            UIScaler.Instance.OnResolutionChanged -= ApplyScaledSize;
         }
     }
 }

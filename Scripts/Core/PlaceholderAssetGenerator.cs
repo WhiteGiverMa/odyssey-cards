@@ -85,7 +85,7 @@ public static class PlaceholderAssetGenerator
                 GeneratePlaceholderImage(fileName, 256, 256, card.color);
             }
         }
-        
+
         GD.Print("Card placeholders ready");
     }
 
@@ -122,7 +122,7 @@ public static class PlaceholderAssetGenerator
                 GeneratePlaceholderImage(fileName, 256, 256, enemy.color);
             }
         }
-        
+
         GD.Print("Enemy placeholders ready");
     }
 
@@ -164,7 +164,7 @@ public static class PlaceholderAssetGenerator
                 GeneratePlaceholderImage(fileName, 64, 64, icon.bgColor);
             }
         }
-        
+
         GD.Print("Icon placeholders ready");
     }
 
@@ -196,7 +196,7 @@ public static class PlaceholderAssetGenerator
                 GeneratePlaceholderImage(fileName, ui.width, ui.height, ui.bgColor);
             }
         }
-        
+
         GD.Print("UI placeholders ready");
     }
 
@@ -211,7 +211,7 @@ public static class PlaceholderAssetGenerator
         {
             Directory.CreateDirectory(directory);
         }
-        
+
         image.SavePng(globalPath);
         GD.Print($"Generated: {resPath}");
     }
