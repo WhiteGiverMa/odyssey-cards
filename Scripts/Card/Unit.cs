@@ -11,8 +11,10 @@ namespace OdysseyCards.Card;
 /// Represents a Unit card that can be deployed on the battle map.
 /// Units have health, attack, range, and can perform move/attack actions.
 /// </summary>
-public partial class Unit : Card
+public partial class Unit : Card, IDamageSource, IDamageTarget
 {
+    private List<IDamageModifier> _damageModifiers = new();
+    public IReadOnlyList<IDamageModifier> DamageModifiers => _damageModifiers.AsReadOnly();
     /// <summary>
     /// The resource data this unit was created from.
     /// </summary>
@@ -32,6 +34,8 @@ public partial class Unit : Card
     /// Attack damage value.
     /// </summary>
     public int Attack { get; private set; }
+
+    public int BaseAttack => Attack;
 
     /// <summary>
     /// Current health points.
@@ -191,6 +195,9 @@ public partial class Unit : Card
         }
 
         unit.ApplyPassiveTags();
+
+        unit._damageModifiers.Add(new DefenseModifier(unit));
+        unit._damageModifiers.Add(new ImmuneModifier(unit));
         return unit;
     }
 
@@ -353,13 +360,35 @@ public partial class Unit : Card
     }
 
     /// <summary>
-    /// Applies damage to this unit, accounting for defense.
+    /// Applies damage to this unit using the unified damage pipeline.
     /// </summary>
-    /// <param name="amount">The amount of damage to apply.</param>
+    /// <param name="baseDamage">The base damage amount.</param>
+    /// <param name="source">The source of the damage.</param>
+    public void TakeDamage(int baseDamage, IDamageSource source)
+    {
+        int finalDamage = DamageResolver.ResolveDamage(baseDamage, source, this);
+        ApplyDamage(finalDamage, source);
+    }
+
+    /// <summary>
+    /// Applies the final damage to this unit after all modifiers.
+    /// </summary>
+    /// <param name="finalDamage">The final damage amount after all modifiers.</param>
+    /// <param name="source">The source of the damage.</param>
+    public void ApplyDamage(int finalDamage, IDamageSource source)
+    {
+        if (finalDamage <= 0) return;
+        CurrentHealth -= finalDamage;
+        if (CurrentHealth <= 0)
+        {
+            OnDeath();
+        }
+    }
+
+    [Obsolete("Use TakeDamage(int baseDamage, IDamageSource source) instead.")]
     public void TakeDamage(int amount)
     {
         if (IsImmune) return;
-
         int actualDamage = System.Math.Max(0, amount - Defense);
         CurrentHealth -= actualDamage;
 
@@ -390,5 +419,37 @@ public partial class Unit : Card
     public override string GetCardInfo()
     {
         return $"{CardName} | {DeployCost}/{ActionCost}/{Attack}/{MaxHealth}/{Range}";
+    }
+}
+
+public class DefenseModifier : IDamageModifier
+{
+    private readonly Unit _unit;
+
+    public DefenseModifier(Unit unit) => _unit = unit;
+
+    public DamagePhase Phase => DamagePhase.ADDITIVE;
+
+    public int ModifyDamageDealt(int currentDamage, DamageContext context) => currentDamage;
+
+    public int ModifyDamageTaken(int currentDamage, DamageContext context)
+    {
+        return currentDamage - _unit.Defense;
+    }
+}
+
+public class ImmuneModifier : IDamageModifier
+{
+    private readonly Unit _unit;
+
+    public ImmuneModifier(Unit unit) => _unit = unit;
+
+    public DamagePhase Phase => DamagePhase.CAPPING;
+
+    public int ModifyDamageDealt(int currentDamage, DamageContext context) => currentDamage;
+
+    public int ModifyDamageTaken(int currentDamage, DamageContext context)
+    {
+        return _unit.IsImmune ? 0 : currentDamage;
     }
 }

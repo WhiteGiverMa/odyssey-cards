@@ -253,11 +253,24 @@ namespace OdysseyCards.UI
 		{
 			GD.Print($"[HandUI] Card dragged to target: {cardUI.Card?.CardName} -> {target.CharacterName}");
 
-			if (cardUI.Card is Card.Order order && order.Target == Core.CardTarget.SingleEnemy)
+			if (cardUI.Card is Card.Order order)
 			{
-				OnCardPlayRequested?.Invoke(cardUI.Card, target);
+				GD.Print($"[HandUI] Card is Order, Target type: {order.Target}");
+				if (order.Target == Core.CardTarget.SingleEnemy)
+				{
+					GD.Print($"[HandUI] Invoking OnCardPlayRequested");
+					OnCardPlayRequested?.Invoke(cardUI.Card, target);
 
-				cardUI.ResetDragState();
+					cardUI.ResetDragState();
+				}
+				else
+				{
+					GD.Print($"[HandUI] Order target type mismatch, not SingleEnemy");
+				}
+			}
+			else
+			{
+				GD.Print($"[HandUI] Card is not an Order");
 			}
 		}
 

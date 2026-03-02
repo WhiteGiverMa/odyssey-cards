@@ -101,7 +101,19 @@ public partial class EnemyUI : Control
         if (_enemy != null)
         {
             _enemy.OnHandChanged += UpdateDisplay;
+            _enemy.OnHealthChanged += OnEnemyHealthChanged;
+            _enemy.OnHQHealthChanged += OnEnemyHQHealthChanged;
         }
+    }
+
+    private void OnEnemyHealthChanged(int current, int max)
+    {
+        UpdateDisplay();
+    }
+
+    private void OnEnemyHQHealthChanged(int current, int max)
+    {
+        UpdateDisplay();
     }
 
     public void UpdateDisplay()
@@ -124,6 +136,8 @@ public partial class EnemyUI : Control
         if (_enemy != null)
         {
             _enemy.OnHandChanged -= UpdateDisplay;
+            _enemy.OnHealthChanged -= OnEnemyHealthChanged;
+            _enemy.OnHQHealthChanged -= OnEnemyHQHealthChanged;
         }
     }
 }

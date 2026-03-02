@@ -75,6 +75,11 @@ public partial class Enemy : Character
     public event Action OnDiscardPileChanged;
 
     /// <summary>
+    /// Fired when HQ health changes. Parameters: currentHealth, maxHealth.
+    /// </summary>
+    public event Action<int, int> OnHQHealthChanged;
+
+    /// <summary>
     /// Initializes the enemy with deck data.
     /// </summary>
     /// <param name="deckData">The enemy deck configuration.</param>
@@ -140,6 +145,7 @@ public partial class Enemy : Character
     {
         HQCurrentHealth -= damage;
         GD.Print($"[Enemy] HQ took {damage} damage. HQ Health: {HQCurrentHealth}/{HQMaxHealth}");
+        OnHQHealthChanged?.Invoke(HQCurrentHealth, HQMaxHealth);
     }
 
     /// <summary>

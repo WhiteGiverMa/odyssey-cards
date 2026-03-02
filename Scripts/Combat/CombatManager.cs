@@ -526,12 +526,14 @@ namespace OdysseyCards.Combat
 
             if (card is Unit unit)
             {
+                GD.Print($"[CombatManager] Card is Unit: {unit.CardName}");
                 StartDeployMode(unit);
                 return;
             }
 
             if (card is Order order)
             {
+                GD.Print($"[CombatManager] Card is Order: {order.CardName}, Cost: {order.Cost}, Energy: {Player.CurrentEnergy}");
                 if (!order.CanPlay(Player.CurrentEnergy))
                 {
                     GD.Print($"[CombatManager] Cannot play card - not enough energy");
@@ -540,16 +542,24 @@ namespace OdysseyCards.Combat
 
                 GD.Print($"[CombatManager] Playing card {card.CardName}");
                 Player.SpendEnergy(order.Cost);
+                GD.Print($"[CombatManager] About to call order.Play, target: {target?.CharacterName}");
                 order.Play(Player, target);
+                GD.Print($"[CombatManager] order.Play completed");
 
                 if (order.ShouldReturnToDeck)
                 {
                     Player.ReturnToDrawPile(card);
+                    GD.Print($"[CombatManager] Card returned to draw pile");
                 }
                 else
                 {
                     Player.DiscardCard(card);
+                    GD.Print($"[CombatManager] Card discarded");
                 }
+            }
+            else
+            {
+                GD.Print($"[CombatManager] Card is neither Unit nor Order! Type: {card?.GetType().Name}");
             }
 
             CheckCombatEnd();
@@ -749,17 +759,17 @@ namespace OdysseyCards.Combat
 
             if (!target.HasAmbush)
             {
-                target.TakeDamage(attacker.Attack);
+                target.TakeDamage(attacker.Attack, attacker);
             }
 
             if (!attacker.HasAttackedThisTurn && !target.IsImmune)
             {
-                attacker.TakeDamage(target.Attack);
+                attacker.TakeDamage(target.Attack, target);
             }
 
             if (target.HasAmbush)
             {
-                target.TakeDamage(attacker.Attack);
+                target.TakeDamage(attacker.Attack, attacker);
                 target.HasAmbush = false;
             }
 
@@ -784,9 +794,10 @@ namespace OdysseyCards.Combat
         private void AttackEnemyHQ(Unit attacker)
         {
             attacker.UseAttackAction();
-            BattleMap.EnemyHQ.TakeDamage(attacker.Attack);
+            int damage = DamageResolver.ResolveDamage(attacker.Attack, attacker, null);
+            BattleMap.EnemyHQ.TakeDamage(damage);
 
-            GD.Print($"[CombatManager] {attacker.CardName} attacked Enemy HQ for {attacker.Attack} damage");
+            GD.Print($"[CombatManager] {attacker.CardName} attacked Enemy HQ for {damage} damage");
 
             CancelSelection();
             CheckCombatEnd();
@@ -934,8 +945,9 @@ namespace OdysseyCards.Combat
         private void AttackPlayerHQ(Unit attacker)
         {
             attacker.UseAttackAction();
-            BattleMap.PlayerHQ.TakeDamage(attacker.Attack);
-            GD.Print($"[CombatManager] {attacker.CardName} attacked Player HQ for {attacker.Attack} damage");
+            int damage = DamageResolver.ResolveDamage(attacker.Attack, attacker, null);
+            BattleMap.PlayerHQ.TakeDamage(damage);
+            GD.Print($"[CombatManager] {attacker.CardName} attacked Player HQ for {damage} damage");
             CancelSelection();
             CheckCombatEnd();
         }

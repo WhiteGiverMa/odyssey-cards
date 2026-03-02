@@ -98,7 +98,53 @@
 | 断流 | Massive | 无法与其他单位处于同一节点 |
 | 渗透 | Infiltrate | 可移动到敌方单位所在节点 |
 
-**结果**: `dotnet build` → 0 错误, 7 警告（均为代码风格建议，不影响功能）
+**结果**: `dotnet build` → 0 错误, 7 警告
+
+---
+
+## 2026-03-02
+
+### 第六阶段：统一伤害计算管道 (Phase 6: Unified Damage Resolver)
+
+**任务**: 参考 slay-the-model 设计，创建统一伤害计算管道，作为伤害计算的"唯一真理之源"
+
+**新建文件**:
+- `Scripts/Core/DamagePhase.cs` - 伤害修改器阶段枚举（ADDITIVE, MULTIPLICATIVE, CAPPING）
+- `Scripts/Core/DamageContext.cs` - 伤害计算上下文结构体
+- `Scripts/Core/IDamageSource.cs` - 伤害来源接口
+- `Scripts/Core/IDamageTarget.cs` - 伤害目标接口
+- `Scripts/Core/IDamageModifier.cs` - 伤害修改器接口
+- `Scripts/Core/DamageResolver.cs` - 统一伤害计算解析器
+
+**修改文件**:
+- `Scripts/Card/Unit.cs` - 实现 IDamageSource 和 IDamageTarget 接口，添加 DefenseModifier 和 ImmuneModifier
+- `Scripts/Combat/CombatManager.cs` - ExecuteAttack、AttackEnemyHQ、AttackPlayerHQ 使用 DamageResolver
+
+**设计要点**:
+
+伤害计算阶段顺序（CRITICAL）:
+1. **ADDITIVE（加算）**: 力量+3、防御-2 等
+2. **MULTIPLICATIVE（乘算）**: 易伤1.5x、虚弱0.75x 等
+3. **CAPPING（限定）**: 免疫上限0、无形上限1 等
+4. **Clamp**: 确保非负整数
+
+**核心接口**:
+```csharp
+public interface IDamageModifier
+{
+    DamagePhase Phase { get; }
+    int ModifyDamageDealt(int currentDamage, DamageContext context);
+    int ModifyDamageTaken(int currentDamage, DamageContext context);
+}
+```
+
+**内置修改器**:
+- `DefenseModifier`: ADDITIVE 阶段，减少受到的伤害
+- `ImmuneModifier`: CAPPING 阶段，免疫时伤害上限为0
+
+**结果**: `dotnet build` → 0 错误
+
+**参考**: slay-the-model `utils/dynamic_values.py` 和 `utils/damage_phase.py`（均为代码风格建议，不影响功能）
 
 ---
 

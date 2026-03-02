@@ -40,6 +40,13 @@ public partial class Order : Card
     /// <returns>A new Order instance.</returns>
     public static Order Create(OrderData data)
     {
+        GD.Print($"[Order] Create called for: {data.CardName}");
+        GD.Print($"[Order] data.Effects is null: {data.Effects == null}");
+        if (data.Effects != null)
+        {
+            GD.Print($"[Order] data.Effects count: {data.Effects.Count}");
+        }
+
         var order = new Order
         {
             Data = data,
@@ -58,9 +65,12 @@ public partial class Order : Card
         if (data.Effects != null)
         {
             foreach (var effect in data.Effects)
+            {
                 order._effects.Add(effect);
+            }
         }
 
+        GD.Print($"[Order] Created order: {order.CardName}, effects count: {order._effects.Count}");
         return order;
     }
 
@@ -81,6 +91,8 @@ public partial class Order : Card
     /// <param name="target">Optional target character.</param>
     public void Play(Character.Character caster, Character.Character target = null)
     {
+        GD.Print($"[Order] Play called: {CardName}, effects count: {_effects.Count}, target: {target?.CharacterName}");
+
         if (HasTag(CardTag.Rotation))
         {
             ShouldReturnToDeck = true;
@@ -94,12 +106,27 @@ public partial class Order : Card
 
     private void ExecuteEffect(CardEffectData effect, Character.Character caster, Character.Character target)
     {
+        GD.Print($"[Order] ExecuteEffect: {effect.EffectType}, value: {effect.Value}, target: {target?.CharacterName}");
+
         switch (effect.EffectType)
         {
             case CardEffectType.Damage:
                 if (target != null)
                 {
-                    target.TakeDamage(effect.Value);
+                    if (target is Enemy enemy)
+                    {
+                        enemy.TakeHQDamage(effect.Value);
+                        GD.Print($"[Order] Dealt {effect.Value} damage to {target.CharacterName} HQ, HQ health now: {enemy.HQCurrentHealth}/{enemy.HQMaxHealth}");
+                    }
+                    else
+                    {
+                        target.TakeDamage(effect.Value);
+                        GD.Print($"[Order] Dealt {effect.Value} damage to {target.CharacterName}, health now: {target.CurrentHealth}/{target.MaxHealth}");
+                    }
+                }
+                else
+                {
+                    GD.PrintErr($"[Order] Damage effect has no target!");
                 }
                 break;
             case CardEffectType.Heal:
