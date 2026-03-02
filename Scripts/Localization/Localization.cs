@@ -180,7 +180,7 @@ public static class Localization
 
     private static void LoadTranslationFile(string filePath, string languageCode)
     {
-        using FileAccess file = FileAccess.Open(filePath, FileAccess.ModeFlags.Read);
+        using Godot.FileAccess file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Read);
         if (file == null)
         {
             GD.PrintErr($"[Localization] Failed to open file: {filePath}");

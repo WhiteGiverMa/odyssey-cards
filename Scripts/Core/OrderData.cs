@@ -1,7 +1,7 @@
 using Godot;
 using OdysseyCards.Core;
-using OdysseyCards.Localization;
 using System.Collections.Generic;
+using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.Core;
 
@@ -22,12 +22,12 @@ public partial class OrderData : Resource, ICardData
 
     public string GetLocalizedName()
     {
-        return Localization.T($"cards.{Id}.name", CardName);
+        return Loc.T($"cards.{Id}.name", CardName);
     }
 
     public string GetLocalizedDescription(Dictionary<string, object> parameters = null)
     {
-        return Localization.T($"cards.{Id}.description", Description, parameters);
+        return Loc.T($"cards.{Id}.description", Description, parameters);
     }
 
     public bool HasTag(CardTag tag)
