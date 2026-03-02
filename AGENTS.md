@@ -27,6 +27,14 @@ OdysseyCards/
 | [project_spec_record.md](./.trae/documents/project_spec_record.md) | 项目规范记录文档 |
 | [tag_definition.md](./.trae/documents/tag_definition.md) | 词条定义字典 |
 | [file_structure.md](./.trae/documents/file_structure.md) | 完整文件结构文档 |
+| [slay_the_model_architecture.md](./DevDocs/slay_the_model_architecture.md) | slay-the-model架构学习笔记 |
+
+## External Reference
+
+| 资源 | 路径 | 说明 |
+|-----|------|------|
+| slay-the-model | `G:\dev\slay-the-model` | Python卡牌游戏参考实现 |
+| slay-the-model docs | `G:\dev\slay-the-model\docs` | 架构文档目录 |
 
 ## Key Notes
 
