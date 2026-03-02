@@ -1,4 +1,13 @@
 ui:
+  menu:
+    title: "Odyssey Cards"
+    start_game: "Start Game"
+    settings: "Settings"
+    quit: "Quit"
+  settings:
+    title: "Settings"
+    language: "Language"
+    back: "Back"
   combat:
     end_turn: "End Turn"
     player_turn: "Player Turn"
@@ -7,10 +16,6 @@ ui:
     discard_pile: "Discard Pile"
     energy: "Energy"
     select_target: "Select Target"
-  menu:
-    start_game: "Start Game"
-    settings: "Settings"
-    quit: "Quit"
   card:
     type_unit: "UNIT"
     type_order: "ORDER"

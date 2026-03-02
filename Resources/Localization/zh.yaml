@@ -1,4 +1,13 @@
 ui:
+  menu:
+    title: "奥德赛卡牌"
+    start_game: "开始游戏"
+    settings: "设置"
+    quit: "退出"
+  settings:
+    title: "设置"
+    language: "语言"
+    back: "返回"
   combat:
     end_turn: "结束回合"
     player_turn: "玩家回合"
@@ -7,10 +16,6 @@ ui:
     discard_pile: "弃牌堆"
     energy: "能量"
     select_target: "选择目标"
-  menu:
-    start_game: "开始游戏"
-    settings: "设置"
-    quit: "退出"
   card:
     type_unit: "单位"
     type_order: "指令"
