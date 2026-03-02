@@ -163,8 +163,6 @@ public partial class Unit : Card, IDamageSource, IDamageTarget
             Data = data,
             _data = data,
             Id = data.Id,
-            CardName = data.CardName,
-            Description = data.Description,
             Rarity = data.Rarity,
             Artwork = data.Artwork,
             Type = CardType.Unit,

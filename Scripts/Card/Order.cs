@@ -52,8 +52,6 @@ public partial class Order : Card
             Data = data,
             _data = data,
             Id = data.Id,
-            CardName = data.CardName,
-            Description = data.Description,
             Rarity = data.Rarity,
             Artwork = data.Artwork,
             Type = CardType.Order,
