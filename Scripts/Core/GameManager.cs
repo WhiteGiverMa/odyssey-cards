@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using OdysseyCards.Card;
 using OdysseyCards.Character;
+using OdysseyCards.Localization;
 
 namespace OdysseyCards.Core;
 
@@ -16,6 +17,13 @@ public partial class GameManager : Node
     /// Singleton instance for global access.
     /// </summary>
     public static GameManager Instance { get; private set; }
+
+    private string _currentLanguage = "zh";
+
+    /// <summary>
+    /// Current language code (e.g., "zh", "en").
+    /// </summary>
+    public static string CurrentLanguage => Instance?._currentLanguage ?? "zh";
 
     private Deck _playerDeck;
 
@@ -78,6 +86,35 @@ public partial class GameManager : Node
     {
         Instance = this;
         GD.Print("[GameManager] _Ready called, Instance set");
+
+        LoadLanguagePreference();
+        Localization.Initialize();
+        Localization.SetLanguage(_currentLanguage);
+    }
+
+    private void LoadLanguagePreference()
+    {
+        ConfigFile config = new();
+        if (config.Load("user://settings.cfg") == Error.Ok)
+        {
+            _currentLanguage = (string)config.GetValue("settings", "language", "zh");
+        }
+    }
+
+    public void SetLanguage(string language)
+    {
+        _currentLanguage = language;
+        Localization.SetLanguage(language);
+        ConfigFile config = new();
+        config.SetValue("settings", "language", language);
+        config.Save("user://settings.cfg");
+    }
+
+    public void ToggleLanguage()
+    {
+        string newLang = _currentLanguage == "en" ? "zh" : "en";
+        SetLanguage(newLang);
+        GD.Print($"[GameManager] Language toggled to: {newLang}");
     }
 
     public void CreateNewPlayer()
