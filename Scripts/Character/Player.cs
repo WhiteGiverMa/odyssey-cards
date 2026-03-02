@@ -27,14 +27,9 @@ public partial class Player : Character
     public List<Card.Card> DrawPile { get; private set; } = new();
 
     /// <summary>
-    /// Cards in the discard pile.
+    /// Cards in the discard pile (played cards that are exhausted).
     /// </summary>
     public List<Card.Card> DiscardPile { get; private set; } = new();
-
-    /// <summary>
-    /// Cards that have been exhausted (removed from play).
-    /// </summary>
-    public List<Card.Card> ExhaustPile { get; private set; } = new();
 
     /// <summary>
     /// Current gold amount.
@@ -72,14 +67,9 @@ public partial class Player : Character
     public event Action OnDrawPileChanged;
 
     /// <summary>
-    /// Fired when the discard pile contents change.
+    /// Fired when the discard pile contents change (includes exhausted cards).
     /// </summary>
     public event Action OnDiscardPileChanged;
-
-    /// <summary>
-    /// Fired when the exhaust pile contents change.
-    /// </summary>
-    public event Action OnExhaustPileChanged;
 
     /// <summary>
     /// Initializes the player with a starting deck.
@@ -128,9 +118,9 @@ public partial class Player : Character
     }
 
     /// <summary>
-    /// Moves a card from hand to the discard pile.
+    /// Moves a card from hand to the discard pile (exhausts it).
     /// </summary>
-    /// <param name="card">The card to discard.</param>
+    /// <param name="card">The card to discard/exhaust.</param>
     public void DiscardCard(Card.Card card)
     {
         if (!Hand.Contains(card))
@@ -146,25 +136,7 @@ public partial class Player : Character
     }
 
     /// <summary>
-    /// Moves a card from hand to the exhaust pile.
-    /// </summary>
-    /// <param name="card">The card to exhaust.</param>
-    public void ExhaustCard(Card.Card card)
-    {
-        if (!Hand.Contains(card))
-        {
-            return;
-        }
-
-        Hand.Remove(card);
-        ExhaustPile.Add(card);
-
-        OnHandChanged?.Invoke();
-        OnExhaustPileChanged?.Invoke();
-    }
-
-    /// <summary>
-    /// Returns a card from hand to a random position in the draw pile.
+    /// Returns a card from hand to a random position in the draw pile (for cycling cards).
     /// </summary>
     /// <param name="card">The card to return.</param>
     public void ReturnToDrawPile(Card.Card card)

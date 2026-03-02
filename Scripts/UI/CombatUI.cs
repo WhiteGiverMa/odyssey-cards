@@ -12,9 +12,9 @@ public partial class CombatUI : Control
     private Button _endTurnButton;
     private Label _energyLabel;
     private Button _drawPileButton;
-    private Button _exhaustPileButton;
+    private Button _discardPileButton;
     private Label _drawPileCountLabel;
-    private Label _exhaustPileCountLabel;
+    private Label _discardPileCountLabel;
 
     private BattleMapUI _battleMapUI;
     private DeckViewUI _deckViewUI;
@@ -33,15 +33,15 @@ public partial class CombatUI : Control
         _endTurnButton = GetNode<Button>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/EndTurnButton");
         _energyLabel = GetNode<Label>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PlayerPanel/EnergyLabel");
         _drawPileButton = GetNode<Button>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer/DrawPileButton");
-        _exhaustPileButton = GetNode<Button>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer/ExhaustPileButton");
+        _discardPileButton = GetNode<Button>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer/DiscardPileButton");
         _drawPileCountLabel = GetNode<Label>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer/DrawPileButton/DrawPileCount");
-        _exhaustPileCountLabel = GetNode<Label>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer/ExhaustPileButton/ExhaustPileCount");
+        _discardPileCountLabel = GetNode<Label>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer/DiscardPileButton/DiscardPileCount");
 
         _battleMapUI = GetNode<BattleMapUI>("../MainContainer/CenterContainer/MapArea/BattleMapUI");
         _enemyHandArea = GetNode<HBoxContainer>("../MainContainer/TopBar/EnemyArea/MarginContainer/EnemyHandArea");
 
         GD.Print($"[CombatUI] Node references - HealthBar: {_playerHealthBar != null}, HandUI: {_handUI != null}, EnergyLabel: {_energyLabel != null}");
-        GD.Print($"[CombatUI] PileButtons - DrawPile: {_drawPileButton != null}, ExhaustPile: {_exhaustPileButton != null}");
+        GD.Print($"[CombatUI] PileButtons - DrawPile: {_drawPileButton != null}, DiscardPile: {_discardPileButton != null}");
 
         if (_endTurnButton != null)
         {
@@ -51,9 +51,9 @@ public partial class CombatUI : Control
         {
             _drawPileButton.Pressed += OnDrawPileClicked;
         }
-        if (_exhaustPileButton != null)
+        if (_discardPileButton != null)
         {
-            _exhaustPileButton.Pressed += OnExhaustPileClicked;
+            _discardPileButton.Pressed += OnDiscardPileClicked;
         }
 
         Localization.Localization.OnLanguageChanged += OnLanguageChanged;
@@ -78,13 +78,13 @@ public partial class CombatUI : Control
         }
     }
 
-    private void OnExhaustPileClicked()
+    private void OnDiscardPileClicked()
     {
-        GD.Print($"[CombatUI] OnExhaustPileClicked, _player is null: {_player == null}, _deckViewUI is null: {_deckViewUI == null}");
+        GD.Print($"[CombatUI] OnDiscardPileClicked, _player is null: {_player == null}, _deckViewUI is null: {_deckViewUI == null}");
         if (_player != null && _deckViewUI != null)
         {
-            string title = Localization.Localization.T("ui.combat.exhaust_pile", "消耗堆", ("count", _player.ExhaustPile.Count.ToString()));
-            _deckViewUI.ShowDeckList(title, _player.ExhaustPile);
+            string title = Localization.Localization.T("ui.combat.discard_pile", "弃牌堆", ("count", _player.DiscardPile.Count.ToString()));
+            _deckViewUI.ShowDeckList(title, _player.DiscardPile);
         }
     }
 
@@ -120,7 +120,7 @@ public partial class CombatUI : Control
 
         _player.OnEnergyChanged += UpdateEnergy;
         _player.OnDrawPileChanged += UpdateDrawPile;
-        _player.OnExhaustPileChanged += UpdateExhaustPile;
+        _player.OnDiscardPileChanged += UpdateDiscardPile;
 
         GD.Print("[CombatUI] Event handlers subscribed");
 
@@ -130,8 +130,8 @@ public partial class CombatUI : Control
         UpdateDrawPile();
         GD.Print("[CombatUI] UpdateDrawPile called");
 
-        UpdateExhaustPile();
-        GD.Print("[CombatUI] UpdateExhaustPile called");
+        UpdateDiscardPile();
+        GD.Print("[CombatUI] UpdateDiscardPile called");
 
         GD.Print("[CombatUI] Calling InitializeBattleMap");
         InitializeBattleMap();
@@ -286,11 +286,11 @@ public partial class CombatUI : Control
         }
     }
 
-    private void UpdateExhaustPile()
+    private void UpdateDiscardPile()
     {
-        if (_exhaustPileCountLabel != null && _player != null)
+        if (_discardPileCountLabel != null && _player != null)
         {
-            _exhaustPileCountLabel.Text = $"{_player.ExhaustPile.Count}";
+            _discardPileCountLabel.Text = $"{_player.DiscardPile.Count}";
         }
     }
 
@@ -338,6 +338,6 @@ public partial class CombatUI : Control
     private void UpdatePileLabels()
     {
         UpdateDrawPile();
-        UpdateExhaustPile();
+        UpdateDiscardPile();
     }
 }
