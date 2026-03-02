@@ -23,15 +23,24 @@ ui:
     gold: "金币"
 
 cards:
-  strike:
+  order_Strike:
     name: "打击"
-    description: "造成 {damage} 点伤害。"
-  defend:
-    name: "防御"
-    description: "获得 {block} 点格挡。"
-  bash:
-    name: "重击"
-    description: "造成 {damage} 点伤害。施加 {vulnerable} 层易伤。"
+    description: "造成 3 点伤害。"
+  order_Assault:
+    name: "出击"
+    description: "轮战\n造成 2 点伤害，抽 1 张牌"
+  order_Alert:
+    name: "警戒"
+    description: "轮战\n抽 1 张牌，友方总部获得 +2 生命值"
+  unit_18thRegiment:
+    name: "第 18 团"
+    description: "守护，轮战"
+  unit_DetectiveSquad:
+    name: "武侦小组"
+    description: "闪击，机动"
+  unit_LianshuScout:
+    name: "联树机器犬 侦察型"
+    description: "闪击，轮战\n亡语：抽 1 张牌"
 
 combat:
   victory: "胜利！"

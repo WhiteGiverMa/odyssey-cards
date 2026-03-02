@@ -23,15 +23,24 @@ ui:
     gold: "Gold"
 
 cards:
-  strike:
+  order_Strike:
     name: "Strike"
-    description: "Deal {damage} damage."
-  defend:
-    name: "Defend"
-    description: "Gain {block} block."
-  bash:
-    name: "Bash"
-    description: "Deal {damage} damage. Apply {vulnerable} Vulnerable."
+    description: "Deal 3 damage."
+  order_Assault:
+    name: "Assault"
+    description: "Rotation\nDeal 2 damage, draw 1 card"
+  order_Alert:
+    name: "Alert"
+    description: "Rotation\nDraw 1 card, friendly HQ +2 HP"
+  unit_18thRegiment:
+    name: "18th Regiment"
+    description: "Guard, Rotation"
+  unit_DetectiveSquad:
+    name: "Detective Squad"
+    description: "Ambush, Mobile"
+  unit_LianshuScout:
+    name: "Lianshu Mech Hound Scout"
+    description: "Ambush, Rotation\nLast Words: Draw 1 card"
 
 combat:
   victory: "Victory!"
