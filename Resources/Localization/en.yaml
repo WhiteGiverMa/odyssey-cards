@@ -1,0 +1,47 @@
+ui:
+  combat:
+    end_turn: "End Turn"
+    player_turn: "Player Turn"
+    enemy_turn: "Enemy Turn"
+    draw_pile: "Draw Pile"
+    discard_pile: "Discard Pile"
+    energy: "Energy"
+    select_target: "Select Target"
+  menu:
+    start_game: "Start Game"
+    settings: "Settings"
+    quit: "Quit"
+  card:
+    type_unit: "UNIT"
+    type_order: "ORDER"
+    deploy: "Deploy"
+    move: "Move"
+    attack: "Attack"
+  rewards:
+    choose_card: "Choose a Card"
+    skip: "Skip"
+    gold: "Gold"
+
+cards:
+  strike:
+    name: "Strike"
+    description: "Deal {damage} damage."
+  defend:
+    name: "Defend"
+    description: "Gain {block} block."
+  bash:
+    name: "Bash"
+    description: "Deal {damage} damage. Apply {vulnerable} Vulnerable."
+
+combat:
+  victory: "Victory!"
+  defeat: "Defeat..."
+  enemy_defeated: "{enemy} defeated!"
+  damage_dealt: "Dealt {amount} damage to {target}"
+  block_gained: "Gained {amount} block"
+
+enemies:
+  cultist:
+    name: "Cultist"
+  jaw_worm:
+    name: "Jaw Worm"

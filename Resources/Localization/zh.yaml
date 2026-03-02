@@ -1,0 +1,47 @@
+ui:
+  combat:
+    end_turn: "结束回合"
+    player_turn: "玩家回合"
+    enemy_turn: "敌人回合"
+    draw_pile: "抽牌堆"
+    discard_pile: "弃牌堆"
+    energy: "能量"
+    select_target: "选择目标"
+  menu:
+    start_game: "开始游戏"
+    settings: "设置"
+    quit: "退出"
+  card:
+    type_unit: "单位"
+    type_order: "指令"
+    deploy: "部署"
+    move: "移动"
+    attack: "攻击"
+  rewards:
+    choose_card: "选择一张卡牌"
+    skip: "跳过"
+    gold: "金币"
+
+cards:
+  strike:
+    name: "打击"
+    description: "造成 {damage} 点伤害。"
+  defend:
+    name: "防御"
+    description: "获得 {block} 点格挡。"
+  bash:
+    name: "重击"
+    description: "造成 {damage} 点伤害。施加 {vulnerable} 层易伤。"
+
+combat:
+  victory: "胜利！"
+  defeat: "失败..."
+  enemy_defeated: "{enemy} 已被击败！"
+  damage_dealt: "对 {target} 造成 {amount} 点伤害"
+  block_gained: "获得 {amount} 点格挡"
+
+enemies:
+  cultist:
+    name: "邪教徒"
+  jaw_worm:
+    name: "大颚虫"
