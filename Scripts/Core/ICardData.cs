@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 namespace OdysseyCards.Core;
 
@@ -37,4 +38,14 @@ public interface ICardData
     /// Type classification (Unit or Order).
     /// </summary>
     CardType Type { get; }
+
+    /// <summary>
+    /// Gets the localized display name of the card.
+    /// </summary>
+    string GetLocalizedName();
+
+    /// <summary>
+    /// Gets the localized description with parameter substitution.
+    /// </summary>
+    string GetLocalizedDescription(Dictionary<string, object> parameters = null);
 }

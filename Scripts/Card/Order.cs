@@ -50,6 +50,7 @@ public partial class Order : Card
         var order = new Order
         {
             Data = data,
+            _data = data,
             Id = data.Id,
             CardName = data.CardName,
             Description = data.Description,

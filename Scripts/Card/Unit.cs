@@ -160,6 +160,7 @@ public partial class Unit : Card, IDamageSource, IDamageTarget
         var unit = new Unit
         {
             Data = data,
+            _data = data,
             Id = data.Id,
             CardName = data.CardName,
             Description = data.Description,
@@ -203,7 +204,8 @@ public partial class Unit : Card, IDamageSource, IDamageTarget
 
     private void ApplyPassiveTags()
     {
-        if (Tags == null) return;
+        if (Tags == null)
+            return;
 
         foreach (var tag in Tags)
         {
@@ -377,7 +379,8 @@ public partial class Unit : Card, IDamageSource, IDamageTarget
     /// <param name="source">The source of the damage.</param>
     public void ApplyDamage(int finalDamage, IDamageSource source)
     {
-        if (finalDamage <= 0) return;
+        if (finalDamage <= 0)
+            return;
         CurrentHealth -= finalDamage;
         if (CurrentHealth <= 0)
         {
@@ -388,7 +391,8 @@ public partial class Unit : Card, IDamageSource, IDamageTarget
     [Obsolete("Use TakeDamage(int baseDamage, IDamageSource source) instead.")]
     public void TakeDamage(int amount)
     {
-        if (IsImmune) return;
+        if (IsImmune)
+            return;
         int actualDamage = System.Math.Max(0, amount - Defense);
         CurrentHealth -= actualDamage;
 

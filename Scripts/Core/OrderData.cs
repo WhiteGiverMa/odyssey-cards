@@ -1,5 +1,6 @@
 using Godot;
 using OdysseyCards.Core;
+using OdysseyCards.Localization;
 using System.Collections.Generic;
 
 namespace OdysseyCards.Core;
@@ -18,6 +19,16 @@ public partial class OrderData : Resource, ICardData
 
     [Export] public Godot.Collections.Array<CardTag> Tags { get; set; } = new();
     [Export] public Godot.Collections.Array<CardEffectData> Effects { get; set; } = new();
+
+    public string GetLocalizedName()
+    {
+        return Localization.T($"cards.{Id}.name", CardName);
+    }
+
+    public string GetLocalizedDescription(Dictionary<string, object> parameters = null)
+    {
+        return Localization.T($"cards.{Id}.description", Description, parameters);
+    }
 
     public bool HasTag(CardTag tag)
     {
