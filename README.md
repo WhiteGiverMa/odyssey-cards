@@ -83,3 +83,8 @@ dotnet format OdysseyCards.sln
 - `dev_designdoc.md` - 设计文档
 - `dev_note.md` - 开发笔记
 - `dev_todolist.md` - 待办事项
+- `slay_the_model_architecture.md` - 架构学习笔记
+
+## 致谢
+
+本项目架构设计参考了 [slay-the-model](https://github.com/wkzMagician/slay-the-model) 项目，这是一个结构清晰的《杀戮尖塔》核心框架，为卡牌游戏架构设计提供了宝贵的学习资源。
