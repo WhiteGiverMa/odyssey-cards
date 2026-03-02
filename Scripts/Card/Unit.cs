@@ -56,7 +56,7 @@ public partial class Unit : Card
     /// <summary>
     /// Owner of this unit (Player, Enemy, or None).
     /// </summary>
-    public new NodeOwner Owner { get; set; } = NodeOwner.None;
+    public NodeOwner OwnerType { get; set; } = NodeOwner.None;
 
     /// <summary>
     /// Whether this unit has been deployed.

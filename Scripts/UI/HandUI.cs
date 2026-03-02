@@ -31,16 +31,9 @@ namespace OdysseyCards.UI
 			{
 				UIScaler.Instance.OnResolutionChanged += OnResolutionChangedHandler;
 			}
-
-			_cardContainer.Resized += OnContainerResized;
 		}
 
 		private void OnResolutionChangedHandler()
-		{
-			UpdateHand();
-		}
-
-		private void OnContainerResized()
 		{
 			UpdateHand();
 		}
@@ -66,20 +59,17 @@ namespace OdysseyCards.UI
 				_player.OnHandChanged -= UpdateHand;
 			}
 
-			_player = player;
+			_player = player ?? throw new System.ArgumentNullException(nameof(player));
 
-			if (_player != null)
-			{
-				_player.OnHandChanged += UpdateHand;
-				GD.Print($"[HandUI] Subscribed to OnHandChanged, current hand count: {_player.Hand.Count}");
-			}
+			_player.OnHandChanged += UpdateHand;
+			GD.Print($"[HandUI] Subscribed to OnHandChanged, current hand count: {_player.Hand.Count}");
 			GD.Print("[HandUI] SetPlayer completed");
 		}
 
 		public void SetCombatManager(Combat.CombatManager manager)
 		{
 			GD.Print($"[HandUI] SetCombatManager called, manager is null: {manager == null}");
-			_combatManager = manager;
+			_combatManager = manager ?? throw new System.ArgumentNullException(nameof(manager));
 			GD.Print("[HandUI] SetCombatManager completed");
 		}
 

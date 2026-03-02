@@ -411,7 +411,7 @@ namespace OdysseyCards.Combat
             bool allEnemiesDead = true;
             foreach (Enemy enemy in Enemies)
             {
-                if (!enemy.IsDead)
+                if (enemy.HQCurrentHealth > 0)
                 {
                     allEnemiesDead = false;
                     break;
@@ -421,10 +421,6 @@ namespace OdysseyCards.Combat
             if (allEnemiesDead)
             {
                 EndCombat(CombatState.Victory);
-            }
-            else if (Player.IsDead)
-            {
-                EndCombat(CombatState.Defeat);
             }
         }
 
@@ -591,7 +587,7 @@ namespace OdysseyCards.Combat
             SelectedCard = null;
             CurrentSelectionMode = SelectionMode.MoveUnit;
 
-            List<int> movableNodes = BattleMap.GetMovableNodes(unit.CurrentNode, unit.Owner);
+            List<int> movableNodes = BattleMap.GetMovableNodes(unit.CurrentNode, unit.OwnerType);
             GD.Print($"[CombatManager] Move mode started for {unit.CardName}, can move to {movableNodes.Count} nodes");
         }
 
@@ -668,7 +664,7 @@ namespace OdysseyCards.Combat
             }
 
             Player.SpendEnergy(unit.DeployCost);
-            unit.Owner = NodeOwner.Player;
+            unit.OwnerType = NodeOwner.Player;
             unit.CurrentNode = nodeId;
             unit.OnDeploy();
 
@@ -691,7 +687,7 @@ namespace OdysseyCards.Combat
                 return false;
             }
 
-            if (!BattleMap.CanMoveTo(SelectedUnit.CurrentNode, nodeId, SelectedUnit.Owner))
+            if (!BattleMap.CanMoveTo(SelectedUnit.CurrentNode, nodeId, SelectedUnit.OwnerType))
             {
                 GD.Print($"[CombatManager] Cannot move to node {nodeId}");
                 return false;
@@ -731,7 +727,7 @@ namespace OdysseyCards.Combat
             }
 
             MapNode node = BattleMap.GetNode(nodeId);
-            if (node?.IsEnemyDeploymentPoint == true && SelectedUnit.Owner == NodeOwner.Player)
+            if (node?.IsEnemyDeploymentPoint == true && SelectedUnit.OwnerType == NodeOwner.Player)
             {
                 if (!BattleMap.IsInAttackRange(SelectedUnit.CurrentNode, nodeId, SelectedUnit.Range))
                 {
@@ -798,7 +794,7 @@ namespace OdysseyCards.Combat
 
         private void RemoveUnit(Unit unit)
         {
-            _ = unit.Owner == NodeOwner.Player ? PlayerUnits.Remove(unit) : EnemyUnits.Remove(unit);
+            _ = unit.OwnerType == NodeOwner.Player ? PlayerUnits.Remove(unit) : EnemyUnits.Remove(unit);
 
             if (unit.ShouldReturnToDeck)
             {
@@ -852,7 +848,7 @@ namespace OdysseyCards.Combat
                 case SelectionMode.MoveUnit:
                     if (SelectedUnit != null)
                     {
-                        targets = BattleMap.GetMovableNodes(SelectedUnit.CurrentNode, SelectedUnit.Owner);
+                        targets = BattleMap.GetMovableNodes(SelectedUnit.CurrentNode, SelectedUnit.OwnerType);
                     }
                     break;
 
@@ -880,7 +876,7 @@ namespace OdysseyCards.Combat
             }
 
             enemy.SpendEnergy(unit.DeployCost);
-            unit.Owner = NodeOwner.Enemy;
+            unit.OwnerType = NodeOwner.Enemy;
             unit.CurrentNode = deployNodeId;
             unit.OnDeploy();
 
@@ -912,7 +908,7 @@ namespace OdysseyCards.Combat
         {
             Unit targetUnit = GetUnitAtNode(targetNodeId);
 
-            if (targetUnit != null && targetUnit.Owner == NodeOwner.Player)
+            if (targetUnit != null && targetUnit.OwnerType == NodeOwner.Player)
             {
                 if (!BattleMap.IsInAttackRange(attacker.CurrentNode, targetNodeId, attacker.Range))
                 {
@@ -924,7 +920,7 @@ namespace OdysseyCards.Combat
             }
 
             MapNode node = BattleMap.GetNode(targetNodeId);
-            if (node?.IsPlayerDeploymentPoint == true && attacker.Owner == NodeOwner.Enemy)
+            if (node?.IsPlayerDeploymentPoint == true && attacker.OwnerType == NodeOwner.Enemy)
             {
                 if (!BattleMap.IsInAttackRange(attacker.CurrentNode, targetNodeId, attacker.Range))
                 {

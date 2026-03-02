@@ -79,7 +79,7 @@ namespace OdysseyCards.Map
 
         public void CreateEdge(int fromNodeId, int toNodeId)
         {
-            if (!Nodes.ContainsKey(fromNodeId) || !Nodes.ContainsKey(toNodeId))
+            if (!Nodes.TryGetValue(fromNodeId, out var fromNode) || !Nodes.TryGetValue(toNodeId, out var toNode))
                 return;
 
             var existingEdge = Edges.FirstOrDefault(e => e.Connects(fromNodeId, toNodeId));
@@ -87,8 +87,8 @@ namespace OdysseyCards.Map
                 return;
 
             Edges.Add(new MapEdge(fromNodeId, toNodeId));
-            Nodes[fromNodeId].AddNeighbor(toNodeId);
-            Nodes[toNodeId].AddNeighbor(fromNodeId);
+            fromNode.AddNeighbor(toNodeId);
+            toNode.AddNeighbor(fromNodeId);
         }
 
         public void CalculateDistances()
@@ -124,9 +124,8 @@ namespace OdysseyCards.Map
                     if (neighborId == toNodeId)
                         return distance + 1;
 
-                    if (!visited.Contains(neighborId))
+                    if (visited.Add(neighborId))
                     {
-                        visited.Add(neighborId);
                         queue.Enqueue((neighborId, distance + 1));
                     }
                 }
@@ -148,10 +147,8 @@ namespace OdysseyCards.Map
 
         public bool CanMoveTo(int unitNodeId, int targetNodeId, NodeOwner unitOwner)
         {
-            if (!Nodes.ContainsKey(unitNodeId) || !Nodes.ContainsKey(targetNodeId))
+            if (!Nodes.TryGetValue(unitNodeId, out var unitNode) || !Nodes.TryGetValue(targetNodeId, out var targetNode))
                 return false;
-
-            var targetNode = Nodes[targetNodeId];
             
             if (targetNode.IsEnemyDeploymentPoint && unitOwner == NodeOwner.Player)
                 return false;
@@ -159,15 +156,13 @@ namespace OdysseyCards.Map
             if (targetNode.IsPlayerDeploymentPoint && unitOwner == NodeOwner.Enemy)
                 return false;
 
-            return Nodes[unitNodeId].HasNeighbor(targetNodeId);
+            return unitNode.HasNeighbor(targetNodeId);
         }
 
         public bool CanDeployTo(int targetNodeId, NodeOwner owner)
         {
-            if (!Nodes.ContainsKey(targetNodeId))
+            if (!Nodes.TryGetValue(targetNodeId, out var targetNode))
                 return false;
-
-            var targetNode = Nodes[targetNodeId];
             
             if (owner == NodeOwner.Player)
                 return targetNode.IsPlayerDeploymentPoint;
@@ -182,10 +177,9 @@ namespace OdysseyCards.Map
         {
             var result = new List<int>();
             
-            if (!Nodes.ContainsKey(fromNodeId))
+            if (!Nodes.TryGetValue(fromNodeId, out var node))
                 return result;
 
-            var node = Nodes[fromNodeId];
             foreach (var neighborId in node.NeighborIds)
             {
                 if (CanMoveTo(fromNodeId, neighborId, owner))

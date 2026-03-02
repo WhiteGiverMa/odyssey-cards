@@ -154,14 +154,7 @@ public partial class GameManager : Node
         return false;
     }
 
-    /// <summary>
-    /// Gets the player's current deck.
-    /// </summary>
-    /// <returns>The player's deck instance.</returns>
-    public Deck GetPlayerDeck()
-    {
-        return _playerDeck;
-    }
+
 
     private Deck CreateStartingDeck()
     {

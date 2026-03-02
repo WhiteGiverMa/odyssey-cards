@@ -55,7 +55,7 @@ namespace OdysseyCards.UI
         public void SetBattleMap(BattleMap battleMap)
         {
             GD.Print($"[BattleMapUI] SetBattleMap called, battleMap is null: {battleMap == null}");
-            _battleMap = battleMap;
+            _battleMap = battleMap ?? throw new System.ArgumentNullException(nameof(battleMap));
             GD.Print("[BattleMapUI] Calling RebuildUI");
             RebuildUI();
             GD.Print("[BattleMapUI] SetBattleMap completed");

@@ -39,11 +39,10 @@ grow_vertical = 2
 
 [node name="EnemyHandArea" type="HBoxContainer" parent="CanvasLayer/CombatUI/EnemyArea"]
 layout_mode = 1
-anchors_preset = 9
+anchors_preset = 8
 anchor_right = 1.0
 anchor_bottom = 0.5
 grow_horizontal = 2
-grow_vertical = 2
 alignment = 1
 
 [node name="EnemyHQArea" type="Control" parent="CanvasLayer/CombatUI/EnemyArea"]

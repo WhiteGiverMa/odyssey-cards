@@ -87,6 +87,9 @@ public partial class Enemy : Character
         CurrentEnergy = MaxEnergy;
         Block = 0;
 
+        HQMaxHealth = deckData.StartingHealth;
+        HQCurrentHealth = HQMaxHealth;
+
         _ai = new EnemyAI();
 
         Deck = new Deck();
@@ -94,6 +97,8 @@ public partial class Enemy : Character
         Deck.Initialize(cards);
         DrawPile = Deck.CreateDrawPile();
         ShuffleDrawPile();
+
+        GD.Print($"[Enemy] Initialized: {CharacterName}, HQ Health: {HQCurrentHealth}/{HQMaxHealth}");
     }
 
     /// <summary>

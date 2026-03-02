@@ -4,10 +4,11 @@ namespace OdysseyCards.Card.Tags;
 
 public static class TagFactory
 {
-    public static TagDefinition CreateTag(CardTag tag)
+    public static TagDefinition? CreateTag(CardTag tag)
     {
         return tag switch
         {
+            CardTag.None => null,
             CardTag.Blitz => new BlitzTag(),
             CardTag.Maneuver => new ManeuverTag(),
             CardTag.Rotation => new RotationTag(),

@@ -67,7 +67,8 @@ public partial class CombatUI : Control
 
     private void OnDrawPileClicked()
     {
-        if (_player != null)
+        GD.Print($"[CombatUI] OnDrawPileClicked, _player is null: {_player == null}, _deckViewUI is null: {_deckViewUI == null}");
+        if (_player != null && _deckViewUI != null)
         {
             _deckViewUI.ShowDeckList($"抽牌堆 ({_player.DrawPile.Count})", _player.DrawPile);
         }
@@ -75,7 +76,8 @@ public partial class CombatUI : Control
 
     private void OnExhaustPileClicked()
     {
-        if (_player != null)
+        GD.Print($"[CombatUI] OnExhaustPileClicked, _player is null: {_player == null}, _deckViewUI is null: {_deckViewUI == null}");
+        if (_player != null && _deckViewUI != null)
         {
             _deckViewUI.ShowDeckList($"消耗堆 ({_player.ExhaustPile.Count})", _player.ExhaustPile);
         }
@@ -85,8 +87,8 @@ public partial class CombatUI : Control
     {
         GD.Print($"[CombatUI] Initialize called, player is null: {player == null}, combatManager is null: {combatManager == null}");
 
-        _player = player;
-        _combatManager = combatManager;
+        _player = player ?? throw new System.ArgumentNullException(nameof(player));
+        _combatManager = combatManager ?? throw new System.ArgumentNullException(nameof(combatManager));
 
         if (_playerHealthBar != null)
         {

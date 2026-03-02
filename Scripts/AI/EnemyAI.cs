@@ -107,7 +107,7 @@ namespace OdysseyCards.AI
             foreach (int nodeId in nodesInRange)
             {
                 Unit unitAtNode = combat.GetUnitAtNode(nodeId);
-                if (unitAtNode != null && unitAtNode.Owner == NodeOwner.Player)
+                if (unitAtNode != null && unitAtNode.OwnerType == NodeOwner.Player)
                 {
                     return nodeId;
                 }

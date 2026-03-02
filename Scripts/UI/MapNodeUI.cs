@@ -14,7 +14,7 @@ namespace OdysseyCards.UI
         private bool _isDropValid;
         private float _nodeSize = 60f;
         
-        public MapNode Node => _node;
+        public MapNode MapNodeData => _node;
         public bool CanDropOnNode { get; set; } = true;
         
         public event Action<CardDroppedEventArgs> OnCardDropped;
