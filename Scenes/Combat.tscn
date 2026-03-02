@@ -31,9 +31,8 @@ script = ExtResource("2_ui")
 [node name="EnemyArea" type="Panel" parent="CanvasLayer/CombatUI"]
 layout_mode = 1
 anchors_preset = 10
+anchor_right = 1.0
 anchor_bottom = 0.25
-offset_right = 1152.0
-offset_bottom = 192.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -77,8 +76,7 @@ layout_mode = 1
 anchors_preset = 0
 anchor_top = 0.25
 anchor_bottom = 0.65
-offset_right = 1152.0
-offset_bottom = 307.0
+grow_horizontal = 2
 grow_vertical = 2
 
 [node name="BattleMapUI" type="Control" parent="CanvasLayer/CombatUI/MapArea"]
@@ -104,8 +102,6 @@ layout_mode = 1
 anchors_preset = 0
 anchor_right = 0.1
 anchor_bottom = 0.5
-offset_right = 115.2
-offset_bottom = 97.5
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/margin_left = 10
@@ -238,8 +234,6 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -80.0
-offset_bottom = 80.0
 grow_horizontal = 2
 grow_vertical = 2
 size_flags_horizontal = 3
