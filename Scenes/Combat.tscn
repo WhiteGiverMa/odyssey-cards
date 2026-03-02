@@ -19,67 +19,67 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.08, 0.08, 0.12, 1)
 
-[node name="CombatUI" type="Control" parent="CanvasLayer"]
+[node name="MainContainer" type="VBoxContainer" parent="CanvasLayer"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("2_ui")
+theme_override_constants/separation = 0
 
-[node name="EnemyArea" type="Panel" parent="CanvasLayer/CombatUI"]
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-anchor_bottom = 0.25
-grow_horizontal = 2
-grow_vertical = 2
+[node name="TopBar" type="HBoxContainer" parent="CanvasLayer/MainContainer"]
+layout_mode = 2
+size_flags_vertical = 0
+custom_minimum_size = Vector2(0, 100)
+theme_override_constants/separation = 10
 
-[node name="EnemyHandArea" type="HBoxContainer" parent="CanvasLayer/CombatUI/EnemyArea"]
-layout_mode = 1
-anchors_preset = 8
-anchor_right = 1.0
-anchor_bottom = 0.5
-grow_horizontal = 2
+[node name="EnemyArea" type="PanelContainer" parent="CanvasLayer/MainContainer/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 1
+theme_override_styles/panel = null
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/MainContainer/TopBar/EnemyArea"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="EnemyHandArea" type="HBoxContainer" parent="CanvasLayer/MainContainer/TopBar/EnemyArea/MarginContainer"]
+layout_mode = 2
 alignment = 1
 
-[node name="EnemyHQArea" type="Control" parent="CanvasLayer/CombatUI/EnemyArea"]
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="EnemyHQArea" type="CenterContainer" parent="CanvasLayer/MainContainer/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 1
+size_flags_vertical = 1
 
-[node name="EnemyHQLabel" type="Label" parent="CanvasLayer/CombatUI/EnemyArea/EnemyHQArea"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -100.0
-offset_top = -30.0
-offset_right = 100.0
-offset_bottom = 30.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="EnemyHQLabel" type="Label" parent="CanvasLayer/MainContainer/TopBar/EnemyHQArea"]
+layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "敌方总部"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="MapArea" type="Control" parent="CanvasLayer/CombatUI"]
+[node name="CenterContainer" type="Control" parent="CanvasLayer/MainContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MapArea" type="MarginContainer" parent="CanvasLayer/MainContainer/CenterContainer"]
 layout_mode = 1
-anchors_preset = 0
-anchor_top = 0.25
-anchor_bottom = 0.65
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 10
 
-[node name="BattleMapUI" type="Control" parent="CanvasLayer/CombatUI/MapArea"]
+[node name="BattleMapUI" type="Control" parent="CanvasLayer/MainContainer/CenterContainer/MapArea"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -88,37 +88,69 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("5_battlemap")
 
-[node name="PlayerArea" type="Panel" parent="CanvasLayer/CombatUI"]
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 0.65
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="BottomBar" type="PanelContainer" parent="CanvasLayer/MainContainer"]
+layout_mode = 2
+size_flags_vertical = 2
+theme_override_styles/panel = null
 
-[node name="PileButtonsContainer" type="MarginContainer" parent="CanvasLayer/CombatUI/PlayerArea"]
-layout_mode = 1
-anchors_preset = 0
-anchor_right = 0.1
-anchor_bottom = 0.5
-grow_horizontal = 2
-grow_vertical = 2
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/MainContainer/BottomBar"]
+layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/CombatUI/PlayerArea/PileButtonsContainer"]
+[node name="PlayerContainer" type="HBoxContainer" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer"]
 layout_mode = 2
-alignment = 0
+theme_override_constants/separation = 10
 
-[node name="DrawPileButton" type="Button" parent="CanvasLayer/CombatUI/PlayerArea/PileButtonsContainer/VBoxContainer"]
+[node name="PlayerPanel" type="VBoxContainer" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer/PlayerContainer"]
+layout_mode = 2
+theme_override_constants/separation = 5
+custom_minimum_size = Vector2(150, 0)
+
+[node name="HealthBar" type="ProgressBar" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer/PlayerContainer/PlayerPanel"]
+layout_mode = 2
+size_flags_vertical = 1
+script = ExtResource("3_health")
+custom_minimum_size = Vector2(0, 25)
+
+[node name="HealthLabel" type="Label" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer/PlayerContainer/PlayerPanel/HealthBar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "80/80"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="EnergyLabel" type="Label" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer/PlayerContainer/PlayerPanel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "3/3"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BlockLabel" type="Label" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer/PlayerContainer/PlayerPanel"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.6, 0.8, 1)
+theme_override_font_sizes/font_size = 18
+text = "Block: 0"
+horizontal_alignment = 1
+
+[node name="PileButtonsContainer" type="VBoxContainer" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer/PlayerContainer"]
+layout_mode = 2
+theme_override_constants/separation = 5
+custom_minimum_size = Vector2(100, 0)
+
+[node name="DrawPileButton" type="Button" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "抽牌堆"
 
-[node name="DrawPileCount" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/PileButtonsContainer/VBoxContainer/DrawPileButton"]
+[node name="DrawPileCount" type="Label" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer/DrawPileButton"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -137,12 +169,12 @@ text = "10"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ExhaustPileButton" type="Button" parent="CanvasLayer/CombatUI/PlayerArea/PileButtonsContainer/VBoxContainer"]
+[node name="ExhaustPileButton" type="Button" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "消耗堆"
 
-[node name="ExhaustPileCount" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/PileButtonsContainer/VBoxContainer/ExhaustPileButton"]
+[node name="ExhaustPileCount" type="Label" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer/ExhaustPileButton"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -161,99 +193,35 @@ text = "0"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="PlayerPanel" type="Panel" parent="CanvasLayer/CombatUI/PlayerArea"]
-layout_mode = 1
-anchors_preset = 0
-anchor_left = 0.1
-anchor_right = 0.25
-anchor_bottom = 0.5
-offset_left = 5.0
-offset_right = -5.0
-offset_bottom = -10.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 5
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 5
-
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel/MarginContainer"]
+[node name="HandUI" type="Control" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer/PlayerContainer"]
 layout_mode = 2
-alignment = 0
-
-[node name="HealthBar" type="ProgressBar" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel/MarginContainer/VBoxContainer"]
-layout_mode = 2
-size_flags_vertical = 3
-script = ExtResource("3_health")
-
-[node name="HealthLabel" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel/MarginContainer/VBoxContainer/HealthBar"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-text = "80/80"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="EnergyLabel" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel/MarginContainer/VBoxContainer"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 28
-text = "3/3"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="BlockLabel" type="Label" parent="CanvasLayer/CombatUI/PlayerArea/PlayerPanel/MarginContainer/VBoxContainer"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.4, 0.6, 0.8, 1)
-theme_override_font_sizes/font_size = 18
-text = "Block: 0"
-horizontal_alignment = 1
-
-[node name="HandUI" type="Control" parent="CanvasLayer/CombatUI/PlayerArea"]
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 0.4
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+size_flags_horizontal = 3
 script = ExtResource("4_hand")
 
-[node name="CardContainer" type="HBoxContainer" parent="CanvasLayer/CombatUI/PlayerArea/HandUI"]
+[node name="CardContainer" type="HBoxContainer" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer/PlayerContainer/HandUI"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-size_flags_horizontal = 3
+theme_override_constants/separation = 5
 alignment = 1
 
-[node name="EndTurnButton" type="Button" parent="CanvasLayer/CombatUI/PlayerArea"]
-layout_mode = 1
-anchors_preset = 3
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -140.0
-offset_top = -50.0
-offset_right = -10.0
-offset_bottom = -10.0
-grow_horizontal = 0
-grow_vertical = 0
+[node name="EndTurnButton" type="Button" parent="CanvasLayer/MainContainer/BottomBar/MarginContainer/PlayerContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 60)
 theme_override_font_sizes/font_size = 18
 text = "End Turn"
+
+[node name="CombatUI" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_ui")
 
 [node name="ResultLabel" type="Label" parent="CanvasLayer/CombatUI"]
 visible = false

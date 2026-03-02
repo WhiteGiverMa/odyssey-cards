@@ -28,17 +28,17 @@ public partial class CombatUI : Control
         GD.Print("[CombatUI] _Ready called");
         AddToGroup("CombatUI");
 
-        _playerHealthBar = GetNode<HealthBar>("PlayerArea/PlayerPanel/MarginContainer/VBoxContainer/HealthBar");
-        _handUI = GetNode<HandUI>("PlayerArea/HandUI");
-        _endTurnButton = GetNode<Button>("PlayerArea/EndTurnButton");
-        _energyLabel = GetNode<Label>("PlayerArea/PlayerPanel/MarginContainer/VBoxContainer/EnergyLabel");
-        _drawPileButton = GetNode<Button>("PlayerArea/PileButtonsContainer/VBoxContainer/DrawPileButton");
-        _exhaustPileButton = GetNode<Button>("PlayerArea/PileButtonsContainer/VBoxContainer/ExhaustPileButton");
-        _drawPileCountLabel = GetNode<Label>("PlayerArea/PileButtonsContainer/VBoxContainer/DrawPileButton/DrawPileCount");
-        _exhaustPileCountLabel = GetNode<Label>("PlayerArea/PileButtonsContainer/VBoxContainer/ExhaustPileButton/ExhaustPileCount");
+        _playerHealthBar = GetNode<HealthBar>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PlayerPanel/HealthBar");
+        _handUI = GetNode<HandUI>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/HandUI");
+        _endTurnButton = GetNode<Button>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/EndTurnButton");
+        _energyLabel = GetNode<Label>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PlayerPanel/EnergyLabel");
+        _drawPileButton = GetNode<Button>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer/DrawPileButton");
+        _exhaustPileButton = GetNode<Button>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer/ExhaustPileButton");
+        _drawPileCountLabel = GetNode<Label>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer/DrawPileButton/DrawPileCount");
+        _exhaustPileCountLabel = GetNode<Label>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PileButtonsContainer/ExhaustPileButton/ExhaustPileCount");
 
-        _battleMapUI = GetNode<BattleMapUI>("MapArea/BattleMapUI");
-        _enemyHandArea = GetNode<HBoxContainer>("EnemyArea/EnemyHandArea");
+        _battleMapUI = GetNode<BattleMapUI>("../MainContainer/CenterContainer/MapArea/BattleMapUI");
+        _enemyHandArea = GetNode<HBoxContainer>("../MainContainer/TopBar/EnemyArea/MarginContainer/EnemyHandArea");
 
         GD.Print($"[CombatUI] Node references - HealthBar: {_playerHealthBar != null}, HandUI: {_handUI != null}, EnergyLabel: {_energyLabel != null}");
         GD.Print($"[CombatUI] PileButtons - DrawPile: {_drawPileButton != null}, ExhaustPile: {_exhaustPileButton != null}");
@@ -301,7 +301,7 @@ public partial class CombatUI : Control
 
     public void ShowCombatResult(bool victory)
     {
-        Label resultLabel = GetNodeOrNull<Label>("ResultLabel");
+        Label resultLabel = GetNodeOrNull<Label>("../CombatUI/ResultLabel");
         if (resultLabel != null)
         {
             resultLabel.Text = victory
