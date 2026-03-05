@@ -24,5 +24,9 @@ public class LocalStr
     public static ConcatLocalStr operator +(LocalStr left, string right) => new(left, right);
     public static ConcatLocalStr operator +(string left, LocalStr right) => new(left, right);
 
+    public static ConcatLocalStr Add(LocalStr left, LocalStr right) => new(left, right);
+    public static ConcatLocalStr Add(LocalStr left, string right) => new(left, right);
+    public static ConcatLocalStr Add(string left, LocalStr right) => new(left, right);
+
     public static implicit operator string(LocalStr localStr) => localStr?.Resolve();
 }

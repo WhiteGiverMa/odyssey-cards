@@ -7,8 +7,14 @@ namespace OdysseyCards.Core
     public enum DamagePhase
     {
         /// <summary>
+        /// No modifier applied.
+        /// 无修改器。
+        /// </summary>
+        None = 0,
+
+        /// <summary>
         /// Addition/subtraction modifiers (e.g., Strength +3, Defense -2).
-        /// 加算阶段：力量+3、防御-1等。
+        /// 加算阶段：力量 +3、防御 -1 等。
         /// </summary>
         ADDITIVE = 1,
 

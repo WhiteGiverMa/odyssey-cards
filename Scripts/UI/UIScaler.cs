@@ -9,7 +9,7 @@ namespace OdysseyCards.UI
 
         private const float _designWidth = 1152f;
         private const float _designHeight = 648f;
-        private const float _cardWidthRatio = 180f / 260f;
+        private const float _cardWidthRatio = 5f / 7f;
         private Vector2 _currentCardSize = new(180, 260);
 
         public event Action OnResolutionChanged;

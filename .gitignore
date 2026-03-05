@@ -46,3 +46,13 @@ Thumbs.db
 
 # Trae
 .trae/
+
+# Secrets
+.env
+.env.*
+*.key
+*.pem
+secrets/
+
+# MCP subprojects
+godot-mcp/

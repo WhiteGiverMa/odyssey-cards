@@ -144,16 +144,14 @@ namespace OdysseyCards.UI
 		private void CreateCardUI(Card.Card card, float scale = 1.0f)
 		{
 			var cardUI = new CardUI();
+			cardUI.Scale = new Vector2(scale, scale);
+			_cardContainer.AddChild(cardUI);
 			cardUI.SetCard(card);
 			cardUI.OnCardDraggedToTarget += OnCardDraggedToTarget;
 			cardUI.OnDragStarted += OnCardDragStartedHandler;
 			cardUI.OnDragEnded += OnCardDragEndedHandler;
 			cardUI.OnDroppedOnNode += OnCardDroppedOnNodeHandler;
 			cardUI.OnReturnToHandRequested += OnReturnToHandRequestedHandler;
-
-			cardUI.Scale = new Vector2(scale, scale);
-
-			_cardContainer.AddChild(cardUI);
 		}
 
 		private void OnReturnToHandRequestedHandler(CardUI cardUI)
