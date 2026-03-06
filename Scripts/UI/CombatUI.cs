@@ -1,5 +1,7 @@
 using Godot;
+using System.Collections.Generic;
 using OdysseyCards.Domain.Combat.Commands;
+using OdysseyCards.Domain.Combat.Events;
 using OdysseyCards.Localization;
 using OdysseyCards.Presentation.Input;
 
@@ -116,9 +118,9 @@ public partial class CombatUI : Control
         {
             GD.Print("[CombatUI] Setting HandUI player");
             _handUI.SetPlayer(player);
-            _handUI.SetCombatManager(combatManager);
             _handUI.OnCardPlayRequested += OnCardPlayRequested;
             _handUI.OnCardDroppedOnNode += OnCardDroppedOnNode;
+            _handUI.OnUnitDeployModeRequested += OnUnitDeployModeRequested;
         }
         else
         {
@@ -201,29 +203,32 @@ public partial class CombatUI : Control
 
     private void OnNodeDropTarget(int nodeId, Card.Card card)
     {
-        if (_combatManager == null)
+        if (CombatInputAdapter.Instance != null && card is Card.Unit unit)
         {
-            return;
-        }
-
-        if (!Combat.CombatManager.UseCommandPipeline && _combatManager.CurrentSelectionMode == Combat.SelectionMode.DeployUnit)
-        {
-            _ = _combatManager.OnNodeSelected(nodeId);
+            var snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
+            int turn = snapshot?.Turn ?? 0;
+            var command = new DeployUnitCommand(
+                turn,
+                0,
+                unit.Id.GetHashCode(),
+                nodeId
+            );
+            _ = CombatInputAdapter.Instance.Submit(command);
+            GD.Print($"[CombatUI] DeployUnit submitted via command pipeline");
         }
     }
 
     private void OnCardDroppedOnNode(Card.Card card, int nodeId)
     {
         GD.Print($"[CombatUI] OnCardDroppedOnNode: {card?.CardName} -> Node {nodeId}");
+    }
 
-        if (_combatManager == null)
+    private void OnUnitDeployModeRequested(Card.Unit unit)
+    {
+        GD.Print($"[CombatUI] Unit deploy mode requested for: {unit.CardName}");
+        if (_battleMapUI != null)
         {
-            return;
-        }
-
-        if (!Combat.CombatManager.UseCommandPipeline && _combatManager.CurrentSelectionMode == Combat.SelectionMode.DeployUnit)
-        {
-            _ = _combatManager.OnNodeSelected(nodeId);
+            _battleMapUI.SetDeployMode(true);
         }
     }
 
@@ -273,8 +278,20 @@ public partial class CombatUI : Control
     private void OnCardPlayRequested(Card.Card card, Character.Character target)
     {
         GD.Print($"[CombatUI] OnCardPlayRequested called: {card?.CardName}, target: {target?.CharacterName}");
-        GD.Print($"[CombatUI] _combatManager is null: {_combatManager == null}");
-        _combatManager?.PlayCard(card, target);
+        if (CombatInputAdapter.Instance != null && card is Card.Order order)
+        {
+            var snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
+            int turn = snapshot?.Turn ?? 0;
+            var command = new PlayCardCommand(
+                turn,
+                0,
+                card.Id.GetHashCode(),
+                null,
+                null
+            );
+            _ = CombatInputAdapter.Instance.Submit(command);
+            GD.Print($"[CombatUI] PlayCard submitted via command pipeline");
+        }
     }
 
     private void UpdateEnergy(int current, int max)
@@ -303,19 +320,13 @@ public partial class CombatUI : Control
 
     private void OnEndTurnPressed()
     {
-        if (Combat.CombatManager.UseCommandPipeline && CombatInputAdapter.Instance != null)
+        if (CombatInputAdapter.Instance != null)
         {
-            var command = new EndTurnCommand(
-                _combatManager?.TurnCount ?? 0,
-                0
-            );
+            var snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
+            int turn = snapshot?.Turn ?? 0;
+            var command = new EndTurnCommand(turn, 0);
             CombatInputAdapter.Instance.Submit(command);
             GD.Print($"[CombatUI] EndTurn submitted via command pipeline");
-        }
-        else
-        {
-            _combatManager?.EndPlayerTurn();
-            GD.Print($"[CombatUI] EndTurn called directly (legacy path)");
         }
     }
 

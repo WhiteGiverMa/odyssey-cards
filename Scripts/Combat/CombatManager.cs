@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Godot;
-using OdysseyCards.AI;
 using OdysseyCards.Application.Combat;
 using OdysseyCards.Application.Combat.UseCases;
 using OdysseyCards.Application.Ports;
@@ -12,15 +11,11 @@ using OdysseyCards.Core;
 using OdysseyCards.Domain.Combat.Engine;
 using OdysseyCards.Domain.Combat.Events;
 using OdysseyCards.Infrastructure.Replay;
-using OdysseyCards.Legacy.Adapters;
 using OdysseyCards.Map;
 using OdysseyCards.Presentation.Input;
 
 namespace OdysseyCards.Combat
 {
-    /// <summary>
-    /// Represents the current state of combat.
-    /// </summary>
     public enum CombatState
     {
         NotStarted,
@@ -30,9 +25,6 @@ namespace OdysseyCards.Combat
         Defeat
     }
 
-    /// <summary>
-    /// Represents the current selection mode for player input.
-    /// </summary>
     public enum SelectionMode
     {
         None,
@@ -41,137 +33,40 @@ namespace OdysseyCards.Combat
         AttackTarget
     }
 
-    /// <summary>
-    /// Manages combat encounters including turn order, unit deployment, and combat resolution.
-    /// Coordinates between player, enemies, units, and the battle map.
-    /// </summary>
     public partial class CombatManager : Node
     {
-        /// <summary>
-        /// Singleton instance for global access.
-        /// </summary>
         public static CombatManager Instance { get; private set; }
 
-        /// <summary>
-        /// Current state of the combat encounter.
-        /// </summary>
         public CombatState State { get; private set; } = CombatState.NotStarted;
-
-        /// <summary>
-        /// The player character in this combat.
-        /// </summary>
         public Player Player { get; private set; }
-
-        /// <summary>
-        /// List of all enemies in this combat.
-        /// </summary>
         public List<Enemy> Enemies { get; private set; } = [];
-
-        /// <summary>
-        /// Current turn number.
-        /// </summary>
         public int TurnCount { get; private set; }
-
-        /// <summary>
-        /// Whether the player goes first in this combat.
-        /// </summary>
         public bool IsPlayerFirst { get; private set; }
-        private bool _isFirstTurn = true;
-
-        /// <summary>
-        /// The battle map for this combat.
-        /// </summary>
         public BattleMap BattleMap { get; private set; }
-
-        /// <summary>
-        /// Units deployed by the player.
-        /// </summary>
         public List<Unit> PlayerUnits { get; private set; } = [];
-
-        /// <summary>
-        /// Units deployed by enemies.
-        /// </summary>
         public List<Unit> EnemyUnits { get; private set; } = [];
-
-        /// <summary>
-        /// Current selection mode for player actions.
-        /// </summary>
         public SelectionMode CurrentSelectionMode { get; private set; } = SelectionMode.None;
-
-        /// <summary>
-        /// Currently selected unit for move/attack actions.
-        /// </summary>
         public Unit SelectedUnit { get; private set; }
-
-        /// <summary>
-        /// Currently selected card for deployment.
-        /// </summary>
         public Card.Card SelectedCard { get; private set; }
 
-        /// <summary>
-        /// Fired when combat starts.
-        /// </summary>
         public event Action OnCombatStart;
-
-        /// <summary>
-        /// Fired at the start of each turn.
-        /// </summary>
         public event Action OnTurnStart;
-
-        /// <summary>
-        /// Fired at the end of each turn.
-        /// </summary>
         public event Action OnTurnEnd;
-
-        /// <summary>
-        /// Fired when combat ends with a result.
-        /// </summary>
         public event Action<CombatState> OnCombatEnd;
-
-        /// <summary>
-        /// Fired when a unit is deployed.
-        /// </summary>
         public event Action<Unit> OnUnitDeployed;
-
-        /// <summary>
-        /// Fired when a unit moves. Parameters: unit, fromNodeId, toNodeId.
-        /// </summary>
         public event Action<Unit, int, int> OnUnitMoved;
-
-        /// <summary>
-        /// Fired when a unit attacks another.
-        /// </summary>
         public event Action<Unit, Unit> OnUnitAttacked;
-
-        /// <summary>
-        /// Fired to show attack range indicators.
-        /// </summary>
         public event Action<List<int>> OnAttackRangeShow;
-
-        /// <summary>
-        /// Fired to hide attack range indicators.
-        /// </summary>
         public event Action OnAttackRangeHide;
-
-        /// <summary>
-        /// Fired when combat rewards are generated.
-        /// </summary>
         public event Action<List<ICardData>> OnCombatRewards;
-
-        private CardReward _cardReward;
-        private List<ICardData> _currentRewards;
 
         private ICombatEngine _combatEngine;
         private CombatApplicationService _applicationService;
         private JsonlReplayWriter _replayWriter;
-
-        public static bool UseCommandPipeline { get; set; } = true;
-        public static bool UseNewCombatEngineForPlayerTurn { get; set; } = false;
-        public static bool UseNewRewardPipeline { get; set; } = true;
-
         private Domain.Combat.Engine.ICombatEngine _domainEngine;
         private ProcessRewardUseCase _processRewardUseCase;
         private IRewardService _rewardService;
+        private bool _isFirstTurn = true;
 
         public override void _Ready()
         {
@@ -193,8 +88,8 @@ namespace OdysseyCards.Combat
                 {
                     CharacterName = "Player",
                     MaxHealth = 80,
-                    MaxEnergy = 3
-                };
+                MaxEnergy = 3
+            };
 
                 var deck = new Deck();
                 deck.Initialize(CardFactory.GetStarterDeck1());
@@ -244,14 +139,12 @@ namespace OdysseyCards.Combat
         {
             GD.Print("[CombatManager] Initializing command system...");
 
-            _combatEngine = new LegacyCombatEngine(this);
-
             _domainEngine = new DomainCombatEngine();
 
             string replayPath = $"user://replays/combat_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.jsonl";
             _replayWriter = new JsonlReplayWriter(ProjectSettings.GlobalizePath(replayPath));
 
-            _applicationService = new CombatApplicationService(_combatEngine, _replayWriter);
+            _applicationService = new CombatApplicationService(_domainEngine, _replayWriter);
             _ = new CombatInputAdapter(_applicationService);
 
             _rewardService = new CardRewardService();
@@ -259,13 +152,8 @@ namespace OdysseyCards.Combat
             _processRewardUseCase.OnRewardsGenerated += HandleRewardsGenerated;
 
             GD.Print($"[CombatManager] Command system initialized, replay path: {replayPath}");
-            GD.Print($"[CombatManager] UseNewCombatEngineForPlayerTurn: {UseNewCombatEngineForPlayerTurn}");
-            GD.Print($"[CombatManager] UseNewRewardPipeline: {UseNewRewardPipeline}");
         }
 
-        /// <summary>
-        /// Starts the combat encounter with random initiative.
-        /// </summary>
         public void StartCombat()
         {
             GD.Print("[CombatManager] StartCombat called");
@@ -306,9 +194,6 @@ namespace OdysseyCards.Combat
             GD.Print($"[CombatManager] Combat started, player hand count: {Player.Hand.Count}");
         }
 
-        /// <summary>
-        /// Ends the player's turn and triggers enemy turns.
-        /// </summary>
         public void EndPlayerTurn()
         {
             if (State != CombatState.PlayerTurn)
@@ -342,9 +227,9 @@ namespace OdysseyCards.Combat
 
                 while (true)
                 {
-                    AIAction action = enemy.AI.DecideAction(enemy, this);
+                    AI.AIAction action = enemy.AI.DecideAction(enemy, this);
 
-                    if (action.Type == AIActionType.EndTurn)
+                    if (action.Type == AI.AIActionType.EndTurn)
                     {
                         break;
                     }
@@ -356,33 +241,30 @@ namespace OdysseyCards.Combat
 
                     switch (action.Type)
                     {
-                        case AIActionType.DeployUnit:
+                        case AI.AIActionType.DeployUnit:
                             if (action.Unit != null)
                             {
                                 DeployEnemyUnit(enemy, action.Unit);
                             }
-
                             break;
 
-                        case AIActionType.AttackWithUnit:
+                        case AI.AIActionType.AttackWithUnit:
                             if (action.Unit != null && action.TargetNodeId >= 0)
                             {
                                 ExecuteEnemyAttack(action.Unit, action.TargetNodeId);
                             }
-
                             break;
 
-                        case AIActionType.PlayOrder:
+                        case AI.AIActionType.PlayOrder:
                             if (action.Card is Order order)
                             {
                                 ExecuteEnemyOrder(enemy, order);
                             }
-
                             break;
 
-                        case AIActionType.None:
-                        case AIActionType.MoveUnit:
-                        case AIActionType.EndTurn:
+                        case AI.AIActionType.None:
+                        case AI.AIActionType.MoveUnit:
+                        case AI.AIActionType.EndTurn:
                         default:
                             break;
                     }
@@ -436,9 +318,6 @@ namespace OdysseyCards.Combat
             OnTurnStart?.Invoke();
         }
 
-        /// <summary>
-        /// Checks if combat should end based on current game state.
-        /// </summary>
         public void CheckCombatEnd()
         {
             if (BattleMap.EnemyHQ.IsDestroyed)
@@ -478,7 +357,7 @@ namespace OdysseyCards.Combat
                 GameManager.Instance.SavePlayerHQHealth(Player.HQCurrentHealth, Player.HQMaxHealth);
             }
 
-            if (UseNewRewardPipeline && _processRewardUseCase != null)
+            if (_processRewardUseCase != null)
             {
                 var combatEndedEvent = new CombatEndedEvent(
                     Guid.Empty,
@@ -488,10 +367,6 @@ namespace OdysseyCards.Combat
                     result == CombatState.Victory
                 );
                 _ = _processRewardUseCase.Execute(combatEndedEvent);
-            }
-            else
-            {
-                GenerateAndShowRewards();
             }
 
             OnCombatEnd?.Invoke(result);
@@ -519,51 +394,6 @@ namespace OdysseyCards.Combat
             }
         }
 
-        private void GenerateAndShowRewards()
-        {
-            if (_cardReward == null)
-            {
-                _cardReward = new CardReward();
-                LoadRewardPools();
-            }
-
-            CardRarity[] rarities = [CardRarity.Common, CardRarity.Uncommon, CardRarity.Rare];
-            _currentRewards = _cardReward.GenerateRewardsFromMultiplePools(rarities, 3);
-
-            if (_currentRewards.Count > 0)
-            {
-                OnCombatRewards?.Invoke(_currentRewards);
-            }
-        }
-
-        private void LoadRewardPools()
-        {
-            string[] poolPaths =
-            [
-                "res://Resources/CardRewardPools/CommonPool.tres",
-                    "res://Resources/CardRewardPools/UncommonPool.tres",
-                    "res://Resources/CardRewardPools/RarePool.tres"
-            ];
-
-            CardRarity[] rarities = [CardRarity.Common, CardRarity.Uncommon, CardRarity.Rare];
-
-            for (int i = 0; i < poolPaths.Length; i++)
-            {
-                if (ResourceLoader.Exists(poolPaths[i]))
-                {
-                    CardRewardPool pool = ResourceLoader.Load<CardRewardPool>(poolPaths[i]);
-                    if (pool != null)
-                    {
-                        _cardReward.AddPool(rarities[i], pool);
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Selects a reward card to add to the player's deck.
-        /// </summary>
-        /// <param name="cardData">The card data to add.</param>
         public void SelectReward(ICardData cardData)
         {
             if (cardData == null || GameManager.Instance == null)
@@ -571,40 +401,19 @@ namespace OdysseyCards.Combat
                 return;
             }
 
-            if (UseNewRewardPipeline && _processRewardUseCase != null)
+            if (_processRewardUseCase != null)
             {
                 var option = new CardRewardOption(cardData.Id, cardData.CardName, cardData.Rarity.ToString(), cardData);
                 _processRewardUseCase.SelectReward(0, option);
                 GD.Print($"[CombatManager] Added card to deck via new pipeline: {cardData.CardName}");
             }
-            else
-            {
-                if (GameManager.Instance.AddCardToDeck(cardData as Resource))
-                {
-                    GD.Print($"[CombatManager] Added card to deck: {cardData.CardName}");
-                    _currentRewards = null;
-                }
-                else
-                {
-                    GD.Print($"[CombatManager] Failed to add card to deck: deck may be full");
-                }
-            }
         }
 
-        /// <summary>
-        /// Skips the current reward selection.
-        /// </summary>
         public void SkipReward()
         {
-            _currentRewards = null;
             GD.Print("[CombatManager] Reward skipped");
         }
 
-        /// <summary>
-        /// Plays a card from the player's hand.
-        /// </summary>
-        /// <param name="card">The card to play.</param>
-        /// <param name="target">Optional target character.</param>
         public void PlayCard(Card.Card card, Character.Character target)
         {
             GD.Print($"[CombatManager] PlayCard called: {card?.CardName}, target: {target?.CharacterName}, State: {State}");
@@ -660,24 +469,12 @@ namespace OdysseyCards.Combat
         {
             GD.Print($"[CombatManager] StartDeployMode called for {unit.CardName}, DeployCost: {unit.DeployCost}, Energy: {Player.CurrentEnergy}");
 
-            if (!Player.CanSpendEnergy(unit.DeployCost))
-            {
-                GD.Print($"[CombatManager] Cannot deploy unit - not enough energy (need {unit.DeployCost}, have {Player.CurrentEnergy})");
-                return;
-            }
-
             SelectedCard = unit;
             SelectedUnit = null;
             CurrentSelectionMode = SelectionMode.DeployUnit;
-
-            _ = new List<int> { BattleMap.PlayerDeploymentNodeId };
             GD.Print($"[CombatManager] SelectionMode changed to DeployUnit for {unit.CardName}, deploy node: {BattleMap.PlayerDeploymentNodeId}");
         }
 
-        /// <summary>
-        /// Starts move mode for the specified unit.
-        /// </summary>
-        /// <param name="unit">The unit to move.</param>
         public void StartMoveMode(Unit unit)
         {
             GD.Print($"[CombatManager] StartMoveMode called for {unit.CardName}");
@@ -692,13 +489,10 @@ namespace OdysseyCards.Combat
             CurrentSelectionMode = SelectionMode.MoveUnit;
 
             List<int> movableNodes = BattleMap.GetMovableNodes(unit.CurrentNode, unit.OwnerType);
+            OnAttackRangeShow?.Invoke(movableNodes);
             GD.Print($"[CombatManager] SelectionMode changed to MoveUnit for {unit.CardName}, can move to {movableNodes.Count} nodes");
         }
 
-        /// <summary>
-        /// Starts attack mode for the specified unit.
-        /// </summary>
-        /// <param name="unit">The unit to attack with.</param>
         public void StartAttackMode(Unit unit)
         {
             GD.Print($"[CombatManager] StartAttackMode called for {unit.CardName}");
@@ -718,9 +512,6 @@ namespace OdysseyCards.Combat
             GD.Print($"[CombatManager] SelectionMode changed to AttackTarget for {unit.CardName}, nodes in range: {nodesInRange.Count}");
         }
 
-        /// <summary>
-        /// Cancels the current selection mode.
-        /// </summary>
         public void CancelSelection()
         {
             GD.Print($"[CombatManager] CancelSelection: previous mode={CurrentSelectionMode}, card={SelectedCard?.CardName}, unit={SelectedUnit?.CardName}");
@@ -731,11 +522,6 @@ namespace OdysseyCards.Combat
             GD.Print("[CombatManager] SelectionMode reset to None");
         }
 
-        /// <summary>
-        /// Handles node selection based on current selection mode.
-        /// </summary>
-        /// <param name="nodeId">The selected node ID.</param>
-        /// <returns>True if the action was successful.</returns>
         public bool OnNodeSelected(int nodeId)
         {
             GD.Print($"[CombatManager] OnNodeSelected: nodeId={nodeId}, current mode={CurrentSelectionMode}");
@@ -918,11 +704,6 @@ namespace OdysseyCards.Combat
             GD.Print($"[CombatManager] Unit {unit.CardName} was destroyed");
         }
 
-        /// <summary>
-        /// Gets the unit at the specified node.
-        /// </summary>
-        /// <param name="nodeId">The node ID to check.</param>
-        /// <returns>The unit at the node, or null if none.</returns>
         public Unit GetUnitAtNode(int nodeId)
         {
             foreach (Unit unit in PlayerUnits)
@@ -944,11 +725,6 @@ namespace OdysseyCards.Combat
             return null;
         }
 
-        /// <summary>
-        /// Gets valid target nodes for the specified selection mode.
-        /// </summary>
-        /// <param name="mode">The selection mode.</param>
-        /// <returns>List of valid target node IDs.</returns>
         public List<int> GetValidTargets(SelectionMode mode)
         {
             List<int> targets = [];

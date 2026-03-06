@@ -11,7 +11,6 @@ namespace OdysseyCards.UI
 
 		private HBoxContainer _cardContainer;
 		private Character.Player _player;
-		private Combat.CombatManager _combatManager;
 		private Control _dragLayer;
 		private CardUI _draggingCard;
 		private int _draggingCardIndex = -1;
@@ -22,6 +21,7 @@ namespace OdysseyCards.UI
 		public event Action<Card.Card, Vector2> OnCardDragStarted;
 		public event Action<Card.Card, Vector2> OnCardDragEnded;
 		public event Action<Card.Card, int> OnCardDroppedOnNode;
+		public event Action<Card.Unit> OnUnitDeployModeRequested;
 
 		public override void _Ready()
 		{
@@ -67,13 +67,6 @@ namespace OdysseyCards.UI
 			_player.OnHandChanged += UpdateHand;
 			GD.Print($"[HandUI] Subscribed to OnHandChanged, current hand count: {_player.Hand.Count}");
 			GD.Print("[HandUI] SetPlayer completed");
-		}
-
-		public void SetCombatManager(Combat.CombatManager manager)
-		{
-			GD.Print($"[HandUI] SetCombatManager called, manager is null: {manager == null}");
-			_combatManager = manager ?? throw new System.ArgumentNullException(nameof(manager));
-			GD.Print("[HandUI] SetCombatManager completed");
 		}
 
 		private void UpdateHand()
@@ -191,7 +184,7 @@ namespace OdysseyCards.UI
 			if (cardUI.Card is Card.Unit unit)
 			{
 				GD.Print($"[HandUI] Unit card drag - entering deploy mode for: {unit.CardName}");
-				_combatManager?.PlayCard(cardUI.Card, null);
+				OnUnitDeployModeRequested?.Invoke(unit);
 			}
 
 			OnCardDragStarted?.Invoke(cardUI.Card, position);
@@ -249,10 +242,12 @@ namespace OdysseyCards.UI
 
 			GD.Print($"[HandUI] Card dropped on node: {cardUI.Card.CardName} -> Node {nodeId}");
 
-			if (Combat.CombatManager.UseCommandPipeline && CombatInputAdapter.Instance != null && cardUI.Card is Card.Unit unit)
+			if (CombatInputAdapter.Instance != null && cardUI.Card is Card.Unit unit)
 			{
+				var snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
+				int turn = snapshot?.Turn ?? 0;
 				var command = new DeployUnitCommand(
-					_combatManager?.TurnCount ?? 0,
+					turn,
 					0,
 					unit.Id.GetHashCode(),
 					nodeId
