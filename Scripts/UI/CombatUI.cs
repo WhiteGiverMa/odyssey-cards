@@ -207,9 +207,10 @@ public partial class CombatUI : Control
         {
             var snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
             int turn = snapshot?.Turn ?? 0;
+            int actorId = snapshot?.CurrentActorId ?? 1;
             var command = new DeployUnitCommand(
                 turn,
-                0,
+                actorId,
                 unit.Id.GetHashCode(),
                 nodeId
             );
@@ -282,12 +283,18 @@ public partial class CombatUI : Control
         {
             var snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
             int turn = snapshot?.Turn ?? 0;
+            int actorId = snapshot?.CurrentActorId ?? 1;
+            int? targetNodeId = ExtractTargetNodeId(target);
+            int? targetUnitId = ExtractTargetUnitId(target);
+
+            GD.Print($"[CombatUI] PlayCard target - NodeId: {targetNodeId}, UnitId: {targetUnitId}");
+
             var command = new PlayCardCommand(
                 turn,
-                0,
+                actorId,
                 card.Id.GetHashCode(),
-                null,
-                null
+                targetNodeId,
+                targetUnitId
             );
             _ = CombatInputAdapter.Instance.Submit(command);
             GD.Print($"[CombatUI] PlayCard submitted via command pipeline");
@@ -324,10 +331,41 @@ public partial class CombatUI : Control
         {
             var snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
             int turn = snapshot?.Turn ?? 0;
-            var command = new EndTurnCommand(turn, 0);
+            int actorId = snapshot?.CurrentActorId ?? 1;
+            var command = new EndTurnCommand(turn, actorId);
             CombatInputAdapter.Instance.Submit(command);
             GD.Print($"[CombatUI] EndTurn submitted via command pipeline");
         }
+    }
+
+    private int? ExtractTargetNodeId(Character.Character target)
+    {
+        if (target == null)
+        {
+            return null;
+        }
+
+        if (target is Character.Enemy enemy)
+        {
+            return 0;
+        }
+
+        return null;
+    }
+
+    private int? ExtractTargetUnitId(Character.Character target)
+    {
+        if (target == null)
+        {
+            return null;
+        }
+
+        if (target is Character.Enemy enemy)
+        {
+            return enemy.Id.GetHashCode();
+        }
+
+        return null;
     }
 
     public void ShowCombatResult(bool victory)

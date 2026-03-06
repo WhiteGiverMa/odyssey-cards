@@ -246,9 +246,10 @@ namespace OdysseyCards.UI
 			{
 				var snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
 				int turn = snapshot?.Turn ?? 0;
+				int actorId = snapshot?.CurrentActorId ?? 1;
 				var command = new DeployUnitCommand(
 					turn,
-					0,
+					actorId,
 					unit.Id.GetHashCode(),
 					nodeId
 				);
