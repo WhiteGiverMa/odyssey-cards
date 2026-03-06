@@ -147,7 +147,10 @@ namespace OdysseyCards.Combat
             _applicationService = new CombatApplicationService(_domainEngine, _replayWriter);
             _ = new CombatInputAdapter(_applicationService);
 
-            _rewardService = new CardRewardService();
+            var resourceLoader = new Infrastructure.Godot.ResourceLoading.GodotCardResourceLoader();
+            var logger = new Infrastructure.Godot.Logging.GodotLogger();
+            var deckService = new Infrastructure.Godot.Services.GodotDeckService();
+            _rewardService = new CardRewardService(resourceLoader, logger, deckService);
             _processRewardUseCase = new ProcessRewardUseCase(_rewardService);
             _processRewardUseCase.OnRewardsGenerated += HandleRewardsGenerated;
 

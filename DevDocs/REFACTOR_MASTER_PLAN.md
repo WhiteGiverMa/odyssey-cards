@@ -262,6 +262,15 @@ Scripts/
 - 详细报告：[REFACTOR_PROGRESS_M6.md](./REFACTOR_PROGRESS_M6.md)
 - 最终总结：[REFACTOR_FINAL_REPORT.md](./REFACTOR_FINAL_REPORT.md)
 
+### M7 — 敌方回合迁移与 Godot 引用隔离（1周）✅ 已完成
+- 产出：Domain 层 AI 系统、Application 层 Godot 引用隔离
+- 验收标准：
+  - ✅ Domain 层零 Godot 引用
+  - ✅ Application 层零 Godot 引用（除适配器接口实现）
+  - ✅ 编译通过无错误
+  - ⚠️ 敌方回合完整流程需运行时验证
+- 详细报告：[REFACTOR_PROGRESS_M7.md](./REFACTOR_PROGRESS_M7.md)
+
 ---
 
 ## F. 任务清单（按周）

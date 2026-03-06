@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Godot;
 using OdysseyCards.Application.Ports;
 using OdysseyCards.Core;
 
@@ -10,9 +9,15 @@ namespace OdysseyCards.Application.Reward
     {
         private readonly CardReward _cardReward;
         private readonly Dictionary<CardRarity, CardRewardPool> _pools = new();
+        private readonly ICardResourceLoader _resourceLoader;
+        private readonly ILogger _logger;
+        private readonly IDeckService _deckService;
 
-        public CardRewardService()
+        public CardRewardService(ICardResourceLoader resourceLoader, ILogger logger, IDeckService deckService)
         {
+            _resourceLoader = resourceLoader;
+            _logger = logger;
+            _deckService = deckService;
             _cardReward = new CardReward();
             LoadRewardPools();
         }
@@ -30,9 +35,9 @@ namespace OdysseyCards.Application.Reward
 
             for (int i = 0; i < poolPaths.Length; i++)
             {
-                if (ResourceLoader.Exists(poolPaths[i]))
+                if (_resourceLoader.ResourceExists(poolPaths[i]))
                 {
-                    CardRewardPool pool = ResourceLoader.Load<CardRewardPool>(poolPaths[i]);
+                    CardRewardPool pool = _resourceLoader.LoadCardPool(poolPaths[i]);
                     if (pool != null)
                     {
                         _pools[rarities[i]] = pool;
@@ -69,14 +74,10 @@ namespace OdysseyCards.Application.Reward
                 return;
             }
 
-            if (GameManager.Instance != null)
+            bool success = _deckService.AddCardToDeck(option.CardResource);
+            if (success)
             {
-                var resource = option.CardResource as Resource;
-                if (resource != null)
-                {
-                    GameManager.Instance.AddCardToDeck(resource);
-                    GD.Print($"[CardRewardService] Granted card to deck: {option.CardName}");
-                }
+                _logger.Log($"[CardRewardService] Granted card to deck: {option.CardName}");
             }
         }
     }
