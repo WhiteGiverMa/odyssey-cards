@@ -3,7 +3,9 @@ using System;
 using System.Collections.Generic;
 using OdysseyCards.Card;
 using OdysseyCards.Core;
+using OdysseyCards.Domain.Combat.Engine;
 using OdysseyCards.Map;
+using OdysseyCards.Presentation.Input;
 
 namespace OdysseyCards.UI
 {
@@ -115,6 +117,21 @@ namespace OdysseyCards.UI
             float offsetX = (containerWidth - mapWidth) / 2.0f - minX * cellSize;
             float offsetY = (containerHeight - mapHeight) / 2.0f - minY * cellSize;
 
+            CombatSnapshot snapshot = CombatInputAdapter.Instance?.GetApplicationService()?.GetSnapshot();
+
+            Dictionary<int, UnitSnapshot> unitsByNode = new Dictionary<int, UnitSnapshot>();
+            if (snapshot != null)
+            {
+                foreach (var unit in snapshot.PlayerUnits)
+                {
+                    unitsByNode[unit.NodeId] = unit;
+                }
+                foreach (var unit in snapshot.EnemyUnits)
+                {
+                    unitsByNode[unit.NodeId] = unit;
+                }
+            }
+
             foreach (var kvp in _battleMap.Nodes)
             {
                 var node = kvp.Value;
@@ -129,6 +146,11 @@ namespace OdysseyCards.UI
                 nodeUI.Position = position;
 
                 nodeUI.ConnectButtonPressed(Callable.From(() => OnNodeClicked(node.Id)));
+
+                if (unitsByNode.TryGetValue(node.Id, out UnitSnapshot unitOnNode))
+                {
+                    nodeUI.SetUnit(unitOnNode);
+                }
 
                 AddChild(nodeUI);
                 _nodeUIs[node.Id] = nodeUI;

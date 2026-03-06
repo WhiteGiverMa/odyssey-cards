@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using OdysseyCards.Domain.Combat.Engine;
 using OdysseyCards.Map;
 
 namespace OdysseyCards.UI
@@ -13,6 +14,9 @@ namespace OdysseyCards.UI
         private bool _isDragHovering;
         private bool _isDropValid;
         private float _nodeSize = 60f;
+        private UnitSnapshot _unitOnNode;
+        private Label _unitLabel;
+        private Label _unitHealthLabel;
 
         public MapNode MapNodeData => _node;
         public bool CanDropOnNode { get; set; } = true;
@@ -25,6 +29,8 @@ namespace OdysseyCards.UI
         public static readonly Color DeploymentColor = new Color(0.8f, 0.6f, 0.2f);
         public static readonly Color ValidDropColor = new Color(0.2f, 0.8f, 0.4f);
         public static readonly Color InvalidDropColor = new Color(0.8f, 0.2f, 0.2f);
+        public static readonly Color PlayerUnitColor = new Color(0.3f, 0.8f, 0.3f);
+        public static readonly Color EnemyUnitColor = new Color(0.8f, 0.3f, 0.3f);
 
         public MapNodeUI()
         {
@@ -46,8 +52,22 @@ namespace OdysseyCards.UI
             _distanceLabel = new Label();
             _distanceLabel.Position = new Vector2(8, 8);
             _distanceLabel.AddThemeColorOverride("font_color", Colors.White);
-            _distanceLabel.AddThemeFontSizeOverride("font_size", (int)(_nodeSize * 0.15f));
+            _distanceLabel.AddThemeFontSizeOverride("font_size", (int)(_nodeSize * 0.12f));
             AddChild(_distanceLabel);
+
+            _unitLabel = new Label();
+            _unitLabel.Position = new Vector2(5, _nodeSize * 0.35f);
+            _unitLabel.AddThemeColorOverride("font_color", Colors.White);
+            _unitLabel.AddThemeFontSizeOverride("font_size", (int)(_nodeSize * 0.15f));
+            _unitLabel.HorizontalAlignment = HorizontalAlignment.Center;
+            AddChild(_unitLabel);
+
+            _unitHealthLabel = new Label();
+            _unitHealthLabel.Position = new Vector2(5, _nodeSize * 0.55f);
+            _unitHealthLabel.AddThemeColorOverride("font_color", Colors.Yellow);
+            _unitHealthLabel.AddThemeFontSizeOverride("font_size", (int)(_nodeSize * 0.12f));
+            _unitHealthLabel.HorizontalAlignment = HorizontalAlignment.Center;
+            AddChild(_unitHealthLabel);
 
             _button = new Button();
             _button.CustomMinimumSize = new Vector2(_nodeSize - 10, _nodeSize - 10);
@@ -68,7 +88,43 @@ namespace OdysseyCards.UI
             _panel.Position = new Vector2(5, 5);
             _button.CustomMinimumSize = new Vector2(size - 10, size - 10);
             _button.Position = new Vector2(5, 5);
-            _distanceLabel.AddThemeFontSizeOverride("font_size", (int)(size * 0.15f));
+            _distanceLabel.AddThemeFontSizeOverride("font_size", (int)(size * 0.12f));
+            _unitLabel.AddThemeFontSizeOverride("font_size", (int)(size * 0.15f));
+            _unitLabel.Position = new Vector2(5, size * 0.35f);
+            _unitHealthLabel.AddThemeFontSizeOverride("font_size", (int)(size * 0.12f));
+            _unitHealthLabel.Position = new Vector2(5, size * 0.55f);
+        }
+
+        public void SetUnit(UnitSnapshot unit)
+        {
+            _unitOnNode = unit;
+            UpdateUnitVisuals();
+        }
+
+        private void UpdateUnitVisuals()
+        {
+            if (_unitLabel == null || _unitHealthLabel == null)
+                return;
+
+            if (_unitOnNode != null)
+            {
+                _unitLabel.Text = _unitOnNode.Name.Replace("Unit_", "U");
+                _unitHealthLabel.Text = $"❤{_unitOnNode.CurrentHealth}/{_unitOnNode.MaxHealth}";
+                _unitLabel.Visible = true;
+                _unitHealthLabel.Visible = true;
+
+                var styleBox = _panel.GetThemeStylebox("panel") as StyleBoxFlat;
+                if (styleBox != null)
+                {
+                    styleBox.BgColor = _unitOnNode.OwnerId == 1 ? PlayerUnitColor : EnemyUnitColor;
+                    styleBox.SetBorderWidthAll(3);
+                }
+            }
+            else
+            {
+                _unitLabel.Visible = false;
+                _unitHealthLabel.Visible = false;
+            }
         }
 
         public override bool _CanDropData(Vector2 atPosition, Variant data)
