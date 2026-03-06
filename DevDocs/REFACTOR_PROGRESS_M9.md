@@ -149,8 +149,151 @@ if (mouseEvent.Pressed)  // 只处理按下，不处理释放
 - [x] 右键可取消
 - [x] Esc 可取消
 
+---
+
+# M9-HOTFIX: Deploy/Play 无效修复
+
+## 修复日期
+2026-03-06
+
+## 问题现象
+
+手牌可拖拽但单位不能部署、指令打出无效果。
+
+### 单位卡部署失败
+- 拖拽到部署点后无反应
+- 无 UnitDeployedEvent 产生
+
+### 指令卡打出无效果
+- 拖拽到目标后无伤害
+- 无 DamageAppliedEvent 产生
+
+## 根因分析
+
+### 问题1：ActorId 硬编码为 0
+所有命令构造时 `actorId` 参数硬编码为 `0`，导致：
+- `DomainCombatEngine.HandleDeployUnit` 中 `owner` 判断错误
+- 玩家行动被误判为敌方行动
+
+### 问题2：HandlePlayCard 无实际结算
+`HandlePlayCard` 只发出 `CardPlayedEvent`，未执行：
+- 能量校验
+- 伤害处理
+- 目标结算
+
+### 问题3：目标信息丢失
+`OnCardPlayRequested` 构造 `PlayCardCommand` 时 `targetNodeId` 和 `targetUnitId` 都传 `null`。
+
+## 修改文件清单
+
+### 1. Scripts/UI/HandUI.cs
+
+**修改点**: `OnCardDroppedOnNodeHandler` 方法
+
+```csharp
+// Before
+var command = new DeployUnitCommand(turn, 0, unit.Id.GetHashCode(), nodeId);
+
+// After
+int actorId = snapshot?.CurrentActorId ?? 1;
+var command = new DeployUnitCommand(turn, actorId, unit.Id.GetHashCode(), nodeId);
+```
+
+### 2. Scripts/UI/CombatUI.cs
+
+**修改点1**: `OnNodeDropTarget` 方法
+```csharp
+// Before
+var command = new DeployUnitCommand(turn, 0, unit.Id.GetHashCode(), nodeId);
+
+// After
+int actorId = snapshot?.CurrentActorId ?? 1;
+var command = new DeployUnitCommand(turn, actorId, unit.Id.GetHashCode(), nodeId);
+```
+
+**修改点2**: `OnCardPlayRequested` 方法
+```csharp
+// Before
+var command = new PlayCardCommand(turn, 0, card.Id.GetHashCode(), null, null);
+
+// After
+int actorId = snapshot?.CurrentActorId ?? 1;
+int? targetNodeId = ExtractTargetNodeId(target);
+int? targetUnitId = ExtractTargetUnitId(target);
+var command = new PlayCardCommand(turn, actorId, card.Id.GetHashCode(), targetNodeId, targetUnitId);
+```
+
+**修改点3**: `OnEndTurnPressed` 方法
+```csharp
+// Before
+var command = new EndTurnCommand(turn, 0);
+
+// After
+int actorId = snapshot?.CurrentActorId ?? 1;
+var command = new EndTurnCommand(turn, actorId);
+```
+
+**新增方法**: `ExtractTargetNodeId` 和 `ExtractTargetUnitId`
+- 从目标角色提取节点ID和单位ID
+
+### 3. Scripts/Domain/Combat/Engine/DomainCombatEngine.cs
+
+**修改点**: `HandlePlayCard` 方法完整实现
+
+```csharp
+private IReadOnlyList<CombatEvent> HandlePlayCard(PlayCardCommand command)
+{
+    var events = new List<CombatEvent>();
+
+    // 1. 校验 Actor
+    if (command.ActorId != _state.CurrentActorId)
+    {
+        GD.Print($"[HandlePlayCard] Actor mismatch");
+        return events;
+    }
+
+    // 2. 校验能量
+    int energyCost = 1;
+    if (_state.Player.Energy < energyCost)
+    {
+        GD.Print($"[HandlePlayCard] Not enough energy");
+        return events;
+    }
+    _state.Player.SpendEnergy(energyCost);
+
+    // 3. 处理目标伤害
+    if (command.TargetUnitId.HasValue && _units.TryGetValue(...))
+    {
+        // 造成伤害，处理死亡
+    }
+    // 4. 处理 HQ 伤害
+    else if (command.TargetNodeId.HasValue)
+    {
+        // HQ 伤害逻辑
+    }
+
+    // 5. 发出事件
+    events.Add(new CardPlayedEvent(...));
+    return events;
+}
+```
+
+## 验收标准
+
+- [ ] 单位卡拖到玩家部署点可成功入场
+- [ ] 指令卡拖到目标可造成可见效果（伤害变化/日志）
+- [ ] 打牌后至少有一条事件日志（UnitDeployedEvent 或 CardPlayedEvent + DamageAppliedEvent）
+- [ ] 回合结束仍可正常执行（EndTurn 不回归）
+
+## Git 提交
+
+```
+commit 31c5f45
+refactor: 统一 ActorId 获取逻辑，从 CombatSnapshot.CurrentActorId 获取
+```
+
 ## 后续工作
 
 1. 运行游戏验证修复效果
-2. 如有问题，检查 HandUI 和 BattleMapUI 的事件传递
-3. 确认命令管道正常工作
+2. 确认单位部署和指令打出链路正常
+3. 如有问题，检查事件处理和 UI 更新

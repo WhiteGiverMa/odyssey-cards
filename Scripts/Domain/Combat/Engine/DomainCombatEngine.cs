@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Godot;
 using OdysseyCards.Domain.Combat.Commands;
 using OdysseyCards.Domain.Combat.Events;
 using OdysseyCards.Domain.Combat.Model;
