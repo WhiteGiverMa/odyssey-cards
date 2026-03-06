@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="OrderData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="OrderData" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/OrderData.cs" id="1_data"]
 [ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+[ext_resource type="Texture2D" path="res://Assets/Cards/Demo/Assault.jpg" id="3_artwork"]
 
 [sub_resource type="Resource" id="SubResource_1"]
 script = ExtResource("2_effect")
@@ -16,6 +17,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "order_Assault"
+Artwork = ExtResource("3_artwork")
 CardName = "出击"
 Description = "轮战\n造成2点伤害，抽1张牌"
 Rarity = 0
