@@ -2,10 +2,15 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using OdysseyCards.AI;
+using OdysseyCards.Application.Combat;
 using OdysseyCards.Card;
 using OdysseyCards.Character;
 using OdysseyCards.Core;
+using OdysseyCards.Domain.Combat.Engine;
+using OdysseyCards.Infrastructure.Replay;
+using OdysseyCards.Legacy.Adapters;
 using OdysseyCards.Map;
+using OdysseyCards.Presentation.Input;
 
 namespace OdysseyCards.Combat
 {
@@ -152,6 +157,12 @@ namespace OdysseyCards.Combat
         private CardReward _cardReward;
         private List<ICardData> _currentRewards;
 
+        private ICombatEngine _combatEngine;
+        private CombatApplicationService _applicationService;
+        private JsonlReplayWriter _replayWriter;
+
+        public static bool UseCommandPipeline { get; set; } = true;
+
         public override void _Ready()
         {
             Instance = this;
@@ -213,9 +224,25 @@ namespace OdysseyCards.Combat
             }
 
             GD.Print("[CombatManager] Starting combat");
+            InitializeCommandSystem();
             StartCombat();
 
             GD.Print($"[CombatManager] After StartCombat, player hand count: {Player.Hand.Count}");
+        }
+
+        private void InitializeCommandSystem()
+        {
+            GD.Print("[CombatManager] Initializing command system...");
+
+            _combatEngine = new LegacyCombatEngine(this);
+
+            string replayPath = $"user://replays/combat_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.jsonl";
+            _replayWriter = new JsonlReplayWriter(ProjectSettings.GlobalizePath(replayPath));
+
+            _applicationService = new CombatApplicationService(_combatEngine, _replayWriter);
+            _ = new CombatInputAdapter(_applicationService);
+
+            GD.Print($"[CombatManager] Command system initialized, replay path: {replayPath}");
         }
 
         /// <summary>

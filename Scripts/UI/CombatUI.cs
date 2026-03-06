@@ -1,5 +1,7 @@
 using Godot;
+using OdysseyCards.Domain.Combat.Commands;
 using OdysseyCards.Localization;
+using OdysseyCards.Presentation.Input;
 
 namespace OdysseyCards.UI;
 
@@ -204,7 +206,7 @@ public partial class CombatUI : Control
             return;
         }
 
-        if (_combatManager.CurrentSelectionMode == Combat.SelectionMode.DeployUnit)
+        if (!Combat.CombatManager.UseCommandPipeline && _combatManager.CurrentSelectionMode == Combat.SelectionMode.DeployUnit)
         {
             _ = _combatManager.OnNodeSelected(nodeId);
         }
@@ -219,7 +221,7 @@ public partial class CombatUI : Control
             return;
         }
 
-        if (_combatManager.CurrentSelectionMode == Combat.SelectionMode.DeployUnit)
+        if (!Combat.CombatManager.UseCommandPipeline && _combatManager.CurrentSelectionMode == Combat.SelectionMode.DeployUnit)
         {
             _ = _combatManager.OnNodeSelected(nodeId);
         }
@@ -301,7 +303,20 @@ public partial class CombatUI : Control
 
     private void OnEndTurnPressed()
     {
-        _combatManager?.EndPlayerTurn();
+        if (Combat.CombatManager.UseCommandPipeline && CombatInputAdapter.Instance != null)
+        {
+            var command = new EndTurnCommand(
+                _combatManager?.TurnCount ?? 0,
+                0
+            );
+            CombatInputAdapter.Instance.Submit(command);
+            GD.Print($"[CombatUI] EndTurn submitted via command pipeline");
+        }
+        else
+        {
+            _combatManager?.EndPlayerTurn();
+            GD.Print($"[CombatUI] EndTurn called directly (legacy path)");
+        }
     }
 
     public void ShowCombatResult(bool victory)

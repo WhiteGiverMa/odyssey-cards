@@ -1,6 +1,7 @@
 using System;
 using Godot;
-using System.Collections.Generic;
+using OdysseyCards.Domain.Combat.Commands;
+using OdysseyCards.Presentation.Input;
 
 namespace OdysseyCards.UI
 {
@@ -247,6 +248,19 @@ namespace OdysseyCards.UI
 			}
 
 			GD.Print($"[HandUI] Card dropped on node: {cardUI.Card.CardName} -> Node {nodeId}");
+
+			if (Combat.CombatManager.UseCommandPipeline && CombatInputAdapter.Instance != null && cardUI.Card is Card.Unit unit)
+			{
+				var command = new DeployUnitCommand(
+					_combatManager?.TurnCount ?? 0,
+					0,
+					unit.Id.GetHashCode(),
+					nodeId
+				);
+				_ = CombatInputAdapter.Instance.Submit(command);
+				GD.Print($"[HandUI] DeployUnit submitted via command pipeline");
+				return;
+			}
 
 			OnCardDroppedOnNode?.Invoke(cardUI.Card, nodeId);
 		}
