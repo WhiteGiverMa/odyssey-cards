@@ -360,11 +360,6 @@ public partial class CombatUI : Control
             return null;
         }
 
-        if (target is Character.Enemy enemy)
-        {
-            return enemy.Id.GetHashCode();
-        }
-
         return null;
     }
 
