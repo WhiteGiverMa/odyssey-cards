@@ -162,6 +162,9 @@ namespace OdysseyCards.Combat
         private JsonlReplayWriter _replayWriter;
 
         public static bool UseCommandPipeline { get; set; } = true;
+        public static bool UseNewCombatEngineForPlayerTurn { get; set; } = false;
+
+        private Domain.Combat.Engine.ICombatEngine _domainEngine;
 
         public override void _Ready()
         {
@@ -236,6 +239,8 @@ namespace OdysseyCards.Combat
 
             _combatEngine = new LegacyCombatEngine(this);
 
+            _domainEngine = new DomainCombatEngine();
+
             string replayPath = $"user://replays/combat_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.jsonl";
             _replayWriter = new JsonlReplayWriter(ProjectSettings.GlobalizePath(replayPath));
 
@@ -243,6 +248,7 @@ namespace OdysseyCards.Combat
             _ = new CombatInputAdapter(_applicationService);
 
             GD.Print($"[CombatManager] Command system initialized, replay path: {replayPath}");
+            GD.Print($"[CombatManager] UseNewCombatEngineForPlayerTurn: {UseNewCombatEngineForPlayerTurn}");
         }
 
         /// <summary>
