@@ -30,6 +30,22 @@ namespace OdysseyCards.Domain.Combat.Events
         }
     }
 
+    public sealed record CombatStartedEvent : CombatEvent
+    {
+        public int PlayerId { get; init; }
+        public bool IsPlayerFirst { get; init; }
+        public int Seed { get; init; }
+
+        public CombatStartedEvent() { }
+
+        public CombatStartedEvent(Guid commandId, int turn, int playerId, bool isPlayerFirst, int seed) : base(commandId, turn)
+        {
+            PlayerId = playerId;
+            IsPlayerFirst = isPlayerFirst;
+            Seed = seed;
+        }
+    }
+
     public sealed record CardPlayedEvent : CombatEvent
     {
         public int ActorId { get; init; }

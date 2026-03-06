@@ -18,6 +18,18 @@ namespace OdysseyCards.Domain.Combat.Commands
         }
     }
 
+    public sealed record StartCombatCommand : CombatCommand
+    {
+        public int Seed { get; init; }
+
+        public StartCombatCommand() { }
+
+        public StartCombatCommand(int seed) : base(0, 0)
+        {
+            Seed = seed;
+        }
+    }
+
     public sealed record EndTurnCommand : CombatCommand
     {
         public EndTurnCommand() { }
