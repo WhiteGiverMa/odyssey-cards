@@ -43,11 +43,13 @@ namespace OdysseyCards.UI
 			_dragLayer = new Control
 			{
 				Name = "DragLayer",
-				MouseFilter = MouseFilterEnum.Ignore
+				// 使用 Pass 而不是 Ignore，确保拖拽时不阻挡其他 UI 元素
+				MouseFilter = MouseFilterEnum.Pass
 			};
 			_dragLayer.SetAnchorsPreset(LayoutPreset.FullRect);
 			AddChild(_dragLayer);
 			_dragLayer.ZIndex = 1000;
+			GD.Print("[HandUI] DragLayer created with MouseFilter=Pass");
 		}
 
 		public void SetPlayer(Character.Player player)
@@ -166,7 +168,7 @@ namespace OdysseyCards.UI
 				return;
 			}
 
-			GD.Print($"[HandUI] Drag started: {cardUI.Card.CardName}");
+			GD.Print($"[HandUI] Drag started: {cardUI.Card.CardName}, card type: {cardUI.Card.Type}");
 
 			_draggingCard = cardUI;
 			_draggingCardIndex = cardUI.GetIndex();
@@ -184,8 +186,10 @@ namespace OdysseyCards.UI
 			cardUI.Reparent(_dragLayer, false);
 			cardUI.GlobalPosition = globalPos;
 
-			if (cardUI.Card is Card.Unit)
+			// 只有 Unit 卡牌才进入部署模式
+			if (cardUI.Card is Card.Unit unit)
 			{
+				GD.Print($"[HandUI] Unit card drag - entering deploy mode for: {unit.CardName}");
 				_combatManager?.PlayCard(cardUI.Card, null);
 			}
 
@@ -199,7 +203,7 @@ namespace OdysseyCards.UI
 				return;
 			}
 
-			GD.Print($"[HandUI] Drag ended: {cardUI.Card.CardName}");
+			GD.Print($"[HandUI] Drag ended: {cardUI.Card.CardName}, card type: {cardUI.Card.Type}");
 
 			if (_dragPlaceholder != null)
 			{

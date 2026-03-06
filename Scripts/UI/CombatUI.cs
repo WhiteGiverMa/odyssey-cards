@@ -28,6 +28,11 @@ public partial class CombatUI : Control
         GD.Print("[CombatUI] _Ready called");
         AddToGroup("CombatUI");
 
+        // CombatUI 是全屏覆盖层；要让底层 MainContainer 按钮可点击，必须 Ignore 而不是 Pass
+        // Pass 仍会命中该节点并沿父级冒泡，底层兄弟节点拿不到事件
+        MouseFilter = MouseFilterEnum.Ignore;
+        GD.Print("[CombatUI] MouseFilter set to Ignore for true click-through");
+
         _playerHealthBar = GetNode<HealthBar>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/PlayerPanel/HealthBar");
         _handUI = GetNode<HandUI>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/HandUI");
         _endTurnButton = GetNode<Button>("../MainContainer/BottomBar/MarginContainer/PlayerContainer/EndTurnButton");
@@ -301,7 +306,7 @@ public partial class CombatUI : Control
 
     public void ShowCombatResult(bool victory)
     {
-        Label resultLabel = GetNodeOrNull<Label>("../CombatUI/ResultLabel");
+        Label resultLabel = GetNodeOrNull<Label>("ResultLabel");
         if (resultLabel != null)
         {
             resultLabel.Text = victory

@@ -407,6 +407,7 @@ namespace OdysseyCards.UI
 
 		private void HandleLeftPress(Vector2 position)
 		{
+			GD.Print($"[CardUI] HandleLeftPress: {Card?.CardName}, position: {position}");
 			_dragStartPosition = position;
 			_isDragActive = false;
 
@@ -419,6 +420,8 @@ namespace OdysseyCards.UI
 
 		private void HandleLeftRelease()
 		{
+			GD.Print($"[CardUI] HandleLeftRelease: {Card?.CardName}, IsDragging: {IsDragging}");
+
 			if (IsDragging)
 			{
 				ProcessDragEnd();
@@ -479,6 +482,7 @@ namespace OdysseyCards.UI
 		private void ProcessDragEnd()
 		{
 			Vector2 globalMousePos = GetGlobalMousePosition();
+			GD.Print($"[CardUI] ProcessDragEnd: {Card?.CardName}, mousePos: {globalMousePos}");
 
 			int nodeId = DetectNodeTarget(globalMousePos);
 			if (nodeId >= 0)
