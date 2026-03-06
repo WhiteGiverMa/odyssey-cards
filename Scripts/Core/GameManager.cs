@@ -1,8 +1,10 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using OdysseyCards.Application.Ports;
 using OdysseyCards.Card;
 using OdysseyCards.Character;
+using OdysseyCards.Infrastructure.Godot.Save;
 using OdysseyCards.Localization;
 
 namespace OdysseyCards.Core;
@@ -12,18 +14,13 @@ namespace OdysseyCards.Core;
 /// Manages player progression, deck state, and run persistence across scenes.
 /// </summary>
 public partial class GameManager : Node
-{
-    /// <summary>
-    /// Singleton instance for global access.
-    /// </summary>
-    public static GameManager Instance { get; private set; }
+    {
+        public static GameManager Instance { get; private set; }
 
-    private string _currentLanguage = "zh";
+        private string _currentLanguage = "zh";
+        private ISaveRepository _saveRepository;
 
-    /// <summary>
-    /// Current language code (e.g., "zh", "en").
-    /// </summary>
-    public static string CurrentLanguage => Instance?._currentLanguage ?? "zh";
+        public static string CurrentLanguage => Instance?._currentLanguage ?? "zh";
 
     private Deck _playerDeck;
 
@@ -83,31 +80,29 @@ public partial class GameManager : Node
     public event Action<DeckAdjustment> OnDeckAdjustmentRequired;
 
     public override void _Ready()
-    {
-        Instance = this;
-        Localization.Localization.Initialize();
-        LoadLanguagePreference();
-        Localization.Localization.SetLanguage(_currentLanguage);
-        GD.Print("[GameManager] _Ready called, Instance set");
-    }
-
-    private void LoadLanguagePreference()
-    {
-        ConfigFile config = new();
-        if (config.Load("user://settings.cfg") == Error.Ok)
         {
-            _currentLanguage = (string)config.GetValue("settings", "language", "zh");
+            Instance = this;
+            _saveRepository = new GodotSaveRepository();
+            Localization.Localization.Initialize();
+            LoadLanguagePreference();
+            Localization.Localization.SetLanguage(_currentLanguage);
+            GD.Print("[GameManager] _Ready called, Instance set");
         }
-    }
 
-    public void SetLanguage(string language)
-    {
-        _currentLanguage = language;
-        Localization.Localization.SetLanguage(language);
-        ConfigFile config = new();
-        config.SetValue("settings", "language", language);
-        config.Save("user://settings.cfg");
-    }
+        private void LoadLanguagePreference()
+        {
+            SaveData data = _saveRepository.Load();
+            _currentLanguage = data.Language;
+        }
+
+        public void SetLanguage(string language)
+        {
+            _currentLanguage = language;
+            Localization.Localization.SetLanguage(language);
+            SaveData data = _saveRepository.Load();
+            data.Language = language;
+            _saveRepository.Save(data);
+        }
 
     public void ToggleLanguage()
     {

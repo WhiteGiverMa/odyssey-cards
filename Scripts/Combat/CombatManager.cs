@@ -3,10 +3,14 @@ using System.Collections.Generic;
 using Godot;
 using OdysseyCards.AI;
 using OdysseyCards.Application.Combat;
+using OdysseyCards.Application.Combat.UseCases;
+using OdysseyCards.Application.Ports;
+using OdysseyCards.Application.Reward;
 using OdysseyCards.Card;
 using OdysseyCards.Character;
 using OdysseyCards.Core;
 using OdysseyCards.Domain.Combat.Engine;
+using OdysseyCards.Domain.Combat.Events;
 using OdysseyCards.Infrastructure.Replay;
 using OdysseyCards.Legacy.Adapters;
 using OdysseyCards.Map;
@@ -163,8 +167,11 @@ namespace OdysseyCards.Combat
 
         public static bool UseCommandPipeline { get; set; } = true;
         public static bool UseNewCombatEngineForPlayerTurn { get; set; } = false;
+        public static bool UseNewRewardPipeline { get; set; } = true;
 
         private Domain.Combat.Engine.ICombatEngine _domainEngine;
+        private ProcessRewardUseCase _processRewardUseCase;
+        private IRewardService _rewardService;
 
         public override void _Ready()
         {
@@ -247,8 +254,13 @@ namespace OdysseyCards.Combat
             _applicationService = new CombatApplicationService(_combatEngine, _replayWriter);
             _ = new CombatInputAdapter(_applicationService);
 
+            _rewardService = new CardRewardService();
+            _processRewardUseCase = new ProcessRewardUseCase(_rewardService);
+            _processRewardUseCase.OnRewardsGenerated += HandleRewardsGenerated;
+
             GD.Print($"[CombatManager] Command system initialized, replay path: {replayPath}");
             GD.Print($"[CombatManager] UseNewCombatEngineForPlayerTurn: {UseNewCombatEngineForPlayerTurn}");
+            GD.Print($"[CombatManager] UseNewRewardPipeline: {UseNewRewardPipeline}");
         }
 
         /// <summary>
@@ -464,10 +476,47 @@ namespace OdysseyCards.Combat
             if (GameManager.Instance != null && result == CombatState.Victory)
             {
                 GameManager.Instance.SavePlayerHQHealth(Player.HQCurrentHealth, Player.HQMaxHealth);
+            }
+
+            if (UseNewRewardPipeline && _processRewardUseCase != null)
+            {
+                var combatEndedEvent = new CombatEndedEvent(
+                    Guid.Empty,
+                    TurnCount,
+                    0,
+                    result == CombatState.Victory ? "Victory" : "Defeat",
+                    result == CombatState.Victory
+                );
+                _ = _processRewardUseCase.Execute(combatEndedEvent);
+            }
+            else
+            {
                 GenerateAndShowRewards();
             }
 
             OnCombatEnd?.Invoke(result);
+        }
+
+        private void HandleRewardsGenerated(IReadOnlyList<CardRewardOption> rewards)
+        {
+            if (rewards == null || rewards.Count == 0)
+            {
+                return;
+            }
+
+            var cardDataList = new List<ICardData>();
+            foreach (var option in rewards)
+            {
+                if (option.CardResource is ICardData cardData)
+                {
+                    cardDataList.Add(cardData);
+                }
+            }
+
+            if (cardDataList.Count > 0)
+            {
+                OnCombatRewards?.Invoke(cardDataList);
+            }
         }
 
         private void GenerateAndShowRewards()
@@ -522,14 +571,23 @@ namespace OdysseyCards.Combat
                 return;
             }
 
-            if (GameManager.Instance.AddCardToDeck(cardData as Resource))
+            if (UseNewRewardPipeline && _processRewardUseCase != null)
             {
-                GD.Print($"[CombatManager] Added card to deck: {cardData.CardName}");
-                _currentRewards = null;
+                var option = new CardRewardOption(cardData.Id, cardData.CardName, cardData.Rarity.ToString(), cardData);
+                _processRewardUseCase.SelectReward(0, option);
+                GD.Print($"[CombatManager] Added card to deck via new pipeline: {cardData.CardName}");
             }
             else
             {
-                GD.Print($"[CombatManager] Failed to add card to deck: deck may be full");
+                if (GameManager.Instance.AddCardToDeck(cardData as Resource))
+                {
+                    GD.Print($"[CombatManager] Added card to deck: {cardData.CardName}");
+                    _currentRewards = null;
+                }
+                else
+                {
+                    GD.Print($"[CombatManager] Failed to add card to deck: deck may be full");
+                }
             }
         }
 

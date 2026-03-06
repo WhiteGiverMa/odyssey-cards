@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using OdysseyCards.Application.Combat.UseCases;
 using OdysseyCards.Domain.Combat.Commands;
 using OdysseyCards.Domain.Combat.Engine;
 using OdysseyCards.Domain.Combat.Events;
@@ -10,13 +11,15 @@ namespace OdysseyCards.Application.Combat
     {
         private readonly ICombatEngine _engine;
         private readonly IReplayWriter _replayWriter;
+        private readonly ProcessRewardUseCase _rewardUseCase;
 
         public event Action<CombatEvent> OnEvent;
 
-        public CombatApplicationService(ICombatEngine engine, IReplayWriter replayWriter = null)
+        public CombatApplicationService(ICombatEngine engine, IReplayWriter replayWriter = null, ProcessRewardUseCase rewardUseCase = null)
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
             _replayWriter = replayWriter;
+            _rewardUseCase = rewardUseCase;
 
             _engine.OnEvent += OnEngineEvent;
         }
@@ -24,6 +27,11 @@ namespace OdysseyCards.Application.Combat
         private void OnEngineEvent(CombatEvent evt)
         {
             OnEvent?.Invoke(evt);
+
+            if (evt is CombatEndedEvent combatEndedEvent && _rewardUseCase != null)
+            {
+                _ = _rewardUseCase.Execute(combatEndedEvent);
+            }
         }
 
         public void StartCombat(CombatSetup setup, int seed)
