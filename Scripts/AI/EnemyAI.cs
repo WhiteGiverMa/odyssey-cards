@@ -4,6 +4,7 @@ using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Character;
 using OdysseyCards.Combat;
+using OdysseyCards.Domain.Combat.Commands;
 using OdysseyCards.Map;
 
 namespace OdysseyCards.AI
@@ -37,6 +38,49 @@ namespace OdysseyCards.AI
             }
 
             return AIAction.EndTurn();
+        }
+
+        public List<CombatCommand> DecideCommands(Enemy enemy, CombatManager combat)
+        {
+            var commands = new List<CombatCommand>();
+            int currentEnergy = enemy.CurrentEnergy;
+            int turn = combat.TurnCount;
+            int actorId = enemy.GetHashCode();
+
+            List<Unit> deployableUnits = GetDeployableUnits(enemy, currentEnergy);
+            if (deployableUnits.Count > 0)
+            {
+                Unit unitToDeploy = SelectBestDeployTarget(deployableUnits);
+                if (unitToDeploy != null)
+                {
+                    commands.Add(new DeployUnitCommand(turn, actorId, unitToDeploy.Id.GetHashCode(), combat.BattleMap.EnemyDeploymentNodeId));
+                    return commands;
+                }
+            }
+
+            AIAction attackAction = TryGetAttackAction(enemy, combat);
+            if (attackAction.IsValid() && attackAction.Unit != null)
+            {
+                int? targetUnitId = null;
+                Unit targetUnit = combat.GetUnitAtNode(attackAction.TargetNodeId);
+                if (targetUnit != null)
+                {
+                    targetUnitId = targetUnit.Id.GetHashCode();
+                }
+                commands.Add(new AttackCommand(turn, actorId, attackAction.Unit.Id.GetHashCode(), attackAction.TargetNodeId, targetUnitId));
+                return commands;
+            }
+
+            List<Order> playableOrders = GetPlayableOrders(enemy, currentEnergy);
+            if (playableOrders.Count > 0)
+            {
+                var order = playableOrders[0];
+                commands.Add(new PlayCardCommand(turn, actorId, order.Id.GetHashCode()));
+                return commands;
+            }
+
+            commands.Add(new EndTurnCommand(turn, actorId));
+            return commands;
         }
 
         public List<Unit> GetDeployableUnits(Enemy enemy, int currentEnergy)
