@@ -15,6 +15,9 @@ namespace OdysseyCards.Map
         public int PlayerDeploymentNodeId { get; private set; } = -1;
         public int EnemyDeploymentNodeId { get; private set; } = -1;
 
+        public int PlayerHQNodeId => PlayerDeploymentNodeId;
+        public int EnemyHQNodeId => EnemyDeploymentNodeId;
+
         private int _nextNodeId = 0;
 
         public override void _Ready()

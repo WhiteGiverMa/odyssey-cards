@@ -232,21 +232,21 @@ public partial class CombatUI : Control
         }
     }
 
-    private void OnUnitDeployed(Card.Unit unit)
+    private void OnUnitDeployed(int unitId, int nodeId, string unitName)
     {
-        GD.Print($"[CombatUI] Unit deployed: {unit.CardName} at node {unit.CurrentNode}");
+        GD.Print($"[CombatUI] Unit deployed: {unitName} at node {nodeId}");
         UpdateBattleMapDisplay();
     }
 
-    private void OnUnitMoved(Card.Unit unit, int fromNode, int toNode)
+    private void OnUnitMoved(int unitId, int fromNode, int toNode, string unitName)
     {
-        GD.Print($"[CombatUI] Unit moved: {unit.CardName} from {fromNode} to {toNode}");
+        GD.Print($"[CombatUI] Unit moved: {unitName} from {fromNode} to {toNode}");
         UpdateBattleMapDisplay();
     }
 
-    private void OnUnitAttacked(Card.Unit attacker, Card.Unit target)
+    private void OnUnitAttacked(int amount, int? sourceUnitId, int targetUnitId, int targetHQOwnerId)
     {
-        GD.Print($"[CombatUI] Attack: {attacker.CardName} -> {target.CardName}");
+        GD.Print($"[CombatUI] Attack: {amount} damage, target: {targetUnitId}");
     }
 
     private void OnAttackRangeShow(System.Collections.Generic.List<int> nodeIds)
