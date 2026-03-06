@@ -115,7 +115,7 @@ Card data, enemy definitions, and other game content use Godot's Resource system
 - **slay-the-model docs**: `G:\dev\slay-the-model\docs` - Architecture documentation
 
 ## Documentation
-- `.trae/documents/project_design.md` - Game design specifications
+- `DevDocs/PROJECT_DESIGN.md` - Game design specifications
 - `.trae/documents/tag_definition.md` - Card tag definitions
 - `.trae/rules/project_rules.md` - Project-specific coding standards
 - `DevDocs/` - Development notes and TODO lists

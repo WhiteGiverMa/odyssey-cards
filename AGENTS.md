@@ -23,7 +23,7 @@ OdysseyCards/
 
 | 文档 | 说明 |
 |-----|------|
-| [project_design.md](./.trae/documents/project_design.md) | 项目设计方针文档 |
+| [PROJECT_DESIGN.md](./DevDocs/PROJECT_DESIGN.md) | 项目设计方针文档 |
 | [project_spec_record.md](./.trae/documents/project_spec_record.md) | 项目规范记录文档 |
 | [tag_definition.md](./.trae/documents/tag_definition.md) | 词条定义字典 |
 | [file_structure.md](./.trae/documents/file_structure.md) | 完整文件结构文档 |

@@ -567,9 +567,11 @@ namespace OdysseyCards.Combat
 
         private void StartDeployMode(Unit unit)
         {
+            GD.Print($"[CombatManager] StartDeployMode called for {unit.CardName}, DeployCost: {unit.DeployCost}, Energy: {Player.CurrentEnergy}");
+
             if (!Player.CanSpendEnergy(unit.DeployCost))
             {
-                GD.Print($"[CombatManager] Cannot deploy unit - not enough energy");
+                GD.Print($"[CombatManager] Cannot deploy unit - not enough energy (need {unit.DeployCost}, have {Player.CurrentEnergy})");
                 return;
             }
 
@@ -578,7 +580,7 @@ namespace OdysseyCards.Combat
             CurrentSelectionMode = SelectionMode.DeployUnit;
 
             _ = new List<int> { BattleMap.PlayerDeploymentNodeId };
-            GD.Print($"[CombatManager] Deploy mode started for {unit.CardName}");
+            GD.Print($"[CombatManager] SelectionMode changed to DeployUnit for {unit.CardName}, deploy node: {BattleMap.PlayerDeploymentNodeId}");
         }
 
         /// <summary>
@@ -587,6 +589,7 @@ namespace OdysseyCards.Combat
         /// <param name="unit">The unit to move.</param>
         public void StartMoveMode(Unit unit)
         {
+            GD.Print($"[CombatManager] StartMoveMode called for {unit.CardName}");
             if (!unit.CanMove())
             {
                 GD.Print($"[CombatManager] Unit cannot move");
@@ -598,7 +601,7 @@ namespace OdysseyCards.Combat
             CurrentSelectionMode = SelectionMode.MoveUnit;
 
             List<int> movableNodes = BattleMap.GetMovableNodes(unit.CurrentNode, unit.OwnerType);
-            GD.Print($"[CombatManager] Move mode started for {unit.CardName}, can move to {movableNodes.Count} nodes");
+            GD.Print($"[CombatManager] SelectionMode changed to MoveUnit for {unit.CardName}, can move to {movableNodes.Count} nodes");
         }
 
         /// <summary>
@@ -607,6 +610,7 @@ namespace OdysseyCards.Combat
         /// <param name="unit">The unit to attack with.</param>
         public void StartAttackMode(Unit unit)
         {
+            GD.Print($"[CombatManager] StartAttackMode called for {unit.CardName}");
             if (!unit.CanAttack())
             {
                 GD.Print($"[CombatManager] Unit cannot attack");
@@ -620,7 +624,7 @@ namespace OdysseyCards.Combat
             List<int> nodesInRange = BattleMap.GetNodesInRange(unit.CurrentNode, unit.Range);
             OnAttackRangeShow?.Invoke(nodesInRange);
 
-            GD.Print($"[CombatManager] Attack mode started for {unit.CardName}");
+            GD.Print($"[CombatManager] SelectionMode changed to AttackTarget for {unit.CardName}, nodes in range: {nodesInRange.Count}");
         }
 
         /// <summary>
@@ -628,10 +632,12 @@ namespace OdysseyCards.Combat
         /// </summary>
         public void CancelSelection()
         {
+            GD.Print($"[CombatManager] CancelSelection: previous mode={CurrentSelectionMode}, card={SelectedCard?.CardName}, unit={SelectedUnit?.CardName}");
             SelectedCard = null;
             SelectedUnit = null;
             CurrentSelectionMode = SelectionMode.None;
             OnAttackRangeHide?.Invoke();
+            GD.Print("[CombatManager] SelectionMode reset to None");
         }
 
         /// <summary>
@@ -641,17 +647,23 @@ namespace OdysseyCards.Combat
         /// <returns>True if the action was successful.</returns>
         public bool OnNodeSelected(int nodeId)
         {
+            GD.Print($"[CombatManager] OnNodeSelected: nodeId={nodeId}, current mode={CurrentSelectionMode}");
+
             switch (CurrentSelectionMode)
             {
                 case SelectionMode.DeployUnit:
+                    GD.Print($"[CombatManager] Attempting to deploy to node {nodeId}");
                     return DeployUnitToNode(nodeId);
 
                 case SelectionMode.MoveUnit:
+                    GD.Print($"[CombatManager] Attempting to move to node {nodeId}");
                     return MoveUnitToNode(nodeId);
 
                 case SelectionMode.AttackTarget:
+                    GD.Print($"[CombatManager] Attempting to attack at node {nodeId}");
                     return AttackTargetAtNode(nodeId);
                 case SelectionMode.None:
+                    GD.Print($"[CombatManager] OnNodeSelected called with None mode - ignoring");
                     break;
                 default:
                     break;
