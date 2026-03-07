@@ -20,7 +20,7 @@ public partial class DeckViewUI : Control
         Visible = false;
     }
 
-    public void ShowDeckList(string title, List<Card.Card> cards)
+    public void ShowDeckList(string title, IReadOnlyList<Card.Card> cards)
     {
         if (_titleLabel != null)
         {
@@ -139,7 +139,7 @@ public partial class DeckViewUI : Control
         _scrollContainer.AddChild(_cardListContainer);
     }
 
-    private void PopulateCards(List<Card.Card> cards)
+    private void PopulateCards(IReadOnlyList<Card.Card> cards)
     {
         if (_cardListContainer == null)
         {

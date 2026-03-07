@@ -97,6 +97,12 @@ public partial class EnemyUI : Control
 
     public void SetEnemy(Enemy enemy)
     {
+        if (_enemy != null && _enemy.HQ != null)
+        {
+            _enemy.OnHandChanged -= UpdateDisplay;
+            _enemy.HQ.OnHealthChanged -= OnEnemyHQHealthChanged;
+        }
+
         _enemy = enemy;
         SetMeta("EnemyObject", enemy);
         UpdateDisplay();
@@ -104,14 +110,11 @@ public partial class EnemyUI : Control
         if (_enemy != null)
         {
             _enemy.OnHandChanged += UpdateDisplay;
-            _enemy.OnHealthChanged += OnEnemyHealthChanged;
-            _enemy.OnHQHealthChanged += OnEnemyHQHealthChanged;
+            if (_enemy.HQ != null)
+            {
+                _enemy.HQ.OnHealthChanged += OnEnemyHQHealthChanged;
+            }
         }
-    }
-
-    private void OnEnemyHealthChanged(int current, int max)
-    {
-        UpdateDisplay();
     }
 
     private void OnEnemyHQHealthChanged(int current, int max)
@@ -130,9 +133,9 @@ public partial class EnemyUI : Control
             _nameLabel.Text = Localization.Localization.T($"enemies.{enemyId}.name", _enemy.CharacterName);
         }
 
-        if (_hqHealthLabel != null)
+        if (_hqHealthLabel != null && _enemy.HQ != null)
         {
-            _hqHealthLabel.Text = $"HQ: {_enemy.HQCurrentHealth}/{_enemy.HQMaxHealth}";
+            _hqHealthLabel.Text = $"HQ: {_enemy.HQ.CurrentHealth}/{_enemy.HQ.MaxHealth}";
         }
     }
 
@@ -148,8 +151,10 @@ public partial class EnemyUI : Control
         if (_enemy != null)
         {
             _enemy.OnHandChanged -= UpdateDisplay;
-            _enemy.OnHealthChanged -= OnEnemyHealthChanged;
-            _enemy.OnHQHealthChanged -= OnEnemyHQHealthChanged;
+            if (_enemy.HQ != null)
+            {
+                _enemy.HQ.OnHealthChanged -= OnEnemyHQHealthChanged;
+            }
         }
     }
 }

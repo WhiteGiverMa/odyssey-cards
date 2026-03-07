@@ -113,6 +113,11 @@ namespace OdysseyCards.Domain.Combat.State
             HQHealth = Math.Max(0, HQHealth - amount);
         }
 
+        public void Heal(int amount)
+        {
+            HQHealth = Math.Min(HQMaxHealth, HQHealth + amount);
+        }
+
         public void SpendEnergy(int cost)
         {
             Energy = Math.Max(0, Energy - cost);
@@ -137,6 +142,11 @@ namespace OdysseyCards.Domain.Combat.State
         public void TakeDamage(int amount)
         {
             HQHealth = Math.Max(0, HQHealth - amount);
+        }
+
+        public void Heal(int amount)
+        {
+            HQHealth = Math.Min(HQMaxHealth, HQHealth + amount);
         }
 
         public void SpendEnergy(int cost)

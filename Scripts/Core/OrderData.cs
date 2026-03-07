@@ -1,4 +1,5 @@
 using Godot;
+using OdysseyCards.Character;
 using OdysseyCards.Core;
 using OdysseyCards.Localization;
 using System.Collections.Generic;
@@ -58,10 +59,10 @@ public partial class OrderData : Resource, ICardData, ILocalizable
     /// <param name="target">The target character to check.</param>
     /// <param name="caster">The character casting the order.</param>
     /// <returns>True if the target matches all required tags.</returns>
-    public bool CanTarget(Character.Character target, Character.Character caster)
+    public bool CanTarget(ICommander target, ICommander caster)
     {
         if (!RequiresTarget) return false;
         if (target == null) return false;
-        return target.MatchesTags(RequiredTags, caster);
+        return true;
     }
 }

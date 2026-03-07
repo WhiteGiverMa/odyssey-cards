@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Godot;
+using OdysseyCards.Character;
 using OdysseyCards.Domain.Combat.Commands;
 using OdysseyCards.Domain.Combat.Events;
 using OdysseyCards.Localization;
@@ -216,7 +217,11 @@ namespace OdysseyCards.UI
                 turn,
                 actorId,
                 unit.Id.GetHashCode(),
-                nodeId
+                nodeId,
+                unit.Attack,
+                unit.MaxHealth,
+                unit.Range,
+                unit.CardName
             );
             _ = CombatInputAdapter.Instance.Submit(command);
             GD.Print($"[CombatUI] DeployUnit submitted via command pipeline");
@@ -280,7 +285,7 @@ namespace OdysseyCards.UI
         _battleMapUI.RebuildUI();
     }
 
-    private void OnCardPlayRequested(Card.Card card, Character.Character target)
+    private void OnCardPlayRequested(Card.Card card, ICommander target)
     {
         GD.Print($"[CombatUI] OnCardPlayRequested called: {card?.CardName}, target: {target?.CharacterName}");
         if (CombatInputAdapter.Instance != null && card is Card.Order order)
@@ -291,14 +296,33 @@ namespace OdysseyCards.UI
             int? targetNodeId = ExtractTargetNodeId(target);
             int? targetUnitId = ExtractTargetUnitId(target);
 
-            GD.Print($"[CombatUI] PlayCard target - NodeId: {targetNodeId}, UnitId: {targetUnitId}");
+            string? effectType = null;
+            int effectValue = 0;
+            int? targetHQOwnerId = null;
+
+            if (order.Effects.Count > 0)
+            {
+                var firstEffect = order.Effects[0];
+                effectType = firstEffect.EffectType.ToString();
+                effectValue = firstEffect.Value;
+            }
+
+            if (target != null)
+            {
+                targetHQOwnerId = target.CommanderId;
+            }
+
+            GD.Print($"[CombatUI] PlayCard target - NodeId: {targetNodeId}, UnitId: {targetUnitId}, EffectType: {effectType}, EffectValue: {effectValue}, TargetHQOwnerId: {targetHQOwnerId}");
 
             var command = new PlayCardCommand(
                 turn,
                 actorId,
                 card.Id.GetHashCode(),
                 targetNodeId,
-                targetUnitId
+                targetUnitId,
+                effectType,
+                effectValue,
+                targetHQOwnerId
             );
             System.Collections.Generic.IReadOnlyList<CombatEvent> events = CombatInputAdapter.Instance.Submit(command);
 
@@ -334,12 +358,26 @@ namespace OdysseyCards.UI
             int turn = snapshot?.Turn ?? 0;
             int actorId = snapshot?.CurrentActorId ?? 1;
 
+            string? effectType = null;
+            int effectValue = 0;
+            int? targetHQOwnerId = null;
+
+            if (order.Effects.Count > 0)
+            {
+                var firstEffect = order.Effects[0];
+                effectType = firstEffect.EffectType.ToString();
+                effectValue = firstEffect.Value;
+            }
+
             var command = new PlayCardCommand(
                 turn,
                 actorId,
                 card.Id.GetHashCode(),
                 null,
-                null
+                null,
+                effectType,
+                effectValue,
+                targetHQOwnerId
             );
             System.Collections.Generic.IReadOnlyList<CombatEvent> events = CombatInputAdapter.Instance.Submit(command);
 
@@ -412,7 +450,7 @@ namespace OdysseyCards.UI
         }
     }
 
-    private int? ExtractTargetNodeId(Character.Character target)
+    private int? ExtractTargetNodeId(ICommander target)
     {
         if (target == null)
         {
@@ -427,7 +465,7 @@ namespace OdysseyCards.UI
         return null;
     }
 
-    private int? ExtractTargetUnitId(Character.Character target)
+    private int? ExtractTargetUnitId(ICommander target)
     {
         if (target == null)
         {

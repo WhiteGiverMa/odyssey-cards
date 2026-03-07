@@ -71,6 +71,7 @@ namespace OdysseyCards.Combat
         private int _selectedUnitId = -1;
         private int _selectedCardInstanceId = -1;
         private string _selectedCardName = "";
+        private Unit _selectedUnit = null;
         private int _playerId = 1;
         private int _enemyId = 2;
         private readonly Dictionary<int, Unit> _unitInstances = new();
@@ -103,12 +104,9 @@ namespace OdysseyCards.Combat
             if (GameManager.Instance?.CurrentPlayer == null)
             {
                 GD.PrintErr("CombatManager: No player found! Creating fallback player.");
-                Player = new Player
-                {
-                    CharacterName = "Player",
-                    MaxHealth = 80,
-                    MaxEnergy = 3
-                };
+                Player = new Player();
+                Player.InitializeHQ(80);
+                Player.SetMaxEnergy(3);
 
                 var deck = new Deck();
                 deck.Initialize(CardFactory.GetStarterDeck1());
@@ -213,19 +211,24 @@ namespace OdysseyCards.Combat
 
             TurnCount = 1;
 
+            Player.SetupDrawPile();
+            GD.Print($"[CombatManager] Player draw pile setup, count: {Player.DrawPile.Count}");
+
             foreach (Enemy enemy in Enemies)
             {
+                enemy.SetupDrawPile();
                 enemy.StartTurn();
+                GD.Print($"[CombatManager] Enemy draw pile setup, count: {enemy.DrawPile.Count}");
             }
 
             var setup = new CombatSetup
             {
                 PlayerId = _playerId,
-                PlayerStartingHealth = Player.HQMaxHealth,
+                PlayerStartingHealth = Player.HQ.MaxHealth,
                 PlayerStartingEnergy = 1,
                 PlayerMaxEnergy = 3,
                 EnemyIds = new List<int> { _enemyId },
-                EnemyStartingHealths = new List<int> { Enemies[0].HQMaxHealth },
+                EnemyStartingHealths = new List<int> { Enemies[0].HQ.MaxHealth },
                 EnemyStartingEnergies = new List<int> { 3 },
                 EnemyMaxEnergies = new List<int> { 3 },
                 IsPlayerFirst = IsPlayerFirst
@@ -246,6 +249,10 @@ namespace OdysseyCards.Combat
                 Player.SetEnergy(0, 0);
                 GD.Print("[CombatManager] Enemy first, drawing 5 cards");
                 Player.DrawCards(5);
+                foreach (Enemy enemy in Enemies)
+                {
+                    enemy.DrawCards(4);
+                }
                 ExecuteEnemyTurns();
             }
 
@@ -360,7 +367,7 @@ namespace OdysseyCards.Combat
 
             foreach (Enemy enemy in Enemies)
             {
-                if (!enemy.IsDead)
+                if (!enemy.IsDefeated)
                 {
                     enemy.StartTurn();
                     enemy.DrawCards(1);
@@ -384,7 +391,7 @@ namespace OdysseyCards.Combat
             OnTurnStart?.Invoke();
         }
 
-        public void PlayCard(Card.Card card, Character.Character target)
+        public void PlayCard(Card.Card card, ICommander target)
         {
             GD.Print($"[CombatManager] PlayCard called: {card?.CardName}, target: {target?.CharacterName}, State: {State}");
 
@@ -449,6 +456,7 @@ namespace OdysseyCards.Combat
             _selectedCardInstanceId = unit.Id.GetHashCode();
             _selectedCardName = unit.CardName;
             _selectedUnitId = -1;
+            _selectedUnit = unit;
             CurrentSelectionMode = SelectionMode.DeployUnit;
             GD.Print($"[CombatManager] SelectionMode changed to DeployUnit for {unit.CardName}, deploy node: {BattleMap.PlayerDeploymentNodeId}");
         }
@@ -498,6 +506,7 @@ namespace OdysseyCards.Combat
             _selectedUnitId = -1;
             _selectedCardInstanceId = -1;
             _selectedCardName = "";
+            _selectedUnit = null;
             CurrentSelectionMode = SelectionMode.None;
             OnAttackRangeHide?.Invoke();
             GD.Print("[CombatManager] SelectionMode reset to None");
@@ -548,7 +557,11 @@ namespace OdysseyCards.Combat
                 TurnCount,
                 _playerId,
                 _selectedCardInstanceId,
-                nodeId
+                nodeId,
+                _selectedUnit?.Attack ?? 5,
+                _selectedUnit?.MaxHealth ?? 2,
+                _selectedUnit?.Range ?? 1,
+                _selectedCardName
             );
 
             var events = _applicationService.Submit(command);

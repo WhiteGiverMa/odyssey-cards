@@ -164,4 +164,18 @@ namespace OdysseyCards.Domain.Combat.Events
 
         public SelectionCancelledEvent(Guid commandId, int turn) : base(commandId, turn) { }
     }
+
+    public sealed record HealAppliedEvent : CombatEvent
+    {
+        public int TargetHQOwnerId { get; init; }
+        public int Amount { get; init; }
+
+        public HealAppliedEvent() { }
+
+        public HealAppliedEvent(Guid commandId, int turn, int targetHQOwnerId, int amount) : base(commandId, turn)
+        {
+            TargetHQOwnerId = targetHQOwnerId;
+            Amount = amount;
+        }
+    }
 }

@@ -82,6 +82,11 @@ namespace OdysseyCards.Tests.Domain
             }
         }
 
+        private static DeployUnitCommand CreateDeployCommand(int turn, int actorId, int cardInstanceId, int targetNodeId, int attack = 5, int maxHealth = 2, int range = 1, string unitName = "TestUnit")
+        {
+            return new DeployUnitCommand(turn, actorId, cardInstanceId, targetNodeId, attack, maxHealth, range, unitName);
+        }
+
         private static void Test_StartCombat_InitializesState()
         {
             Console.WriteLine("\nTest: StartCombat_InitializesState");
@@ -150,7 +155,7 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup();
             engine.StartCombat(setup, 12345);
 
-            var events = engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            var events = engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             var snapshot = engine.GetSnapshot();
 
             Assert(events.Any(e => e is UnitDeployedEvent), "UnitDeployedEvent produced");
@@ -165,7 +170,7 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup(playerEnergy: 0);
             engine.StartCombat(setup, 12345);
 
-            var events = engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            var events = engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             var snapshot = engine.GetSnapshot();
 
             Assert(!events.Any(e => e is UnitDeployedEvent), "No UnitDeployedEvent");
@@ -179,7 +184,7 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup();
             engine.StartCombat(setup, 12345);
 
-            var events = engine.Submit(new DeployUnitCommand(1, 0, 100, 5));
+            var events = engine.Submit(CreateDeployCommand(1, 0, 100, 5));
             var snapshot = engine.GetSnapshot();
 
             Assert(!events.Any(e => e is UnitDeployedEvent), "No UnitDeployedEvent for invalid node");
@@ -193,7 +198,7 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup();
             engine.StartCombat(setup, 12345);
 
-            var deployEvents = engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            var deployEvents = engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             var deployedEvent = deployEvents.OfType<UnitDeployedEvent>().First();
 
             var moveEvents = engine.Submit(new MoveUnitCommand(1, 0, deployedEvent.UnitId, 1));
@@ -210,7 +215,7 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup();
             engine.StartCombat(setup, 12345);
 
-            var deployEvents = engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            var deployEvents = engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             var deployedEvent = deployEvents.OfType<UnitDeployedEvent>().First();
 
             engine.Submit(new MoveUnitCommand(1, 0, deployedEvent.UnitId, 1));
@@ -226,7 +231,7 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup();
             engine.StartCombat(setup, 12345);
 
-            var deployEvents = engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            var deployEvents = engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             var deployedEvent = deployEvents.OfType<UnitDeployedEvent>().First();
 
             var moveEvents = engine.Submit(new MoveUnitCommand(1, 0, deployedEvent.UnitId, 5));
@@ -241,11 +246,11 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup();
             engine.StartCombat(setup, 12345);
 
-            var playerDeploy = engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            var playerDeploy = engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             var playerUnit = playerDeploy.OfType<UnitDeployedEvent>().First().UnitId;
 
             engine.Submit(new EndTurnCommand(1, 0));
-            var enemyDeploy = engine.Submit(new DeployUnitCommand(1, 1, 200, 6));
+            var enemyDeploy = engine.Submit(CreateDeployCommand(1, 1, 200, 6));
             var enemyUnit = enemyDeploy.OfType<UnitDeployedEvent>().First().UnitId;
 
             var attackEvents = engine.Submit(new AttackCommand(1, 1, enemyUnit, 0, playerUnit));
@@ -260,7 +265,7 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup();
             engine.StartCombat(setup, 12345);
 
-            var deployEvents = engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            var deployEvents = engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             var unitId = deployEvents.OfType<UnitDeployedEvent>().First().UnitId;
 
             var attackEvents = engine.Submit(new AttackCommand(1, 0, unitId, 6, null));
@@ -275,7 +280,7 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup();
             engine.StartCombat(setup, 12345);
 
-            var deployEvents = engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            var deployEvents = engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             var unitId = deployEvents.OfType<UnitDeployedEvent>().First().UnitId;
 
             engine.Submit(new AttackCommand(1, 0, unitId, 6, null));
@@ -291,11 +296,11 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup();
             engine.StartCombat(setup, 12345);
 
-            var playerDeploy = engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            var playerDeploy = engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             var playerUnit = playerDeploy.OfType<UnitDeployedEvent>().First().UnitId;
 
             engine.Submit(new EndTurnCommand(1, 0));
-            var enemyDeploy = engine.Submit(new DeployUnitCommand(1, 1, 200, 6));
+            var enemyDeploy = engine.Submit(CreateDeployCommand(1, 1, 200, 6));
             var enemyUnit = enemyDeploy.OfType<UnitDeployedEvent>().First().UnitId;
 
             var attackEvents = engine.Submit(new AttackCommand(1, 1, enemyUnit, 0, playerUnit));
@@ -311,11 +316,11 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup();
             engine.StartCombat(setup, 12345);
 
-            var playerDeploy = engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            var playerDeploy = engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             var playerUnit = playerDeploy.OfType<UnitDeployedEvent>().First().UnitId;
 
             engine.Submit(new EndTurnCommand(1, 0));
-            var enemyDeploy = engine.Submit(new DeployUnitCommand(1, 1, 200, 6));
+            var enemyDeploy = engine.Submit(CreateDeployCommand(1, 1, 200, 6));
             var enemyUnit = enemyDeploy.OfType<UnitDeployedEvent>().First().UnitId;
 
             for (int i = 0; i < 3; i++)
@@ -334,7 +339,7 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup();
             engine.StartCombat(setup, 12345);
 
-            var deployEvents = engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            var deployEvents = engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             var unitId = deployEvents.OfType<UnitDeployedEvent>().First().UnitId;
 
             var attackEvents = engine.Submit(new AttackCommand(1, 0, unitId, 6, null));
@@ -350,7 +355,7 @@ namespace OdysseyCards.Tests.Domain
             engine.StartCombat(setup, 12345);
 
             engine.Submit(new EndTurnCommand(1, 0));
-            var enemyDeploy = engine.Submit(new DeployUnitCommand(1, 1, 200, 6));
+            var enemyDeploy = engine.Submit(CreateDeployCommand(1, 1, 200, 6));
             var enemyUnit = enemyDeploy.OfType<UnitDeployedEvent>().First().UnitId;
 
             var attackEvents = engine.Submit(new AttackCommand(1, 1, enemyUnit, 0, null));
@@ -365,7 +370,7 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup(enemyHealth: 2);
             engine.StartCombat(setup, 12345);
 
-            var deployEvents = engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            var deployEvents = engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             var unitId = deployEvents.OfType<UnitDeployedEvent>().First().UnitId;
 
             engine.Submit(new AttackCommand(1, 0, unitId, 6, null));
@@ -383,7 +388,7 @@ namespace OdysseyCards.Tests.Domain
             engine.StartCombat(setup, 12345);
 
             engine.Submit(new EndTurnCommand(1, 0));
-            var enemyDeploy = engine.Submit(new DeployUnitCommand(1, 1, 200, 6));
+            var enemyDeploy = engine.Submit(CreateDeployCommand(1, 1, 200, 6));
             var enemyUnit = enemyDeploy.OfType<UnitDeployedEvent>().First().UnitId;
 
             engine.Submit(new AttackCommand(1, 1, enemyUnit, 0, null));
@@ -415,7 +420,7 @@ namespace OdysseyCards.Tests.Domain
             var setup = CreateDefaultSetup();
             engine.StartCombat(setup, 12345);
 
-            var command = new DeployUnitCommand(1, 0, 100, 0);
+            var command = CreateDeployCommand(1, 0, 100, 0);
             var events = engine.Submit(command);
 
             var deployedEvent = events.OfType<UnitDeployedEvent>().FirstOrDefault();

@@ -230,11 +230,11 @@ namespace OdysseyCards.Domain.Combat.Engine
 
             var unit = UnitModel.Create(
                 _nextUnitId++,
-                $"Unit_{command.CardInstanceId}",
+                command.UnitName ?? $"Unit_{command.CardInstanceId}",
                 command.ActorId,
-                5,
-                2,
-                1,
+                command.Attack,
+                command.MaxHealth,
+                command.Range,
                 energyCost
             );
             unit.NodeId = command.TargetNodeId;
@@ -438,6 +438,94 @@ namespace OdysseyCards.Domain.Combat.Engine
             var events = new List<CombatEvent>();
 
             string cardName = $"Card_{command.CardInstanceId}";
+
+            if (!string.IsNullOrEmpty(command.EffectType) && command.TargetHQOwnerId.HasValue)
+            {
+                int targetOwnerId = command.TargetHQOwnerId.Value;
+
+                if (command.EffectType == "Damage")
+                {
+                    if (targetOwnerId == _state.Player.Id)
+                    {
+                        _state.Player.TakeDamage(command.EffectValue);
+                        events.Add(new DamageAppliedEvent(
+                            command.CommandId,
+                            _state.Turn,
+                            null,
+                            null,
+                            _state.Player.Id,
+                            command.EffectValue
+                        ));
+
+                        if (_state.Player.IsDead)
+                        {
+                            _state.SetDefeat();
+                            events.Add(new CombatEndedEvent(
+                                command.CommandId,
+                                _state.Turn,
+                                _state.Enemies[0].Id,
+                                "PlayerHQDestroyed",
+                                false
+                            ));
+                        }
+                    }
+                    else
+                    {
+                        var enemy = _state.Enemies.Find(e => e.Id == targetOwnerId);
+                        if (enemy != null)
+                        {
+                            enemy.TakeDamage(command.EffectValue);
+                            events.Add(new DamageAppliedEvent(
+                                command.CommandId,
+                                _state.Turn,
+                                null,
+                                null,
+                                enemy.Id,
+                                command.EffectValue
+                            ));
+
+                            if (enemy.IsDead)
+                            {
+                                _state.SetVictory();
+                                events.Add(new CombatEndedEvent(
+                                    command.CommandId,
+                                    _state.Turn,
+                                    _state.Player.Id,
+                                    "EnemyHQDestroyed",
+                                    true
+                                ));
+                            }
+                        }
+                    }
+                }
+                else if (command.EffectType == "Heal")
+                {
+                    if (targetOwnerId == _state.Player.Id)
+                    {
+                        _state.Player.Heal(command.EffectValue);
+                        events.Add(new HealAppliedEvent(
+                            command.CommandId,
+                            _state.Turn,
+                            _state.Player.Id,
+                            command.EffectValue
+                        ));
+                    }
+                    else
+                    {
+                        var enemy = _state.Enemies.Find(e => e.Id == targetOwnerId);
+                        if (enemy != null)
+                        {
+                            enemy.Heal(command.EffectValue);
+                            events.Add(new HealAppliedEvent(
+                                command.CommandId,
+                                _state.Turn,
+                                enemy.Id,
+                                command.EffectValue
+                            ));
+                        }
+                    }
+                }
+            }
 
             events.Add(new CardPlayedEvent(
                 command.CommandId,

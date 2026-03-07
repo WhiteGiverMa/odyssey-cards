@@ -50,7 +50,7 @@ namespace OdysseyCards.Domain.Combat.AI
             }
 
             int cardId = context.HandCardIds[0];
-            return new DeployUnitCommand(context.Turn, context.ActorId, cardId, deployNodeId);
+            return new DeployUnitCommand(context.Turn, context.ActorId, cardId, deployNodeId, 5, 2, 1, "AIUnit");
         }
 
         private CombatCommand TryAttack(AIContext context)

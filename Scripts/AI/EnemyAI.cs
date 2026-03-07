@@ -53,7 +53,7 @@ namespace OdysseyCards.AI
                 Unit unitToDeploy = SelectBestDeployTarget(deployableUnits);
                 if (unitToDeploy != null)
                 {
-                    commands.Add(new DeployUnitCommand(turn, actorId, unitToDeploy.Id.GetHashCode(), combat.BattleMap.EnemyDeploymentNodeId));
+                    commands.Add(new DeployUnitCommand(turn, actorId, unitToDeploy.Id.GetHashCode(), combat.BattleMap.EnemyDeploymentNodeId, unitToDeploy.Attack, unitToDeploy.MaxHealth, unitToDeploy.Range, unitToDeploy.CardName));
                     return commands;
                 }
             }

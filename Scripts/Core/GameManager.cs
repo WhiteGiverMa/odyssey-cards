@@ -117,8 +117,8 @@ public partial class GameManager : Node
 
         CurrentPlayer = new Player();
         CurrentPlayer.CharacterName = "Ironclad";
-        CurrentPlayer.MaxHealth = 80;
-        CurrentPlayer.MaxEnergy = 3;
+        CurrentPlayer.InitializeHQ(80);
+        CurrentPlayer.SetMaxEnergy(3);
 
         var startingDeck = CreateStartingDeck();
         CurrentPlayer.Initialize(startingDeck);

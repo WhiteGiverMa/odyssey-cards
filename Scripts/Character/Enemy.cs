@@ -1,220 +1,302 @@
 using System;
 using System.Collections.Generic;
 using Godot;
-using OdysseyCards.AI;
+using OdysseyCards.Card;
 using OdysseyCards.Core;
+using OdysseyCards.Map;
 
 namespace OdysseyCards.Character;
 
-/// <summary>
-/// Represents an enemy character in combat.
-/// Manages enemy-specific card drawing, AI, and headquarters health.
-/// </summary>
-public partial class Enemy : Character
+public interface IEnemyAI
 {
-    /// <summary>
-    /// The enemy's deck configuration.
-    /// </summary>
-    public Deck Deck { get; private set; }
+    List<Card.Card> SelectCardsToPlay(ICommander enemy, Combat.CombatManager combat);
+    void ExecuteTurn(ICommander enemy, Combat.CombatManager combat);
+}
 
-    /// <summary>
-    /// Cards currently in the enemy's hand.
-    /// </summary>
-    public List<Card.Card> Hand { get; private set; } = new();
+public partial class Enemy : Node, ICommander
+{
+    private readonly CommanderCore _core = new();
+    private IEnemyAI _ai;
 
-    /// <summary>
-    /// Cards in the enemy's draw pile.
-    /// </summary>
-    public List<Card.Card> DrawPile { get; private set; } = new();
+    public IEnemyAI AI => _ai;
 
-    /// <summary>
-    /// Cards in the enemy's discard pile.
-    /// </summary>
-    public List<Card.Card> DiscardPile { get; private set; } = new();
+    public EnemyDeckData EnemyData { get; private set; }
 
-    /// <summary>
-    /// Maximum number of cards in the enemy's hand.
-    /// </summary>
-    public int MaxHandSize { get; set; } = 9;
+    public string EnemyType => EnemyData?.EnemyName ?? "Unknown";
 
-    /// <summary>
-    /// Number of times the enemy has drawn from an empty deck.
-    /// </summary>
-    public int FatigueCount { get; private set; } = 0;
+    public int CommanderId { get; set; } = 1;
+    public string CharacterName { get; set; } = "Enemy";
+    public Headquarters HQ => _core.HQ;
+    public bool IsDefeated => HQ?.IsDestroyed ?? true;
 
-    /// <summary>
-    /// Current health of the enemy's headquarters.
-    /// </summary>
-    public int HQCurrentHealth { get; set; } = 8;
-
-    /// <summary>
-    /// Maximum health of the enemy's headquarters.
-    /// </summary>
-    public int HQMaxHealth { get; set; } = 8;
-
-    private EnemyAI _ai;
-
-    /// <summary>
-    /// The AI controller for this enemy.
-    /// </summary>
-    public EnemyAI AI => _ai;
-
-    /// <summary>
-    /// Fired when the hand contents change.
-    /// </summary>
-    public event Action OnHandChanged;
-
-    /// <summary>
-    /// Fired when the draw pile contents change.
-    /// </summary>
-    public event Action OnDrawPileChanged;
-
-    /// <summary>
-    /// Fired when the discard pile contents change.
-    /// </summary>
-    public event Action OnDiscardPileChanged;
-
-    /// <summary>
-    /// Fired when HQ health changes. Parameters: currentHealth, maxHealth.
-    /// </summary>
-    public event Action<int, int> OnHQHealthChanged;
-
-    /// <summary>
-    /// Initializes the enemy with deck data.
-    /// </summary>
-    /// <param name="deckData">The enemy deck configuration.</param>
-    public void Initialize(EnemyDeckData deckData)
+    public int CurrentEnergy => _core.CurrentEnergy;
+    public int MaxEnergy => _core.MaxEnergy;
+    public event Action<int, int> OnEnergyChanged
     {
-        CharacterName = deckData.EnemyName;
-        MaxHealth = deckData.StartingHealth;
-        MaxEnergy = deckData.StartingEnergy;
-        CurrentHealth = MaxHealth;
-        CurrentEnergy = MaxEnergy;
-        Block = 0;
-
-        HQMaxHealth = deckData.StartingHealth;
-        HQCurrentHealth = HQMaxHealth;
-
-        _ai = new EnemyAI();
-
-        Deck = new Deck();
-        List<Resource> cards = deckData.GetAllCards();
-        Deck.Initialize(cards);
-        DrawPile = Deck.CreateDrawPile();
-        ShuffleDrawPile();
-
-        GD.Print($"[Enemy] Initialized: {CharacterName}, HQ Health: {HQCurrentHealth}/{HQMaxHealth}");
+        add => _core.OnEnergyChanged += value;
+        remove => _core.OnEnergyChanged -= value;
     }
 
-    /// <summary>
-    /// Draws cards from the draw pile into hand.
-    /// Triggers fatigue damage if draw pile is empty.
-    /// </summary>
-    /// <param name="count">Number of cards to draw.</param>
-    public void DrawCards(int count)
-    {
-        int cardsToDraw = Mathf.Min(count, MaxHandSize - Hand.Count);
+    public Deck Deck => _core.Deck;
+    public IReadOnlyList<Card.Card> Hand => _core.Hand;
+    public IReadOnlyList<Card.Card> DrawPile => _core.DrawPile;
+    public IReadOnlyList<Card.Card> DiscardPile => _core.DiscardPile;
+    public int MaxHandSize { get => _core.MaxHandSize; set => _core.MaxHandSize = value; }
+    public int FatigueCount => _core.FatigueCount;
 
-        for (int i = 0; i < cardsToDraw; i++)
+    public event Action OnHandChanged
+    {
+        add => _core.OnHandChanged += value;
+        remove => _core.OnHandChanged -= value;
+    }
+    public event Action OnDrawPileChanged
+    {
+        add => _core.OnDrawPileChanged += value;
+        remove => _core.OnDrawPileChanged -= value;
+    }
+    public event Action OnDiscardPileChanged
+    {
+        add => _core.OnDiscardPileChanged += value;
+        remove => _core.OnDiscardPileChanged -= value;
+    }
+
+    public event Action<Enemy> OnEnemyTurnStart;
+    public event Action<Enemy> OnEnemyTurnEnd;
+    public event Action<Enemy> OnEnemyDeath;
+
+    public override void _Ready()
+    {
+        CharacterName = "Enemy";
+    }
+
+    public void Initialize(EnemyDeckData data, int deploymentNodeId = -1)
+    {
+        EnemyData = data;
+
+        if (data != null)
         {
-            if (DrawPile.Count == 0)
+            CharacterName = data.EnemyName;
+            InitializeHQ(data.StartingHealth, -1, deploymentNodeId);
+            _core.SetMaxEnergy(data.MaxEnergy);
+            _core.SetCurrentEnergy(data.StartingEnergy);
+
+            List<Resource> cards = data.GetAllCards();
+            foreach (Resource cardData in cards)
             {
-                FatigueCount++;
-                TakeHQDamage(FatigueCount);
-                GD.Print($"[Enemy] Fatigue damage: {FatigueCount}");
-                continue;
+                if (cardData is UnitData unitData)
+                {
+                    Deck.AddUnit(unitData);
+                }
+                else if (cardData is OrderData orderData)
+                {
+                    Deck.AddOrder(orderData);
+                }
             }
 
-            if (DrawPile.Count > 0)
+            _ai = CreateAI("balanced");
+        }
+        else
+        {
+            InitializeHQ(50, -1, deploymentNodeId);
+        }
+    }
+
+    private IEnemyAI CreateAI(string aiType)
+    {
+        return aiType?.ToLower() switch
+        {
+            "aggressive" => new AggressiveAI(),
+            "defensive" => new DefensiveAI(),
+            "balanced" => new BalancedAI(),
+            _ => new BalancedAI()
+        };
+    }
+
+    public void InitializeHQ(int maxHealth, int currentHealth = -1, int deploymentNodeId = -1)
+    {
+        _core.InitializeHQ(maxHealth, currentHealth, deploymentNodeId);
+    }
+
+    public void SetupDrawPile()
+    {
+        _core.SetupDrawPile();
+    }
+
+    public void ResetForCombat()
+    {
+        _core.ClearPiles();
+        _core.ResetFatigue();
+        SetupDrawPile();
+    }
+
+    public void StartTurn()
+    {
+        _core.StartTurn();
+        OnEnemyTurnStart?.Invoke(this);
+    }
+
+    public void EndTurn()
+    {
+        _core.EndTurn();
+        OnEnemyTurnEnd?.Invoke(this);
+    }
+
+    public void ExecuteTurn(Combat.CombatManager combat)
+    {
+        _ai?.ExecuteTurn(this, combat);
+    }
+
+    public List<Card.Card> SelectCardsToPlay(Combat.CombatManager combat)
+    {
+        return _ai?.SelectCardsToPlay(this, combat) ?? new List<Card.Card>();
+    }
+
+    public void Die()
+    {
+        OnEnemyDeath?.Invoke(this);
+        QueueFree();
+    }
+
+    public void SpendEnergy(int amount) => _core.SpendEnergy(amount);
+    public void GainEnergy(int amount) => _core.GainEnergy(amount);
+    public void ResetEnergy() => _core.ResetEnergy();
+    public void SetEnergy(int current, int max) => _core.SetEnergy(current, max);
+    public void IncreaseMaxEnergy(int amount) => _core.IncreaseMaxEnergy(amount);
+    public void DrawCards(int count) => _core.DrawCards(count);
+    public void DiscardCard(Card.Card card) => _core.DiscardCard(card);
+    public void RemoveFromHand(Card.Card card) => _core.RemoveFromHand(card);
+    public void ReturnToDrawPile(Card.Card card) => _core.ReturnToDrawPile(card);
+    public void ShuffleDrawPile() => _core.ShuffleDrawPile();
+    public void DiscardHand() => _core.DiscardHand();
+    public bool CanSpendEnergy(int amount) => _core.CanSpendEnergy(amount);
+}
+
+public class AggressiveAI : IEnemyAI
+{
+    public List<Card.Card> SelectCardsToPlay(ICommander enemy, Combat.CombatManager combat)
+    {
+        List<Card.Card> result = new();
+        int energy = enemy.CurrentEnergy;
+
+        foreach (Card.Card card in enemy.Hand)
+        {
+            int cost = GetCardCost(card);
+            if (cost > 0 && cost <= energy)
             {
-                Card.Card card = DrawPile[0];
-                DrawPile.RemoveAt(0);
-                Hand.Add(card);
+                result.Add(card);
+                energy -= cost;
             }
         }
 
-        OnHandChanged?.Invoke();
-        OnDrawPileChanged?.Invoke();
+        return result;
     }
 
-    /// <summary>
-    /// Applies damage to the enemy's headquarters.
-    /// </summary>
-    /// <param name="damage">The amount of damage to apply.</param>
-    public void TakeHQDamage(int damage)
+    public void ExecuteTurn(ICommander enemy, Combat.CombatManager combat)
     {
-        HQCurrentHealth -= damage;
-        GD.Print($"[Enemy] HQ took {damage} damage. HQ Health: {HQCurrentHealth}/{HQMaxHealth}");
-        OnHQHealthChanged?.Invoke(HQCurrentHealth, HQMaxHealth);
-    }
-
-    /// <summary>
-    /// Moves a card from hand to the discard pile.
-    /// </summary>
-    /// <param name="card">The card to discard.</param>
-    public void DiscardCard(Card.Card card)
-    {
-        if (!Hand.Contains(card))
+        List<Card.Card> cardsToPlay = SelectCardsToPlay(enemy, combat);
+        foreach (Card.Card card in cardsToPlay)
         {
-            return;
-        }
-
-        Hand.Remove(card);
-        DiscardPile.Add(card);
-
-        OnHandChanged?.Invoke();
-        OnDiscardPileChanged?.Invoke();
-    }
-
-    /// <summary>
-    /// Removes a card from hand without adding it to any pile.
-    /// </summary>
-    /// <param name="card">The card to remove.</param>
-    public void RemoveFromHand(Card.Card card)
-    {
-        if (!Hand.Contains(card))
-        {
-            return;
-        }
-
-        Hand.Remove(card);
-        OnHandChanged?.Invoke();
-    }
-
-    /// <summary>
-    /// Shuffles the draw pile randomly.
-    /// </summary>
-    public void ShuffleDrawPile()
-    {
-        RandomNumberGenerator random = new();
-        random.Randomize();
-
-        for (int i = DrawPile.Count - 1; i > 0; i--)
-        {
-            int j = random.RandiRange(0, i);
-            (DrawPile[i], DrawPile[j]) = (DrawPile[j], DrawPile[i]);
+            GD.Print($"[AggressiveAI] Playing card: {card.CardName}");
         }
     }
 
-    /// <summary>
-    /// Returns a card from hand to a random position in the draw pile.
-    /// </summary>
-    /// <param name="card">The card to return.</param>
-    public void ReturnToDrawPile(Card.Card card)
+    private int GetCardCost(Card.Card card)
     {
-        if (!Hand.Contains(card))
+        if (card is Unit unit && unit.Data != null)
+            return unit.Data.DeployCost;
+        if (card is Order order && order.Data != null)
+            return order.Data.Cost;
+        return 0;
+    }
+}
+
+public class DefensiveAI : IEnemyAI
+{
+    public List<Card.Card> SelectCardsToPlay(ICommander enemy, Combat.CombatManager combat)
+    {
+        List<Card.Card> result = new();
+        int energy = enemy.CurrentEnergy;
+
+        foreach (Card.Card card in enemy.Hand)
         {
-            return;
+            int cost = GetCardCost(card);
+            if (cost > 0 && cost <= energy)
+            {
+                if (card is Order)
+                {
+                    result.Add(card);
+                    energy -= cost;
+                }
+            }
         }
 
-        Hand.Remove(card);
+        foreach (Card.Card card in enemy.Hand)
+        {
+            int cost = GetCardCost(card);
+            if (cost > 0 && cost <= energy && !result.Contains(card))
+            {
+                result.Add(card);
+                energy -= cost;
+            }
+        }
 
-        RandomNumberGenerator random = new();
-        random.Randomize();
-        int insertIndex = random.RandiRange(0, DrawPile.Count);
-        DrawPile.Insert(insertIndex, card);
+        return result;
+    }
 
-        OnHandChanged?.Invoke();
-        OnDrawPileChanged?.Invoke();
+    public void ExecuteTurn(ICommander enemy, Combat.CombatManager combat)
+    {
+        List<Card.Card> cardsToPlay = SelectCardsToPlay(enemy, combat);
+        foreach (Card.Card card in cardsToPlay)
+        {
+            GD.Print($"[DefensiveAI] Playing card: {card.CardName}");
+        }
+    }
+
+    private int GetCardCost(Card.Card card)
+    {
+        if (card is Unit unit && unit.Data != null)
+            return unit.Data.DeployCost;
+        if (card is Order order && order.Data != null)
+            return order.Data.Cost;
+        return 0;
+    }
+}
+
+public class BalancedAI : IEnemyAI
+{
+    public List<Card.Card> SelectCardsToPlay(ICommander enemy, Combat.CombatManager combat)
+    {
+        List<Card.Card> result = new();
+        int energy = enemy.CurrentEnergy;
+
+        foreach (Card.Card card in enemy.Hand)
+        {
+            int cost = GetCardCost(card);
+            if (cost > 0 && cost <= energy)
+            {
+                result.Add(card);
+                energy -= cost;
+            }
+        }
+
+        return result;
+    }
+
+    public void ExecuteTurn(ICommander enemy, Combat.CombatManager combat)
+    {
+        List<Card.Card> cardsToPlay = SelectCardsToPlay(enemy, combat);
+        foreach (Card.Card card in cardsToPlay)
+        {
+            GD.Print($"[BalancedAI] Playing card: {card.CardName}");
+        }
+    }
+
+    private int GetCardCost(Card.Card card)
+    {
+        if (card is Unit unit && unit.Data != null)
+            return unit.Data.DeployCost;
+        if (card is Order order && order.Data != null)
+            return order.Data.Cost;
+        return 0;
     }
 }

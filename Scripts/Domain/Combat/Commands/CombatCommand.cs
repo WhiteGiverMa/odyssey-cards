@@ -41,13 +41,21 @@ namespace OdysseyCards.Domain.Combat.Commands
     {
         public int CardInstanceId { get; init; }
         public int TargetNodeId { get; init; }
+        public int Attack { get; init; }
+        public int MaxHealth { get; init; }
+        public int Range { get; init; }
+        public string UnitName { get; init; }
 
         public DeployUnitCommand() { }
 
-        public DeployUnitCommand(int turn, int actorId, int cardInstanceId, int targetNodeId) : base(turn, actorId)
+        public DeployUnitCommand(int turn, int actorId, int cardInstanceId, int targetNodeId, int attack, int maxHealth, int range, string unitName) : base(turn, actorId)
         {
             CardInstanceId = cardInstanceId;
             TargetNodeId = targetNodeId;
+            Attack = attack;
+            MaxHealth = maxHealth;
+            Range = range;
+            UnitName = unitName;
         }
     }
 
@@ -93,14 +101,20 @@ namespace OdysseyCards.Domain.Combat.Commands
         public int CardInstanceId { get; init; }
         public int? TargetNodeId { get; init; }
         public int? TargetUnitId { get; init; }
+        public string? EffectType { get; init; }
+        public int EffectValue { get; init; }
+        public int? TargetHQOwnerId { get; init; }
 
         public PlayCardCommand() { }
 
-        public PlayCardCommand(int turn, int actorId, int cardInstanceId, int? targetNodeId = null, int? targetUnitId = null) : base(turn, actorId)
+        public PlayCardCommand(int turn, int actorId, int cardInstanceId, int? targetNodeId = null, int? targetUnitId = null, string? effectType = null, int effectValue = 0, int? targetHQOwnerId = null) : base(turn, actorId)
         {
             CardInstanceId = cardInstanceId;
             TargetNodeId = targetNodeId;
             TargetUnitId = targetUnitId;
+            EffectType = effectType;
+            EffectValue = effectValue;
+            TargetHQOwnerId = targetHQOwnerId;
         }
     }
 }

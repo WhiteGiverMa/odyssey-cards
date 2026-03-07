@@ -1,13 +1,14 @@
 using System;
 using Godot;
+using OdysseyCards.Character;
 
 namespace OdysseyCards.UI;
 
 public partial class HealthBar : ProgressBar
 {
-    private Character.Character _target;
+    private ICommander _target;
 
-    public Character.Character Target => _target;
+    public ICommander Target => _target;
 
     private Label _healthLabel;
 
@@ -17,10 +18,8 @@ public partial class HealthBar : ProgressBar
 
         if (_target != null)
         {
-            _target.OnHealthChanged += UpdateHealth;
-            _target.OnBlockChanged += UpdateBlock;
-            UpdateHealth(_target.CurrentHealth, _target.MaxHealth);
-            UpdateBlock(_target.Block);
+            _target.HQ.OnHealthChanged += UpdateHealth;
+            UpdateHealth(_target.HQ.CurrentHealth, _target.HQ.MaxHealth);
         }
     }
 
@@ -35,26 +34,19 @@ public partial class HealthBar : ProgressBar
         }
     }
 
-    private void UpdateBlock(int block)
+    public void SetTarget(ICommander target)
     {
-    }
-
-    public void SetTarget(Character.Character target)
-    {
-        if (_target != null)
+        if (_target != null && _target.HQ != null)
         {
-            _target.OnHealthChanged -= UpdateHealth;
-            _target.OnBlockChanged -= UpdateBlock;
+            _target.HQ.OnHealthChanged -= UpdateHealth;
         }
 
         _target = target;
 
-        if (_target != null)
+        if (_target != null && _target.HQ != null)
         {
-            _target.OnHealthChanged += UpdateHealth;
-            _target.OnBlockChanged += UpdateBlock;
-            UpdateHealth(_target.CurrentHealth, _target.MaxHealth);
-            UpdateBlock(_target.Block);
+            _target.HQ.OnHealthChanged += UpdateHealth;
+            UpdateHealth(_target.HQ.CurrentHealth, _target.HQ.MaxHealth);
         }
     }
 }

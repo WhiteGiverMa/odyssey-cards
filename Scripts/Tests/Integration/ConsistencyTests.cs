@@ -55,7 +55,7 @@ namespace OdysseyCards.Tests.Integration
 
             for (int i = 0; i < 10; i++)
             {
-                var command = new DeployUnitCommand(1, 0, 100 + i, 0);
+                var command = CreateDeployCommand(1, 0, 100 + i, 0);
                 var result = engine.Submit(command);
                 Assert(result.Count > 0, $"DeployUnit iteration {i} event count > 0");
             }
@@ -72,9 +72,9 @@ namespace OdysseyCards.Tests.Integration
 
             var commands = new List<CombatCommand>
             {
-                new DeployUnitCommand(1, 0, 100, 0),
+                CreateDeployCommand(1, 0, 100, 0),
                 new EndTurnCommand(1, 0),
-                new DeployUnitCommand(2, 0, 200, 6),
+                CreateDeployCommand(2, 0, 200, 6),
                 new EndTurnCommand(2, 0)
             };
 
@@ -96,7 +96,7 @@ namespace OdysseyCards.Tests.Integration
             engine.OnEvent += e => events.Add(e);
 
             engine.StartCombat(setup, 12345);
-            engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             engine.Submit(new EndTurnCommand(1, 0));
 
             bool hasCombatStarted = events.Any(e => e is CombatStartedEvent);
@@ -115,7 +115,7 @@ namespace OdysseyCards.Tests.Integration
             var setup = CreateTestSetup();
             engine.StartCombat(setup, 12345);
 
-            engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            engine.Submit(CreateDeployCommand(1, 0, 100, 0));
 
             var attackCmd = new AttackCommand(1, 0, 1, 6);
             engine.Submit(attackCmd);
@@ -128,7 +128,7 @@ namespace OdysseyCards.Tests.Integration
             engine.OnEvent += e => events.Add(e);
 
             engine.StartCombat(setup, 12345);
-            engine.Submit(new DeployUnitCommand(1, 0, 100, 0));
+            engine.Submit(CreateDeployCommand(1, 0, 100, 0));
             engine.Submit(new EndTurnCommand(1, 0));
 
             Assert(events.Count == 3, "Turn sequence events count");
@@ -185,6 +185,11 @@ namespace OdysseyCards.Tests.Integration
                 _failures.Add($"{testName}: {message}");
                 Console.WriteLine($"  [Fail] {testName}: {message}");
             }
+        }
+
+        private static DeployUnitCommand CreateDeployCommand(int turn, int actorId, int cardInstanceId, int targetNodeId, int attack = 5, int maxHealth = 2, int range = 1, string unitName = "TestUnit")
+        {
+            return new DeployUnitCommand(turn, actorId, cardInstanceId, targetNodeId, attack, maxHealth, range, unitName);
         }
     }
 }
