@@ -296,8 +296,28 @@ public partial class CombatUI : Control
                 targetNodeId,
                 targetUnitId
             );
-            _ = CombatInputAdapter.Instance.Submit(command);
-            GD.Print($"[CombatUI] PlayCard submitted via command pipeline");
+            System.Collections.Generic.IReadOnlyList<CombatEvent> events = CombatInputAdapter.Instance.Submit(command);
+
+            bool playSuccess = false;
+            foreach (CombatEvent evt in events)
+            {
+                if (evt is CardPlayedEvent)
+                {
+                    playSuccess = true;
+                    break;
+                }
+            }
+
+            if (playSuccess)
+            {
+                GD.Print($"[CombatUI] PlayCard successful");
+                _player.RemoveFromHand(card);
+                _player.SpendEnergy(order.Cost);
+            }
+            else
+            {
+                GD.Print($"[CombatUI] PlayCard failed");
+            }
         }
     }
 

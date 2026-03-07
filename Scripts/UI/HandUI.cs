@@ -140,7 +140,7 @@ namespace OdysseyCards.UI
 
         private void CreateCardUI(Card.Card card, float scale = 1.0f)
         {
-            CardUI cardUI = new CardUI();
+            var cardUI = new CardUI();
             cardUI.Scale = new Vector2(scale, scale);
             _cardContainer.AddChild(cardUI);
             cardUI.SetCard(card);
@@ -244,16 +244,16 @@ namespace OdysseyCards.UI
 
             if (CombatInputAdapter.Instance != null && cardUI.Card is Card.Unit unit)
             {
-                CombatSnapshot snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
+                var snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
                 int turn = snapshot?.Turn ?? 0;
                 int actorId = snapshot?.CurrentActorId ?? 1;
-                DeployUnitCommand command = new DeployUnitCommand(
+                var command = new DeployUnitCommand(
                     turn,
                     actorId,
                     unit.Id.GetHashCode(),
                     nodeId
                 );
-                System.Collections.Generic.IReadOnlyList<CombatEvent> events = CombatInputAdapter.Instance.Submit(command);
+                var events = CombatInputAdapter.Instance.Submit(command);
 
                 bool deploySuccess = false;
                 foreach (CombatEvent evt in events)
@@ -279,6 +279,38 @@ namespace OdysseyCards.UI
                 }
 
                 GD.Print($"[HandUI] DeployUnit submitted via command pipeline");
+                return;
+            }
+            else if (CombatInputAdapter.Instance != null && cardUI.Card is Card.Order order)
+            {
+                var snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
+                int turn = snapshot?.Turn ?? 0;
+                int actorId = snapshot?.CurrentActorId ?? 1;
+                var command = new PlayCardCommand(turn, actorId, order.Id.GetHashCode(), nodeId, null);
+                var events = CombatInputAdapter.Instance.Submit(command);
+
+                bool playSuccess = false;
+                foreach (CombatEvent evt in events)
+                {
+                    if (evt is CardPlayedEvent)
+                    {
+                        playSuccess = true;
+                        break;
+                    }
+                }
+
+                if (playSuccess)
+                {
+                    GD.Print($"[HandUI] Order play successful, removing card from hand");
+                    _player.RemoveFromHand(cardUI.Card);
+                    _player.SpendEnergy(order.Cost);
+                    cardUI.QueueFree();
+                }
+                else
+                {
+                    GD.Print($"[HandUI] Order play failed, returning card to hand");
+                    ReturnCardToHand(cardUI);
+                }
                 return;
             }
 
