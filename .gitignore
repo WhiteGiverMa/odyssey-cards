@@ -56,3 +56,6 @@ secrets/
 
 # MCP subprojects
 godot-mcp/
+
+# Agent skills directories
+**/find-skills/
