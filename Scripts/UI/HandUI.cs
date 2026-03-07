@@ -24,6 +24,8 @@ namespace OdysseyCards.UI
         public event Action<Card.Card, Vector2> OnCardDragEnded;
         public event Action<Card.Card, int> OnCardDroppedOnNode;
         public event Action<Card.Unit> OnUnitDeployModeRequested;
+        public event Action<Card.Card> OnCardPlayWithoutTarget;
+        public event Action<bool> OnNoTargetCardDragStateChanged;
 
         public override void _Ready()
         {
@@ -149,6 +151,7 @@ namespace OdysseyCards.UI
             cardUI.OnDragEnded += OnCardDragEndedHandler;
             cardUI.OnDroppedOnNode += OnCardDroppedOnNodeHandler;
             cardUI.OnReturnToHandRequested += OnReturnToHandRequestedHandler;
+            cardUI.OnPlayWithoutTarget += OnPlayWithoutTargetHandler;
         }
 
         private void OnReturnToHandRequestedHandler(CardUI cardUI)
@@ -186,6 +189,11 @@ namespace OdysseyCards.UI
                 GD.Print($"[HandUI] Unit card drag - entering deploy mode for: {unit.CardName}");
                 OnUnitDeployModeRequested?.Invoke(unit);
             }
+            else if (cardUI.Card is Card.Order order && !order.RequiresTarget)
+            {
+                GD.Print($"[HandUI] No-target Order drag - highlighting play area");
+                OnNoTargetCardDragStateChanged?.Invoke(true);
+            }
 
             OnCardDragStarted?.Invoke(cardUI.Card, position);
         }
@@ -207,6 +215,8 @@ namespace OdysseyCards.UI
 
             _draggingCard = null;
             _draggingCardIndex = -1;
+
+            OnNoTargetCardDragStateChanged?.Invoke(false);
 
             OnCardDragEnded?.Invoke(cardUI.Card, position);
         }
@@ -244,7 +254,7 @@ namespace OdysseyCards.UI
 
             if (CombatInputAdapter.Instance != null && cardUI.Card is Card.Unit unit)
             {
-                var snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
+                CombatSnapshot snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
                 int turn = snapshot?.Turn ?? 0;
                 int actorId = snapshot?.CurrentActorId ?? 1;
                 var command = new DeployUnitCommand(
@@ -283,11 +293,11 @@ namespace OdysseyCards.UI
             }
             else if (CombatInputAdapter.Instance != null && cardUI.Card is Card.Order order)
             {
-                var snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
+                CombatSnapshot snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
                 int turn = snapshot?.Turn ?? 0;
                 int actorId = snapshot?.CurrentActorId ?? 1;
-                var command = new PlayCardCommand(turn, actorId, order.Id.GetHashCode(), nodeId, null);
-                var events = CombatInputAdapter.Instance.Submit(command);
+                PlayCardCommand command = new PlayCardCommand(turn, actorId, order.Id.GetHashCode(), nodeId, null);
+                System.Collections.Generic.IReadOnlyList<CombatEvent> events = CombatInputAdapter.Instance.Submit(command);
 
                 bool playSuccess = false;
                 foreach (CombatEvent evt in events)
@@ -323,8 +333,8 @@ namespace OdysseyCards.UI
 
             if (cardUI.Card is Card.Order order)
             {
-                GD.Print($"[HandUI] Card is Order, Target type: {order.Target}");
-                if (order.Target == Core.CardTarget.SingleEnemy)
+                GD.Print($"[HandUI] Card is Order, RequiresTarget: {order.RequiresTarget}");
+                if (order.RequiresTarget)
                 {
                     GD.Print($"[HandUI] Invoking OnCardPlayRequested");
                     OnCardPlayRequested?.Invoke(cardUI.Card, target);
@@ -333,12 +343,28 @@ namespace OdysseyCards.UI
                 }
                 else
                 {
-                    GD.Print($"[HandUI] Order target type mismatch, not SingleEnemy");
+                    GD.Print($"[HandUI] Order does not require target, should use OnPlayWithoutTarget");
                 }
             }
             else
             {
                 GD.Print($"[HandUI] Card is not an Order");
+            }
+        }
+
+        private void OnPlayWithoutTargetHandler(CardUI cardUI)
+        {
+            GD.Print($"[HandUI] Play without target: {cardUI.Card?.CardName}");
+
+            if (cardUI.Card is Card.Order order)
+            {
+                OnCardPlayWithoutTarget?.Invoke(cardUI.Card);
+                cardUI.QueueFree();
+            }
+            else
+            {
+                GD.Print($"[HandUI] Card is not an Order, cannot play without target");
+                ReturnCardToHand(cardUI);
             }
         }
 

@@ -17,5 +17,5 @@ CardName = "补给"
 Description = "抽2张牌"
 Rarity = 0
 Cost = 2
-Target = 0
+RequiresTarget = false
 Effects = [SubResource("SubResource_1")]

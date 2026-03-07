@@ -17,5 +17,6 @@ CardName = "治疗"
 Description = "恢复2点生命值"
 Rarity = 0
 Cost = 1
-Target = 1
+RequiresTarget = true
+RequiredTags = ["Ally", "Unit"]
 Effects = [SubResource("SubResource_1")]

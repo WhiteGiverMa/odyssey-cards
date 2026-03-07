@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace OdysseyCards.Character;
@@ -34,6 +35,16 @@ public partial class Character : Node
     /// Maximum energy available per turn.
     /// </summary>
     [Export] public int MaxEnergy { get; set; } = 3;
+
+    /// <summary>
+    /// Whether this character is a headquarters.
+    /// </summary>
+    [Export] public bool IsHeadquarters { get; set; } = false;
+
+    /// <summary>
+    /// Additional tags for this character (e.g., Flying, Mechanical).
+    /// </summary>
+    [Export] public string[] Tags { get; set; } = Array.Empty<string>();
 
     /// <summary>
     /// Current health points.
@@ -285,6 +296,64 @@ public partial class Character : Node
     public void RemoveDebuff(Debuff debuff)
     {
         _debuffs.Remove(debuff);
+    }
+
+    /// <summary>
+    /// Gets the static tags for this character (Unit or HQ + additional tags).
+    /// </summary>
+    /// <returns>Array of static tags.</returns>
+    public string[] GetStaticTags()
+    {
+        var tags = new List<string>(Tags);
+        tags.Add(IsHeadquarters ? Core.TargetTags.HQ : Core.TargetTags.Unit);
+        return tags.ToArray();
+    }
+
+    /// <summary>
+    /// Gets all tags for this character relative to a caster.
+    /// Includes static tags plus Ally/Enemy based on relationship.
+    /// </summary>
+    /// <param name="caster">The character casting the card.</param>
+    /// <returns>Array of all tags including dynamic Ally/Enemy.</returns>
+    public string[] GetTagsRelativeTo(Character caster)
+    {
+        var tags = new List<string>(GetStaticTags());
+        bool isAlly = IsAllyTo(caster);
+        tags.Add(isAlly ? Core.TargetTags.Ally : Core.TargetTags.Enemy);
+        return tags.ToArray();
+    }
+
+    /// <summary>
+    /// Checks if this character is an ally to another character.
+    /// Player and Player are allies, Enemy and Enemy are allies.
+    /// </summary>
+    /// <param name="other">The other character to check.</param>
+    /// <returns>True if this character is an ally to the other.</returns>
+    public bool IsAllyTo(Character other)
+    {
+        if (other == null) return false;
+
+        bool thisIsPlayer = this is Player;
+        bool otherIsPlayer = other is Player;
+
+        return thisIsPlayer == otherIsPlayer;
+    }
+
+    /// <summary>
+    /// Checks if this character matches all required tags.
+    /// </summary>
+    /// <param name="requiredTags">The tags required by the card.</param>
+    /// <param name="caster">The character casting the card.</param>
+    /// <returns>True if this character has all required tags.</returns>
+    public bool MatchesTags(string[] requiredTags, Character caster)
+    {
+        if (requiredTags == null || requiredTags.Length == 0)
+        {
+            return true;
+        }
+
+        var myTags = GetTagsRelativeTo(caster);
+        return requiredTags.All(tag => myTags.Contains(tag));
     }
 }
 

@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://bhvisn4nqvu5q" path="res://Scripts/UI/HealthBar.cs" id="3_health"]
 [ext_resource type="Script" uid="uid://4w3ckqrtrqch" path="res://Scripts/UI/HandUI.cs" id="4_hand"]
 [ext_resource type="Script" uid="uid://djm5flu11fxxt" path="res://Scripts/UI/BattleMapUI.cs" id="5_battlemap"]
+[ext_resource type="Script" uid="uid://dq5playarea001" path="res://Scripts/UI/PlayArea.cs" id="6_playarea"]
 
 [node name="Combat" type="Node2D" unique_id=180158902]
 script = ExtResource("1_combat")
@@ -61,6 +62,15 @@ vertical_alignment = 1
 [node name="CenterContainer" type="Control" parent="CanvasLayer/MainContainer" unique_id=382758587]
 layout_mode = 2
 size_flags_vertical = 3
+
+[node name="PlayArea" type="Control" parent="CanvasLayer/MainContainer/CenterContainer" unique_id=987654321]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("6_playarea")
 
 [node name="MapArea" type="MarginContainer" parent="CanvasLayer/MainContainer/CenterContainer" unique_id=837151516]
 layout_mode = 1

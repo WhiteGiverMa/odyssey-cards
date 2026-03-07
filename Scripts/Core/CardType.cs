@@ -43,42 +43,12 @@ public enum CardRarity
 }
 
 /// <summary>
-/// Defines the target type for card effects.
+/// Common target tags for card targeting system.
 /// </summary>
-public enum CardTarget
+public static class TargetTags
 {
-    /// <summary>
-    /// No target required.
-    /// </summary>
-    None,
-
-    /// <summary>
-    /// Targets the card caster.
-    /// </summary>
-    Self,
-
-    /// <summary>
-    /// Targets a single enemy character.
-    /// </summary>
-    SingleEnemy,
-
-    /// <summary>
-    /// Targets all enemy characters.
-    /// </summary>
-    AllEnemies,
-
-    /// <summary>
-    /// Targets all characters on the field.
-    /// </summary>
-    Everyone,
-
-    /// <summary>
-    /// Targets a headquarters.
-    /// </summary>
-    Headquarters,
-
-    /// <summary>
-    /// Targets a single unit on the battle map.
-    /// </summary>
-    SingleUnit
+    public const string Unit = "Unit";
+    public const string HQ = "HQ";
+    public const string Ally = "Ally";
+    public const string Enemy = "Enemy";
 }

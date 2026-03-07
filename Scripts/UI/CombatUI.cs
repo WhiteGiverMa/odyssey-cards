@@ -1,14 +1,14 @@
-using Godot;
 using System.Collections.Generic;
+using Godot;
 using OdysseyCards.Domain.Combat.Commands;
 using OdysseyCards.Domain.Combat.Events;
 using OdysseyCards.Localization;
 using OdysseyCards.Presentation.Input;
 
-namespace OdysseyCards.UI;
-
-public partial class CombatUI : Control
+namespace OdysseyCards.UI
 {
+    public partial class CombatUI : Control
+    {
     [Export] public PackedScene HealthBarScene { get; set; }
 
     private HealthBar _playerHealthBar;
@@ -23,6 +23,7 @@ public partial class CombatUI : Control
     private BattleMapUI _battleMapUI;
     private DeckViewUI _deckViewUI;
     private HBoxContainer _enemyHandArea;
+    private PlayArea _playArea;
 
     private Combat.CombatManager _combatManager;
     private Character.Player _player;
@@ -48,6 +49,7 @@ public partial class CombatUI : Control
 
         _battleMapUI = GetNode<BattleMapUI>("../MainContainer/CenterContainer/MapArea/BattleMapUI");
         _enemyHandArea = GetNode<HBoxContainer>("../MainContainer/TopBar/EnemyArea/MarginContainer/EnemyHandArea");
+        _playArea = GetNodeOrNull<PlayArea>("../MainContainer/CenterContainer/PlayArea");
 
         GD.Print($"[CombatUI] Node references - HealthBar: {_playerHealthBar != null}, HandUI: {_handUI != null}, EnergyLabel: {_energyLabel != null}");
         GD.Print($"[CombatUI] PileButtons - DrawPile: {_drawPileButton != null}, DiscardPile: {_discardPileButton != null}");
@@ -121,6 +123,8 @@ public partial class CombatUI : Control
             _handUI.OnCardPlayRequested += OnCardPlayRequested;
             _handUI.OnCardDroppedOnNode += OnCardDroppedOnNode;
             _handUI.OnUnitDeployModeRequested += OnUnitDeployModeRequested;
+            _handUI.OnCardPlayWithoutTarget += OnCardPlayWithoutTarget;
+            _handUI.OnNoTargetCardDragStateChanged += OnNoTargetCardDragStateChanged;
         }
         else
         {
@@ -321,6 +325,56 @@ public partial class CombatUI : Control
         }
     }
 
+    private void OnCardPlayWithoutTarget(Card.Card card)
+    {
+        GD.Print($"[CombatUI] OnCardPlayWithoutTarget called: {card?.CardName}");
+        if (CombatInputAdapter.Instance != null && card is Card.Order order)
+        {
+            var snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
+            int turn = snapshot?.Turn ?? 0;
+            int actorId = snapshot?.CurrentActorId ?? 1;
+
+            var command = new PlayCardCommand(
+                turn,
+                actorId,
+                card.Id.GetHashCode(),
+                null,
+                null
+            );
+            System.Collections.Generic.IReadOnlyList<CombatEvent> events = CombatInputAdapter.Instance.Submit(command);
+
+            bool playSuccess = false;
+            foreach (CombatEvent evt in events)
+            {
+                if (evt is CardPlayedEvent)
+                {
+                    playSuccess = true;
+                    break;
+                }
+            }
+
+            if (playSuccess)
+            {
+                GD.Print($"[CombatUI] PlayCard without target successful");
+                _player.RemoveFromHand(card);
+                _player.SpendEnergy(order.Cost);
+            }
+            else
+            {
+                GD.Print($"[CombatUI] PlayCard without target failed");
+            }
+        }
+    }
+
+    private void OnNoTargetCardDragStateChanged(bool isDragging)
+    {
+        GD.Print($"[CombatUI] NoTargetCardDragStateChanged: {isDragging}");
+        if (_playArea != null)
+        {
+            _playArea.SetDraggingNoTargetCard(isDragging);
+        }
+    }
+
     private void UpdateEnergy(int current, int max)
     {
         if (_energyLabel != null)
@@ -423,5 +477,6 @@ public partial class CombatUI : Control
     {
         UpdateDrawPile();
         UpdateDiscardPile();
+    }
     }
 }

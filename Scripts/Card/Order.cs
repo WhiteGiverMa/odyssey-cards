@@ -23,9 +23,14 @@ public partial class Order : Card
     public int Cost { get; private set; }
 
     /// <summary>
-    /// Target type for this order.
+    /// Whether this order requires a target.
     /// </summary>
-    public CardTarget Target { get; private set; }
+    public bool RequiresTarget { get; private set; }
+
+    /// <summary>
+    /// Tags required for valid targets.
+    /// </summary>
+    public string[] RequiredTags { get; private set; }
 
     /// <summary>
     /// Whether this order should return to draw pile after playing.
@@ -58,7 +63,8 @@ public partial class Order : Card
             Tags = data.Tags,
 
             Cost = data.Cost,
-            Target = data.Target
+            RequiresTarget = data.RequiresTarget,
+            RequiredTags = data.RequiredTags
         };
 
         if (data.Effects != null)
@@ -81,6 +87,17 @@ public partial class Order : Card
     public bool CanPlay(int availableEnergy)
     {
         return availableEnergy >= Cost;
+    }
+
+    /// <summary>
+    /// Checks if a target is valid for this order.
+    /// </summary>
+    /// <param name="target">The target character.</param>
+    /// <param name="caster">The character casting the order.</param>
+    /// <returns>True if the target is valid.</returns>
+    public bool IsValidTarget(Character.Character target, Character.Character caster)
+    {
+        return Data.CanTarget(target, caster);
     }
 
     /// <summary>

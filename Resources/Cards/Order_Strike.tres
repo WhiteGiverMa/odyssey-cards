@@ -17,5 +17,6 @@ CardName = "打击"
 Description = "造成3点伤害"
 Rarity = 0
 Cost = 1
-Target = 2
+RequiresTarget = true
+RequiredTags = ["Enemy", "Unit"]
 Effects = [SubResource("SubResource_1")]

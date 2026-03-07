@@ -22,6 +22,6 @@ CardName = "警戒"
 Description = "轮战\n抽1张牌，友方总部获得+2生命值"
 Rarity = 0
 Cost = 2
-Target = 0
+RequiresTarget = false
 Tags = [3]
 Effects = [SubResource("SubResource_1"), SubResource("SubResource_2")]
