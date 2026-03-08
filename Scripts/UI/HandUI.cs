@@ -17,8 +17,9 @@ namespace OdysseyCards.UI
 		private Control _dragLayer;
 		private CardUI _draggingCard;
 		private int _draggingCardIndex = -1;
-		private bool _isUpdatingHand = false;
+		private bool _isUpdatingHand;
 		private Control _dragPlaceholder;
+		private int _draggingCardCost;
 
 		public event Action<Card.Card, ICommander> OnCardPlayRequested;
 		public event Action<Card.Card, Vector2> OnCardDragStarted;
@@ -224,7 +225,7 @@ namespace OdysseyCards.UI
 			}
 			else if (cardUI.Card is Card.Order order && !order.RequiresTarget)
 			{
-				GD.Print($"[HandUI] No-target Order drag - highlighting play area");
+				GD.Print("[HandUI] No-target Order drag - highlighting play area");
 				OnNoTargetCardDragStateChanged?.Invoke(true);
 			}
 
@@ -285,7 +286,15 @@ namespace OdysseyCards.UI
 
 			GD.Print($"[HandUI] Card dropped on node: {cardUI.Card.CardName} -> Node {nodeId}");
 
-			if (CombatInputAdapter.Instance != null && cardUI.Card is Card.Unit unit)
+			if (!_player.CanSpendEnergy(_draggingCardCost))
+			{
+				GD.Print($"[HandUI] Not enough energy. Cost: {_draggingCardCost}, Energy: {_player.CurrentEnergy}");
+				GameMessageLabel.Instance?.ShowError("费用不足，无法打出");
+				ReturnCardToHand(cardUI);
+				return;
+			}
+
+			if (CombatInputAdapter.Instance != null && cardUI.Card is Card.Unit unitCard)
 			{
 				CombatSnapshot snapshot = CombatInputAdapter.Instance.GetApplicationService()?.GetSnapshot();
 				int turn = snapshot?.Turn ?? 0;
@@ -293,12 +302,12 @@ namespace OdysseyCards.UI
 				var command = new DeployUnitCommand(
 					turn,
 					actorId,
-					unit.Id.GetHashCode(),
+					unitCard.Id.GetHashCode(),
 					nodeId,
-					unit.Attack,
-					unit.MaxHealth,
-					unit.Range,
-					unit.CardName
+					unitCard.Attack,
+					unitCard.MaxHealth,
+					unitCard.Range,
+					unitCard.CardName
 				);
 				System.Collections.Generic.IReadOnlyList<CombatEvent> events = CombatInputAdapter.Instance.Submit(command);
 
@@ -314,18 +323,19 @@ namespace OdysseyCards.UI
 
 				if (deploySuccess)
 				{
-					GD.Print($"[HandUI] Deploy successful, removing card from hand");
+					GD.Print("[HandUI] Deploy successful, removing card from hand");
 					_player.RemoveFromHand(cardUI.Card);
-					_player.SpendEnergy(1);
+					_player.SpendEnergy(_draggingCardCost);
 					cardUI.QueueFree();
+					GameMessageLabel.Instance?.ShowSuccess($"玩家部署了 {unitCard.CardName}");
 				}
 				else
 				{
-					GD.Print($"[HandUI] Deploy failed, returning card to hand");
+					GD.Print("[HandUI] Deploy failed, returning card to hand");
 					ReturnCardToHand(cardUI);
 				}
 
-				GD.Print($"[HandUI] DeployUnit submitted via command pipeline");
+				GD.Print("[HandUI] DeployUnit submitted via command pipeline");
 				return;
 			}
 			else if (CombatInputAdapter.Instance != null && cardUI.Card is Card.Order order)
@@ -360,14 +370,15 @@ namespace OdysseyCards.UI
 
 				if (playSuccess)
 				{
-					GD.Print($"[HandUI] Order play successful, removing card from hand");
+					GD.Print("[HandUI] Order play successful, removing card from hand");
 					_player.RemoveFromHand(cardUI.Card);
-					_player.SpendEnergy(order.Cost);
+					_player.SpendEnergy(_draggingCardCost);
 					cardUI.QueueFree();
+					GameMessageLabel.Instance?.ShowSuccess($"玩家打出了 {order.CardName}");
 				}
 				else
 				{
-					GD.Print($"[HandUI] Order play failed, returning card to hand");
+					GD.Print("[HandUI] Order play failed, returning card to hand");
 					ReturnCardToHand(cardUI);
 				}
 				return;
@@ -385,19 +396,19 @@ namespace OdysseyCards.UI
 				GD.Print($"[HandUI] Card is Order, RequiresTarget: {order.RequiresTarget}");
 				if (order.RequiresTarget)
 				{
-					GD.Print($"[HandUI] Invoking OnCardPlayRequested");
+					GD.Print("[HandUI] Invoking OnCardPlayRequested");
 					OnCardPlayRequested?.Invoke(cardUI.Card, target);
 
 					cardUI.ResetDragState();
 				}
 				else
 				{
-					GD.Print($"[HandUI] Order does not require target, should use OnPlayWithoutTarget");
+					GD.Print("[HandUI] Order does not require target, should use OnPlayWithoutTarget");
 				}
 			}
 			else
 			{
-				GD.Print($"[HandUI] Card is not an Order");
+				GD.Print("[HandUI] Card is not an Order");
 			}
 		}
 
@@ -407,12 +418,21 @@ namespace OdysseyCards.UI
 
 			if (cardUI.Card is Card.Order order)
 			{
+				if (!_player.CanSpendEnergy(_draggingCardCost))
+				{
+					GD.Print($"[HandUI] Not enough energy for order. Cost: {_draggingCardCost}, Energy: {_player.CurrentEnergy}");
+					GameMessageLabel.Instance?.ShowError("费用不足，无法打出");
+					ReturnCardToHand(cardUI);
+					return;
+				}
+
 				OnCardPlayWithoutTarget?.Invoke(cardUI.Card);
+				GameMessageLabel.Instance?.ShowSuccess($"玩家打出了 {order.CardName}");
 				cardUI.QueueFree();
 			}
 			else
 			{
-				GD.Print($"[HandUI] Card is not an Order, cannot play without target");
+				GD.Print("[HandUI] Card is not an Order, cannot play without target");
 				ReturnCardToHand(cardUI);
 			}
 		}
