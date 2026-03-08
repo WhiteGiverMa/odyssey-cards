@@ -558,30 +558,38 @@ namespace OdysseyCards.UI
 		{
 			if (Card is not Card.Order order)
 			{
+				GD.Print("[CardUI] DetectCharacterTarget: Card is not Order");
 				return null;
 			}
 
 			if (!order.RequiresTarget)
 			{
+				GD.Print("[CardUI] DetectCharacterTarget: Order does not require target");
 				return null;
 			}
 
 			var player = GetTree().GetFirstNodeInGroup("Player") as Character.Player;
 			if (player == null)
 			{
+				GD.Print("[CardUI] DetectCharacterTarget: Player not found in group");
 				return null;
 			}
 
-			foreach (Node node in (Godot.Collections.Array<Node>)GetTree().GetNodesInGroup("Enemy"))
+			var enemyNodes = GetTree().GetNodesInGroup("Enemy");
+			GD.Print($"[CardUI] DetectCharacterTarget: Found {enemyNodes.Count} nodes in Enemy group, checking pos {globalPos}");
+
+			foreach (Node node in (Godot.Collections.Array<Node>)enemyNodes)
 			{
 				if (node is Control container)
 				{
 					Rect2 globalRect = container.GetGlobalRect();
+					GD.Print($"[CardUI] Checking Enemy node: {node.Name}, rect: {globalRect}, hasPoint: {globalRect.HasPoint(globalPos)}, hasMeta: {container.HasMeta("EnemyObject")}");
 					if (globalRect.HasPoint(globalPos))
 					{
 						if (container.HasMeta("EnemyObject"))
 						{
 							Enemy targetChar = container.GetMeta("EnemyObject").As<Enemy>();
+							GD.Print($"[CardUI] Found EnemyObject: {targetChar?.CharacterName}, IsValidTarget: {targetChar != null && order.IsValidTarget(targetChar, player)}");
 							if (targetChar != null && order.IsValidTarget(targetChar, player))
 							{
 								return targetChar;
@@ -610,6 +618,7 @@ namespace OdysseyCards.UI
 				}
 			}
 
+			GD.Print("[CardUI] DetectCharacterTarget: No valid target found");
 			return null;
 		}
 

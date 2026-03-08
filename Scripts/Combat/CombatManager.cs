@@ -118,6 +118,12 @@ namespace OdysseyCards.Combat
                 GD.Print($"[CombatManager] Got player from GameManager: {Player.CharacterName}");
             }
 
+            if (!Player.IsInsideTree())
+            {
+                AddChild(Player);
+                GD.Print("[CombatManager] Player added to scene tree");
+            }
+
             if (GameManager.Instance != null)
             {
                 (int currentHealth, int maxHealth) = GameManager.Instance.GetPlayerHQHealth();
