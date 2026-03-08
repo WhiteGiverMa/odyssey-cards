@@ -339,7 +339,7 @@ namespace OdysseyCards.UI
             if (playSuccess)
             {
                 GD.Print($"[CombatUI] PlayCard successful");
-                _player.RemoveFromHand(card);
+                _player.DiscardCard(card);
                 _player.SpendEnergy(order.Cost);
             }
             else
@@ -394,7 +394,7 @@ namespace OdysseyCards.UI
             if (playSuccess)
             {
                 GD.Print($"[CombatUI] PlayCard without target successful");
-                _player.RemoveFromHand(card);
+                _player.DiscardCard(card);
                 _player.SpendEnergy(order.Cost);
             }
             else

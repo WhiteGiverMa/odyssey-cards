@@ -858,7 +858,20 @@ namespace OdysseyCards.Combat
 
         void CombatEventUIBridge.HandleDamageApplied(DamageAppliedEvent evt)
         {
-            GD.Print($"[CombatManager] Bridge: Damage {evt.Amount} applied");
+            GD.Print($"[CombatManager] Bridge: Damage {evt.Amount} applied to HQ owner {evt.TargetHQOwnerId}");
+
+            if (evt.TargetHQOwnerId == Player.CommanderId)
+            {
+                Player.HQ?.TakeDamage(evt.Amount);
+            }
+            else
+            {
+                Enemy targetEnemy = Enemies.Find(e => e.CommanderId == evt.TargetHQOwnerId);
+                if (targetEnemy != null)
+                {
+                    targetEnemy.HQ?.TakeDamage(evt.Amount);
+                }
+            }
         }
 
         void CombatEventUIBridge.HandleUnitDestroyed(UnitDestroyedEvent evt)
