@@ -60,6 +60,7 @@ public partial class Player : Node, ICommander
             return;
         }
         Instance = this;
+        AddToGroup("Player");
     }
 
     public void Initialize(int maxHealth, int initialGold = 0)

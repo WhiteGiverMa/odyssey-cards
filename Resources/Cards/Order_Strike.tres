@@ -18,5 +18,5 @@ Description = "造成3点伤害"
 Rarity = 0
 Cost = 1
 RequiresTarget = true
-RequiredTags = ["Enemy", "Unit"]
+RequiredTags = []
 Effects = [SubResource("SubResource_1")]
