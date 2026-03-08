@@ -33,15 +33,19 @@ namespace OdysseyCards.UI
                 MouseFilter = MouseFilterEnum.Ignore
             };
 
-            var fontFile = GD.Load<FontFile>("res://Assets/Fonts/NotoSansSC-Regular.ttf");
+            string fontPath = "res://Assets/Fonts/NotoSansSC-Regular.ttf";
             LabelSettings settings = new()
             {
                 FontSize = 20,
                 FontColor = Colors.White
             };
-            if (fontFile != null)
+            if (ResourceLoader.Exists(fontPath))
             {
-                settings.Font = fontFile;
+                FontFile fontFile = GD.Load<FontFile>(fontPath);
+                if (fontFile != null)
+                {
+                    settings.Font = fontFile;
+                }
             }
             _label.LabelSettings = settings;
 
@@ -76,7 +80,7 @@ namespace OdysseyCards.UI
             }
 
             _isDisplaying = true;
-            var (message, duration, isError) = _messageQueue.Dequeue();
+            (string message, float duration, bool isError) = _messageQueue.Dequeue();
             DisplayMessage(message, duration, isError);
         }
 
@@ -110,9 +114,9 @@ namespace OdysseyCards.UI
             _background.CustomMinimumSize = CustomMinimumSize;
 
             _fadeTween = CreateTween();
-            _fadeTween.TweenInterval(duration);
-            _fadeTween.TweenProperty(this, "modulate:a", 0.0f, 0.5f);
-            _fadeTween.TweenCallback(Callable.From(ProcessQueue));
+            _ = _fadeTween.TweenInterval(duration);
+            _ = _fadeTween.TweenProperty(this, "modulate:a", 0.0f, 0.5f);
+            _ = _fadeTween.TweenCallback(Callable.From(ProcessQueue));
         }
 
         public void ShowSuccess(string message)
