@@ -55,3 +55,11 @@ Run `dotnet format OdysseyCards.sln --verify-no-changes` after code changes to c
 ## Git
 
 完成代码修改后，及时进行git操作并提交到仓库。
+
+## Code Modification
+
+大规模修改代码时遵循以下规范：
+
+1. 先读取完整文件理解结构
+2. 用 `Write` 一次性重写，避免多次 `SearchReplace` 导致混乱
+3. 修改后立即构建验证
