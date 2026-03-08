@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Godot;
 using OdysseyCards.Domain.Combat.Commands;
 using OdysseyCards.Domain.Combat.Events;
 using OdysseyCards.Domain.Combat.Model;
@@ -202,7 +201,17 @@ namespace OdysseyCards.Domain.Combat.Engine
         {
             var events = new List<CombatEvent>();
 
+            if (_state == null)
+            {
+                return events;
+            }
+
             NodeOwner owner = command.ActorId == _state.Player.Id ? NodeOwner.Player : NodeOwner.Enemy;
+
+            if (_state.Board == null)
+            {
+                return events;
+            }
 
             if (!_state.Board.CanDeployTo(command.TargetNodeId, owner))
             {
