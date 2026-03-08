@@ -914,7 +914,7 @@ namespace OdysseyCards.Combat
             }
             else
             {
-                Enemy enemy = Enemies.Find(e => e.CommanderId == evt.ActorId || e.Id == evt.ActorId);
+                Enemy enemy = Enemies.Find(e => e.CommanderId == evt.ActorId);
                 if (enemy != null)
                 {
                     int enemyIndex = Enemies.IndexOf(enemy);

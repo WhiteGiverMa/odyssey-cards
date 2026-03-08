@@ -73,6 +73,11 @@ namespace OdysseyCards.Presentation.Events
             OnCombatEnd?.Invoke(evt.IsVictory);
         }
 
+        public void HandleCardPlayed(CardPlayedEvent evt)
+        {
+            GD.Print($"[UIBridge] Card played: {evt.CardName} by actor {evt.ActorId}, cost: {evt.Cost}");
+        }
+
         public void ShowAttackRange(List<int> nodeIds)
         {
             OnAttackRangeShow?.Invoke(nodeIds);

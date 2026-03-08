@@ -13,7 +13,7 @@ namespace OdysseyCards.UI
 		[Export] public PackedScene CardScene { get; set; }
 
 		private HBoxContainer _cardContainer;
-		private Character.Player _player;
+		private Player _player;
 		private Control _dragLayer;
 		private CardUI _draggingCard;
 		private int _draggingCardIndex = -1;
@@ -57,7 +57,7 @@ namespace OdysseyCards.UI
 			GD.Print("[HandUI] DragLayer created with MouseFilter=Pass");
 		}
 
-		public void SetPlayer(Character.Player player)
+		public void SetPlayer(Player player)
 		{
 			GD.Print($"[HandUI] SetPlayer called, player is null: {player == null}");
 
@@ -159,8 +159,10 @@ namespace OdysseyCards.UI
 
 		private void CreateCardUI(Card.Card card, float scale = 1.0f)
 		{
-			var cardUI = new CardUI();
-			cardUI.Scale = new Vector2(scale, scale);
+			var cardUI = new CardUI
+			{
+				Scale = new Vector2(scale, scale)
+			};
 			_cardContainer.AddChild(cardUI);
 			cardUI.SetCard(card);
 			cardUI.OnCardDraggedToTarget += OnCardDraggedToTarget;
@@ -180,6 +182,20 @@ namespace OdysseyCards.UI
 		{
 			if (cardUI.Card == null)
 			{
+				return;
+			}
+
+			int cost = cardUI.Card switch
+			{
+				Card.Unit unitCard => unitCard.DeployCost,
+				Card.Order order => order.Cost,
+				_ => 0
+			};
+
+			if (!_player.CanSpendEnergy(cost))
+			{
+				GD.Print($"[HandUI] Cannot drag card - not enough energy. Cost: {cost}, Energy: {_player.CurrentEnergy}");
+				cardUI.EndDrag(false);
 				return;
 			}
 
@@ -284,7 +300,7 @@ namespace OdysseyCards.UI
 					unit.Range,
 					unit.CardName
 				);
-				var events = CombatInputAdapter.Instance.Submit(command);
+				System.Collections.Generic.IReadOnlyList<CombatEvent> events = CombatInputAdapter.Instance.Submit(command);
 
 				bool deploySuccess = false;
 				foreach (CombatEvent evt in events)
@@ -324,12 +340,12 @@ namespace OdysseyCards.UI
 
 				if (order.Effects.Count > 0)
 				{
-					var firstEffect = order.Effects[0];
+					Core.CardEffectData firstEffect = order.Effects[0];
 					effectType = firstEffect.EffectType.ToString();
 					effectValue = firstEffect.Value;
 				}
 
-				PlayCardCommand command = new PlayCardCommand(turn, actorId, order.Id.GetHashCode(), nodeId, null, effectType, effectValue, targetHQOwnerId);
+				var command = new PlayCardCommand(turn, actorId, order.Id.GetHashCode(), nodeId, null, effectType, effectValue, targetHQOwnerId);
 				System.Collections.Generic.IReadOnlyList<CombatEvent> events = CombatInputAdapter.Instance.Submit(command);
 
 				bool playSuccess = false;
