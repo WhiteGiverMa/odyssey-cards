@@ -212,3 +212,72 @@ public interface IDamageModifier
 - `Scripts/Core/GameManager.cs` - 修复命名空间引用
 
 **结果**: `dotnet build` → 0 错误, 7 警告
+
+---
+
+## 2026-03-08
+
+### 卡牌打出流程修复 (Card Play Flow Fix)
+
+**任务**: 修复卡牌打出流程中的三个问题：卡牌UI销毁时机不一致、费用前置检查缺失、费用扣费职责混乱
+
+**问题根源**:
+1. 拖拽中的 CardUI 在 `_dragLayer` 中，`UpdateHand()` 只清理 `_cardContainer` 的子节点
+2. 用户可以拖拽无法支付的卡牌，操作失败后才返回手牌
+3. UI 层和引擎层都在扣费，导致双重扣费或漏扣
+
+**修改文件**:
+- `Scripts/Domain/Combat/Commands/CombatCommand.cs` - `PlayCardCommand` 添加 `Cost` 参数
+- `Scripts/Domain/Combat/Events/CombatEvent.cs` - `CardPlayedEvent` 添加 `Cost` 参数
+- `Scripts/Domain/Combat/Engine/ICombatEngine.cs` - `CombatSnapshot` 添加 `EnemyEnergies` 和 `EnemyMaxEnergies`
+- `Scripts/Domain/Combat/Engine/DomainCombatEngine.cs` - `HandlePlayCard` 添加费用检查和扣费，`GetSnapshot` 返回敌人费用
+- `Scripts/Presentation/Events/CombatEventUIBridge.cs` - 添加 `HandleCardPlayed` 方法
+- `Scripts/Presentation/Events/CombatEventProcessor.cs` - 处理 `CardPlayedEvent`
+- `Scripts/Combat/CombatManager.cs` - 实现 `HandleCardPlayed` 从快照同步费用
+- `Scripts/UI/CombatUI.cs` - 移除直接调用 `SpendEnergy`，传递 `Cost` 参数
+- `Scripts/UI/HandUI.cs` - 清理 `_dragLayer` 中的孤立 CardUI，添加费用前置检查
+
+**新的卡牌打出流程**:
+```
+用户拖拽卡牌
+    ↓
+HandUI: 前置检查费用
+    ├─ 费用不足 → 禁止拖拽，显示灰色
+    └─ 费用足够 → 允许拖拽
+    ↓
+用户释放卡牌到目标
+    ↓
+CombatUI: 提交 PlayCardCommand (带 Cost 参数)
+    ↓
+DomainCombatEngine: HandlePlayCard
+    ├─ 再次验证费用
+    ├─ 扣除费用 (Domain 层)
+    ├─ 执行效果
+    └─ 广播 CardPlayedEvent
+    ↓
+CombatManager: HandleCardPlayed
+    └─ 从快照同步费用到 Presentation 层
+    ↓
+CombatUI: DiscardCard
+    ↓
+HandUI: UpdateHand
+    ├─ 清理 _cardContainer 中的 CardUI
+    ├─ 清理 _dragLayer 中的孤立 CardUI
+    └─ 重建手牌 UI
+```
+
+**设计原则**:
+- 引擎层负责所有状态变更（扣费、效果）
+- UI 层只负责交互和显示
+- 通过事件同步 Domain 层到 Presentation 层
+- 前置检查提升用户体验
+
+**结果**: `dotnet build` → 0 错误
+
+**Git Commit**: `8c4da1e` - fix: card play flow with proper energy sync and UI cleanup
+
+---
+
+*最后更新: 2026-03-08*
+*完成阶段: 第七阶段*
+*当前状态: 卡牌打出流程修复完成, 待测试验证*
