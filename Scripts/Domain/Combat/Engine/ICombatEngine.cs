@@ -49,6 +49,8 @@ namespace OdysseyCards.Domain.Combat.Engine
         public IReadOnlyList<UnitSnapshot> PlayerUnits { get; init; }
         public IReadOnlyList<UnitSnapshot> EnemyUnits { get; init; }
         public IReadOnlyList<int> EnemyHQHealths { get; init; }
+        public IReadOnlyList<int> EnemyEnergies { get; init; }
+        public IReadOnlyList<int> EnemyMaxEnergies { get; init; }
     }
 
     public sealed record UnitSnapshot

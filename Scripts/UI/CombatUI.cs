@@ -312,7 +312,7 @@ namespace OdysseyCards.UI
                 targetHQOwnerId = target.CommanderId;
             }
 
-            GD.Print($"[CombatUI] PlayCard target - NodeId: {targetNodeId}, UnitId: {targetUnitId}, EffectType: {effectType}, EffectValue: {effectValue}, TargetHQOwnerId: {targetHQOwnerId}");
+            GD.Print($"[CombatUI] PlayCard target - NodeId: {targetNodeId}, UnitId: {targetUnitId}, EffectType: {effectType}, EffectValue: {effectValue}, TargetHQOwnerId: {targetHQOwnerId}, Cost: {order.Cost}");
 
             var command = new PlayCardCommand(
                 turn,
@@ -322,7 +322,8 @@ namespace OdysseyCards.UI
                 targetUnitId,
                 effectType,
                 effectValue,
-                targetHQOwnerId
+                targetHQOwnerId,
+                order.Cost
             );
             System.Collections.Generic.IReadOnlyList<CombatEvent> events = CombatInputAdapter.Instance.Submit(command);
 
@@ -340,7 +341,6 @@ namespace OdysseyCards.UI
             {
                 GD.Print($"[CombatUI] PlayCard successful");
                 _player.DiscardCard(card);
-                _player.SpendEnergy(order.Cost);
             }
             else
             {
@@ -377,7 +377,8 @@ namespace OdysseyCards.UI
                 null,
                 effectType,
                 effectValue,
-                targetHQOwnerId
+                targetHQOwnerId,
+                order.Cost
             );
             System.Collections.Generic.IReadOnlyList<CombatEvent> events = CombatInputAdapter.Instance.Submit(command);
 
@@ -395,7 +396,6 @@ namespace OdysseyCards.UI
             {
                 GD.Print($"[CombatUI] PlayCard without target successful");
                 _player.DiscardCard(card);
-                _player.SpendEnergy(order.Cost);
             }
             else
             {

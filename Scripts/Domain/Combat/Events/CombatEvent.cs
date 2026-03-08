@@ -51,14 +51,16 @@ namespace OdysseyCards.Domain.Combat.Events
         public int ActorId { get; init; }
         public int CardInstanceId { get; init; }
         public string CardName { get; init; }
+        public int Cost { get; init; }
 
         public CardPlayedEvent() { }
 
-        public CardPlayedEvent(Guid commandId, int turn, int actorId, int cardInstanceId, string cardName) : base(commandId, turn)
+        public CardPlayedEvent(Guid commandId, int turn, int actorId, int cardInstanceId, string cardName, int cost = 0) : base(commandId, turn)
         {
             ActorId = actorId;
             CardInstanceId = cardInstanceId;
             CardName = cardName;
+            Cost = cost;
         }
     }
 

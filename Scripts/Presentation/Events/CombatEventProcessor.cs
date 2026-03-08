@@ -21,6 +21,7 @@ namespace OdysseyCards.Presentation.Events
         public event Action<TurnEndedEvent> OnTurnEnded;
         public event Action<CombatStartedEvent> OnCombatStarted;
         public event Action<CombatEndedEvent> OnCombatEnded;
+        public event Action<CardPlayedEvent> OnCardPlayed;
 
         public CombatEventProcessor(CombatApplicationService applicationService, CombatEventUIBridge uiBridge)
         {
@@ -73,6 +74,11 @@ namespace OdysseyCards.Presentation.Events
                 case CombatEndedEvent combatEnded:
                     OnCombatEnded?.Invoke(combatEnded);
                     _uiBridge?.HandleCombatEnded(combatEnded);
+                    break;
+
+                case CardPlayedEvent cardPlayed:
+                    OnCardPlayed?.Invoke(cardPlayed);
+                    _uiBridge?.HandleCardPlayed(cardPlayed);
                     break;
             }
         }

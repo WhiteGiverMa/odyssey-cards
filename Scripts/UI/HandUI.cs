@@ -97,6 +97,22 @@ namespace OdysseyCards.UI
 				child.QueueFree();
 			}
 
+			if (_dragLayer != null)
+			{
+				foreach (Node child in _dragLayer.GetChildren())
+				{
+					child.QueueFree();
+				}
+			}
+
+			_draggingCard = null;
+			_draggingCardIndex = -1;
+			if (_dragPlaceholder != null)
+			{
+				_dragPlaceholder.QueueFree();
+				_dragPlaceholder = null;
+			}
+
 			int handCount = _player.Hand.Count;
 			float scale = CalculateCardScale(handCount);
 

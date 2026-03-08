@@ -14,5 +14,6 @@ namespace OdysseyCards.Presentation.Events
         void HandleDamageApplied(DamageAppliedEvent evt);
         void HandleUnitDestroyed(UnitDestroyedEvent evt);
         void HandleCombatEnded(CombatEndedEvent evt);
+        void HandleCardPlayed(CardPlayedEvent evt);
     }
 }

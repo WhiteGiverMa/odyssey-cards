@@ -104,10 +104,11 @@ namespace OdysseyCards.Domain.Combat.Commands
         public string? EffectType { get; init; }
         public int EffectValue { get; init; }
         public int? TargetHQOwnerId { get; init; }
+        public int Cost { get; init; }
 
         public PlayCardCommand() { }
 
-        public PlayCardCommand(int turn, int actorId, int cardInstanceId, int? targetNodeId = null, int? targetUnitId = null, string? effectType = null, int effectValue = 0, int? targetHQOwnerId = null) : base(turn, actorId)
+        public PlayCardCommand(int turn, int actorId, int cardInstanceId, int? targetNodeId = null, int? targetUnitId = null, string? effectType = null, int effectValue = 0, int? targetHQOwnerId = null, int cost = 0) : base(turn, actorId)
         {
             CardInstanceId = cardInstanceId;
             TargetNodeId = targetNodeId;
@@ -115,6 +116,7 @@ namespace OdysseyCards.Domain.Combat.Commands
             EffectType = effectType;
             EffectValue = effectValue;
             TargetHQOwnerId = targetHQOwnerId;
+            Cost = cost;
         }
     }
 }

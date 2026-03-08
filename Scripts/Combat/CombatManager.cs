@@ -902,6 +902,32 @@ namespace OdysseyCards.Combat
             }
         }
 
+        void CombatEventUIBridge.HandleCardPlayed(CardPlayedEvent evt)
+        {
+            GD.Print($"[CombatManager] Bridge: Card {evt.CardName} played by actor {evt.ActorId}, cost: {evt.Cost}");
+
+            if (evt.ActorId == Player.CommanderId || evt.ActorId == _playerId)
+            {
+                var snapshot = _applicationService.GetSnapshot();
+                Player.SetEnergy(snapshot.PlayerEnergy, snapshot.PlayerMaxEnergy);
+                GD.Print($"[CombatManager] Bridge: Player energy synced from snapshot: {snapshot.PlayerEnergy}/{snapshot.PlayerMaxEnergy}");
+            }
+            else
+            {
+                Enemy enemy = Enemies.Find(e => e.CommanderId == evt.ActorId || e.Id == evt.ActorId);
+                if (enemy != null)
+                {
+                    int enemyIndex = Enemies.IndexOf(enemy);
+                    var snapshot = _applicationService.GetSnapshot();
+                    if (enemyIndex >= 0 && enemyIndex < snapshot.EnemyEnergies.Count)
+                    {
+                        enemy.SetEnergy(snapshot.EnemyEnergies[enemyIndex], snapshot.EnemyMaxEnergies[enemyIndex]);
+                        GD.Print($"[CombatManager] Bridge: Enemy energy synced from snapshot");
+                    }
+                }
+            }
+        }
+
         public override void _ExitTree()
         {
             _eventProcessor?.Dispose();

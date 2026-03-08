@@ -107,7 +107,9 @@ namespace OdysseyCards.Domain.Combat.Engine
                     PlayerMaxEnergy = 0,
                     PlayerUnits = new List<UnitSnapshot>(),
                     EnemyUnits = new List<UnitSnapshot>(),
-                    EnemyHQHealths = new List<int>()
+                    EnemyHQHealths = new List<int>(),
+                    EnemyEnergies = new List<int>(),
+                    EnemyMaxEnergies = new List<int>()
                 };
             }
 
@@ -141,9 +143,13 @@ namespace OdysseyCards.Domain.Combat.Engine
             }
 
             var enemyHQHealths = new List<int>();
+            var enemyEnergies = new List<int>();
+            var enemyMaxEnergies = new List<int>();
             foreach (var enemy in _state.Enemies)
             {
                 enemyHQHealths.Add(enemy.HQHealth);
+                enemyEnergies.Add(enemy.Energy);
+                enemyMaxEnergies.Add(enemy.MaxEnergy);
             }
 
             return new CombatSnapshot
@@ -159,7 +165,9 @@ namespace OdysseyCards.Domain.Combat.Engine
                 PlayerMaxEnergy = _state.Player.MaxEnergy,
                 PlayerUnits = playerUnits,
                 EnemyUnits = enemyUnits,
-                EnemyHQHealths = enemyHQHealths
+                EnemyHQHealths = enemyHQHealths,
+                EnemyEnergies = enemyEnergies,
+                EnemyMaxEnergies = enemyMaxEnergies
             };
         }
 
@@ -446,6 +454,30 @@ namespace OdysseyCards.Domain.Combat.Engine
         {
             var events = new List<CombatEvent>();
 
+            if (_state == null)
+            {
+                return events;
+            }
+
+            bool isPlayer = command.ActorId == _state.Player.Id;
+            if (isPlayer)
+            {
+                if (_state.Player.Energy < command.Cost)
+                {
+                    return events;
+                }
+                _state.Player.SpendEnergy(command.Cost);
+            }
+            else
+            {
+                var enemy = _state.Enemies.Find(e => e.Id == command.ActorId);
+                if (enemy == null || enemy.Energy < command.Cost)
+                {
+                    return events;
+                }
+                enemy.SpendEnergy(command.Cost);
+            }
+
             string cardName = $"Card_{command.CardInstanceId}";
 
             if (!string.IsNullOrEmpty(command.EffectType) && command.TargetHQOwnerId.HasValue)
@@ -541,7 +573,8 @@ namespace OdysseyCards.Domain.Combat.Engine
                 _state.Turn,
                 command.ActorId,
                 command.CardInstanceId,
-                cardName
+                cardName,
+                command.Cost
             ));
 
             return events;
