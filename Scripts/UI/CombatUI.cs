@@ -353,7 +353,7 @@ public partial class CombatUI : Control
     {
         // 玩家生命值条
         _playerHealthBar = InstantiateHealthBar("PlayerHealthBar");
-        var playerHealthContainer = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
+        var playerHealthContainer = GetNode<Control>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
         if (playerHealthContainer != null)
         {
             playerHealthContainer.AddChild(_playerHealthBar);
@@ -442,7 +442,7 @@ public partial class CombatUI : Control
         _playerArmorLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.3f));
         _playerArmorLabel.AddThemeFontSizeOverride("font_size", 14);
 
-        var playerHealthContainer = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
+        var playerHealthContainer = GetNode<Control>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
         playerHealthContainer?.AddChild(_playerArmorLabel);
 
         // 敌方护甲
