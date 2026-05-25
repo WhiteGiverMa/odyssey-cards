@@ -121,9 +121,39 @@ public partial class GameManager : Node
     private Deck CreateStartingDeck()
     {
         var deck = new Deck();
-        // 暂时返回空牌堆，等 .tres 文件创建后再填充
-        // 原来的 CardFactory.GetStarterDeck1() 已废弃
-        deck.Initialize(new List<CardData>());
+        var cards = new List<CardData>(12);
+
+        string[] cardPaths =
+        {
+            "res://Resources/Cards/Spell_Alert.tres",
+            "res://Resources/Cards/Spell_Assault.tres",
+            "res://Resources/Cards/Spell_Strike.tres",
+            "res://Resources/Cards/Minion_18thRegiment.tres",
+            "res://Resources/Cards/Minion_DetectiveSquad.tres",
+            "res://Resources/Cards/Minion_LianshuScout.tres",
+        };
+
+        foreach (var path in cardPaths)
+        {
+            if (!ResourceLoader.Exists(path))
+            {
+                GD.PrintErr($"[GameManager] 警告：未找到 {path}");
+                continue;
+            }
+
+            var cardData = GD.Load<CardData>(path);
+            if (cardData == null)
+            {
+                GD.PrintErr($"[GameManager] 警告：加载失败 {path}");
+                continue;
+            }
+
+            cards.Add(cardData);
+            cards.Add(cardData);
+        }
+
+        deck.Initialize(cards);
+        GD.Print($"[GameManager] 起始牌堆已创建，共 {cards.Count} 张牌");
         return deck;
     }
 
