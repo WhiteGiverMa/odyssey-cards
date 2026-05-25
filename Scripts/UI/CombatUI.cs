@@ -76,6 +76,36 @@ public partial class CombatUI : Control
     /// </summary>
     private Button _enemyHeroAttackButton = null!;
 
+    /// <summary>
+    /// 敌方英雄交互面板——有可见色块背景的容器。
+    /// </summary>
+    private Panel _enemyHeroPanel = null!;
+
+    /// <summary>
+    /// 抽牌堆按钮——显示当前抽牌堆牌数。
+    /// </summary>
+    private Button _drawPileBtn = null!;
+
+    /// <summary>
+    /// 弃牌堆按钮——显示当前弃牌堆牌数。
+    /// </summary>
+    private Button _discardPileBtn = null!;
+
+    /// <summary>
+    /// 牌堆查看弹窗——点击抽/弃牌堆按钮时复用。
+    /// </summary>
+    private AcceptDialog? _pileViewPopup;
+
+    /// <summary>
+    /// 拖拽层——卡牌拖拽时重parent到此，使其脱离 HandUI 的 HBoxContainer 布局约束。
+    /// </summary>
+    private Control _dragLayer = null!;
+
+    /// <summary>
+    /// 当前正在拖拽的卡牌 UI。
+    /// </summary>
+    private CardUI? _dragCardUI;
+
     // ===== 外部引用 =====
 
     /// <summary>
@@ -121,6 +151,7 @@ public partial class CombatUI : Control
 
     /// <summary>
     /// Godot 节点就绪回调。创建布局并将自身加入 "CombatUI" 分组。
+    /// 订阅分辨率变化事件以支持自适应布局。
     /// </summary>
     public override void _Ready()
     {
@@ -129,6 +160,21 @@ public partial class CombatUI : Control
         GD.Print("[CombatUI] _Ready");
 
         BuildLayout();
+
+        // 订阅分辨率变化——窗口缩放时重新计算尺寸
+        if (UIScaler.Instance != null)
+        {
+            UIScaler.Instance.OnResolutionChanged += OnResolutionChanged;
+        }
+    }
+
+    /// <summary>
+    /// 分辨率变化时刷新所有 UI 尺寸和布局。
+    /// </summary>
+    private void OnResolutionChanged()
+    {
+        GD.Print($"[CombatUI] 分辨率变化 — 缩放因子 {UIScaler.Instance?.GetScaleFactor() ?? 1f:F2}");
+        RefreshAll();
     }
 
     // ===== 初始化 =====
@@ -155,6 +201,7 @@ public partial class CombatUI : Control
         CreateArmorLabels();
         CreateEndTurnButton();
         CreateEnemyHeroAttackButton();
+        CreateDeckButtons();
 
         // 订阅事件
         SubscribeEvents();
@@ -177,6 +224,15 @@ public partial class CombatUI : Control
         AnchorTop = 0;
         AnchorRight = 1;
         AnchorBottom = 1;
+
+        // 战斗背景
+        var bg = new ColorRect
+        {
+            Name = "CombatBackground",
+            Color = new Color(0.08f, 0.08f, 0.12f, 1f),
+            AnchorsPreset = (int)LayoutPreset.FullRect,
+        };
+        AddChild(bg);
 
         // 根容器
         var root = new VBoxContainer
@@ -206,6 +262,19 @@ public partial class CombatUI : Control
         // 手牌区域（最底部）
         var handArea = CreateHandArea();
         root.AddChild(handArea);
+
+        // 拖拽层——卡牌拖拽时重parent到此，Z 层级最高
+        _dragLayer = new Control
+        {
+            Name = "DragLayer",
+            MouseFilter = MouseFilterEnum.Ignore,
+            ZIndex = 100,
+            AnchorLeft = 0,
+            AnchorTop = 0,
+            AnchorRight = 1,
+            AnchorBottom = 1,
+        };
+        AddChild(_dragLayer);
     }
 
     /// <summary>
@@ -218,6 +287,7 @@ public partial class CombatUI : Control
             Name = "EnemyArea",
             Alignment = BoxContainer.AlignmentMode.Center,
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(0, 90),
         };
 
         // 敌方生命值区域（左侧）
@@ -230,7 +300,7 @@ public partial class CombatUI : Control
         // 生命值条和护甲标签的占位——会在 Initialize 中创建
 
         // 法力值占位（中央）
-        var manaPlaceholder = new Control
+        var manaPlaceholder = new CenterContainer
         {
             Name = "EnemyManaPlaceholder",
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -238,7 +308,7 @@ public partial class CombatUI : Control
         container.AddChild(manaPlaceholder);
 
         // 英雄标签占位（右侧）
-        var heroLabelPlaceholder = new Control
+        var heroLabelPlaceholder = new CenterContainer
         {
             Name = "EnemyHeroLabelPlaceholder",
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -249,7 +319,7 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
-    /// 创建棋盘区域——BoardUI 居中。
+    /// 创建棋盘区域——BoardUI 居中，占满剩余垂直空间。
     /// </summary>
     private CenterContainer CreateBoardArea()
     {
@@ -260,7 +330,11 @@ public partial class CombatUI : Control
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
 
-        _boardUI = new BoardUI();
+        _boardUI = new BoardUI
+        {
+            CustomMinimumSize = new Vector2(560, 300),
+            SizeFlagsVertical = SizeFlags.Expand,
+        };
         container.AddChild(_boardUI);
 
         return container;
@@ -276,26 +350,36 @@ public partial class CombatUI : Control
             Name = "PlayerArea",
             Alignment = BoxContainer.AlignmentMode.Center,
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(0, 70),
         };
 
-        // 生命值区域占位
-        var healthPlaceholder = new Control
+        // 生命值区域占位（垂直堆叠生命条 + 护甲标签）
+        var healthPlaceholder = new VBoxContainer
         {
             Name = "PlayerHealthPlaceholder",
+            Alignment = BoxContainer.AlignmentMode.Center,
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
         };
         container.AddChild(healthPlaceholder);
 
         // 法力值区域占位
-        var manaPlaceholder = new Control
+        var manaPlaceholder = new CenterContainer
         {
             Name = "PlayerManaPlaceholder",
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
         };
         container.AddChild(manaPlaceholder);
 
+        // 牌堆区域占位
+        var deckPlaceholder = new CenterContainer
+        {
+            Name = "DeckPlaceholder",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+        container.AddChild(deckPlaceholder);
+
         // 按钮区域占位
-        var buttonPlaceholder = new Control
+        var buttonPlaceholder = new CenterContainer
         {
             Name = "EndTurnButtonPlaceholder",
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -306,21 +390,23 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
-    /// 创建手牌区域——HandUI。
+    /// 创建手牌区域——HandUI 全宽居中。
     /// </summary>
     private Control CreateHandArea()
     {
         var container = new Control
         {
             Name = "HandArea",
-            CustomMinimumSize = new Vector2(0, 160),
+            CustomMinimumSize = new Vector2(0, 170),
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
         };
 
         _handUI = new HandUI
         {
-            SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            SizeFlagsVertical = SizeFlags.ExpandFill,
+            AnchorLeft = 0,
+            AnchorTop = 0,
+            AnchorRight = 1,
+            AnchorBottom = 1,
         };
         container.AddChild(_handUI);
 
@@ -347,15 +433,24 @@ public partial class CombatUI : Control
 
     /// <summary>
     /// 创建双方生命值条。
-    /// 优先使用 PackedScene 实例化，回退到程序化创建。
+    /// 优先使用 PackedScene 实例化，回退到程序化创建（带主题样式）。
     /// </summary>
     private void CreateHealthBars()
     {
         // 玩家生命值条
         _playerHealthBar = InstantiateHealthBar("PlayerHealthBar");
-        var playerHealthContainer = GetNode<Control>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
+        var playerHealthContainer = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
         if (playerHealthContainer != null)
         {
+            // 生命值前缀标签
+            var hpLabel = new Label
+            {
+                Text = "生命 ",
+                CustomMinimumSize = new Vector2(50, 24),
+            };
+            hpLabel.AddThemeColorOverride("font_color", new Color(0.7f, 1f, 0.7f));
+            hpLabel.AddThemeFontSizeOverride("font_size", 14);
+            playerHealthContainer.AddChild(hpLabel);
             playerHealthContainer.AddChild(_playerHealthBar);
         }
 
@@ -364,16 +459,27 @@ public partial class CombatUI : Control
         var enemyHealthContainer = GetNode<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
         if (enemyHealthContainer != null)
         {
+            // 生命值前缀标签
+            var hpLabel = new Label
+            {
+                Text = "生命 ",
+                CustomMinimumSize = new Vector2(50, 24),
+            };
+            hpLabel.AddThemeColorOverride("font_color", new Color(1f, 0.6f, 0.6f));
+            hpLabel.AddThemeFontSizeOverride("font_size", 14);
+            enemyHealthContainer.AddChild(hpLabel);
             enemyHealthContainer.AddChild(_enemyHealthBar);
         }
     }
 
     /// <summary>
     /// 从 PackedScene 或程序化创建生命值条实例。
+    /// 程序化创建时附加主题样式和百分比文本标签，尺寸使用 UIScaler 缩放。
     /// </summary>
     private HealthBar InstantiateHealthBar(string name)
     {
         HealthBar hb;
+        float scale = UIScaler.Instance?.GetScaleFactor() ?? 1f;
 
         if (HealthBarScene != null)
         {
@@ -383,9 +489,29 @@ public partial class CombatUI : Control
         {
             hb = new HealthBar
             {
-                CustomMinimumSize = new Vector2(160, 24),
+                CustomMinimumSize = new Vector2(180 * scale, 22 * scale),
                 SizeFlagsHorizontal = SizeFlags.Expand,
             };
+
+            // 主题样式：暗底 + 绿色填充 + 圆角
+            var bgStyle = new StyleBoxFlat
+            {
+                BgColor = new Color(0.12f, 0.12f, 0.12f),
+                CornerRadiusTopLeft = 3,
+                CornerRadiusTopRight = 3,
+                CornerRadiusBottomLeft = 3,
+                CornerRadiusBottomRight = 3,
+            };
+            var fillStyle = new StyleBoxFlat
+            {
+                BgColor = new Color(0.22f, 0.72f, 0.22f),
+                CornerRadiusTopLeft = 3,
+                CornerRadiusTopRight = 3,
+                CornerRadiusBottomLeft = 3,
+                CornerRadiusBottomRight = 3,
+            };
+            hb.AddThemeStyleboxOverride("background", bgStyle);
+            hb.AddThemeStyleboxOverride("fill", fillStyle);
         }
 
         hb.Name = name;
@@ -401,28 +527,28 @@ public partial class CombatUI : Control
         _playerManaLabel = new Label
         {
             Name = "PlayerManaLabel",
-            Text = "0/0",
+            Text = "法力 0/1",
             HorizontalAlignment = HorizontalAlignment.Center,
             CustomMinimumSize = new Vector2(120, 32),
         };
         _playerManaLabel.AddThemeColorOverride("font_color", new Color(0.3f, 0.7f, 1f));
         _playerManaLabel.AddThemeFontSizeOverride("font_size", 22);
 
-        var playerManaPlaceholder = GetNode<Control>("CombatRoot/PlayerArea/PlayerManaPlaceholder");
+        var playerManaPlaceholder = GetNode<CenterContainer>("CombatRoot/PlayerArea/PlayerManaPlaceholder");
         playerManaPlaceholder?.AddChild(_playerManaLabel);
 
         // 敌方法力值（顶部中央）
         _enemyManaLabel = new Label
         {
             Name = "EnemyManaLabel",
-            Text = "0/0",
+            Text = "法力 0/1",
             HorizontalAlignment = HorizontalAlignment.Center,
             CustomMinimumSize = new Vector2(120, 32),
         };
         _enemyManaLabel.AddThemeColorOverride("font_color", new Color(1f, 0.4f, 0.4f));
         _enemyManaLabel.AddThemeFontSizeOverride("font_size", 20);
 
-        var enemyManaPlaceholder = GetNode<Control>("CombatRoot/EnemyArea/EnemyManaPlaceholder");
+        var enemyManaPlaceholder = GetNode<CenterContainer>("CombatRoot/EnemyArea/EnemyManaPlaceholder");
         enemyManaPlaceholder?.AddChild(_enemyManaLabel);
     }
 
@@ -442,7 +568,7 @@ public partial class CombatUI : Control
         _playerArmorLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.3f));
         _playerArmorLabel.AddThemeFontSizeOverride("font_size", 14);
 
-        var playerHealthContainer = GetNode<Control>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
+        var playerHealthContainer = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
         playerHealthContainer?.AddChild(_playerArmorLabel);
 
         // 敌方护甲
@@ -472,28 +598,58 @@ public partial class CombatUI : Control
             CustomMinimumSize = new Vector2(120, 40),
         };
 
-        var buttonPlaceholder = GetNode<Control>("CombatRoot/PlayerArea/EndTurnButtonPlaceholder");
+        var buttonPlaceholder = GetNode<CenterContainer>("CombatRoot/PlayerArea/EndTurnButtonPlaceholder");
         buttonPlaceholder?.AddChild(_endTurnButton);
     }
 
     /// <summary>
-    /// 创建攻击敌方英雄按钮——初始隐藏，攻击目标选择模式下可见。
+    /// 创建敌方英雄交互面板——带可见色块背景和标签的区域，
+    /// 攻击目标选择模式下整个面板可点击攻击。
     /// </summary>
     private void CreateEnemyHeroAttackButton()
     {
-        _enemyHeroAttackButton = new Button
+        var enemyHeroPlaceholder = GetNode<CenterContainer>("CombatRoot/EnemyArea/EnemyHeroLabelPlaceholder");
+        if (enemyHeroPlaceholder == null) return;
+
+        // 交互面板容器（CenteredContainer 居中内容）
+        var panelContainer = new CenterContainer
         {
-            Name = "EnemyHeroAttackButton",
-            Text = "⚔ 攻击敌方英雄",
-            CustomMinimumSize = new Vector2(140, 36),
-            Visible = false,
+            Name = "EnemyHeroPanelContainer",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
         };
-        _enemyHeroAttackButton.AddThemeColorOverride("font_color", new Color(1f, 0.3f, 0.3f));
 
-        var enemyHeroPlaceholder = GetNode<Control>("CombatRoot/EnemyArea/EnemyHeroLabelPlaceholder");
-        enemyHeroPlaceholder?.AddChild(_enemyHeroAttackButton);
+        // 可见色块面板
+        _enemyHeroPanel = new Panel
+        {
+            Name = "EnemyHeroPanel",
+            CustomMinimumSize = new Vector2(140, 70),
+        };
+        var panelStyle = new StyleBoxFlat
+        {
+            BgColor = new Color(0.25f, 0.12f, 0.12f, 0.8f),
+            BorderWidthLeft = 2,
+            BorderWidthRight = 2,
+            BorderWidthTop = 2,
+            BorderWidthBottom = 2,
+            BorderColor = new Color(0.6f, 0.2f, 0.2f),
+            CornerRadiusTopLeft = 6,
+            CornerRadiusTopRight = 6,
+            CornerRadiusBottomLeft = 6,
+            CornerRadiusBottomRight = 6,
+        };
+        _enemyHeroPanel.AddThemeStyleboxOverride("panel", panelStyle);
 
-        // 添加敌方英雄标签（在按钮上方作为装饰）
+        // 面板内部垂直布局
+        var panelContent = new VBoxContainer
+        {
+            Alignment = BoxContainer.AlignmentMode.Center,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        _enemyHeroPanel.AddChild(panelContent);
+
+        // 英雄标签
         var heroLabel = new Label
         {
             Name = "EnemyHeroLabel",
@@ -502,7 +658,157 @@ public partial class CombatUI : Control
         };
         heroLabel.AddThemeColorOverride("font_color", new Color(1f, 0.5f, 0.5f));
         heroLabel.AddThemeFontSizeOverride("font_size", 16);
-        enemyHeroPlaceholder?.AddChild(heroLabel);
+        panelContent.AddChild(heroLabel);
+
+        // 攻击按钮（攻击目标模式下可见）
+        _enemyHeroAttackButton = new Button
+        {
+            Name = "EnemyHeroAttackButton",
+            Text = "⚔ 攻击敌方英雄",
+            CustomMinimumSize = new Vector2(140, 36),
+            Visible = false,
+        };
+        _enemyHeroAttackButton.AddThemeColorOverride("font_color", new Color(1f, 0.3f, 0.3f));
+        panelContent.AddChild(_enemyHeroAttackButton);
+
+        panelContainer.AddChild(_enemyHeroPanel);
+        enemyHeroPlaceholder.AddChild(panelContainer);
+    }
+
+    // ===== 牌堆按钮 =====
+
+    /// <summary>
+    /// 创建抽牌堆/弃牌堆按钮，放置在 PlayerArea 的 DeckPlaceholder 中。
+    /// 点击后弹出牌列表窗口。
+    /// </summary>
+    private void CreateDeckButtons()
+    {
+        var deckPlaceholder = GetNode<CenterContainer>("CombatRoot/PlayerArea/DeckPlaceholder");
+        if (deckPlaceholder == null) return;
+
+        var btnContainer = new HBoxContainer
+        {
+            Name = "DeckButtonContainer",
+            Alignment = BoxContainer.AlignmentMode.Center,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+
+        // 抽牌堆按钮
+        _drawPileBtn = new Button
+        {
+            Name = "DrawPileBtn",
+            Text = "抽牌堆 (0)",
+            CustomMinimumSize = new Vector2(100, 32),
+        };
+        _drawPileBtn.AddThemeColorOverride("font_color", new Color(0.7f, 0.8f, 1f));
+        _drawPileBtn.AddThemeFontSizeOverride("font_size", 13);
+        _drawPileBtn.Pressed += () =>
+        {
+            if (_combat != null)
+            {
+                var cards = _combat.PlayerHero.DeckState.DrawPile;
+                ShowPileViewer("抽牌堆", cards);
+            }
+        };
+        btnContainer.AddChild(_drawPileBtn);
+
+        // 间距
+        var spacer = new Control { CustomMinimumSize = new Vector2(8, 1) };
+        btnContainer.AddChild(spacer);
+
+        // 弃牌堆按钮
+        _discardPileBtn = new Button
+        {
+            Name = "DiscardPileBtn",
+            Text = "弃牌堆 (0)",
+            CustomMinimumSize = new Vector2(100, 32),
+        };
+        _discardPileBtn.AddThemeColorOverride("font_color", new Color(0.8f, 0.7f, 0.6f));
+        _discardPileBtn.AddThemeFontSizeOverride("font_size", 13);
+        _discardPileBtn.Pressed += () =>
+        {
+            if (_combat != null)
+            {
+                var cards = _combat.PlayerHero.DeckState.DiscardPile;
+                ShowPileViewer("弃牌堆", cards);
+            }
+        };
+        btnContainer.AddChild(_discardPileBtn);
+
+        deckPlaceholder.AddChild(btnContainer);
+    }
+
+    /// <summary>
+    /// 弹出牌堆查看窗口，以列表形式展示所有卡牌名称和费用。
+    /// 复用同一个弹窗实例，点击关闭按钮或 OK 即可关闭。
+    /// </summary>
+    /// <param name="title">弹窗标题（如"抽牌堆""弃牌堆"）</param>
+    /// <param name="cards">要展示的卡牌列表</param>
+    private void ShowPileViewer(string title, List<OdysseyCards.Card.Card> cards)
+    {
+        // 关闭之前的弹窗
+        _pileViewPopup?.QueueFree();
+
+        _pileViewPopup = new AcceptDialog
+        {
+            Title = title,
+            Size = new Vector2I(280, 320),
+            OkButtonText = "关闭",
+        };
+
+        var scroll = new ScrollContainer
+        {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+
+        var listContainer = new VBoxContainer
+        {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+
+        if (cards.Count == 0)
+        {
+            var emptyLabel = new Label
+            {
+                Text = "（空）",
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
+            emptyLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.5f, 0.5f));
+            emptyLabel.AddThemeFontSizeOverride("font_size", 14);
+            listContainer.AddChild(emptyLabel);
+        }
+        else
+        {
+            foreach (var card in cards)
+            {
+                var cardLabel = new Label
+                {
+                    Text = $"[{card.Cost}费] {card.CardName}",
+                };
+                cardLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.9f, 0.8f));
+                cardLabel.AddThemeFontSizeOverride("font_size", 14);
+                listContainer.AddChild(cardLabel);
+            }
+        }
+
+        scroll.AddChild(listContainer);
+        _pileViewPopup.AddChild(scroll);
+
+        AddChild(_pileViewPopup);
+        _pileViewPopup.PopupCentered();
+    }
+
+    /// <summary>
+    /// 根据当前牌堆状态更新按钮文字。
+    /// </summary>
+    private void UpdateDeckCounts()
+    {
+        if (_combat == null) return;
+
+        var deckState = _combat.PlayerHero.DeckState;
+        _drawPileBtn.Text = $"抽牌堆 ({deckState.DrawPile.Count})";
+        _discardPileBtn.Text = $"弃牌堆 ({deckState.DiscardPile.Count})";
     }
 
     // ===== 事件订阅 =====
@@ -518,11 +824,19 @@ public partial class CombatUI : Control
         // 手牌卡牌选中
         _handUI.OnCardSelectedForPlay += OnCardSelectedFromHand;
 
+        // 手牌取消（右键）
+        _handUI.OnCardCancelled += OnCardDragCancelled;
+
         // 回合结束按钮
         _endTurnButton.Pressed += OnEndTurnPressed;
 
         // 攻击敌方英雄按钮
         _enemyHeroAttackButton.Pressed += OnEnemyHeroAttackPressed;
+
+        // 牌堆/手牌状态变化 → 自动刷新 UI
+        _combat.PlayerHero.DeckState.OnDrawPileChanged += UpdateDeckCounts;
+        _combat.PlayerHero.DeckState.OnDiscardPileChanged += UpdateDeckCounts;
+        _combat.PlayerHero.DeckState.OnHandChanged += () => _handUI.RefreshHand();
     }
 
     // ===== 刷新方法 =====
@@ -533,11 +847,19 @@ public partial class CombatUI : Control
     /// </summary>
     public void RefreshAll()
     {
+        // 清理拖拽中的卡牌 UI
+        if (_dragCardUI != null)
+        {
+            _dragCardUI.QueueFree();
+            _dragCardUI = null;
+        }
+
         _boardUI.RefreshBoard();
         _handUI.RefreshHand();
         UpdateHealthBars();
         UpdateManaDisplay();
         UpdateArmorDisplay();
+        UpdateDeckCounts();
 
         // 每次刷新时重置为正常模式
         ResetSelection();
@@ -555,14 +877,14 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
-    /// 更新双方法力值显示，格式「Current/Max」。
+    /// 更新双方法力值显示，格式「法力 Current/Max」。
     /// </summary>
     private void UpdateManaDisplay()
     {
         if (_combat == null) return;
 
-        _playerManaLabel.Text = $"{_combat.PlayerHero.CurrentMana}/{_combat.PlayerHero.MaxMana}";
-        _enemyManaLabel.Text = $"{_combat.EnemyHero.CurrentMana}/{_combat.EnemyHero.MaxMana}";
+        _playerManaLabel.Text = $"法力 {_combat.PlayerHero.CurrentMana}/{_combat.PlayerHero.MaxMana}";
+        _enemyManaLabel.Text = $"法力 {_combat.EnemyHero.CurrentMana}/{_combat.EnemyHero.MaxMana}";
     }
 
     /// <summary>
@@ -735,7 +1057,7 @@ public partial class CombatUI : Control
 
     /// <summary>
     /// 手牌中卡牌被选中时的处理。
-    /// 根据卡牌类型进入不同的选择模式。
+    /// 根据卡牌类型进入不同的选择模式，并将卡牌 UI 重 parent 到拖拽层使其可自由跟随鼠标。
     /// </summary>
     /// <param name="card">被选中的卡牌</param>
     private void OnCardSelectedFromHand(Card.Card card)
@@ -744,6 +1066,15 @@ public partial class CombatUI : Control
 
         // 取消之前的攻击选择
         _selectedAttacker = null;
+
+        // 将卡牌 UI 从 HandUI 移到 DragLayer，脱离 HBoxContainer 布局约束
+        var cardUI = _handUI.GetCardUIFor(card);
+        if (cardUI != null)
+        {
+            cardUI.GetParent()?.RemoveChild(cardUI);
+            _dragLayer.AddChild(cardUI);
+            _dragCardUI = cardUI;
+        }
 
         switch (card.Type)
         {
@@ -759,6 +1090,20 @@ public partial class CombatUI : Control
                 GD.Print($"[CombatUI] 未知卡牌类型：{card.Type}");
                 break;
         }
+    }
+
+    /// <summary>
+    /// 右键取消拖拽——卡牌回到手牌，退出所有选择模式。
+    /// </summary>
+    private void OnCardDragCancelled()
+    {
+        GD.Print("[CombatUI] 拖拽取消");
+        _dragCardUI?.QueueFree();
+        _dragCardUI = null;
+        ResetSelection();
+
+        // 重建手牌 UI（恢复卡牌到正确位置）
+        _handUI.RefreshHand();
     }
 
     /// <summary>

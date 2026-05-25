@@ -83,8 +83,10 @@ public partial class BoardUI : Control
         _mainContainer = new VBoxContainer
         {
             Alignment = BoxContainer.AlignmentMode.Center,
-            SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            SizeFlagsVertical = SizeFlags.ExpandFill
+            AnchorLeft = 0,
+            AnchorTop = 0,
+            AnchorRight = 1,
+            AnchorBottom = 1,
         };
         AddChild(_mainContainer);
 
