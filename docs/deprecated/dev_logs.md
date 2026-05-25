@@ -1,0 +1,283 @@
+# 开发日志
+
+## 2026-02-27
+
+### 警告修复 (Warning Cleanup)
+
+**任务**: 减少构建输出噪音，修复 114 个代码分析警告
+
+**修改文件**:
+- `Directory.Build.props` - 添加 NoWarn 配置
+
+**抑制的警告类型**:
+
+| 警告代码 | 描述 | 原因 |
+|---------|------|------|
+| CA2213 | IDisposable 未释放 | Godot 节点继承 IDisposable 但由 Godot 引擎管理生命周期 |
+| CA2000 | IDisposable 对象未释放 | 游戏资源由 Godot 自动管理 |
+| CA1003 | Action 改为 EventHandler | Action 更适合 C# 事件模式 |
+| CA1002 | List 改为 ReadOnlyCollection | 对于游戏开发 List 更实用 |
+| CA1304/5 | 区域设置警告 | 游戏不需要全球化 |
+| CA1822 | 静态方法建议 | 保持实例方法更灵活 |
+| CS8618 | 可空性警告 | Godot 节点在构造函数中无法初始化 |
+| CS8625 | null 字面量警告 | Godot 节点初始化模式 |
+| CA1805 | 显式初始化默认值 | 字段初始化是良好实践 |
+| CA1311 | 区域性依赖 | 游戏使用固定字符串 |
+| CS0067 | 从不使用事件 | 事件可能未来使用 |
+
+**结果**: `dotnet build` → 0 错误, 0 警告
+
+**Git Commit**: `839b9d7` - chore: 抑制分析器警告，减少构建输出噪音
+
+---
+
+## 2026-03-01
+
+### 第一阶段：核心数据结构重构 (Phase 1: Core Data Structure Refactor)
+
+**任务**: 将卡牌系统从杀戮尖塔风格重构为KARDS风格，支持单位/指令两种类型和词条系统
+
+**新建文件**:
+- `Scripts/Core/CardType.cs` - 卡牌类型枚举（Unit, Order）
+- `Scripts/Core/CardTag.cs` - 标签枚举（16种词条）
+- `Scripts/Core/UnitData.cs` - 单位数据资源类（C/aC/A/HP/R/Tags/Effects）
+- `Scripts/Core/OrderData.cs` - 指令数据资源类（C/Tags/Effects）
+- `Scripts/Card/CardBase.cs` - 卡牌抽象基类
+- `Scripts/Card/Unit.cs` - 单位运行时类
+- `Scripts/Card/Order.cs` - 指令运行时类
+- `Scripts/Card/Tags/TagDefinition.cs` - 词条定义基类
+- `Scripts/Card/Tags/TagContext.cs` - 词条上下文
+- `Scripts/Card/Tags/TagFactory.cs` - 词条工厂
+- `Scripts/Card/Tags/TagImplementations.cs` - 16种词条实现
+- `Resources/Cards/Unit_DetectiveSquad.tres` - 武侦小组（1/0/3/1/1，闪击+机动）
+- `Resources/Cards/Unit_18thRegiment.tres` - 第18团（1/1/1/4/1，守护+轮战）
+- `Resources/Cards/Unit_LianshuScout.tres` - 联树机器犬（0/0/1/1/1，闪击+轮战+亡语）
+- `Resources/Cards/Order_Strike.tres` - 打击（费用1，造成3点伤害）
+- `Resources/Cards/Order_Assault.tres` - 出击（费用2，轮战，造成2点伤害+抽1牌）
+- `Resources/Cards/Order_Alert.tres` - 警戒（费用2，轮战，抽1牌+总部+2HP）
+
+**修改文件**:
+- `Scripts/Core/CardEffectData.cs` - 重构适配新系统
+- `Scripts/Character/Player.cs` - 适配新卡牌类型
+- `Scripts/Character/Enemy.cs` - 简化为占位符
+- `Scripts/Character/EnemyFactory.cs` - 更新工厂方法
+- `Scripts/Card/CardFactory.cs` - 更新卡牌创建逻辑
+- `Scripts/Combat/CombatManager.cs` - 适配新卡牌系统
+- `Scripts/UI/CardUI.cs` - 适配新卡牌显示
+- `Scripts/UI/HandUI.cs` - 适配新卡牌交互
+- `Scripts/UI/CombatUI.cs` - 适配新卡牌显示
+- `Scripts/Core/GameManager.cs` - 使用新卡组
+
+**删除文件**:
+- `Scripts/Core/CardData.cs` - 被 UnitData/OrderData 替代
+- `Scripts/Card/Card.cs` - 被 CardBase/Unit/Order 替代
+- `Scripts/Card/Effects/CardEffect.cs` - 不再需要
+- `Scripts/Card/Effects/CardEffectImplementations.cs` - 不再需要
+- `Scripts/Character/EnemyAction.cs` - 不再需要
+- `Scripts/Character/EnemyData.cs` - 不再需要
+- `Resources/Cards/Strike.tres` - 旧卡牌数据
+- `Resources/Cards/Defend.tres` - 旧卡牌数据
+- `Resources/Enemies/*` - 旧敌人数据
+
+**实现的词条**:
+| 词条 | 英文 | 效果 |
+|-----|------|------|
+| 闪击 | Blitz | 部署后可立即行动 |
+| 机动 | Maneuver | 每层额外行动1次 |
+| 轮战 | Rotation | 返回抽牌堆随机位置 |
+| 奋战 | Fury | 每回合可攻击两次 |
+| 守护 | Guard | 保护距离内的友方单位 |
+| 亡语 | LastWords | 阵亡时触发效果 |
+| 部署 | Deploy | 部署时触发效果 |
+| 防御 | Defense | 每层减免1点伤害 |
+| 伏击 | Ambush | 首次被攻击时先造成反击伤害 |
+| 冲击 | Impact | 首次攻击不受到反击伤害 |
+| 免疫 | Immune | 不会受到伤害 |
+| 压制 | Pin | 无法移动或攻击 |
+| 抑制 | Suppress | 失去所有关键词和效果 |
+| 断流 | Massive | 无法与其他单位处于同一节点 |
+| 渗透 | Infiltrate | 可移动到敌方单位所在节点 |
+
+**结果**: `dotnet build` → 0 错误, 7 警告
+
+---
+
+## 2026-03-02
+
+### 第六阶段：统一伤害计算管道 (Phase 6: Unified Damage Resolver)
+
+**任务**: 参考 slay-the-model 设计，创建统一伤害计算管道，作为伤害计算的"唯一真理之源"
+
+**新建文件**:
+- `Scripts/Core/DamagePhase.cs` - 伤害修改器阶段枚举（ADDITIVE, MULTIPLICATIVE, CAPPING）
+- `Scripts/Core/DamageContext.cs` - 伤害计算上下文结构体
+- `Scripts/Core/IDamageSource.cs` - 伤害来源接口
+- `Scripts/Core/IDamageTarget.cs` - 伤害目标接口
+- `Scripts/Core/IDamageModifier.cs` - 伤害修改器接口
+- `Scripts/Core/DamageResolver.cs` - 统一伤害计算解析器
+
+**修改文件**:
+- `Scripts/Card/Unit.cs` - 实现 IDamageSource 和 IDamageTarget 接口，添加 DefenseModifier 和 ImmuneModifier
+- `Scripts/Combat/CombatManager.cs` - ExecuteAttack、AttackEnemyHQ、AttackPlayerHQ 使用 DamageResolver
+
+**设计要点**:
+
+伤害计算阶段顺序（CRITICAL）:
+1. **ADDITIVE（加算）**: 力量+3、防御-2 等
+2. **MULTIPLICATIVE（乘算）**: 易伤1.5x、虚弱0.75x 等
+3. **CAPPING（限定）**: 免疫上限0、无形上限1 等
+4. **Clamp**: 确保非负整数
+
+**核心接口**:
+```csharp
+public interface IDamageModifier
+{
+    DamagePhase Phase { get; }
+    int ModifyDamageDealt(int currentDamage, DamageContext context);
+    int ModifyDamageTaken(int currentDamage, DamageContext context);
+}
+```
+
+**内置修改器**:
+- `DefenseModifier`: ADDITIVE 阶段，减少受到的伤害
+- `ImmuneModifier`: CAPPING 阶段，免疫时伤害上限为0
+
+**结果**: `dotnet build` → 0 错误
+
+**参考**: slay-the-model `utils/dynamic_values.py` 和 `utils/damage_phase.py`（均为代码风格建议，不影响功能）
+
+---
+
+### 词条英文命名调整 (Tag Renaming)
+
+**任务**: 调整三个词条的英文命名，使其更符合KARDS原版风格
+
+**修改内容**:
+| 中文 | 原英文 | 新英文 |
+|-----|--------|--------|
+| 压制 | Suppressed | Pin |
+| 抑制 | Inhibited | Suppress |
+| 断流 | Isolation | Massive |
+
+**修改文件**:
+- `Scripts/Core/CardTag.cs` - 枚举值重命名
+- `Scripts/Card/Tags/TagImplementations.cs` - 类名和属性引用更新
+- `Scripts/Card/Tags/TagFactory.cs` - switch case 更新
+- `Scripts/Card/Unit.cs` - 属性名称更新 (IsPinned, IsSuppressed, IsMassive)
+- `.trae/documents/tag_definition.md` - 文档更新
+- `.trae/documents/project_spec_record.md` - 规范记录更新
+
+**命名说明**:
+- **Pin**: 军事术语 "pin down"，表示压制敌人使其无法移动
+- **Suppress**: 表示抑制能力/效果
+- **Massive**: 表示"大型单位"，因规模大无法与其他单位共享节点（源自"投鞭断流"典故）
+
+**结果**: `dotnet build` → 0 错误, 7 警告
+
+---
+
+### 词条示范卡牌创建 (Demo Cards)
+
+**任务**: 创建一组示范卡牌，每张接近白板只拥有1-2个词条，用于规范实现方式
+
+**新建目录**: `Resources/Cards/Demo/`
+
+**单位卡牌 (13张)**:
+| 名称 | C/aC/A/HP/R | 词条 | 说明 |
+|-----|-------------|------|------|
+| 突击步兵 | 2/0/2/2/1 | 闪击 | 部署后可立即行动 |
+| 侦察车 | 1/0/1/1/2 | 机动x2 | 每层额外行动1次 |
+| 老兵 | 2/1/2/3/1 | 奋战 | 每回合可攻击两次 |
+| 重装兵 | 3/0/1/4/1 | 防御x2 | 每层减免1点伤害 |
+| 护卫队 | 2/0/1/3/1 | 守护 | 保护距离内的友方单位 |
+| 伏击手 | 1/0/2/1/1 | 伏击 | 首次被攻击时先反击 |
+| 冲锋队 | 2/0/3/1/1 | 冲击 | 首次攻击不受反击伤害 |
+| 不朽者 | 5/0/1/1/1 | 免疫 | 不会受到伤害 |
+| 巨型坦克 | 4/2/4/6/2 | 断流 | 无法与其他单位共享节点 |
+| 渗透者 | 2/0/2/2/1 | 渗透 | 可移动到敌方单位节点 |
+| 轮战步兵 | 1/0/1/2/1 | 轮战 | 阵亡后返回抽牌堆 |
+| 工兵 | 1/0/1/2/1 | 部署 | 部署：抽1张牌 |
+| 烈士 | 0/0/1/1/1 | 亡语 | 亡语：造成2点伤害 |
+
+**指令卡牌 (3张)**:
+| 名称 | 费用 | 词条 | 效果 |
+|-----|------|------|------|
+| 轮战打击 | 2 | 轮战 | 造成2点伤害 |
+| 治疗 | 1 | - | 恢复2点生命值 |
+| 补给 | 2 | - | 抽2张牌 |
+
+**修改文件**:
+- `Scripts/Card/CardFactory.cs` - 添加 `GetDemoDeck()` 方法
+- `Scripts/Combat/CombatManager.cs` - 修复命名空间引用
+- `Scripts/Core/GameManager.cs` - 修复命名空间引用
+
+**结果**: `dotnet build` → 0 错误, 7 警告
+
+---
+
+## 2026-03-08
+
+### 卡牌打出流程修复 (Card Play Flow Fix)
+
+**任务**: 修复卡牌打出流程中的三个问题：卡牌UI销毁时机不一致、费用前置检查缺失、费用扣费职责混乱
+
+**问题根源**:
+1. 拖拽中的 CardUI 在 `_dragLayer` 中，`UpdateHand()` 只清理 `_cardContainer` 的子节点
+2. 用户可以拖拽无法支付的卡牌，操作失败后才返回手牌
+3. UI 层和引擎层都在扣费，导致双重扣费或漏扣
+
+**修改文件**:
+- `Scripts/Domain/Combat/Commands/CombatCommand.cs` - `PlayCardCommand` 添加 `Cost` 参数
+- `Scripts/Domain/Combat/Events/CombatEvent.cs` - `CardPlayedEvent` 添加 `Cost` 参数
+- `Scripts/Domain/Combat/Engine/ICombatEngine.cs` - `CombatSnapshot` 添加 `EnemyEnergies` 和 `EnemyMaxEnergies`
+- `Scripts/Domain/Combat/Engine/DomainCombatEngine.cs` - `HandlePlayCard` 添加费用检查和扣费，`GetSnapshot` 返回敌人费用
+- `Scripts/Presentation/Events/CombatEventUIBridge.cs` - 添加 `HandleCardPlayed` 方法
+- `Scripts/Presentation/Events/CombatEventProcessor.cs` - 处理 `CardPlayedEvent`
+- `Scripts/Combat/CombatManager.cs` - 实现 `HandleCardPlayed` 从快照同步费用
+- `Scripts/UI/CombatUI.cs` - 移除直接调用 `SpendEnergy`，传递 `Cost` 参数
+- `Scripts/UI/HandUI.cs` - 清理 `_dragLayer` 中的孤立 CardUI，添加费用前置检查
+
+**新的卡牌打出流程**:
+```
+用户拖拽卡牌
+    ↓
+HandUI: 前置检查费用
+    ├─ 费用不足 → 禁止拖拽，显示灰色
+    └─ 费用足够 → 允许拖拽
+    ↓
+用户释放卡牌到目标
+    ↓
+CombatUI: 提交 PlayCardCommand (带 Cost 参数)
+    ↓
+DomainCombatEngine: HandlePlayCard
+    ├─ 再次验证费用
+    ├─ 扣除费用 (Domain 层)
+    ├─ 执行效果
+    └─ 广播 CardPlayedEvent
+    ↓
+CombatManager: HandleCardPlayed
+    └─ 从快照同步费用到 Presentation 层
+    ↓
+CombatUI: DiscardCard
+    ↓
+HandUI: UpdateHand
+    ├─ 清理 _cardContainer 中的 CardUI
+    ├─ 清理 _dragLayer 中的孤立 CardUI
+    └─ 重建手牌 UI
+```
+
+**设计原则**:
+- 引擎层负责所有状态变更（扣费、效果）
+- UI 层只负责交互和显示
+- 通过事件同步 Domain 层到 Presentation 层
+- 前置检查提升用户体验
+
+**结果**: `dotnet build` → 0 错误
+
+**Git Commit**: `8c4da1e` - fix: card play flow with proper energy sync and UI cleanup
+
+---
+
+*最后更新: 2026-03-08*
+*完成阶段: 第七阶段*
+*当前状态: 卡牌打出流程修复完成, 待测试验证*

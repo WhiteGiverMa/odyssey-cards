@@ -1,54 +1,43 @@
 namespace OdysseyCards.Core;
 
 /// <summary>
-/// Defines the type of a card.
+/// 卡牌类型。
 /// </summary>
 public enum CardType
 {
     /// <summary>
-    /// A unit card that can be deployed on the battle map.
+    /// 随从牌：可召唤到场上的单位。
     /// </summary>
-    Unit,
+    Minion,
 
     /// <summary>
-    /// An order card that provides instant effects when played.
+    /// 法术牌：使用时立即生效。
     /// </summary>
-    Order
+    Spell
 }
 
 /// <summary>
-/// Defines the rarity tier of a card.
+/// 卡牌稀有度。
 /// </summary>
 public enum CardRarity
 {
     /// <summary>
-    /// Common cards are frequently found and have basic effects.
+    /// 普通：常见卡牌，基础效果。
     /// </summary>
     Common,
 
     /// <summary>
-    /// Uncommon cards are less frequent and have moderate effects.
+    /// 稀有：不太常见，中等效果。
     /// </summary>
     Uncommon,
 
     /// <summary>
-    /// Rare cards are uncommon and have powerful effects.
+    /// 罕见：不常见，强力效果。
     /// </summary>
     Rare,
 
     /// <summary>
-    /// Legendary cards are very rare and have unique, powerful effects.
+    /// 传说：非常稀有，独特强力效果。
     /// </summary>
     Legendary
-}
-
-/// <summary>
-/// Common target tags for card targeting system.
-/// </summary>
-public static class TargetTags
-{
-    public const string Unit = "Unit";
-    public const string HQ = "HQ";
-    public const string Ally = "Ally";
-    public const string Enemy = "Enemy";
 }

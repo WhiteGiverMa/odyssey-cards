@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://cminion18threg"]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_18thRegiment"
+CardName = "第18团"
+Description = "嘲讽"
+Rarity = 0
+Cost = 1
+Type = 0
+Attack = 1
+Health = 4
+Keywords = [2]

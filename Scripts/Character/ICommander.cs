@@ -1,25 +1,29 @@
 using System;
 using System.Collections.Generic;
-using OdysseyCards.Map;
 
 namespace OdysseyCards.Character;
 
+/// <summary>
+/// 指挥官接口。定义所有指挥官的公共契约。
+/// 已移除对 Map/Headquarters 的依赖。
+/// </summary>
 public interface ICommander
 {
     int CommanderId { get; }
     string CharacterName { get; }
 
-    Headquarters HQ { get; }
+    int CurrentHealth { get; }
+    int MaxHealth { get; }
     bool IsDefeated { get; }
 
-    int CurrentEnergy { get; }
-    int MaxEnergy { get; }
-    event Action<int, int> OnEnergyChanged;
+    int CurrentMana { get; }
+    int MaxMana { get; }
+    event Action<int, int> OnManaChanged;
 
     Deck Deck { get; }
-    IReadOnlyList<Card.Card> Hand { get; }
-    IReadOnlyList<Card.Card> DrawPile { get; }
-    IReadOnlyList<Card.Card> DiscardPile { get; }
+    IReadOnlyList<OdysseyCards.Card.Card> Hand { get; }
+    IReadOnlyList<OdysseyCards.Card.Card> DrawPile { get; }
+    IReadOnlyList<OdysseyCards.Card.Card> DiscardPile { get; }
     int MaxHandSize { get; }
     int FatigueCount { get; }
 
@@ -27,19 +31,18 @@ public interface ICommander
     event Action OnDrawPileChanged;
     event Action OnDiscardPileChanged;
 
-    void InitializeHQ(int maxHealth, int currentHealth = -1, int deploymentNodeId = -1);
-    void SpendEnergy(int amount);
-    void GainEnergy(int amount);
-    void ResetEnergy();
-    void SetEnergy(int current, int max);
-    void IncreaseMaxEnergy(int amount);
+    void InitializeHealth(int maxHealth, int currentHealth = -1);
+    void SpendMana(int amount);
+    void GainMana(int amount);
+    void ResetMana();
+    void SetMana(int current, int max);
     void DrawCards(int count);
-    void DiscardCard(Card.Card card);
-    void RemoveFromHand(Card.Card card);
-    void ReturnToDrawPile(Card.Card card);
+    void DiscardCard(OdysseyCards.Card.Card card);
+    void RemoveFromHand(OdysseyCards.Card.Card card);
+    void ReturnToDrawPile(OdysseyCards.Card.Card card);
     void ShuffleDrawPile();
     void DiscardHand();
-    bool CanSpendEnergy(int amount);
+    bool CanSpendMana(int amount);
     void StartTurn();
     void EndTurn();
 }

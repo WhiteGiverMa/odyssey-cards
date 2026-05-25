@@ -1,108 +1,63 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using OdysseyCards.Application.Ports;
-using OdysseyCards.Card;
 using OdysseyCards.Character;
-using OdysseyCards.Infrastructure.Godot.Save;
 using OdysseyCards.Localization;
 
 namespace OdysseyCards.Core;
 
 /// <summary>
-/// Global game state manager (Autoload singleton).
-/// Manages player progression, deck state, and run persistence across scenes.
+/// 全局游戏状态管理器（Autoload 单例）。
+/// 管理玩家进度、牌堆状态和跨场景持久化。
+/// 已移除对 Application/Infrastructure 层的依赖。
 /// </summary>
 public partial class GameManager : Node
-    {
-        public static GameManager Instance { get; private set; }
+{
+    public static GameManager Instance { get; private set; }
 
-        private string _currentLanguage = "zh";
-        private ISaveRepository _saveRepository;
+    private string _currentLanguage = "zh";
 
-        public static string CurrentLanguage => Instance?._currentLanguage ?? "zh";
+    public static string CurrentLanguage => Instance?._currentLanguage ?? "zh";
 
+    /// <summary>
+    /// 玩家的牌堆定义。
+    /// </summary>
+    public Deck PlayerDeck => _playerDeck;
     private Deck _playerDeck;
 
     /// <summary>
-    /// The player's current deck configuration.
-    /// </summary>
-    public Deck PlayerDeck => _playerDeck;
-
-    /// <summary>
-    /// The current player character instance.
+    /// 当前玩家角色实例。
     /// </summary>
     public Player CurrentPlayer { get; private set; }
 
     /// <summary>
-    /// Current floor number within the act (1-15).
+    /// 玩家英雄当前生命值（跨战斗保存）。
     /// </summary>
-    public int CurrentFloor { get; private set; } = 1;
+    public int PlayerHealth { get; set; } = 30;
 
     /// <summary>
-    /// Current act number (1-3).
+    /// 玩家英雄最大生命值。
     /// </summary>
-    public int CurrentAct { get; private set; } = 1;
+    public int PlayerMaxHealth { get; set; } = 30;
 
     /// <summary>
-    /// Maximum number of acts in a run.
-    /// </summary>
-    public int MaxAct { get; set; } = 3;
-
-    /// <summary>
-    /// Current health of the player's headquarters.
-    /// </summary>
-    public int PlayerHQCurrentHealth { get; set; } = 8;
-
-    /// <summary>
-    /// Maximum health of the player's headquarters.
-    /// </summary>
-    public int PlayerHQMaxHealth { get; set; } = 8;
-
-    /// <summary>
-    /// Fired when the player advances to a new floor.
-    /// </summary>
-    public event Action<int> OnFloorChanged;
-
-    /// <summary>
-    /// Fired when the player advances to a new act.
-    /// </summary>
-    public event Action<int> OnActChanged;
-
-    /// <summary>
-    /// Fired when the deck contents change.
+    /// 牌堆变化事件。
     /// </summary>
     public event Action OnDeckChanged;
 
-    /// <summary>
-    /// Fired when deck adjustment is needed (deck is full).
-    /// </summary>
-    public event Action<DeckAdjustment> OnDeckAdjustmentRequired;
-
     public override void _Ready()
-        {
-            Instance = this;
-            _saveRepository = new GodotSaveRepository();
-            Localization.Localization.Initialize();
-            LoadLanguagePreference();
-            Localization.Localization.SetLanguage(_currentLanguage);
-            GD.Print("[GameManager] _Ready called, Instance set");
-        }
+    {
+        Instance = this;
+        Localization.Localization.Initialize();
+        Localization.Localization.SetLanguage(_currentLanguage);
+        GD.Print("[GameManager] _Ready called, Instance set");
+    }
 
-        private void LoadLanguagePreference()
-        {
-            SaveData data = _saveRepository.Load();
-            _currentLanguage = data.Language;
-        }
-
-        public void SetLanguage(string language)
-        {
-            _currentLanguage = language;
-            Localization.Localization.SetLanguage(language);
-            SaveData data = _saveRepository.Load();
-            data.Language = language;
-            _saveRepository.Save(data);
-        }
+    public void SetLanguage(string language)
+    {
+        _currentLanguage = language;
+        Localization.Localization.SetLanguage(language);
+    }
 
     public void ToggleLanguage()
     {
@@ -111,14 +66,17 @@ public partial class GameManager : Node
         GD.Print($"[GameManager] Language toggled to: {newLang}");
     }
 
+    /// <summary>
+    /// 创建新玩家。
+    /// </summary>
     public void CreateNewPlayer()
     {
         GD.Print("[GameManager] CreateNewPlayer called");
 
         CurrentPlayer = new Player();
         CurrentPlayer.CharacterName = "Ironclad";
-        CurrentPlayer.InitializeHQ(80);
-        CurrentPlayer.SetMaxEnergy(3);
+        CurrentPlayer.InitializeHealth(30);
+        CurrentPlayer.SetMana(0, 1);
 
         var startingDeck = CreateStartingDeck();
         CurrentPlayer.Initialize(startingDeck);
@@ -128,11 +86,9 @@ public partial class GameManager : Node
     }
 
     /// <summary>
-    /// Adds a card to the player's deck if space is available.
+    /// 添加卡牌到牌堆。
     /// </summary>
-    /// <param name="card">The card resource to add.</param>
-    /// <returns>True if the card was added successfully.</returns>
-    public bool AddCardToDeck(Resource card)
+    public bool AddCardToDeck(CardData card)
     {
         if (_playerDeck == null || card == null)
             return false;
@@ -146,116 +102,64 @@ public partial class GameManager : Node
     }
 
     /// <summary>
-    /// Attempts to add a card, triggering adjustment flow if deck is full.
+    /// 从牌堆移除卡牌。
     /// </summary>
-    /// <param name="card">The card resource to add.</param>
-    /// <returns>True if added directly, false if adjustment is required.</returns>
-    public bool TryAddCardWithAdjustment(Resource card)
+    public bool RemoveCardFromDeck(CardData card)
     {
         if (_playerDeck == null || card == null)
             return false;
 
-        if (_playerDeck.CanAddCard())
-        {
-            return AddCardToDeck(card);
-        }
-
-        var adjustment = new DeckAdjustment(card, new List<Resource>(_playerDeck.Cards));
-        adjustment.CalculateRemoval();
-        OnDeckAdjustmentRequired?.Invoke(adjustment);
-        return false;
+        _playerDeck.RemoveCard(card);
+        OnDeckChanged?.Invoke();
+        return true;
     }
 
     /// <summary>
-    /// Removes a card from the player's deck.
+    /// 创建起始牌堆（使用硬编码的初始卡牌数据）。
+    /// 注意：需要 CardData .tres 文件存在才能正常工作。
     /// </summary>
-    /// <param name="card">The card resource to remove.</param>
-    /// <returns>True if the card was removed successfully.</returns>
-    public bool RemoveCardFromDeck(Resource card)
-    {
-        if (_playerDeck == null || card == null)
-            return false;
-
-        if (_playerDeck.Cards.Contains(card))
-        {
-            _playerDeck.RemoveCard(card);
-            OnDeckChanged?.Invoke();
-            return true;
-        }
-        return false;
-    }
-
-
-
     private Deck CreateStartingDeck()
     {
         var deck = new Deck();
-        deck.Initialize(CardFactory.GetStarterDeck1());
+        // 暂时返回空牌堆，等 .tres 文件创建后再填充
+        // 原来的 CardFactory.GetStarterDeck1() 已废弃
+        deck.Initialize(new List<CardData>());
         return deck;
     }
 
     /// <summary>
-    /// Advances the player to the next floor, potentially advancing acts.
-    /// </summary>
-    public void AdvanceFloor()
-    {
-        CurrentFloor++;
-        OnFloorChanged?.Invoke(CurrentFloor);
-
-        if (CurrentFloor > GetFloorsPerAct())
-        {
-            AdvanceAct();
-        }
-    }
-
-    private void AdvanceAct()
-    {
-        CurrentAct++;
-        CurrentFloor = 1;
-        OnActChanged?.Invoke(CurrentAct);
-    }
-
-    private int GetFloorsPerAct()
-    {
-        return 15;
-    }
-
-    /// <summary>
-    /// Resets the entire run to initial state.
+    /// 重置整局游戏。
     /// </summary>
     public void ResetRun()
     {
-        CurrentFloor = 1;
-        CurrentAct = 1;
+        PlayerHealth = 30;
+        PlayerMaxHealth = 30;
         CreateNewPlayer();
     }
 
     /// <summary>
-    /// Persists headquarters health between combat encounters.
+    /// 保存英雄生命值（跨战斗）。
     /// </summary>
-    /// <param name="currentHealth">Current HQ health to save.</param>
-    /// <param name="maxHealth">Maximum HQ health to save.</param>
-    public void SavePlayerHQHealth(int currentHealth, int maxHealth)
+    public void SavePlayerHealth(int currentHealth, int maxHealth)
     {
-        PlayerHQCurrentHealth = Mathf.Min(currentHealth, maxHealth);
-        PlayerHQMaxHealth = maxHealth;
+        PlayerHealth = Mathf.Min(currentHealth, maxHealth);
+        PlayerMaxHealth = maxHealth;
     }
 
     /// <summary>
-    /// Retrieves persisted headquarters health.
+    /// 获取保存的英雄生命值。
     /// </summary>
-    /// <returns>Tuple of current and max HQ health.</returns>
-    public (int currentHealth, int maxHealth) GetPlayerHQHealth()
+    public (int currentHealth, int maxHealth) GetPlayerHealth()
     {
-        return (PlayerHQCurrentHealth, PlayerHQMaxHealth);
+        return (PlayerHealth, PlayerMaxHealth);
     }
 
     /// <summary>
-    /// Resets headquarters health to default values.
+    /// 重置英雄生命值为默认值。
     /// </summary>
-    public void ResetPlayerHQHealth()
+    public void ResetPlayerHealth()
     {
-        PlayerHQCurrentHealth = 8;
-        PlayerHQMaxHealth = 8;
+        PlayerHealth = 30;
+        PlayerMaxHealth = 30;
     }
 }

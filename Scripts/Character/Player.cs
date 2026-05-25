@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using Godot;
-using OdysseyCards.Card;
 using OdysseyCards.Core;
-using OdysseyCards.Map;
 
 namespace OdysseyCards.Character;
 
+/// <summary>
+/// 玩家角色（Godot Node）。
+/// 包装 CommanderCore，提供运行时角色管理。
+/// </summary>
 public partial class Player : Node, ICommander
 {
     public static Player Instance { get; private set; }
@@ -15,21 +17,25 @@ public partial class Player : Node, ICommander
 
     public int CommanderId => 0;
     public string CharacterName { get; set; } = "Player";
-    public Headquarters HQ => _core.HQ;
-    public bool IsDefeated => HQ?.IsDestroyed ?? true;
 
-    public int CurrentEnergy => _core.CurrentEnergy;
-    public int MaxEnergy => _core.MaxEnergy;
-    public event Action<int, int> OnEnergyChanged
+    public bool IsDefeated => _core.IsDead;
+
+    public int CurrentHealth => _core.CurrentHealth;
+    public int MaxHealth => _core.MaxHealth;
+
+    public int CurrentMana => _core.CurrentMana;
+    public int MaxMana => _core.MaxMana;
+
+    public event Action<int, int> OnManaChanged
     {
-        add => _core.OnEnergyChanged += value;
-        remove => _core.OnEnergyChanged -= value;
+        add => _core.OnManaChanged += value;
+        remove => _core.OnManaChanged -= value;
     }
 
     public Deck Deck => _core.Deck;
-    public IReadOnlyList<Card.Card> Hand => _core.Hand;
-    public IReadOnlyList<Card.Card> DrawPile => _core.DrawPile;
-    public IReadOnlyList<Card.Card> DiscardPile => _core.DiscardPile;
+    public IReadOnlyList<OdysseyCards.Card.Card> Hand => _core.Hand;
+    public IReadOnlyList<OdysseyCards.Card.Card> DrawPile => _core.DrawPile;
+    public IReadOnlyList<OdysseyCards.Card.Card> DiscardPile => _core.DiscardPile;
     public int MaxHandSize { get => _core.MaxHandSize; set => _core.MaxHandSize = value; }
     public int FatigueCount => _core.FatigueCount;
 
@@ -49,9 +55,6 @@ public partial class Player : Node, ICommander
         remove => _core.OnDiscardPileChanged -= value;
     }
 
-    public int Gold { get; private set; } = 0;
-    public int CurrentFloor { get; set; } = 0;
-
     public override void _Ready()
     {
         if (Instance != null && Instance != this)
@@ -63,10 +66,9 @@ public partial class Player : Node, ICommander
         AddToGroup("Player");
     }
 
-    public void Initialize(int maxHealth, int initialGold = 0)
+    public void InitializeHealth(int maxHealth, int currentHealth = -1)
     {
-        InitializeHQ(maxHealth);
-        Gold = initialGold;
+        _core.InitializeHealth(maxHealth, currentHealth);
     }
 
     public void Initialize(Deck deck)
@@ -74,87 +76,35 @@ public partial class Player : Node, ICommander
         _core.Deck = deck;
     }
 
-    public void InitializeHQ(int maxHealth, int currentHealth = -1, int deploymentNodeId = -1)
-    {
-        _core.InitializeHQ(maxHealth, currentHealth, deploymentNodeId);
-    }
-
-    public void AddGold(int amount)
-    {
-        Gold += amount;
-    }
-
-    public bool SpendGold(int amount)
-    {
-        if (Gold < amount)
-        {
-            return false;
-        }
-        Gold -= amount;
-        return true;
-    }
-
-    public void SetupDrawPile()
-    {
-        _core.SetupDrawPile();
-    }
-
     public void ResetForCombat()
     {
         _core.ClearPiles();
         _core.ResetFatigue();
-        SetupDrawPile();
+        _core.SetupDrawPile();
     }
 
-    public void AddCardToDeck(Resource cardData)
+    public void AddCardToDeck(CardData cardData)
     {
-        if (cardData is UnitData unitData)
-        {
-            Deck.AddUnit(unitData);
-        }
-        else if (cardData is OrderData orderData)
-        {
-            Deck.AddOrder(orderData);
-        }
+        _core.Deck.AddCard(cardData);
     }
 
-    public void ExhaustCard(Card.Card card)
+    public void ExhaustCard(OdysseyCards.Card.Card card)
     {
         RemoveFromHand(card);
     }
 
-    public void PurgeCard(Card.Card card)
-    {
-        RemoveFromHand(card);
-    }
-
-    public void RestoreHQHealth(int currentHealth, int maxHealth)
-    {
-        HQ?.SetHealth(currentHealth, maxHealth);
-    }
-
-    public void SetMaxEnergy(int max)
-    {
-        _core.SetMaxEnergy(max);
-    }
-
-    public void SetCurrentEnergy(int current)
-    {
-        _core.SetCurrentEnergy(current);
-    }
-
-    public void SpendEnergy(int amount) => _core.SpendEnergy(amount);
-    public void GainEnergy(int amount) => _core.GainEnergy(amount);
-    public void ResetEnergy() => _core.ResetEnergy();
-    public void SetEnergy(int current, int max) => _core.SetEnergy(current, max);
-    public void IncreaseMaxEnergy(int amount) => _core.IncreaseMaxEnergy(amount);
+    public void SpendMana(int amount) => _core.SpendMana(amount);
+    public void GainMana(int amount) => _core.GainMana(amount);
+    public void ResetMana() => _core.ResetMana();
+    public void SetMana(int current, int max) => _core.SetMana(current, max);
+    public bool CanSpendMana(int amount) => _core.CanSpendMana(amount);
     public void DrawCards(int count) => _core.DrawCards(count);
-    public void DiscardCard(Card.Card card) => _core.DiscardCard(card);
-    public void RemoveFromHand(Card.Card card) => _core.RemoveFromHand(card);
-    public void ReturnToDrawPile(Card.Card card) => _core.ReturnToDrawPile(card);
+    public void DiscardCard(OdysseyCards.Card.Card card) => _core.DiscardCard(card);
+    public void RemoveFromHand(OdysseyCards.Card.Card card) => _core.RemoveFromHand(card);
+    public void ReturnToDrawPile(OdysseyCards.Card.Card card) => _core.ReturnToDrawPile(card);
     public void ShuffleDrawPile() => _core.ShuffleDrawPile();
     public void DiscardHand() => _core.DiscardHand();
-    public bool CanSpendEnergy(int amount) => _core.CanSpendEnergy(amount);
     public void StartTurn() => _core.StartTurn();
     public void EndTurn() => _core.EndTurn();
+    public void SetupDrawPile() => _core.SetupDrawPile();
 }
