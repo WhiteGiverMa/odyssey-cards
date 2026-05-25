@@ -106,4 +106,13 @@ dotnet format OdysseyCards.sln
 
 ## 致谢
 
+## 许可
+
+本项目采用混合许可证：
+
+- **代码**（`Scripts/` 下的 `.cs` 源文件及项目配置文件）：[MIT](LICENSE-CODE)
+- **美术/音频资源**（`Assets/` 目录下的图片、音频等媒体文件）：[CC BY 4.0](LICENSE-ASSETS)
+
+## 致谢
+
 本项目架构设计参考了 [slay-the-model](https://github.com/wkzMagician/slay-the-model)，一个结构清晰的《杀戮尖塔》核心框架，为卡牌游戏架构设计提供了宝贵的学习资源。
