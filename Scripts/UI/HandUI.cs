@@ -17,6 +17,7 @@ public partial class HandUI : Control
 
 	public event Action<Card.Card>? OnCardSelectedForPlay;
 	public event Action<Card.Card, ICommander>? OnCardPlayRequested;
+	public event Action? OnCardCancelled;
 
 	private HBoxContainer _cardContainer = null!;
 	private Player? _player;
@@ -33,8 +34,10 @@ public partial class HandUI : Control
 			{
 				Name = "CardContainer",
 				Alignment = BoxContainer.AlignmentMode.Center,
-				SizeFlagsHorizontal = SizeFlags.ExpandFill,
-				SizeFlagsVertical = SizeFlags.ExpandFill,
+				AnchorLeft = 0,
+				AnchorTop = 0,
+				AnchorRight = 1,
+				AnchorBottom = 1,
 			};
 			AddChild(_cardContainer);
 		}
@@ -108,7 +111,32 @@ public partial class HandUI : Control
 		cardUI.SetCard(card);
 		cardUI.CustomMinimumSize = new Vector2(100, 140);
 		cardUI.OnCardSelected += OnCardClicked;
+		cardUI.OnCardClicked += OnCardClicked;
+		cardUI.OnCardRightClicked += OnCardRightClicked;
 		return cardUI;
+	}
+
+	/// <summary>
+	/// 右键取消选中——卡牌归位并退出所有选择模式。
+	/// </summary>
+	private void OnCardRightClicked(CardUI cardUI)
+	{
+		DeselectCard();
+		OnCardCancelled?.Invoke();
+	}
+
+	/// <summary>
+	/// 根据运行时卡牌实例查找对应的 CardUI。
+	/// 用于拖拽时重 parent 到 DragLayer。
+	/// </summary>
+	public CardUI? GetCardUIFor(Card.Card card)
+	{
+		foreach (var cardUI in _cardUIs)
+		{
+			if (cardUI.Card == card)
+				return cardUI;
+		}
+		return null;
 	}
 
 	private void OnCardClicked(CardUI cardUI)
@@ -117,7 +145,9 @@ public partial class HandUI : Control
 
 		if (_selectedCard == cardUI.Card)
 		{
+			// 再次点击同一张卡牌 → 取消选中
 			DeselectCard();
+			OnCardCancelled?.Invoke();
 			return;
 		}
 

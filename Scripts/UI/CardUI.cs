@@ -75,6 +75,11 @@ public partial class CardUI : Control
 	/// </summary>
 	public event Action<CardUI>? OnCardClicked;
 
+	/// <summary>
+	/// 卡牌被右键点击（取消选中）时触发。
+	/// </summary>
+	public event Action<CardUI>? OnCardRightClicked;
+
 	// ============================================================
 	// 私有 UI 节点
 	// ============================================================
@@ -106,8 +111,9 @@ public partial class CardUI : Control
 	// 内部状态
 	// ============================================================
 	private bool _canPlay = true;
+	private bool _isDragging;
+	private Vector2 _dragOffset;
 	private Tween? _hoverTween;
-	private Vector2 _originalPos;
 	private bool _hovering;
 	private bool _built;
 
@@ -144,6 +150,22 @@ public partial class CardUI : Control
 		GuiInput += OnGuiInputHandler;
 
 		_built = true;
+
+		// 如果卡牌数据在 _Ready 之前已被设定（程序化创建时的常见情况），
+		// 此时 UI 刚构建完，立即回填数据。
+		if (Card != null)
+		{
+			var pendingCard = Card;
+			Card = null;
+			SetCard(pendingCard);
+		}
+
+		// 所有子控件的鼠标事件穿透到 CardUI，确保整张卡牌可点击
+		foreach (var child in GetChildren())
+		{
+			if (child is Control ctrl)
+				ctrl.MouseFilter = MouseFilterEnum.Ignore;
+		}
 	}
 
 	// ============================================================
@@ -451,12 +473,59 @@ public partial class CardUI : Control
 	}
 
 	/// <summary>
+	/// 处理 GUI 输入事件：左键选中/打出、右键取消、拖拽跟随。
+	/// 左键按下 → 进入拖拽/选中状态。右键 → 取消选中。
+	/// 拖拽时由 <see cref="_Process"/> 处理跟随鼠标。
+	/// </summary>
+	private void OnGuiInputHandler(InputEvent @event)
+	{
+		if (@event is InputEventMouseButton mb && mb.Pressed)
+		{
+			if (mb.ButtonIndex == MouseButton.Left)
+			{
+				// 左键按下：开始拖拽（选中 + 计算偏移量）
+				_isDragging = true;
+				_dragOffset = GetLocalMousePosition();
+				OnCardClicked?.Invoke(this);
+				OnCardSelected?.Invoke(this);
+				FlashHighlight();
+				AcceptEvent();
+			}
+			else if (mb.ButtonIndex == MouseButton.Right)
+			{
+				// 右键：取消选中
+				_isDragging = false;
+				OnCardRightClicked?.Invoke(this);
+				AcceptEvent();
+			}
+		}
+	}
+
+	/// <summary>
+	/// 拖拽时每帧跟随鼠标移动。
+	/// </summary>
+	public override void _Process(double delta)
+	{
+		if (!_isDragging) return;
+
+		// 将全局鼠标位置转换到父节点的本地坐标
+		var parent = GetParent();
+		if (parent is Control parentCtrl)
+		{
+			Position = parentCtrl.GetLocalMousePosition() - _dragOffset;
+		}
+	}
+
+	/// <summary>
 	/// 选中卡牌：切换高亮状态，上移产生抬起效果。
+	/// 使用 OffsetTop 而非直接改 Position，避免与 HBoxContainer 布局冲突。
 	/// </summary>
 	public void Select()
 	{
 		IsSelected = true;
-		Position = new Vector2(Position.X, Position.Y - HOVER_LIFT);
+		float s = UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
+		OffsetTop = -HOVER_LIFT * s;
+		ZIndex = 1;
 	}
 
 	/// <summary>
@@ -465,7 +534,8 @@ public partial class CardUI : Control
 	public void Deselect()
 	{
 		IsSelected = false;
-		Position = new Vector2(Position.X, Position.Y + HOVER_LIFT);
+		OffsetTop = 0;
+		ZIndex = 0;
 	}
 
 	// ============================================================
@@ -539,6 +609,7 @@ public partial class CardUI : Control
 				Text = text,
 				HorizontalAlignment = HorizontalAlignment.Center,
 				VerticalAlignment = VerticalAlignment.Center,
+				MouseFilter = MouseFilterEnum.Ignore,
 			};
 			kwLabel.AddThemeColorOverride("font_color", color);
 			kwLabel.AddThemeFontSizeOverride("font_size", (int)(7 * s));
@@ -567,20 +638,20 @@ public partial class CardUI : Control
 	// ============================================================
 
 	/// <summary>
-	/// 鼠标进入卡牌区域：放大至 1.05 倍、上移、提升层级。
+	/// 鼠标进入卡牌区域：放大并轻微上浮。使用 OffsetTop 保持容器布局安全。
 	/// </summary>
 	private void OnMouseEnteredHandler()
 	{
+		if (IsSelected) return; // 选中状态下不响应悬停
+
 		_hovering = true;
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
-		_originalPos = Position;
 
 		KillHoverTween();
 
 		_hoverTween = CreateTween().SetParallel(true);
 		_hoverTween.TweenProperty(this, "scale", new Vector2(1.05f, 1.05f), 0.15f);
-		_hoverTween.TweenProperty(this, "position",
-			_originalPos - new Vector2(0, HOVER_LIFT * s), 0.15f);
+		_hoverTween.TweenProperty(this, "offset_top", -HOVER_LIFT * s, 0.15f);
 		ZIndex = 1;
 	}
 
@@ -589,31 +660,16 @@ public partial class CardUI : Control
 	/// </summary>
 	private void OnMouseExitedHandler()
 	{
+		if (IsSelected) return; // 选中状态下不响应悬停
+
 		_hovering = false;
 
 		KillHoverTween();
 
 		_hoverTween = CreateTween().SetParallel(true);
 		_hoverTween.TweenProperty(this, "scale", Vector2.One, 0.15f);
-		_hoverTween.TweenProperty(this, "position", _originalPos, 0.15f);
+		_hoverTween.TweenProperty(this, "offset_top", 0, 0.15f);
 		ZIndex = 0;
-	}
-
-	/// <summary>
-	/// 处理 GUI 输入事件（仅响应鼠标左键点击）。
-	/// 点击时触发 <see cref="OnCardClicked"/> 事件并播放高亮闪烁。
-	/// </summary>
-	private void OnGuiInputHandler(InputEvent @event)
-	{
-		if (@event is InputEventMouseButton mb
-			&& mb.ButtonIndex == MouseButton.Left
-			&& mb.Pressed)
-		{
-			OnCardClicked?.Invoke(this);
-			OnCardSelected?.Invoke(this);
-			FlashHighlight();
-			AcceptEvent();
-		}
 	}
 
 	/// <summary>
