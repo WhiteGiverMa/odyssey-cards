@@ -97,17 +97,17 @@ public class GameState
     // ===== 游戏流程控制 =====
 
     /// <summary>
-    /// 启动游戏，进入起手换牌阶段。
-    /// 初始化回合数为 0，双方法力水晶均为 0/1。
+    /// 启动游戏，进入起手调度阶段。
+    /// 初始化回合数为 0，双方法力水晶均为 0/0（回合开始后增长至 1/1）。
     /// </summary>
     public void StartGame()
     {
         Phase = CombatPhase.Mulligan;
         TurnCount = 0;
         PlayerMana = 0;
-        PlayerMaxMana = StartingMaxMana;
+        PlayerMaxMana = 0;
         EnemyMana = 0;
-        EnemyMaxMana = StartingMaxMana;
+        EnemyMaxMana = 0;
     }
 
     /// <summary>

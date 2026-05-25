@@ -92,21 +92,35 @@ public partial class CombatManager : Node
     /// <summary>
     /// 战斗自动启动引导方法。
     /// 由 <see cref="_Ready"/> 通过 CallDeferred 调用，确保 Autoload 已就绪。
-    /// 从 GameManager 获取 Player，创建敌方英雄，执行完整初始化链。
+    /// 从 GameManager 获取 Player；若不存在则回退创建，确保初始化链不会静默失败。
     /// </summary>
     private void BootstrapCombat()
     {
         GD.Print("[CombatManager] BootstrapCombat 开始...");
 
-        // 1. 从 GameManager 获取当前 Player
-        var player = GameManager.Instance?.CurrentPlayer;
-        if (player == null)
+        // 1. 确保 GameManager 可用（Autoload 应在 Bootstrap 之前已就绪）
+        var gm = GameManager.Instance;
+        if (gm == null)
         {
-            GD.PrintErr("[CombatManager] BootstrapCombat 失败 — CurrentPlayer 为 null");
+            GD.PrintErr("[CombatManager] BootstrapCombat 失败 — GameManager.Instance 为 null");
             return;
         }
 
-        // 2. 检查牌堆是否为空
+        // 2. 确保 CurrentPlayer 存在，若未创建则回退
+        if (gm.CurrentPlayer == null)
+        {
+            GD.Print("[CombatManager] CurrentPlayer 为 null，尝试回退创建玩家...");
+            gm.CreateNewPlayer();
+            if (gm.CurrentPlayer == null)
+            {
+                GD.PrintErr("[CombatManager] BootstrapCombat 失败 — 回退创建 Player 失败");
+                return;
+            }
+        }
+
+        var player = gm.CurrentPlayer;
+
+        // 3. 检查牌堆是否为空
         if (player.Deck == null || player.Deck.CardCount == 0)
         {
             GD.PrintErr($"[CombatManager] BootstrapCombat 失败 — 牌堆为空（{player.Deck?.CardCount ?? 0} 张牌）");
@@ -114,19 +128,19 @@ public partial class CombatManager : Node
         }
         GD.Print($"[CombatManager] 牌堆有 {player.Deck.CardCount} 张牌");
 
-        // 3. 创建敌方英雄（默认 30HP）
+        // 4. 创建敌方英雄（默认 30HP，纯 C# 对象，不加入场景树）
         var enemyHero = new Hero(new CommanderCore());
         GD.Print($"[CombatManager] 敌方英雄已创建 — {enemyHero.CurrentHealth}/{enemyHero.MaxHealth}");
 
-        // 4. 初始化战斗管理器（创建 _playerCore、PlayerHero、Board、GameState）
+        // 5. 初始化战斗管理器（创建 _playerCore、PlayerHero、Board、GameState）
         Initialize(player, enemyHero);
 
-        // 5. 获取 CombatUI 并初始化
+        // 6. 获取 CombatUI 并初始化
         var combatUI = GetNode<CombatUI>("CanvasLayer/CombatUI");
         combatUI.Initialize(player, this);
         GD.Print("[CombatManager] CombatUI 已初始化");
 
-        // 6. 开始战斗
+        // 7. 开始战斗
         StartCombat();
         GD.Print("[CombatManager] BootstrapCombat 完成");
     }
@@ -149,7 +163,7 @@ public partial class CombatManager : Node
         _playerCore = new CommanderCore();
         _playerCore.Deck = player.Deck;
         _playerCore.InitializeHealth(player.MaxHealth, player.CurrentHealth);
-        _playerCore.SetMana(0, 1);
+        _playerCore.SetMana(0, 0);
         PlayerHero = new Hero(_playerCore);
 
         Board = new Board();
@@ -162,8 +176,8 @@ public partial class CombatManager : Node
     // ===== 战斗开始 =====
 
     /// <summary>
-    /// 开始战斗。
-    /// 设置抽牌堆、进入起手调度阶段、决定先后手并为双方抽起始手牌。
+    /// 开始战斗——仅处理战斗初始化（场景、牌堆、发牌）。
+    /// 完成后调用 <see cref="StartPlayerTurn"/> 启动第一个玩家回合。
     /// </summary>
     public void StartCombat()
     {
@@ -175,41 +189,30 @@ public partial class CombatManager : Node
 
         State.StartGame();
 
-        // 硬币决定先后手
-        bool playerGoesFirst = GD.Randi() % 2 == 0;
-        GD.Print($"[CombatManager] 硬币结果：{(playerGoesFirst ? "玩家先手" : "敌人先手")}");
+        // 玩家始终先手，发 5 张起始手牌
+        PlayerHero.DrawCards(5);
+        GD.Print($"[CombatManager] 起手抽 5 张牌 → 共 {_playerCore.Hand.Count} 张手牌");
 
-        if (playerGoesFirst)
-        {
-            // 先手：起手 3 张，回合开始再抽 1 张 → 共 4 张
-            PlayerHero.DrawCards(3);
-            GD.Print("[CombatManager] 先手 → 起手抽 3 张牌");
+        // 开始第一个玩家回合
+        StartPlayerTurn();
+    }
 
-            State.StartPlayerTurn();
-            _playerCore.SetMana(State.PlayerMana, State.PlayerMaxMana);
-            PlayerHero.DrawCards(1);
-            GD.Print($"[CombatManager] 第 {State.TurnCount} 回合开始（法力值 {State.PlayerMana}/{State.PlayerMaxMana}），抽 1 张牌 → 共 {_playerCore.Hand.Count} 张手牌");
+    /// <summary>
+    /// 玩家回合开始——法力增长/回满、抽 1 张、重置攻击状态。
+    /// 由 <see cref="StartCombat"/>（首回合）和 <see cref="EndPlayerTurn"/>（后续回合）调用。
+    /// </summary>
+    private void StartPlayerTurn()
+    {
+        State.StartPlayerTurn();
+        _playerCore.SetMana(State.PlayerMana, State.PlayerMaxMana);
 
-            // 重置随从攻击状态
-            ResetAttackTracking();
-        }
-        else
-        {
-            // 后手：起手 4 张牌（3 + 幸运币额外 1 张）
-            PlayerHero.DrawCards(4);
-            GD.Print("[CombatManager] 后手 → 起手抽 4 张牌（含幸运币）");
+        // 回合开始抽 1 张牌
+        PlayerHero.DrawCards(1);
 
-            State.StartEnemyTurn();
-            GD.Print("[CombatManager] 敌方回合开始（原型：无操作）");
+        // 重置随从攻击状态
+        ResetAttackTracking();
 
-            // 敌方回合直接结束，进入玩家回合
-            State.EndEnemyTurn();
-            _playerCore.SetMana(State.PlayerMana, State.PlayerMaxMana);
-            GD.Print($"[CombatManager] 玩家第 {State.TurnCount} 回合开始（法力值 {State.PlayerMana}/{State.PlayerMaxMana}）");
-
-            // 重置随从攻击状态
-            ResetAttackTracking();
-        }
+        GD.Print($"[CombatManager] 第 {State.TurnCount} 回合开始（法力 {State.PlayerMana}/{State.PlayerMaxMana}），手牌 {_playerCore.Hand.Count} 张");
     }
 
     // ===== 随从召唤 =====
@@ -745,7 +748,6 @@ public partial class CombatManager : Node
     /// <summary>
     /// 结束玩家回合。
     /// 清理攻击状态 → 切换到敌方回合 → 敌方原型无操作直接结束 → 开始新玩家回合。
-    /// 法力水晶增长、抽牌、重置随从攻击状态。
     /// </summary>
     public void EndPlayerTurn()
     {
@@ -769,17 +771,8 @@ public partial class CombatManager : Node
         // 直接结束敌方回合，开始玩家新回合
         State.EndEnemyTurn();
 
-        // 同步法力水晶到 CommanderCore
-        _playerCore.SetMana(State.PlayerMana, State.PlayerMaxMana);
-
-        // 抽 1 张牌
-        PlayerHero.DrawCards(1);
-
-        // 重置所有玩家随从为可攻击状态
-        ResetAttackTracking();
-
-        GD.Print($"[CombatManager] ========== 玩家第 {State.TurnCount} 回合开始 ==========");
-        GD.Print($"[CombatManager] 法力值：{PlayerHero.CurrentMana}/{PlayerHero.MaxMana}，手牌：{_playerCore.Hand.Count} 张");
+        // 复用回合开始逻辑：法力增长/回满 + 抽 1 张 + 重置攻击状态
+        StartPlayerTurn();
 
         // 检查胜负
         CheckVictoryOrDefeat();
