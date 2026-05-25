@@ -2,6 +2,7 @@ using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Core;
 using OdysseyCards.Character;
+using OdysseyCards.UI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -81,6 +82,53 @@ public partial class CombatManager : Node
     {
         Instance = this;
         GD.Print("[CombatManager] _Ready — 单例已注册");
+
+        // 使用 CallDeferred 延迟到下一帧执行，确保 GameManager.Instance 等 Autoload 已就绪
+        CallDeferred(nameof(BootstrapCombat));
+    }
+
+    // ===== 自动启动 =====
+
+    /// <summary>
+    /// 战斗自动启动引导方法。
+    /// 由 <see cref="_Ready"/> 通过 CallDeferred 调用，确保 Autoload 已就绪。
+    /// 从 GameManager 获取 Player，创建敌方英雄，执行完整初始化链。
+    /// </summary>
+    private void BootstrapCombat()
+    {
+        GD.Print("[CombatManager] BootstrapCombat 开始...");
+
+        // 1. 从 GameManager 获取当前 Player
+        var player = GameManager.Instance?.CurrentPlayer;
+        if (player == null)
+        {
+            GD.PrintErr("[CombatManager] BootstrapCombat 失败 — CurrentPlayer 为 null");
+            return;
+        }
+
+        // 2. 检查牌堆是否为空
+        if (player.Deck == null || player.Deck.CardCount == 0)
+        {
+            GD.PrintErr($"[CombatManager] BootstrapCombat 失败 — 牌堆为空（{player.Deck?.CardCount ?? 0} 张牌）");
+            return;
+        }
+        GD.Print($"[CombatManager] 牌堆有 {player.Deck.CardCount} 张牌");
+
+        // 3. 创建敌方英雄（默认 30HP）
+        var enemyHero = new Hero(new CommanderCore());
+        GD.Print($"[CombatManager] 敌方英雄已创建 — {enemyHero.CurrentHealth}/{enemyHero.MaxHealth}");
+
+        // 4. 初始化战斗管理器（创建 _playerCore、PlayerHero、Board、GameState）
+        Initialize(player, enemyHero);
+
+        // 5. 获取 CombatUI 并初始化
+        var combatUI = GetNode<CombatUI>("CanvasLayer/CombatUI");
+        combatUI.Initialize(player, this);
+        GD.Print("[CombatManager] CombatUI 已初始化");
+
+        // 6. 开始战斗
+        StartCombat();
+        GD.Print("[CombatManager] BootstrapCombat 完成");
     }
 
     // ===== 初始化 =====
