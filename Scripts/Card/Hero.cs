@@ -55,6 +55,11 @@ public class Hero : IDamageTarget
     /// </summary>
     public CombatDeckState DeckState => _core.CombatDeckState;
 
+    /// <summary>
+    /// 手牌列表。
+    /// </summary>
+    public IReadOnlyList<OdysseyCards.Card.Card> Hand => _core.Hand;
+
     // ===== 英雄独有属性 =====
 
     /// <summary>

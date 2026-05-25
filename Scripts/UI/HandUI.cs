@@ -60,7 +60,7 @@ public partial class HandUI : Control
 
 		if (_player == null) return;
 
-		foreach (var card in _player.Hand)
+		foreach (var card in _combat!.PlayerHero.Hand)
 		{
 			var cardUI = CreateCardUI(card);
 			_cardUIs.Add(cardUI);
