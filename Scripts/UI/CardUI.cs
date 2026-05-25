@@ -473,42 +473,69 @@ public partial class CardUI : Control
 	}
 
 	/// <summary>
-	/// 处理 GUI 输入事件：左键选中/打出、右键取消、拖拽跟随。
-	/// 左键按下 → 进入拖拽/选中状态。右键 → 取消选中。
-	/// 拖拽时由 <see cref="_Process"/> 处理跟随鼠标。
+	/// 处理 GUI 输入事件：仅左键按下开始拖拽。
+	/// 拖拽中 MouseFilter 设为 Ignore，使后续点击穿透到下层目标。
+	/// 右键取消由 <see cref="_Process"/> 轮询处理。
 	/// </summary>
 	private void OnGuiInputHandler(InputEvent @event)
 	{
-		if (@event is InputEventMouseButton mb && mb.Pressed)
+		if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
 		{
-			if (mb.ButtonIndex == MouseButton.Left)
-			{
-				// 左键按下：开始拖拽（选中 + 计算偏移量）
-				_isDragging = true;
-				_dragOffset = GetLocalMousePosition();
-				OnCardClicked?.Invoke(this);
-				OnCardSelected?.Invoke(this);
-				FlashHighlight();
-				AcceptEvent();
-			}
-			else if (mb.ButtonIndex == MouseButton.Right)
-			{
-				// 右键：取消选中
-				_isDragging = false;
-				OnCardRightClicked?.Invoke(this);
-				AcceptEvent();
-			}
+			StartDrag();
+			AcceptEvent();
 		}
 	}
 
 	/// <summary>
-	/// 拖拽时每帧跟随鼠标移动。
+	/// 进入拖拽状态：计算偏移量、设为鼠标穿透、清除旧偏移、通知 HandUI。
+	/// </summary>
+	private void StartDrag()
+	{
+		_isDragging = true;
+		_dragOffset = GetLocalMousePosition();
+		MouseFilter = MouseFilterEnum.Ignore;
+		OffsetTop = 0; // 清除之前的选中/悬停偏移
+		OnCardClicked?.Invoke(this);
+		FlashHighlight();
+	}
+
+	/// <summary>
+	/// 退出拖拽状态（静默，不触发事件）。
+	/// 用于切换卡牌时直接清理旧卡，避免触发 RefreshHand 链条。
+	/// </summary>
+	public void CancelDragSilent()
+	{
+		_isDragging = false;
+		MouseFilter = MouseFilterEnum.Stop;
+		OffsetTop = 0;
+	}
+
+	/// <summary>
+	/// 退出拖拽状态：恢复鼠标响应、通知取消。
+	/// </summary>
+	public void CancelDrag()
+	{
+		if (!_isDragging) return;
+		CancelDragSilent();
+		OnCardRightClicked?.Invoke(this);
+	}
+
+	/// <summary>
+	/// 拖拽时每帧跟随鼠标移动，并轮询右键取消。
+	/// 由于拖拽中 MouseFilter=Ignore，GuiInput 不会收到事件，故在此轮询。
 	/// </summary>
 	public override void _Process(double delta)
 	{
 		if (!_isDragging) return;
 
-		// 将全局鼠标位置转换到父节点的本地坐标
+		// 右键取消（GuiInput 在 Ignore 时无法接收，故轮询物理按键）
+		if (Input.IsMouseButtonPressed(MouseButton.Right))
+		{
+			CancelDrag();
+			return;
+		}
+
+		// 跟随鼠标
 		var parent = GetParent();
 		if (parent is Control parentCtrl)
 		{
@@ -519,9 +546,11 @@ public partial class CardUI : Control
 	/// <summary>
 	/// 选中卡牌：切换高亮状态，上移产生抬起效果。
 	/// 使用 OffsetTop 而非直接改 Position，避免与 HBoxContainer 布局冲突。
+	/// 拖拽中跳过——位置由 _Process 控制，不应额外偏移。
 	/// </summary>
 	public void Select()
 	{
+		if (_isDragging) return;
 		IsSelected = true;
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
 		OffsetTop = -HOVER_LIFT * s;

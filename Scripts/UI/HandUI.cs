@@ -110,7 +110,6 @@ public partial class HandUI : Control
 
 		cardUI.SetCard(card);
 		cardUI.CustomMinimumSize = new Vector2(100, 140);
-		cardUI.OnCardSelected += OnCardClicked;
 		cardUI.OnCardClicked += OnCardClicked;
 		cardUI.OnCardRightClicked += OnCardRightClicked;
 		return cardUI;
@@ -151,7 +150,20 @@ public partial class HandUI : Control
 			return;
 		}
 
-		DeselectCard();
+		// 选中了不同的卡牌 → 将旧卡归还手牌（重parent回 CardContainer）
+		if (_selectedCard != null)
+		{
+			var oldUI = _cardUIs.Find(c => c.Card == _selectedCard);
+			if (oldUI != null)
+			{
+				oldUI.CancelDragSilent();
+				oldUI.GetParent()?.RemoveChild(oldUI);
+				_cardContainer.AddChild(oldUI);
+				oldUI.Deselect();
+			}
+			_selectedCard = null;
+		}
+
 		_selectedCard = cardUI.Card;
 		cardUI.Select();
 
