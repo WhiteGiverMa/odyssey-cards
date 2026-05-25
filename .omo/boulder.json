@@ -1,0 +1,111 @@
+{
+  "active_plan": "G:\\dev\\odyssey-cards\\.omo\\plans\\interactive-prototype.md",
+  "started_at": "2026-05-26T02:41:00.000Z",
+  "session_ids": [
+    "ses_19f8ed96bffeCWQoF2JFQWmrY5"
+  ],
+  "plan_name": "interactive-prototype",
+  "session_origins": {
+    "ses_19f8ed96bffeCWQoF2JFQWmrY5": "direct"
+  },
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "加载起始牌组 — `GameManager.CreateStartingDeck()` 加载 6 张 .tres × 2",
+      "session_id": "ses_19f8d5a25ffedFKatnYsNsKgzC",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "started_at": "2026-05-25T18:43:02.609Z",
+      "status": "completed",
+      "updated_at": "2026-05-25T18:44:10.733Z",
+      "ended_at": "2026-05-25T18:44:10.732Z",
+      "elapsed_ms": 68123
+    },
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "CombatManager 自动初始化 — BootstrapCombat 串联",
+      "session_id": "ses_19f8bc2edffe72kmUgWnHGpKIm",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-05-25T18:46:54.851Z",
+      "started_at": "2026-05-25T18:46:38.247Z",
+      "status": "completed",
+      "ended_at": "2026-05-25T18:46:54.851Z",
+      "elapsed_ms": 16604
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "清理空目录和旧文件引用",
+      "session_id": "ses_19f89a287ffe13SPE8GQ5r5zEI",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-05-25T18:48:42.615Z",
+      "started_at": "2026-05-25T18:47:46.776Z",
+      "status": "completed",
+      "ended_at": "2026-05-25T18:48:42.615Z",
+      "elapsed_ms": 55839
+    }
+  },
+  "schema_version": 2,
+  "works": {
+    "interactive-prototype-legacy": {
+      "work_id": "interactive-prototype-legacy",
+      "active_plan": "G:\\dev\\odyssey-cards\\.omo\\plans\\interactive-prototype.md",
+      "plan_name": "interactive-prototype",
+      "started_at": "2026-05-26T02:41:00.000Z",
+      "updated_at": "2026-05-25T18:48:42.615Z",
+      "session_ids": [
+        "ses_19f8ed96bffeCWQoF2JFQWmrY5"
+      ],
+      "session_origins": {
+        "ses_19f8ed96bffeCWQoF2JFQWmrY5": "direct"
+      },
+      "task_sessions": {
+        "todo:1": {
+          "task_key": "todo:1",
+          "task_label": "1",
+          "task_title": "加载起始牌组 — `GameManager.CreateStartingDeck()` 加载 6 张 .tres × 2",
+          "session_id": "ses_19f8d5a25ffedFKatnYsNsKgzC",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "started_at": "2026-05-25T18:43:02.609Z",
+          "status": "completed",
+          "updated_at": "2026-05-25T18:44:10.733Z",
+          "ended_at": "2026-05-25T18:44:10.732Z",
+          "elapsed_ms": 68123
+        },
+        "todo:4": {
+          "task_key": "todo:4",
+          "task_label": "4",
+          "task_title": "CombatManager 自动初始化 — BootstrapCombat 串联",
+          "session_id": "ses_19f8bc2edffe72kmUgWnHGpKIm",
+          "agent": "Sisyphus-Junior",
+          "category": "deep",
+          "updated_at": "2026-05-25T18:46:54.851Z",
+          "started_at": "2026-05-25T18:46:38.247Z",
+          "status": "completed",
+          "ended_at": "2026-05-25T18:46:54.851Z",
+          "elapsed_ms": 16604
+        },
+        "todo:5": {
+          "task_key": "todo:5",
+          "task_label": "5",
+          "task_title": "清理空目录和旧文件引用",
+          "session_id": "ses_19f89a287ffe13SPE8GQ5r5zEI",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "updated_at": "2026-05-25T18:48:42.615Z",
+          "started_at": "2026-05-25T18:47:46.776Z",
+          "status": "completed",
+          "ended_at": "2026-05-25T18:48:42.615Z",
+          "elapsed_ms": 55839
+        }
+      }
+    }
+  },
+  "active_work_id": "interactive-prototype-legacy",
+  "updated_at": "2026-05-25T18:48:42.615Z"
+}

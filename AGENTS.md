@@ -1,4 +1,4 @@
-# OdysseyCards — Godot 4.6 C# · Hearthstone-Style Roguelike Card Game
+# OdysseyCards — Godot 4.6 C# · 类炉石传说Rougelite卡牌游戏
 
 **Branch:** refactor/hearthstone-rework · **Commit:** 3c81f45
 **Generated:** 2026-05-26
@@ -137,3 +137,7 @@ dotnet test
 - ⚠️ **空目录存在**：`Scripts/Editor/` 和 `Scripts/Infrastructure/` 为空，`Autoload/` 为空（注册在 project.godot）
 - 删除 `.godot/` 后编辑器会重新生成 UID 文件，若编辑器加载异常优先检查残留的 .tscn 引用
 - 每个 .cs 文件对应一个 `.uid` 文件（Godot 自动生成），git 中已追踪，重命名/移动时需同步处理
+
+## 杂项
+
+- 在工作中的自然语言部分使用中文，包括任务交流和调度、代码注释等
