@@ -1,49 +1,927 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
+using OdysseyCards.Card;
+using OdysseyCards.Core;
 using OdysseyCards.Character;
-using OdysseyCards.Localization;
+using OdysseyCards.Combat;
 
-namespace OdysseyCards.UI
+namespace OdysseyCards.UI;
+
+/// <summary>
+/// 战斗主界面——炉石传说风格战斗画面编排器。
+/// 负责管理棋盘（BoardUI）、手牌（HandUI）、双方英雄生命值/法力值/护甲显示、
+/// 回合结束按钮，以及随从放置/法术施放/随从攻击的目标选择流程。
+/// 所有 UI 元素均为程序化创建，无需 .tscn 依赖。
+/// </summary>
+public partial class CombatUI : Control
 {
+    // ===== 导出属性 =====
+
     /// <summary>
-    /// 战斗主界面组件。
-    /// Phase 5 完整重写。当前为可编译存根。
+    /// 生命值条 PackedScene。从左到右填充的 ProgressBar 样式组件。
     /// </summary>
-    public partial class CombatUI : Control
+    [Export] public PackedScene HealthBarScene { get; set; }
+
+    // ===== 子组件 =====
+
+    /// <summary>
+    /// 棋盘 UI——屏幕中央，2×5 双方随从槽位。
+    /// </summary>
+    private BoardUI _boardUI = null!;
+
+    /// <summary>
+    /// 手牌 UI——屏幕底部，展示玩家手牌。
+    /// </summary>
+    private HandUI _handUI = null!;
+
+    /// <summary>
+    /// 玩家英雄生命值条——左下角。
+    /// </summary>
+    private HealthBar _playerHealthBar = null!;
+
+    /// <summary>
+    /// 敌方英雄生命值条——左上角。
+    /// </summary>
+    private HealthBar _enemyHealthBar = null!;
+
+    /// <summary>
+    /// 玩家法力值显示——底部中央，格式「3/3」。
+    /// </summary>
+    private Label _playerManaLabel = null!;
+
+    /// <summary>
+    /// 敌方法力值显示——顶部中央。
+    /// </summary>
+    private Label _enemyManaLabel = null!;
+
+    /// <summary>
+    /// 回合结束按钮——右下角，文本「结束回合」。
+    /// </summary>
+    private Button _endTurnButton = null!;
+
+    /// <summary>
+    /// 玩家护甲值显示——生命值条旁，护甲 > 0 时可见。
+    /// </summary>
+    private Label _playerArmorLabel = null!;
+
+    /// <summary>
+    /// 敌方护甲值显示——敌方生命值条旁。
+    /// </summary>
+    private Label _enemyArmorLabel = null!;
+
+    /// <summary>
+    /// 攻击敌方英雄按钮——攻击目标选择模式下可见。
+    /// </summary>
+    private Button _enemyHeroAttackButton = null!;
+
+    // ===== 外部引用 =====
+
+    /// <summary>
+    /// 战斗管理器引用。
+    /// </summary>
+    private CombatManager _combat = null!;
+
+    /// <summary>
+    /// 玩家角色引用。
+    /// </summary>
+    private Player _player = null!;
+
+    // ===== 选择状态 =====
+
+    /// <summary>
+    /// 当前交互模式。
+    /// </summary>
+    private enum SelectionMode
     {
-        [Export] public PackedScene HealthBarScene { get; set; }
+        /// <summary>默认——无选中，等待玩家操作。</summary>
+        Normal,
+        /// <summary>随从放置模式——手牌中选了一张随从牌，等待选择玩家槽位。</summary>
+        PlacingMinion,
+        /// <summary>法术目标模式——手牌中选了一张法术牌，等待选择目标。</summary>
+        TargetingSpell,
+        /// <summary>攻击目标模式——棋盘上选了一个己方随从，等待选择敌方目标。</summary>
+        SelectingAttackTarget,
+    }
 
-        private HealthBar _playerHealthBar;
-        private HandUI _handUI;
-        private Button _endTurnButton;
-        private Label _manaLabel;
-        private Button _drawPileButton;
-        private Button _discardPileButton;
-        private Label _drawPileCountLabel;
-        private Label _discardPileCountLabel;
-        private DeckViewUI _deckViewUI;
-        private Player _player;
+    private SelectionMode _selectionMode = SelectionMode.Normal;
 
-        public override void _Ready()
+    /// <summary>
+    /// 当前从手牌中选中的卡牌（随从或法术）。
+    /// </summary>
+    private Card.Card? _selectedCard;
+
+    /// <summary>
+    /// 当前选中的攻击方随从（己方）。
+    /// </summary>
+    private Minion? _selectedAttacker;
+
+    // ===== Godot 生命周期 =====
+
+    /// <summary>
+    /// Godot 节点就绪回调。创建布局并将自身加入 "CombatUI" 分组。
+    /// </summary>
+    public override void _Ready()
+    {
+        Name = "CombatUI";
+        AddToGroup("CombatUI");
+        GD.Print("[CombatUI] _Ready");
+
+        BuildLayout();
+    }
+
+    // ===== 初始化 =====
+
+    /// <summary>
+    /// 初始化战斗界面，绑定所有子组件和事件订阅。
+    /// 此方法在 CombatManager.Initialize 之后调用。
+    /// </summary>
+    /// <param name="player">玩家角色</param>
+    /// <param name="combat">战斗管理器</param>
+    public void Initialize(Player player, CombatManager combat)
+    {
+        _player = player ?? throw new ArgumentNullException(nameof(player));
+        _combat = combat ?? throw new ArgumentNullException(nameof(combat));
+
+        GD.Print($"[CombatUI] 初始化 — 玩家生命 {combat.PlayerHero.CurrentHealth}/{combat.PlayerHero.MaxHealth}，" +
+                  $"敌方生命 {combat.EnemyHero.CurrentHealth}/{combat.EnemyHero.MaxHealth}");
+
+        // 创建并初始化子组件
+        SetupBoardUI();
+        SetupHandUI();
+        CreateHealthBars();
+        CreateManaLabels();
+        CreateArmorLabels();
+        CreateEndTurnButton();
+        CreateEnemyHeroAttackButton();
+
+        // 订阅事件
+        SubscribeEvents();
+
+        // 首次刷新
+        RefreshAll();
+
+        GD.Print("[CombatUI] 初始化完成");
+    }
+
+    // ===== 布局构建 =====
+
+    /// <summary>
+    /// 构建完整战斗界面布局——全屏 VBoxContainer，
+    /// 依次排列敌方区域、棋盘区域、玩家区域和手牌区域。
+    /// </summary>
+    private void BuildLayout()
+    {
+        AnchorLeft = 0;
+        AnchorTop = 0;
+        AnchorRight = 1;
+        AnchorBottom = 1;
+
+        // 根容器
+        var root = new VBoxContainer
         {
-            GD.Print("[CombatUI] _Ready called");
-            AddToGroup("CombatUI");
+            Name = "CombatRoot",
+            AnchorLeft = 0,
+            AnchorTop = 0,
+            AnchorRight = 1,
+            AnchorBottom = 1,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        AddChild(root);
+
+        // 敌方区域（顶部）
+        var enemyArea = CreateEnemyArea();
+        root.AddChild(enemyArea);
+
+        // 棋盘区域（中央）
+        var boardArea = CreateBoardArea();
+        root.AddChild(boardArea);
+
+        // 玩家区域（底部偏上）
+        var playerArea = CreatePlayerArea();
+        root.AddChild(playerArea);
+
+        // 手牌区域（最底部）
+        var handArea = CreateHandArea();
+        root.AddChild(handArea);
+    }
+
+    /// <summary>
+    /// 创建敌方区域——敌方生命值条、护甲、法力值和英雄标签。
+    /// </summary>
+    private HBoxContainer CreateEnemyArea()
+    {
+        var container = new HBoxContainer
+        {
+            Name = "EnemyArea",
+            Alignment = BoxContainer.AlignmentMode.Center,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+
+        // 敌方生命值区域（左侧）
+        var enemyHealthContainer = new VBoxContainer
+        {
+            Name = "EnemyHealthContainer",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+        container.AddChild(enemyHealthContainer);
+        // 生命值条和护甲标签的占位——会在 Initialize 中创建
+
+        // 法力值占位（中央）
+        var manaPlaceholder = new Control
+        {
+            Name = "EnemyManaPlaceholder",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+        container.AddChild(manaPlaceholder);
+
+        // 英雄标签占位（右侧）
+        var heroLabelPlaceholder = new Control
+        {
+            Name = "EnemyHeroLabelPlaceholder",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+        container.AddChild(heroLabelPlaceholder);
+
+        return container;
+    }
+
+    /// <summary>
+    /// 创建棋盘区域——BoardUI 居中。
+    /// </summary>
+    private CenterContainer CreateBoardArea()
+    {
+        var container = new CenterContainer
+        {
+            Name = "BoardArea",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+
+        _boardUI = new BoardUI();
+        container.AddChild(_boardUI);
+
+        return container;
+    }
+
+    /// <summary>
+    /// 创建玩家区域——生命值条（左侧）、法力值（中央）、回合结束按钮（右侧）。
+    /// </summary>
+    private HBoxContainer CreatePlayerArea()
+    {
+        var container = new HBoxContainer
+        {
+            Name = "PlayerArea",
+            Alignment = BoxContainer.AlignmentMode.Center,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+
+        // 生命值区域占位
+        var healthPlaceholder = new Control
+        {
+            Name = "PlayerHealthPlaceholder",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+        container.AddChild(healthPlaceholder);
+
+        // 法力值区域占位
+        var manaPlaceholder = new Control
+        {
+            Name = "PlayerManaPlaceholder",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+        container.AddChild(manaPlaceholder);
+
+        // 按钮区域占位
+        var buttonPlaceholder = new Control
+        {
+            Name = "EndTurnButtonPlaceholder",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+        container.AddChild(buttonPlaceholder);
+
+        return container;
+    }
+
+    /// <summary>
+    /// 创建手牌区域——HandUI。
+    /// </summary>
+    private Control CreateHandArea()
+    {
+        var container = new Control
+        {
+            Name = "HandArea",
+            CustomMinimumSize = new Vector2(0, 160),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+
+        _handUI = new HandUI
+        {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        container.AddChild(_handUI);
+
+        return container;
+    }
+
+    // ===== 子组件创建 =====
+
+    /// <summary>
+    /// 设置棋盘 UI 绑定——将 BoardUI 关联到 CombatManager.Board。
+    /// </summary>
+    private void SetupBoardUI()
+    {
+        _boardUI.SetBoard(_combat.Board);
+    }
+
+    /// <summary>
+    /// 设置手牌 UI 绑定——初始化并刷新。
+    /// </summary>
+    private void SetupHandUI()
+    {
+        _handUI.Initialize(_player, _combat);
+    }
+
+    /// <summary>
+    /// 创建双方生命值条。
+    /// 优先使用 PackedScene 实例化，回退到程序化创建。
+    /// </summary>
+    private void CreateHealthBars()
+    {
+        // 玩家生命值条
+        _playerHealthBar = InstantiateHealthBar("PlayerHealthBar");
+        var playerHealthContainer = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
+        if (playerHealthContainer != null)
+        {
+            playerHealthContainer.AddChild(_playerHealthBar);
         }
 
-        public void Initialize(Player player, object combatManager)
+        // 敌方生命值条
+        _enemyHealthBar = InstantiateHealthBar("EnemyHealthBar");
+        var enemyHealthContainer = GetNode<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
+        if (enemyHealthContainer != null)
         {
-            _player = player;
-            // Phase 5: Full implementation
+            enemyHealthContainer.AddChild(_enemyHealthBar);
+        }
+    }
+
+    /// <summary>
+    /// 从 PackedScene 或程序化创建生命值条实例。
+    /// </summary>
+    private HealthBar InstantiateHealthBar(string name)
+    {
+        HealthBar hb;
+
+        if (HealthBarScene != null)
+        {
+            hb = HealthBarScene.Instantiate<HealthBar>();
+        }
+        else
+        {
+            hb = new HealthBar
+            {
+                CustomMinimumSize = new Vector2(160, 24),
+                SizeFlagsHorizontal = SizeFlags.Expand,
+            };
         }
 
-        public void UpdateMana(int current, int max)
+        hb.Name = name;
+        return hb;
+    }
+
+    /// <summary>
+    /// 创建双方法力值显示标签。
+    /// </summary>
+    private void CreateManaLabels()
+    {
+        // 玩家法力值（底部中央）
+        _playerManaLabel = new Label
         {
-            // Phase 5: Full implementation
+            Name = "PlayerManaLabel",
+            Text = "0/0",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            CustomMinimumSize = new Vector2(120, 32),
+        };
+        _playerManaLabel.AddThemeColorOverride("font_color", new Color(0.3f, 0.7f, 1f));
+        _playerManaLabel.AddThemeFontSizeOverride("font_size", 22);
+
+        var playerManaPlaceholder = GetNode<Control>("CombatRoot/PlayerArea/PlayerManaPlaceholder");
+        playerManaPlaceholder?.AddChild(_playerManaLabel);
+
+        // 敌方法力值（顶部中央）
+        _enemyManaLabel = new Label
+        {
+            Name = "EnemyManaLabel",
+            Text = "0/0",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            CustomMinimumSize = new Vector2(120, 32),
+        };
+        _enemyManaLabel.AddThemeColorOverride("font_color", new Color(1f, 0.4f, 0.4f));
+        _enemyManaLabel.AddThemeFontSizeOverride("font_size", 20);
+
+        var enemyManaPlaceholder = GetNode<Control>("CombatRoot/EnemyArea/EnemyManaPlaceholder");
+        enemyManaPlaceholder?.AddChild(_enemyManaLabel);
+    }
+
+    /// <summary>
+    /// 创建双方护甲值显示标签——初始隐藏。
+    /// </summary>
+    private void CreateArmorLabels()
+    {
+        // 玩家护甲
+        _playerArmorLabel = new Label
+        {
+            Name = "PlayerArmorLabel",
+            Text = "护甲: 0",
+            Visible = false,
+            CustomMinimumSize = new Vector2(100, 20),
+        };
+        _playerArmorLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.3f));
+        _playerArmorLabel.AddThemeFontSizeOverride("font_size", 14);
+
+        var playerHealthContainer = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
+        playerHealthContainer?.AddChild(_playerArmorLabel);
+
+        // 敌方护甲
+        _enemyArmorLabel = new Label
+        {
+            Name = "EnemyArmorLabel",
+            Text = "护甲: 0",
+            Visible = false,
+            CustomMinimumSize = new Vector2(100, 20),
+        };
+        _enemyArmorLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.3f));
+        _enemyArmorLabel.AddThemeFontSizeOverride("font_size", 14);
+
+        var enemyHealthContainer = GetNode<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
+        enemyHealthContainer?.AddChild(_enemyArmorLabel);
+    }
+
+    /// <summary>
+    /// 创建回合结束按钮——右下角，文本「结束回合」。
+    /// </summary>
+    private void CreateEndTurnButton()
+    {
+        _endTurnButton = new Button
+        {
+            Name = "EndTurnButton",
+            Text = "结束回合",
+            CustomMinimumSize = new Vector2(120, 40),
+        };
+
+        var buttonPlaceholder = GetNode<Control>("CombatRoot/PlayerArea/EndTurnButtonPlaceholder");
+        buttonPlaceholder?.AddChild(_endTurnButton);
+    }
+
+    /// <summary>
+    /// 创建攻击敌方英雄按钮——初始隐藏，攻击目标选择模式下可见。
+    /// </summary>
+    private void CreateEnemyHeroAttackButton()
+    {
+        _enemyHeroAttackButton = new Button
+        {
+            Name = "EnemyHeroAttackButton",
+            Text = "⚔ 攻击敌方英雄",
+            CustomMinimumSize = new Vector2(140, 36),
+            Visible = false,
+        };
+        _enemyHeroAttackButton.AddThemeColorOverride("font_color", new Color(1f, 0.3f, 0.3f));
+
+        var enemyHeroPlaceholder = GetNode<Control>("CombatRoot/EnemyArea/EnemyHeroLabelPlaceholder");
+        enemyHeroPlaceholder?.AddChild(_enemyHeroAttackButton);
+
+        // 添加敌方英雄标签（在按钮上方作为装饰）
+        var heroLabel = new Label
+        {
+            Name = "EnemyHeroLabel",
+            Text = "敌方英雄",
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        heroLabel.AddThemeColorOverride("font_color", new Color(1f, 0.5f, 0.5f));
+        heroLabel.AddThemeFontSizeOverride("font_size", 16);
+        enemyHeroPlaceholder?.AddChild(heroLabel);
+    }
+
+    // ===== 事件订阅 =====
+
+    /// <summary>
+    /// 订阅所有子组件事件。
+    /// </summary>
+    private void SubscribeEvents()
+    {
+        // 棋盘槽位点击
+        _boardUI.OnSlotClicked += OnBoardSlotClicked;
+
+        // 手牌卡牌选中
+        _handUI.OnCardSelectedForPlay += OnCardSelectedFromHand;
+
+        // 回合结束按钮
+        _endTurnButton.Pressed += OnEndTurnPressed;
+
+        // 攻击敌方英雄按钮
+        _enemyHeroAttackButton.Pressed += OnEnemyHeroAttackPressed;
+    }
+
+    // ===== 刷新方法 =====
+
+    /// <summary>
+    /// 刷新所有子组件——棋盘、手牌、生命值、法力值和护甲。
+    /// 在每次操作完成后调用以确保界面与游戏状态同步。
+    /// </summary>
+    public void RefreshAll()
+    {
+        _boardUI.RefreshBoard();
+        _handUI.RefreshHand();
+        UpdateHealthBars();
+        UpdateManaDisplay();
+        UpdateArmorDisplay();
+
+        // 每次刷新时重置为正常模式
+        ResetSelection();
+    }
+
+    /// <summary>
+    /// 更新双方英雄生命值条。
+    /// </summary>
+    private void UpdateHealthBars()
+    {
+        if (_combat == null) return;
+
+        _playerHealthBar.UpdateHealth(_combat.PlayerHero.CurrentHealth, _combat.PlayerHero.MaxHealth);
+        _enemyHealthBar.UpdateHealth(_combat.EnemyHero.CurrentHealth, _combat.EnemyHero.MaxHealth);
+    }
+
+    /// <summary>
+    /// 更新双方法力值显示，格式「Current/Max」。
+    /// </summary>
+    private void UpdateManaDisplay()
+    {
+        if (_combat == null) return;
+
+        _playerManaLabel.Text = $"{_combat.PlayerHero.CurrentMana}/{_combat.PlayerHero.MaxMana}";
+        _enemyManaLabel.Text = $"{_combat.EnemyHero.CurrentMana}/{_combat.EnemyHero.MaxMana}";
+    }
+
+    /// <summary>
+    /// 更新双方护甲值显示——护甲 > 0 时显示标签，否则隐藏。
+    /// </summary>
+    private void UpdateArmorDisplay()
+    {
+        if (_combat == null) return;
+
+        // 玩家护甲
+        int playerArmor = _combat.PlayerHero.CurrentArmor;
+        _playerArmorLabel.Visible = playerArmor > 0;
+        if (playerArmor > 0)
+        {
+            _playerArmorLabel.Text = $"护甲: {playerArmor}";
         }
 
-        public void UpdateHealth(int current, int max)
+        // 敌方护甲
+        int enemyArmor = _combat.EnemyHero.CurrentArmor;
+        _enemyArmorLabel.Visible = enemyArmor > 0;
+        if (enemyArmor > 0)
         {
-            // Phase 5: Full implementation
+            _enemyArmorLabel.Text = $"护甲: {enemyArmor}";
         }
+    }
+
+    // ===== 事件处理——棋盘点击 =====
+
+    /// <summary>
+    /// 棋盘槽位点击事件处理。
+    /// 根据当前选择模式分发到不同的处理流程：
+    /// <list type="bullet">
+    /// <item>随从放置模式 → 在点击的玩家槽位召唤随从</item>
+    /// <item>攻击目标模式 → 对点击的敌方槽位发动攻击</item>
+    /// <item>普通模式 → 选中己方随从进入攻击目标模式</item>
+    /// </list>
+    /// </summary>
+    /// <param name="slotIndex">被点击的槽位索引（0-4）</param>
+    /// <param name="isPlayerSide">点击的槽位是否属于玩家方</param>
+    private void OnBoardSlotClicked(int slotIndex, bool isPlayerSide)
+    {
+        switch (_selectionMode)
+        {
+            case SelectionMode.PlacingMinion:
+                HandleMinionPlacement(slotIndex, isPlayerSide);
+                break;
+
+            case SelectionMode.TargetingSpell:
+                HandleSpellTarget(slotIndex, isPlayerSide);
+                break;
+
+            case SelectionMode.SelectingAttackTarget:
+                HandleAttackTarget(slotIndex, isPlayerSide);
+                break;
+
+            case SelectionMode.Normal:
+                HandleNormalSlotClick(slotIndex, isPlayerSide);
+                break;
+        }
+    }
+
+    // ----- 普通模式下的槽位点击 -----
+
+    /// <summary>
+    /// 普通模式下点击己方有随从的槽位 → 将该随从设为攻击方，进入攻击目标选择模式。
+    /// </summary>
+    private void HandleNormalSlotClick(int slotIndex, bool isPlayerSide)
+    {
+        if (!isPlayerSide) return; // 普通模式下只响应己方槽位
+
+        var minion = _combat.Board.GetMinionAt(slotIndex, isPlayerSide: true);
+        if (minion == null || minion.IsDead) return;
+
+        // 设为攻击方
+        _selectedAttacker = minion;
+        _selectionMode = SelectionMode.SelectingAttackTarget;
+
+        GD.Print($"[CombatUI] 选中己方随从 {minion.CardName} 准备攻击");
+
+        // 高亮合法攻击目标
+        HighlightValidAttackTargets();
+    }
+
+    // ----- 随从放置 -----
+
+    /// <summary>
+    /// 随从放置模式下点击玩家槽位 → 召唤随从。
+    /// </summary>
+    private void HandleMinionPlacement(int slotIndex, bool isPlayerSide)
+    {
+        if (!isPlayerSide)
+        {
+            GD.Print("[CombatUI] 随从只能放置在己方槽位");
+            return;
+        }
+
+        if (_selectedCard == null)
+        {
+            GD.PrintErr("[CombatUI] 内部错误：放置模式但 _selectedCard 为 null");
+            ResetSelection();
+            return;
+        }
+
+        bool success = _combat.PlayMinion(_selectedCard, slotIndex);
+        if (success)
+        {
+            GD.Print($"[CombatUI] 随从 {_selectedCard.CardName} 已放置到槽位 {slotIndex}");
+        }
+
+        RefreshAll();
+    }
+
+    // ----- 法术目标 -----
+
+    /// <summary>
+    /// 法术目标选择模式下点击槽位 → 对槽位上的随从施放法术。
+    /// </summary>
+    private void HandleSpellTarget(int slotIndex, bool isPlayerSide)
+    {
+        if (_selectedCard == null)
+        {
+            ResetSelection();
+            return;
+        }
+
+        var target = _combat.Board.GetMinionAt(slotIndex, isPlayerSide);
+        if (target == null || target.IsDead)
+        {
+            GD.Print("[CombatUI] 法术目标无效（空槽位或已死亡）");
+            return;
+        }
+
+        GD.Print($"[CombatUI] 对 {target.CardName} 施放 {_selectedCard.CardName}");
+        _combat.PlaySpell(_selectedCard, target);
+        RefreshAll();
+    }
+
+    // ----- 攻击目标 -----
+
+    /// <summary>
+    /// 攻击目标模式下点击敌方槽位 → 发动随从攻击。
+    /// </summary>
+    private void HandleAttackTarget(int slotIndex, bool isPlayerSide)
+    {
+        if (_selectedAttacker == null)
+        {
+            ResetSelection();
+            return;
+        }
+
+        if (isPlayerSide)
+        {
+            GD.Print("[CombatUI] 不能攻击己方随从");
+            return;
+        }
+
+        var defender = _combat.Board.GetMinionAt(slotIndex, isPlayerSide: false);
+        if (defender == null || defender.IsDead)
+        {
+            GD.Print("[CombatUI] 攻击目标无效");
+            return;
+        }
+
+        GD.Print($"[CombatUI] {_selectedAttacker.CardName} 攻击 {defender.CardName}");
+        _combat.MinionAttack(_selectedAttacker, defender);
+        RefreshAll();
+    }
+
+    // ===== 事件处理——手牌选中 =====
+
+    /// <summary>
+    /// 手牌中卡牌被选中时的处理。
+    /// 根据卡牌类型进入不同的选择模式。
+    /// </summary>
+    /// <param name="card">被选中的卡牌</param>
+    private void OnCardSelectedFromHand(Card.Card card)
+    {
+        if (card == null) return;
+
+        // 取消之前的攻击选择
+        _selectedAttacker = null;
+
+        switch (card.Type)
+        {
+            case CardType.Minion:
+                EnterMinionPlacementMode(card);
+                break;
+
+            case CardType.Spell:
+                EnterSpellTargetMode(card);
+                break;
+
+            default:
+                GD.Print($"[CombatUI] 未知卡牌类型：{card.Type}");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 进入随从放置模式——高亮玩家方可用槽位（绿色）。
+    /// </summary>
+    private void EnterMinionPlacementMode(Card.Card card)
+    {
+        _selectionMode = SelectionMode.PlacingMinion;
+        _selectedCard = card;
+
+        // 收集玩家方空槽位
+        var validSlots = new List<int>();
+        for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+        {
+            if (_combat.Board.GetMinionAt(i, isPlayerSide: true) == null)
+            {
+                validSlots.Add(i);
+            }
+        }
+
+        if (validSlots.Count > 0)
+        {
+            _boardUI.HighlightSlots(validSlots, isPlayerSide: true, highlight: true);
+            GD.Print($"[CombatUI] 随从放置模式——可放置槽位：{string.Join(", ", validSlots)}");
+        }
+        else
+        {
+            GD.Print("[CombatUI] 随从放置模式——无可用槽位（战场已满）");
+        }
+    }
+
+    /// <summary>
+    /// 进入法术目标选择模式——高亮敌方随从和英雄作为合法目标。
+    /// </summary>
+    private void EnterSpellTargetMode(Card.Card card)
+    {
+        _selectionMode = SelectionMode.TargetingSpell;
+        _selectedCard = card;
+
+        // 高亮敌方有随从的槽位
+        var enemyTargets = new List<int>();
+        for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+        {
+            var m = _combat.Board.GetMinionAt(i, isPlayerSide: false);
+            if (m != null && !m.IsDead)
+            {
+                enemyTargets.Add(i);
+            }
+        }
+
+        _boardUI.HighlightSlots(enemyTargets, isPlayerSide: false, highlight: true);
+
+        // 同时高亮我方随从（治疗/增益类法术目标）
+        var friendlyTargets = new List<int>();
+        for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+        {
+            var m = _combat.Board.GetMinionAt(i, isPlayerSide: true);
+            if (m != null && !m.IsDead)
+            {
+                friendlyTargets.Add(i);
+            }
+        }
+
+        if (friendlyTargets.Count > 0)
+        {
+            _boardUI.HighlightSlots(friendlyTargets, isPlayerSide: true, highlight: true);
+        }
+
+        GD.Print($"[CombatUI] 法术目标模式——{_selectedCard.CardName}（可用目标：{enemyTargets.Count + friendlyTargets.Count}）");
+    }
+
+    /// <summary>
+    /// 高亮合法攻击目标——敌方有嘲讽随从时仅高亮嘲讽目标，
+    /// 无嘲讽时高亮所有敌方随从并显示攻击英雄按钮。
+    /// </summary>
+    private void HighlightValidAttackTargets()
+    {
+        _boardUI.ClearHighlights();
+
+        var enemyTaunts = _combat.Board.GetTaunts(isEnemy: true);
+        if (enemyTaunts.Count > 0)
+        {
+            // 有嘲讽——仅高亮嘲讽随从
+            var tauntIndices = enemyTaunts
+                .Where(m => m.BoardSlotIndex >= 0)
+                .Select(m => m.BoardSlotIndex)
+                .ToList();
+
+            _boardUI.HighlightSlots(tauntIndices, isPlayerSide: false, highlight: true);
+            _enemyHeroAttackButton.Visible = false;
+
+            GD.Print($"[CombatUI] 攻击目标模式——敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
+        }
+        else
+        {
+            // 无嘲讽——高亮所有敌方随从
+            var allEnemyIndices = new List<int>();
+            for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+            {
+                var m = _combat.Board.GetMinionAt(i, isPlayerSide: false);
+                if (m != null && !m.IsDead)
+                {
+                    allEnemyIndices.Add(i);
+                }
+            }
+
+            if (allEnemyIndices.Count > 0)
+            {
+                _boardUI.HighlightSlots(allEnemyIndices, isPlayerSide: false, highlight: true);
+            }
+
+            // 显示攻击英雄按钮
+            _enemyHeroAttackButton.Visible = true;
+            _enemyHeroAttackButton.Disabled = false;
+
+            GD.Print("[CombatUI] 攻击目标模式——可攻击敌方英雄");
+        }
+    }
+
+    // ===== 事件处理——敌方英雄攻击 =====
+
+    /// <summary>
+    /// 攻击敌方英雄按钮点击——执行随从攻击英雄。
+    /// </summary>
+    private void OnEnemyHeroAttackPressed()
+    {
+        if (_selectedAttacker == null)
+        {
+            GD.PrintErr("[CombatUI] 无攻击方随从");
+            return;
+        }
+
+        GD.Print($"[CombatUI] {_selectedAttacker.CardName} 攻击敌方英雄");
+        _combat.MinionAttackHero(_selectedAttacker, _combat.EnemyHero);
+        RefreshAll();
+    }
+
+    // ===== 事件处理——回合结束 =====
+
+    /// <summary>
+    /// 回合结束按钮点击——结束当前玩家回合并刷新所有 UI。
+    /// </summary>
+    private void OnEndTurnPressed()
+    {
+        if (_combat == null) return;
+
+        GD.Print("[CombatUI] 玩家结束回合");
+        _combat.EndPlayerTurn();
+        RefreshAll();
+    }
+
+    // ===== 选择状态管理 =====
+
+    /// <summary>
+    /// 重置所有选择状态——取消卡牌选中、攻击方选中、清除高亮、重置模式。
+    /// </summary>
+    private void ResetSelection()
+    {
+        _selectionMode = SelectionMode.Normal;
+        _selectedCard = null;
+        _selectedAttacker = null;
+        _boardUI.ClearHighlights();
+        _enemyHeroAttackButton.Visible = false;
+        _handUI.DeselectCard();
     }
 }
