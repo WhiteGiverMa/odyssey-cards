@@ -182,6 +182,24 @@ public partial class BoardUI : Control
         }
     }
 
+    /// <summary>
+    /// 检查指定全局坐标是否落在某个槽位内。
+    /// 用于拖拽松手时判断落点目标。
+    /// </summary>
+    /// <param name="screenPos">全局坐标（GetScreenPosition 或 GetGlobalMousePosition）</param>
+    /// <returns>命中的槽位索引和阵营；null 表示未命中任何槽位</returns>
+    public (int slotIndex, bool isPlayerSide)? GetSlotAtPosition(Vector2 screenPos)
+    {
+        for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+        {
+            if (_playerSlots[i].GetGlobalRect().HasPoint(screenPos))
+                return (i, true);
+            if (_enemySlots[i].GetGlobalRect().HasPoint(screenPos))
+                return (i, false);
+        }
+        return null;
+    }
+
     // ===== 内部方法 =====
 
     /// <summary>

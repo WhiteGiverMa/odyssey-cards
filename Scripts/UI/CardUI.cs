@@ -75,10 +75,16 @@ public partial class CardUI : Control
 	/// </summary>
 	public event Action<CardUI>? OnCardClicked;
 
-	/// <summary>
-	/// 卡牌被右键点击（取消选中）时触发。
-	/// </summary>
-	public event Action<CardUI>? OnCardRightClicked;
+    /// <summary>
+    /// 卡牌被右键点击（取消选中）时触发。
+    /// </summary>
+    public event Action<CardUI>? OnCardRightClicked;
+
+    /// <summary>
+    /// 卡牌在拖拽中左键松开时触发。参数为卡牌 UI 和松开位置的全局坐标。
+    /// 接收方根据松开位置判断：有效目标→打出，无效→取消（等效右键）。
+    /// </summary>
+    public event Action<CardUI, Vector2>? OnCardDropped;
 
 	// ============================================================
 	// 私有 UI 节点
@@ -110,10 +116,13 @@ public partial class CardUI : Control
 	// ============================================================
 	// 内部状态
 	// ============================================================
-	private bool _canPlay = true;
-	private bool _isDragging;
-	private Vector2 _dragOffset;
-	private Tween? _hoverTween;
+    private bool _canPlay = true;
+    private bool _isDragging;
+    private Vector2 _dragOffset;
+    private Vector2 _dragStartScreenPos;
+    private bool _hasDragged;
+    private const float DragThreshold = 4f;
+    private Tween? _hoverTween;
 	private bool _hovering;
 	private bool _built;
 
@@ -486,62 +495,87 @@ public partial class CardUI : Control
 		}
 	}
 
-	/// <summary>
-	/// 进入拖拽状态：计算偏移量、设为鼠标穿透、清除旧偏移、通知 HandUI。
-	/// </summary>
-	private void StartDrag()
-	{
-		_isDragging = true;
-		_dragOffset = GetLocalMousePosition();
-		MouseFilter = MouseFilterEnum.Ignore;
-		OffsetTop = 0; // 清除之前的选中/悬停偏移
-		OnCardClicked?.Invoke(this);
-		FlashHighlight();
-	}
+    /// <summary>
+    /// 进入拖拽状态：计算偏移量、设为鼠标穿透、清除旧偏移、通知 HandUI。
+    /// </summary>
+    private void StartDrag()
+    {
+        _isDragging = true;
+        _hasDragged = false;
+        _dragOffset = GetLocalMousePosition();
+        _dragStartScreenPos = GetScreenPosition();
+        MouseFilter = MouseFilterEnum.Ignore;
+        OffsetTop = 0; // 清除之前的选中/悬停偏移
+        OnCardClicked?.Invoke(this);
+        FlashHighlight();
+    }
 
-	/// <summary>
-	/// 退出拖拽状态（静默，不触发事件）。
-	/// 用于切换卡牌时直接清理旧卡，避免触发 RefreshHand 链条。
-	/// </summary>
-	public void CancelDragSilent()
-	{
-		_isDragging = false;
-		MouseFilter = MouseFilterEnum.Stop;
-		OffsetTop = 0;
-	}
+    /// <summary>
+    /// 退出拖拽状态（静默，不触发事件）。
+    /// 用于切换卡牌时直接清理旧卡，避免触发 RefreshHand 链条。
+    /// </summary>
+    public void CancelDragSilent()
+    {
+        _isDragging = false;
+        _hasDragged = false;
+        MouseFilter = MouseFilterEnum.Stop;
+        OffsetTop = 0;
+    }
 
-	/// <summary>
-	/// 退出拖拽状态：恢复鼠标响应、通知取消。
-	/// </summary>
-	public void CancelDrag()
-	{
-		if (!_isDragging) return;
-		CancelDragSilent();
-		OnCardRightClicked?.Invoke(this);
-	}
+    /// <summary>
+    /// 退出拖拽状态：恢复鼠标响应、通知取消。
+    /// </summary>
+    public void CancelDrag()
+    {
+        if (!_isDragging) return;
+        CancelDragSilent();
+        OnCardRightClicked?.Invoke(this);
+    }
 
-	/// <summary>
-	/// 拖拽时每帧跟随鼠标移动，并轮询右键取消。
-	/// 由于拖拽中 MouseFilter=Ignore，GuiInput 不会收到事件，故在此轮询。
-	/// </summary>
-	public override void _Process(double delta)
-	{
-		if (!_isDragging) return;
+    /// <summary>
+    /// 拖拽时每帧跟随鼠标移动，并轮询右键取消和左键松开。
+    /// 由于拖拽中 MouseFilter=Ignore，GuiInput 不会收到事件，故在此轮询。
+    ///
+    /// 交互等效性：
+    ///   点击选中 → 移动 → 点击有效目标打出 ≡ 按住拖拽 → 松开在有效目标打出
+    ///   右键取消 ≡ 拖拽中松开在无效区域
+    /// </summary>
+    public override void _Process(double delta)
+    {
+        if (!_isDragging) return;
 
-		// 右键取消（GuiInput 在 Ignore 时无法接收，故轮询物理按键）
-		if (Input.IsMouseButtonPressed(MouseButton.Right))
-		{
-			CancelDrag();
-			return;
-		}
+        // 右键取消（等效：拖拽中松手在无效区域）
+        if (Input.IsMouseButtonPressed(MouseButton.Right))
+        {
+            CancelDrag();
+            return;
+        }
 
-		// 跟随鼠标
-		var parent = GetParent();
-		if (parent is Control parentCtrl)
-		{
-			Position = parentCtrl.GetLocalMousePosition() - _dragOffset;
-		}
-	}
+        // 跟随鼠标
+        var parent = GetParent();
+        if (parent is Control parentCtrl)
+        {
+            Position = parentCtrl.GetLocalMousePosition() - _dragOffset;
+        }
+
+        // 跟踪拖拽距离：区分「快速点击选中」和「拖拽」
+        if (!_hasDragged)
+        {
+            float dist = GetScreenPosition().DistanceTo(_dragStartScreenPos);
+            if (dist > DragThreshold)
+                _hasDragged = true;
+        }
+
+        // 左键松开处理：仅在确实拖拽过（非快速点击）时响应
+        if (_hasDragged && !Input.IsMouseButtonPressed(MouseButton.Left))
+        {
+            Vector2 dropScreenPos = GetScreenPosition();
+            _isDragging = false;
+            _hasDragged = false;
+            MouseFilter = MouseFilterEnum.Stop;
+            OnCardDropped?.Invoke(this, dropScreenPos);
+        }
+    }
 
 	/// <summary>
 	/// 选中卡牌：切换高亮状态，上移产生抬起效果。

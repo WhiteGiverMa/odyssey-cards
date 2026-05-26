@@ -825,12 +825,8 @@ public partial class CombatUI : Control
     /// </summary>
     public void RefreshAll()
     {
-        // 清理拖拽中的卡牌 UI
-        if (_dragCardUI != null)
-        {
-            _dragCardUI.QueueFree();
-            _dragCardUI = null;
-        }
+        // 清理拖拽中的卡牌 UI（含取消事件订阅）
+        CleanupDragCard();
 
         _boardUI.RefreshBoard();
         _handUI.RefreshHand();
@@ -1052,6 +1048,9 @@ public partial class CombatUI : Control
             cardUI.GetParent()?.RemoveChild(cardUI);
             _dragLayer.AddChild(cardUI);
             _dragCardUI = cardUI;
+
+            // 订阅拖拽松手事件——用于拖拽→松手打出 / 松手取消
+            cardUI.OnCardDropped += OnCardDroppedHandler;
         }
 
         switch (card.Type)
@@ -1076,12 +1075,120 @@ public partial class CombatUI : Control
     private void OnCardDragCancelled()
     {
         GD.Print("[CombatUI] 拖拽取消");
-        _dragCardUI?.QueueFree();
-        _dragCardUI = null;
+        CleanupDragCard();
         ResetSelection();
 
         // 重建手牌 UI（恢复卡牌到正确位置）
         _handUI.RefreshHand();
+    }
+
+    /// <summary>
+    /// 拖拽中左键松开的事件处理。
+    /// 根据松手位置判断：落在有效槽位→打出，否则→取消（等效右键）。
+    /// 实现「拖拽松手打出」和「点击选中→点击目标打出」的等效性。
+    /// </summary>
+    private void OnCardDroppedHandler(CardUI cardUI, Vector2 screenPos)
+    {
+        if (_dragCardUI != cardUI) return;
+
+        switch (_selectionMode)
+        {
+            case SelectionMode.PlacingMinion:
+                HandleMinionDrop(screenPos);
+                break;
+
+            case SelectionMode.TargetingSpell:
+                HandleSpellDrop(screenPos);
+                break;
+
+            case SelectionMode.SelectingAttackTarget:
+                HandleAttackDrop(screenPos);
+                break;
+
+            default:
+                // 未在有效选择模式 — 取消
+                GD.Print("[CombatUI] 松手时未在选择模式，取消拖拽");
+                OnCardDragCancelled();
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 随从放置模式下的松手处理：检查落点是否在玩家方槽位上。
+    /// </summary>
+    private void HandleMinionDrop(Vector2 screenPos)
+    {
+        var hit = _boardUI.GetSlotAtPosition(screenPos);
+        if (hit != null && hit.Value.isPlayerSide)
+        {
+            HandleMinionPlacement(hit.Value.slotIndex, hit.Value.isPlayerSide);
+        }
+        else
+        {
+            GD.Print("[CombatUI] 随从松手位置无效，取消拖拽");
+            OnCardDragCancelled();
+        }
+    }
+
+    /// <summary>
+    /// 法术目标模式下的松手处理：检查落点是否在有随从的槽位上。
+    /// </summary>
+    private void HandleSpellDrop(Vector2 screenPos)
+    {
+        var hit = _boardUI.GetSlotAtPosition(screenPos);
+        if (hit != null)
+        {
+            var target = _combat.Board.GetMinionAt(hit.Value.slotIndex, hit.Value.isPlayerSide);
+            if (target != null && !target.IsDead)
+            {
+                HandleSpellTarget(hit.Value.slotIndex, hit.Value.isPlayerSide);
+            }
+            else
+            {
+                GD.Print("[CombatUI] 法术松手位置无有效随从目标");
+                OnCardDragCancelled();
+            }
+        }
+        else
+        {
+            GD.Print("[CombatUI] 法术松手位置无效，取消拖拽");
+            OnCardDragCancelled();
+        }
+    }
+
+    /// <summary>
+    /// 攻击目标模式下的松手处理：检查落点是否在敌方槽位或敌方英雄面板上。
+    /// </summary>
+    private void HandleAttackDrop(Vector2 screenPos)
+    {
+        var hit = _boardUI.GetSlotAtPosition(screenPos);
+        if (hit != null && !hit.Value.isPlayerSide)
+        {
+            HandleAttackTarget(hit.Value.slotIndex, hit.Value.isPlayerSide);
+        }
+        else if (_enemyHeroAttackButton.Visible && _enemyHeroPanel.GetGlobalRect().HasPoint(screenPos))
+        {
+            OnEnemyHeroAttackPressed();
+        }
+        else
+        {
+            GD.Print("[CombatUI] 攻击松手位置无效，取消选择");
+            ResetSelection();
+            _handUI.RefreshHand();
+        }
+    }
+
+    /// <summary>
+    /// 清理当前拖拽卡牌 UI 引用并取消订阅。
+    /// </summary>
+    private void CleanupDragCard()
+    {
+        if (_dragCardUI != null)
+        {
+            _dragCardUI.OnCardDropped -= OnCardDroppedHandler;
+            _dragCardUI.QueueFree();
+            _dragCardUI = null;
+        }
     }
 
     /// <summary>
