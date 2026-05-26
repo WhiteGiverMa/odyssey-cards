@@ -52,11 +52,6 @@ public partial class CombatUI : Control
     private Label _playerManaLabel = null!;
 
     /// <summary>
-    /// 敌方法力值显示——顶部中央。
-    /// </summary>
-    private Label _enemyManaLabel = null!;
-
-    /// <summary>
     /// 回合结束按钮——右下角，文本「结束回合」。
     /// </summary>
     private Button _endTurnButton = null!;
@@ -278,7 +273,8 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
-    /// 创建敌方区域——敌方生命值条、护甲、法力值和英雄标签。
+    /// 创建敌方区域——敌方生命值条、护甲和英雄标签。
+    /// 敌人使用尖塔式意图系统，不依赖法力水晶。
     /// </summary>
     private HBoxContainer CreateEnemyArea()
     {
@@ -298,14 +294,6 @@ public partial class CombatUI : Control
         };
         container.AddChild(enemyHealthContainer);
         // 生命值条和护甲标签的占位——会在 Initialize 中创建
-
-        // 法力值占位（中央）
-        var manaPlaceholder = new CenterContainer
-        {
-            Name = "EnemyManaPlaceholder",
-            SizeFlagsHorizontal = SizeFlags.ExpandFill,
-        };
-        container.AddChild(manaPlaceholder);
 
         // 英雄标签占位（右侧）
         var heroLabelPlaceholder = new CenterContainer
@@ -519,7 +507,8 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
-    /// 创建双方法力值显示标签。
+    /// 创建玩家法力值显示标签。
+    /// 敌人使用意图系统，不显示法力值。
     /// </summary>
     private void CreateManaLabels()
     {
@@ -536,20 +525,6 @@ public partial class CombatUI : Control
 
         var playerManaPlaceholder = GetNode<CenterContainer>("CombatRoot/PlayerArea/PlayerManaPlaceholder");
         playerManaPlaceholder?.AddChild(_playerManaLabel);
-
-        // 敌方法力值（顶部中央）
-        _enemyManaLabel = new Label
-        {
-            Name = "EnemyManaLabel",
-            Text = "法力 0/1",
-            HorizontalAlignment = HorizontalAlignment.Center,
-            CustomMinimumSize = new Vector2(120, 32),
-        };
-        _enemyManaLabel.AddThemeColorOverride("font_color", new Color(1f, 0.4f, 0.4f));
-        _enemyManaLabel.AddThemeFontSizeOverride("font_size", 20);
-
-        var enemyManaPlaceholder = GetNode<CenterContainer>("CombatRoot/EnemyArea/EnemyManaPlaceholder");
-        enemyManaPlaceholder?.AddChild(_enemyManaLabel);
     }
 
     /// <summary>
@@ -880,14 +855,14 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
-    /// 更新双方法力值显示，格式「法力 Current/Max」。
+    /// 更新玩家法力值显示，格式「法力 Current/Max」。
+    /// 敌人使用意图系统，不跟踪法力值。
     /// </summary>
     private void UpdateManaDisplay()
     {
         if (_combat == null) return;
 
         _playerManaLabel.Text = $"法力 {_combat.PlayerHero.CurrentMana}/{_combat.PlayerHero.MaxMana}";
-        _enemyManaLabel.Text = $"法力 {_combat.EnemyHero.CurrentMana}/{_combat.EnemyHero.MaxMana}";
     }
 
     /// <summary>
