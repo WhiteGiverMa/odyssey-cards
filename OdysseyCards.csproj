@@ -10,14 +10,14 @@
         <RunAnalyzersDuringLiveAnalysis>true</RunAnalyzersDuringLiveAnalysis>
     </PropertyGroup>
 
+    <!-- 排除测试目录 (由 OdysseyCards.Tests.csproj 独立编译) -->
+    <ItemGroup>
+        <Compile Remove="tests\**\*.cs" />
+        <None Include="tests\**\*.cs" />
+    </ItemGroup>
+
     <!-- Roslynator 分析器 -->
     <ItemGroup>
         <PackageReference Include="Roslynator.Analyzers" Version="4.12.0" PrivateAssets="all" />
-    </ItemGroup>
-
-    <!-- 测试框架 -->
-    <ItemGroup>
-        <PackageReference Include="xunit" Version="2.7.0" />
-        <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7" />
     </ItemGroup>
 </Project>

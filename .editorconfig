@@ -511,3 +511,7 @@ indent_size = 2
 
 [*.{tscn,tres}]
 indent_size = 4
+
+# 测试文件 — 允许 xUnit 命名惯例 (下划线)
+[**/tests/**/*.cs]
+dotnet_diagnostic.CA1707.severity = none

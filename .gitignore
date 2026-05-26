@@ -54,8 +54,12 @@ Thumbs.db
 *.pem
 secrets/
 
-# MCP subprojects
-godot-mcp/
-
 # Agent skills directories
 **/find-skills/
+
+# local only draft
+docs/draft
+AGENTS_LOCAL.md
+
+# OpenCode & Sisyphus
+.omo/
