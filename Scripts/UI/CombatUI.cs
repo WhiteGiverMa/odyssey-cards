@@ -837,6 +837,9 @@ public partial class CombatUI : Control
         _combat.PlayerHero.DeckState.OnDrawPileChanged += UpdateDeckCounts;
         _combat.PlayerHero.DeckState.OnDiscardPileChanged += UpdateDeckCounts;
         _combat.PlayerHero.DeckState.OnHandChanged += () => _handUI.RefreshHand();
+
+        // 法力值变化 → 自动更新显示
+        _combat.PlayerHero.OnManaChanged += (_, _) => UpdateManaDisplay();
     }
 
     // ===== 刷新方法 =====

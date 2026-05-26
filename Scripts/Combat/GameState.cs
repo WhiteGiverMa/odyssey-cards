@@ -70,16 +70,6 @@ public class GameState
     public int PlayerMaxMana { get; private set; }
 
     /// <summary>
-    /// 敌人当前可用法力水晶。
-    /// </summary>
-    public int EnemyMana { get; private set; }
-
-    /// <summary>
-    /// 敌人最大法力水晶。
-    /// </summary>
-    public int EnemyMaxMana { get; private set; }
-
-    /// <summary>
     /// 当前是否为玩家回合。
     /// </summary>
     public bool IsPlayerTurn => Phase == CombatPhase.PlayerTurn;
@@ -98,7 +88,8 @@ public class GameState
 
     /// <summary>
     /// 启动游戏，进入起手调度阶段。
-    /// 初始化回合数为 0，双方法力水晶均为 0/0（回合开始后增长至 1/1）。
+    /// 初始化回合数为 0，玩家法力水晶为 0/0（回合开始后增长至 1/1）。
+    /// 敌人使用尖塔式意图系统，不依赖法力水晶。
     /// </summary>
     public void StartGame()
     {
@@ -106,8 +97,6 @@ public class GameState
         TurnCount = 0;
         PlayerMana = 0;
         PlayerMaxMana = 0;
-        EnemyMana = 0;
-        EnemyMaxMana = 0;
     }
 
     /// <summary>
@@ -130,18 +119,20 @@ public class GameState
 
     /// <summary>
     /// 开始敌人回合。
-    /// 若敌人最大法力水晶未达上限则增长 1 点，
-    /// 并将当前法力水晶恢复至最大值。
-    /// 敌人回合不递增 TurnCount（与玩家回合共用同一轮）。
+    /// 敌人使用尖塔式意图系统，不依赖法力水晶增长。
     /// </summary>
     public void StartEnemyTurn()
     {
         Phase = CombatPhase.EnemyTurn;
+    }
 
-        // 法力水晶增长
-        if (EnemyMaxMana < MaxManaCrystals)
-            EnemyMaxMana++;
-        EnemyMana = EnemyMaxMana;
+    /// <summary>
+    /// 结束敌人回合，转入玩家回合。
+    /// 法力水晶增长和回合数递增由 CombatManager.StartPlayerTurn 统一处理。
+    /// </summary>
+    public void EndEnemyTurn()
+    {
+        Phase = CombatPhase.PlayerTurn;
     }
 
     // ===== 法力消耗 =====
@@ -167,14 +158,6 @@ public class GameState
     public void EndPlayerTurn()
     {
         StartEnemyTurn();
-    }
-
-    /// <summary>
-    /// 结束敌人回合，自动转入玩家回合。
-    /// </summary>
-    public void EndEnemyTurn()
-    {
-        StartPlayerTurn();
     }
 
     // ===== 游戏结束 =====

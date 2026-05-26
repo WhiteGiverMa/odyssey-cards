@@ -129,7 +129,9 @@ public partial class CombatManager : Node
         GD.Print($"[CombatManager] 牌堆有 {player.Deck.CardCount} 张牌");
 
         // 4. 创建敌方英雄（默认 30HP，纯 C# 对象，不加入场景树）
-        var enemyHero = new Hero(new CommanderCore());
+        var enemyCore = new CommanderCore();
+        enemyCore.SetMana(0, 0); // 敌人使用意图系统，无需法力
+        var enemyHero = new Hero(enemyCore);
         GD.Print($"[CombatManager] 敌方英雄已创建 — {enemyHero.CurrentHealth}/{enemyHero.MaxHealth}");
 
         // 5. 初始化战斗管理器（创建 _playerCore、PlayerHero、Board、GameState）
@@ -142,6 +144,7 @@ public partial class CombatManager : Node
 
         // 7. 开始战斗
         StartCombat();
+        combatUI.RefreshAll(); // StartCombat 中法力变化后刷新 UI
         GD.Print("[CombatManager] BootstrapCombat 完成");
     }
 
@@ -763,15 +766,12 @@ public partial class CombatManager : Node
         _canAttackThisTurn.Clear();
         _attackCountThisTurn.Clear();
 
-        // 切换到敌方回合
+        // 切换到敌方回合（仅设 Phase，敌人使用意图系统无需法力）
         State.EndPlayerTurn();
         GD.Print("[CombatManager] ---------- 敌方回合开始 ----------（原型：无操作）");
 
         // 原型：敌方不做任何事（Phase 4 将添加 AI）
-        // 直接结束敌方回合，开始玩家新回合
-        State.EndEnemyTurn();
-
-        // 复用回合开始逻辑：法力增长/回满 + 抽 1 张 + 重置攻击状态
+        // 直接开始玩家新回合——法力增长/回满 + 抽 1 张 + 重置攻击状态
         StartPlayerTurn();
 
         // 检查胜负

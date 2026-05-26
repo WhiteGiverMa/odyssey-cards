@@ -84,6 +84,17 @@ public class Hero : IDamageTarget
     /// </summary>
     public bool IsDead => _core.IsDead;
 
+    // ===== 事件 =====
+
+    /// <summary>
+    /// 法力值变化事件。参数为 (currentMana, maxMana)。
+    /// </summary>
+    public event Action<int, int> OnManaChanged
+    {
+        add => _core.OnManaChanged += value;
+        remove => _core.OnManaChanged -= value;
+    }
+
     // ===== 构造函数 =====
 
     /// <summary>

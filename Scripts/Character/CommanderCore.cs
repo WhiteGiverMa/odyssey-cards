@@ -46,7 +46,7 @@ public class CommanderCore
     /// <summary>
     /// 最大法力水晶。
     /// </summary>
-    public int MaxMana { get; private set; } = 1;
+    public int MaxMana { get; private set; } = 0;
 
     /// <summary>
     /// 最大手牌数。
