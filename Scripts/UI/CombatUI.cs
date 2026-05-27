@@ -143,6 +143,8 @@ public partial class CombatUI : Control
         TargetingSpell,
         /// <summary>攻击目标模式——棋盘上选了一个己方随从，等待选择敌方目标。</summary>
         SelectingAttackTarget,
+        /// <summary>开发者伤害模式——点击任意实体造成指定伤害。</summary>
+        DevDamageTargeting,
     }
 
     private SelectionMode _selectionMode = SelectionMode.Normal;
@@ -156,6 +158,16 @@ public partial class CombatUI : Control
     /// 当前选中的攻击方随从（己方）。
     /// </summary>
     private Minion? _selectedAttacker;
+
+    /// <summary>
+    /// 开发者伤害模式参数。
+    /// </summary>
+    private int _devDamageAmount;
+
+    /// <summary>
+    /// 开发者伤害模式完成事件（一次性）。
+    /// </summary>
+    public event Action? OnDevDamageModeCompleted;
 
     // ===== Godot 生命周期 =====
 
@@ -175,6 +187,21 @@ public partial class CombatUI : Control
         if (UIScaler.Instance != null)
         {
             UIScaler.Instance.OnResolutionChanged += OnResolutionChanged;
+        }
+    }
+
+    /// <summary>
+    /// 全局输入处理——开发者伤害模式下右键取消。
+    /// </summary>
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event is InputEventMouseButton mb
+            && mb.ButtonIndex == MouseButton.Right
+            && mb.Pressed
+            && _selectionMode == SelectionMode.DevDamageTargeting)
+        {
+            ExitDevDamageMode();
+            GetViewport().SetInputAsHandled();
         }
     }
 
@@ -1014,6 +1041,10 @@ public partial class CombatUI : Control
             case SelectionMode.Normal:
                 HandleNormalSlotClick(slotIndex, isPlayerSide);
                 break;
+
+            case SelectionMode.DevDamageTargeting:
+                HandleDevDamageSlot(slotIndex, isPlayerSide);
+                break;
         }
     }
 
@@ -1458,6 +1489,16 @@ public partial class CombatUI : Control
     private void OnEnemyHeroSpellTarget()
     {
         if (_combat.State.IsGameOver) return;
+
+        // 开发者伤害模式：对敌方英雄造成伤害
+        if (_selectionMode == SelectionMode.DevDamageTargeting)
+        {
+            _combat.EnemyHero.TakeDamage(_devDamageAmount, null);
+            _combat.CheckVictoryOrDefeat();
+            ExitDevDamageMode();
+            return;
+        }
+
         if (_selectedCard == null)
         {
             GD.PrintErr("[CombatUI] 无法术牌选中");
@@ -1494,6 +1535,68 @@ public partial class CombatUI : Control
         _gameOverPopup.Title = isVictory ? "★ 胜利！" : "☠ 失败";
         _gameOverPopup.PopupCentered();
         GD.Print($"[CombatUI] 游戏结束 — {(isVictory ? "胜利" : "失败")}");
+    }
+
+    // ===== 开发者伤害模式 =====
+
+    /// <summary>
+    /// 进入开发者伤害目标选择模式（由 DevConsole /damage -c N 触发）。
+    /// 高亮所有合法目标，点击任意实体造成指定伤害，右键取消。
+    /// </summary>
+    public void EnterDevDamageMode(int damageAmount)
+    {
+        if (_combat.State.IsGameOver) return;
+
+        _devDamageAmount = damageAmount;
+        _selectionMode = SelectionMode.DevDamageTargeting;
+        _selectedCard = null;
+        _selectedAttacker = null;
+
+        // 高亮所有存活随从 + 显示敌方英雄按钮
+        _boardUI.ClearHighlights();
+        var playerSlots = new List<int>();
+        var enemySlots = new List<int>();
+        for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+        {
+            var pm = _combat.Board.GetMinionAt(i, isPlayerSide: true);
+            if (pm != null && !pm.IsDead) playerSlots.Add(i);
+            var em = _combat.Board.GetMinionAt(i, isPlayerSide: false);
+            if (em != null && !em.IsDead) enemySlots.Add(i);
+        }
+        _boardUI.HighlightSlots(playerSlots, isPlayerSide: true, highlight: true);
+        _boardUI.HighlightSlots(enemySlots, isPlayerSide: false, highlight: true);
+
+        // 敌方英雄按钮
+        _enemyHeroSpellButton.Text = $"⚡ 对敌方英雄造成 {damageAmount} 点伤害";
+        _enemyHeroSpellButton.Visible = true;
+
+        GD.Print($"[CombatUI] 开发者伤害模式 — 点击目标造成 {damageAmount} 点伤害（右键取消）");
+    }
+
+    private void ExitDevDamageMode()
+    {
+        _boardUI.ClearHighlights();
+        _enemyHeroSpellButton.Visible = false;
+        _selectionMode = SelectionMode.Normal;
+        RefreshAll();
+
+        var h = OnDevDamageModeCompleted;
+        OnDevDamageModeCompleted = null;
+        h?.Invoke();
+    }
+
+    /// <summary>
+    /// 开发者模式：对指定位置的随从造成伤害。
+    /// </summary>
+    private void HandleDevDamageSlot(int slotIndex, bool isPlayerSide)
+    {
+        var target = _combat.Board.GetMinionAt(slotIndex, isPlayerSide);
+        if (target == null || target.IsDead) return;
+
+        target.TakeDamage(_devDamageAmount, null);
+        _combat.CheckDeaths();
+        _combat.CheckVictoryOrDefeat();
+        ExitDevDamageMode();
     }
 
     // ===== 选择状态管理 =====

@@ -1,5 +1,6 @@
 using Godot;
 using OdysseyCards.Combat;
+using OdysseyCards.UI;
 using System;
 using System.Linq;
 
@@ -191,9 +192,11 @@ public partial class DevConsole : Node
             // ===== 伤害 =====
             case "damage":
             case "dmg":
+                if (TryHandleClickDamage(parts, cm!)) return;
                 cm!.EnemyHero.TakeDamage(Arg(), null);
                 WriteLine($"[color=#ff6644]对敌方英雄造成 {Arg()} 点伤害（剩余 {cm.EnemyHero.CurrentHealth}）[/color]");
                 cm.CheckVictoryOrDefeat();
+                RefreshCombatUI(cm);
                 break;
 
             // ===== 伤害敌方随从 =====
@@ -212,6 +215,7 @@ public partial class DevConsole : Node
                 if (em.IsDead) { cm.Board.RemoveMinion(em); cm.TriggerDeathrattle(em); }
                 cm.CheckDeaths();
                 cm.CheckVictoryOrDefeat();
+                RefreshCombatUI(cm);
                 break;
 
             // ===== 伤害己方随从 =====
@@ -230,6 +234,7 @@ public partial class DevConsole : Node
                 if (pm.IsDead) { cm.Board.RemoveMinion(pm); cm.TriggerDeathrattle(pm); }
                 cm.CheckDeaths();
                 cm.CheckVictoryOrDefeat();
+                RefreshCombatUI(cm);
                 break;
 
             // ===== 伤害己方英雄 =====
@@ -238,6 +243,7 @@ public partial class DevConsole : Node
                 cm!.PlayerHero.TakeDamage(Arg(), null);
                 WriteLine($"[color=#ff6644]对己方英雄造成 {Arg()} 点伤害（剩余 {cm.PlayerHero.CurrentHealth}）[/color]");
                 cm.CheckVictoryOrDefeat();
+                RefreshCombatUI(cm);
                 break;
 
             // ===== 伤害敌方英雄（显式） =====
@@ -246,6 +252,7 @@ public partial class DevConsole : Node
                 cm!.EnemyHero.TakeDamage(Arg(), null);
                 WriteLine($"[color=#ff6644]对敌方英雄造成 {Arg()} 点伤害（剩余 {cm.EnemyHero.CurrentHealth}）[/color]");
                 cm.CheckVictoryOrDefeat();
+                RefreshCombatUI(cm);
                 break;
 
             // ===== 伤害全部敌方随从 =====
@@ -257,6 +264,7 @@ public partial class DevConsole : Node
                 WriteLine($"[color=#ff6644]对所有敌方随从造成 {Arg()} 点伤害（命中 {enemies.Count} 个目标）[/color]");
                 cm.CheckDeaths();
                 cm.CheckVictoryOrDefeat();
+                RefreshCombatUI(cm);
                 break;
 
             // ===== 抽牌 =====
@@ -344,5 +352,53 @@ public partial class DevConsole : Node
     private void WriteLine(string text)
     {
         _output.AppendText($"{text}\n");
+    }
+
+    /// <summary>
+    /// 通过场景树查找 CombatUI 并调用 RefreshAll，确保 UI 反映最新状态。
+    /// </summary>
+    private static void RefreshCombatUI(CombatManager cm)
+    {
+        var ui = cm.GetNodeOrNull<Control>("CanvasLayer/CombatUI");
+        if (ui != null)
+        {
+            var m = ui.GetType().GetMethod("RefreshAll");
+            m?.Invoke(ui, null);
+        }
+    }
+
+    /// <summary>
+    /// 进入点击伤害模式：隐藏控制台，通过 CombatUI 进入交互模式。
+    /// </summary>
+    private void EnterClickDamageMode(int damageAmount)
+    {
+        Hide();
+
+        var cm = CombatManager.Instance;
+        if (cm == null) { Show(); return; }
+
+        var combatUI = cm.GetNodeOrNull<CombatUI>("CanvasLayer/CombatUI");
+        if (combatUI == null) { Show(); return; }
+
+        combatUI.EnterDevDamageMode(damageAmount);
+        combatUI.OnDevDamageModeCompleted += () =>
+        {
+            WriteLine("[color=#66ff66]伤害选择完成[/color]");
+            Show();
+        };
+    }
+
+    /// <summary>
+    /// 处理 /damage -c N 命令：进入点击伤害模式。
+    /// </summary>
+    private bool TryHandleClickDamage(string[] parts, CombatManager cm)
+    {
+        // /damage -c N → 交互式点击伤害
+        if (parts.Length >= 3 && parts[1] == "-c" && int.TryParse(parts[2], out int dmg))
+        {
+            EnterClickDamageMode(dmg);
+            return true;
+        }
+        return false;
     }
 }
