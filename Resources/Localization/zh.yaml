@@ -7,6 +7,11 @@ ui:
   settings:
     title: "设置"
     language: "语言"
+    resolution: "分辨率"
+    window_mode: "窗口模式"
+    windowed: "窗口"
+    borderless: "无边框全屏"
+    fullscreen: "全屏"
     back: "返回"
   combat:
     end_turn: "结束回合"
