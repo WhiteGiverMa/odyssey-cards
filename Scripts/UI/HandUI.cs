@@ -71,18 +71,29 @@ public partial class HandUI : Control
 		}
 	}
 
-	public void DeselectCard()
-	{
-		if (_selectedCard != null)
-		{
-			foreach (var cardUI in _cardUIs)
-			{
-				if (cardUI.Card == _selectedCard)
-					cardUI.Deselect();
-			}
-			_selectedCard = null;
-		}
-	}
+    public void DeselectCard()
+    {
+        if (_selectedCard != null)
+        {
+            foreach (var cardUI in _cardUIs)
+            {
+                if (cardUI.Card == _selectedCard)
+                    cardUI.Deselect();
+            }
+            _selectedCard = null;
+        }
+    }
+
+    /// <summary>
+    /// 将指定 CardUI 从手牌内部列表中移除，但不销毁节点。
+    /// 用于卡牌被重 parent 到 DragLayer 时保持列表一致性。
+    /// </summary>
+    public void DetachCardFromList(CardUI cardUI)
+    {
+        _cardUIs.Remove(cardUI);
+        if (_selectedCard == cardUI.Card)
+            _selectedCard = null;
+    }
 
 	public Card.Card? PlaySelectedCard()
 	{
