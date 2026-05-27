@@ -162,6 +162,16 @@ public class Hero : IDamageTarget
         GD.Print($"[Hero] 获得 {amount} 点护甲，当前护甲：{CurrentArmor}");
     }
 
+    /// <summary>
+    /// 为英雄恢复生命值。
+    /// </summary>
+    /// <param name="amount">恢复量</param>
+    public void Heal(int amount)
+    {
+        _core.Heal(amount);
+        GD.Print($"[Hero] 恢复 {amount} 点生命值，当前生命：{CurrentHealth}");
+    }
+
     // ===== 法力水晶管理（委托给 CommanderCore） =====
 
     /// <summary>

@@ -756,7 +756,7 @@ public partial class CombatManager : Node
     /// 敌方英雄死亡 → 胜利；玩家英雄死亡 → 失败。
     /// </summary>
     /// <returns>游戏结束返回 true</returns>
-    private bool CheckVictoryOrDefeat()
+    internal bool CheckVictoryOrDefeat()
     {
         if (State.IsGameOver)
             return true;
