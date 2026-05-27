@@ -1043,6 +1043,7 @@ public partial class CombatUI : Control
                 break;
 
             case SelectionMode.DevDamageTargeting:
+                GD.Print($"[CombatUI] OnBoardSlotClicked → DevDamageTargeting, slot={slotIndex}, side={(isPlayerSide ? "P" : "E")}");
                 HandleDevDamageSlot(slotIndex, isPlayerSide);
                 break;
         }
@@ -1590,9 +1591,15 @@ public partial class CombatUI : Control
     /// </summary>
     private void HandleDevDamageSlot(int slotIndex, bool isPlayerSide)
     {
+        GD.Print($"[CombatUI] DevDamageSlot: slot={slotIndex}, side={(isPlayerSide ? "player" : "enemy")}");
         var target = _combat.Board.GetMinionAt(slotIndex, isPlayerSide);
-        if (target == null || target.IsDead) return;
+        if (target == null || target.IsDead)
+        {
+            GD.Print($"[CombatUI] DevDamageSlot: no valid target");
+            return;
+        }
 
+        GD.Print($"[CombatUI] DevDamage: {_devDamageAmount} dmg → {(isPlayerSide ? "己方" : "敌方")} {target.CardName}");
         target.TakeDamage(_devDamageAmount, null);
         _combat.CheckDeaths();
         _combat.CheckVictoryOrDefeat();

@@ -320,7 +320,13 @@ public partial class BoardUI : Control
             };
             _contentLabel.AddThemeColorOverride("font_color", _textDim);
             _contentLabel.AddThemeFontSizeOverride("font_size", 13);
+            _contentLabel.MouseFilter = MouseFilterEnum.Ignore;
             AddChild(_contentLabel);
+
+            // 确保子控件不拦截鼠标事件，所有交互由 BoardSlot 本身处理
+            _borderRect.MouseFilter = MouseFilterEnum.Ignore;
+            _background.MouseFilter = MouseFilterEnum.Ignore;
+            _indexLabel.MouseFilter = MouseFilterEnum.Ignore;
 
             // 悬停信号
             MouseEntered += OnMouseEnter;

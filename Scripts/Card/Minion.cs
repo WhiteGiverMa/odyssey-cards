@@ -123,8 +123,8 @@ public class Minion : Card, IDamageSource, IDamageTarget
         // 解析关键词
         HasCharge = data.HasKeyword(Keyword.Charge);
         HasTaunt = data.HasKeyword(Keyword.Taunt);
-        HasBattlecry = data.HasKeyword(Keyword.Battlecry);
-        HasDeathrattle = data.HasKeyword(Keyword.Deathrattle);
+        HasBattlecry = data.HasKeyword(Keyword.Battlecry) || data.BattlecryEffects?.Count > 0;
+        HasDeathrattle = data.HasKeyword(Keyword.Deathrattle) || data.DeathrattleEffects?.Count > 0;
         HasWindfury = data.HasKeyword(Keyword.Windfury);
     }
 

@@ -18,5 +18,5 @@ Cost = 0
 Type = 0
 Attack = 1
 Health = 1
-Keywords = [1]
+Keywords = [1, 4]
 DeathrattleEffects = [SubResource("SubResource_1")]
