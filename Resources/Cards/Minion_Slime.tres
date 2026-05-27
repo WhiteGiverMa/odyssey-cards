@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://cminionslime"]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_slime"
+CardName = "软泥怪"
+Description = "冲锋"
+Rarity = 0
+Cost = 0
+Type = 0
+Attack = 1
+Health = 1
+Keywords = [1]

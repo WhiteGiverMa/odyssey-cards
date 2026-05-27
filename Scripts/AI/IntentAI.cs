@@ -264,11 +264,12 @@ public class SlimeBoss : EnemyEncounter
     }
 
     /// <summary>
-    /// 尝试在敌方战场召唤一只 1/1 软泥怪随从。
+    /// 尝试在敌方战场召唤一只 1/1 软泥怪随从（冲锋）。
+    /// 从 .tres 资源加载，与玩家卡牌同源。
     /// 若战场已满则不执行（最佳尝试策略）。
     /// </summary>
     /// <param name="combat">战斗管理器</param>
-    private void TrySummonSlime(CombatManager combat)
+    private static void TrySummonSlime(CombatManager combat)
     {
         if (!combat.Board.CanPlaceMinion(isPlayerSide: false))
         {
@@ -276,22 +277,25 @@ public class SlimeBoss : EnemyEncounter
             return;
         }
 
-        var slimeData = new CardData
+        const string path = "res://Resources/Cards/Minion_Slime.tres";
+        if (!ResourceLoader.Exists(path))
         {
-            Id = "slime",
-            CardName = "软泥怪",
-            Cost = 0,
-            Type = CardType.Minion,
-            Attack = 1,
-            Health = 1,
-            Keywords = new Godot.Collections.Array<Keyword> { Keyword.Charge }
-        };
+            GD.PrintErr($"[SlimeBoss] 未找到软泥怪卡牌资源：{path}");
+            return;
+        }
+
+        var slimeData = GD.Load<CardData>(path);
+        if (slimeData == null)
+        {
+            GD.PrintErr("[SlimeBoss] 软泥怪卡牌资源加载失败");
+            return;
+        }
 
         var slime = new Minion(slimeData, isPlayerSide: false);
         int slot = combat.Board.GetEmptySlotIndex(isPlayerSide: false);
         combat.Board.PlaceMinion(slime, slot);
 
-        GD.Print($"[SlimeBoss] 在敌方槽位 {slot} 召唤了软泥怪（1/1）");
+        GD.Print($"[SlimeBoss] 在敌方槽位 {slot} 召唤了软泥怪（{slime.Attack}/{slime.CurrentHealth}）");
     }
 }
 
