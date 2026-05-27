@@ -91,6 +91,7 @@ game_call_method(nodePath="/root/DevConsole", method="DevCommand", args=["/damag
 | `/damage_eslot X N` | 槽位0-4, 伤害值 | 对敌方槽位 X 随从造成 N 点伤害 | 验证亡语/随从死亡 |
 | `/damage_pslot X N` | 槽位0-4, 伤害值 | 对己方槽位 X 随从造成 N 点伤害 | 测试己方亡语 |
 | `/damage_all N` | 伤害值 | 对所有敌方随从造成 N 点伤害 | AOE 测试 |
+| `/damage -c N` | 伤害值 | 点击模式：控制台隐藏→点击目标造成 N 点伤害→右键取消 | 精细目标选择 |
 | `/draw N` | 数量 | 抽 N 张牌 | 补手牌，搜索特定卡牌 |
 | `/mana N` | 数量 | 获得 N 点法力 | 解除费用限制测试高费操作 |
 | `/heal N` | 数量 | 恢复 N 点生命值 | 恢复玩家血量 |
