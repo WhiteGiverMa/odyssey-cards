@@ -122,6 +122,8 @@ public partial class CardUI : Control
     private Vector2 _dragStartScreenPos;
     private bool _hasDragged;
     private const float DragThreshold = 4f;
+    /// <summary>屏幕坐标跳变阈值（像素）。超过此距离视为重 parent 导致的坐标跳变，非用户拖拽。</summary>
+    private const float ScreenJumpThreshold = 50f;
     private Tween? _hoverTween;
 	private bool _hovering;
 	private bool _built;
@@ -559,17 +561,26 @@ public partial class CardUI : Control
         }
 
         // 跟踪拖拽距离：区分「快速点击选中」和「拖拽」
+        // 注意：重 parent（从 HandUI 移到 _dragLayer）会导致屏幕坐标大幅跳变，
+        // 误触发 _hasDragged。若跳变超过阈值，重置起点为当前位置，避免误判。
         if (!_hasDragged)
         {
             float dist = GetScreenPosition().DistanceTo(_dragStartScreenPos);
-            if (dist > DragThreshold)
+            if (dist > ScreenJumpThreshold)
+            {
+                // 重 parent 导致的坐标跳变——重置拖拽起点
+                _dragStartScreenPos = GetScreenPosition();
+            }
+            else if (dist > DragThreshold)
                 _hasDragged = true;
         }
 
         // 左键松开处理：仅在确实拖拽过（非快速点击）时响应
+        // 使用全局鼠标位置作为落点坐标，而非卡片左上角，
+        // 避免因 _dragOffset 导致落点与用户预期不符而错过槽位检测。
         if (_hasDragged && !Input.IsMouseButtonPressed(MouseButton.Left))
         {
-            Vector2 dropScreenPos = GetScreenPosition();
+            Vector2 dropScreenPos = GetGlobalMousePosition();
             _isDragging = false;
             _hasDragged = false;
             MouseFilter = MouseFilterEnum.Stop;
