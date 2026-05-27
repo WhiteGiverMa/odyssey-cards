@@ -72,6 +72,16 @@ public partial class CombatUI : Control
     private Button _enemyHeroAttackButton = null!;
 
     /// <summary>
+    /// 对敌方英雄施法按钮——法术目标选择模式下可见。
+    /// </summary>
+    private Button _enemyHeroSpellButton = null!;
+
+    /// <summary>
+    /// 敌方意图显示标签。
+    /// </summary>
+    private Label _enemyIntentLabel = null!;
+
+    /// <summary>
     /// 敌方英雄交互面板——有可见色块背景的容器。
     /// </summary>
     private Panel _enemyHeroPanel = null!;
@@ -90,6 +100,11 @@ public partial class CombatUI : Control
     /// 牌堆查看弹窗——点击抽/弃牌堆按钮时复用。
     /// </summary>
     private AcceptDialog? _pileViewPopup;
+
+    /// <summary>
+    /// 游戏结束弹窗。
+    /// </summary>
+    private AcceptDialog? _gameOverPopup;
 
     /// <summary>
     /// 拖拽层——卡牌拖拽时重parent到此，使其脱离 HandUI 的 HBoxContainer 布局约束。
@@ -196,7 +211,9 @@ public partial class CombatUI : Control
         CreateArmorLabels();
         CreateEndTurnButton();
         CreateEnemyHeroAttackButton();
+        CreateEnemyIntentLabel();
         CreateDeckButtons();
+        CreateGameOverPopup();
 
         // 订阅事件
         SubscribeEvents();
@@ -294,6 +311,15 @@ public partial class CombatUI : Control
         };
         container.AddChild(enemyHealthContainer);
         // 生命值条和护甲标签的占位——会在 Initialize 中创建
+
+        // 敌方意图占位（中间）
+        var intentPlaceholder = new CenterContainer
+        {
+            Name = "EnemyIntentPlaceholder",
+            SizeFlagsHorizontal = SizeFlags.Fill,
+            CustomMinimumSize = new Vector2(120, 24),
+        };
+        container.AddChild(intentPlaceholder);
 
         // 英雄标签占位（右侧）
         var heroLabelPlaceholder = new CenterContainer
@@ -578,6 +604,27 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
+    /// 创建游戏结束弹窗——胜利/失败时显示，含"返回主菜单"按钮。
+    /// </summary>
+    private void CreateGameOverPopup()
+    {
+        _gameOverPopup = new AcceptDialog
+        {
+            Name = "GameOverPopup",
+            Title = "游戏结束",
+            OkButtonText = "返回主菜单",
+            Exclusive = true,
+            Visible = false,
+            Size = new Vector2I(320, 180),
+        };
+        _gameOverPopup.Confirmed += () =>
+        {
+            GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
+        };
+        AddChild(_gameOverPopup);
+    }
+
+    /// <summary>
     /// 创建敌方英雄交互面板——带可见色块背景和标签的区域，
     /// 攻击目标选择模式下整个面板可点击攻击。
     /// </summary>
@@ -646,8 +693,42 @@ public partial class CombatUI : Control
         _enemyHeroAttackButton.AddThemeColorOverride("font_color", new Color(1f, 0.3f, 0.3f));
         panelContent.AddChild(_enemyHeroAttackButton);
 
+        // 对敌方英雄施法按钮（法术目标模式下可见）
+        _enemyHeroSpellButton = new Button
+        {
+            Name = "EnemyHeroSpellButton",
+            Text = "✦ 对敌方英雄施法",
+            CustomMinimumSize = new Vector2(140, 36),
+            Visible = false,
+        };
+        _enemyHeroSpellButton.AddThemeColorOverride("font_color", new Color(1f, 0.7f, 0.2f));
+        panelContent.AddChild(_enemyHeroSpellButton);
+
         panelContainer.AddChild(_enemyHeroPanel);
         enemyHeroPlaceholder.AddChild(panelContainer);
+    }
+
+    /// <summary>
+    /// 创建敌方意图显示标签——置于敌方英雄面板上方。
+    /// </summary>
+    private void CreateEnemyIntentLabel()
+    {
+        var enemyIntentPlaceholder = GetNode<Control>("CombatRoot/EnemyArea/EnemyIntentPlaceholder");
+        if (enemyIntentPlaceholder == null)
+        {
+            GD.PrintErr("[CombatUI] EnemyIntentPlaceholder 未找到");
+            return;
+        }
+
+        _enemyIntentLabel = new Label
+        {
+            Name = "EnemyIntentLabel",
+            Text = "",
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        _enemyIntentLabel.AddThemeColorOverride("font_color", new Color(1f, 0.4f, 0.4f));
+        _enemyIntentLabel.AddThemeFontSizeOverride("font_size", 14);
+        enemyIntentPlaceholder.AddChild(_enemyIntentLabel);
     }
 
     // ===== 牌堆按钮 =====
@@ -808,6 +889,9 @@ public partial class CombatUI : Control
         // 攻击敌方英雄按钮
         _enemyHeroAttackButton.Pressed += OnEnemyHeroAttackPressed;
 
+        // 对敌方英雄施法按钮
+        _enemyHeroSpellButton.Pressed += OnEnemyHeroSpellTarget;
+
         // 牌堆/手牌状态变化 → 自动刷新 UI
         _combat.PlayerHero.DeckState.OnDrawPileChanged += UpdateDeckCounts;
         _combat.PlayerHero.DeckState.OnDiscardPileChanged += UpdateDeckCounts;
@@ -815,6 +899,12 @@ public partial class CombatUI : Control
 
         // 法力值变化 → 自动更新显示
         _combat.PlayerHero.OnManaChanged += (_, _) => UpdateManaDisplay();
+
+        // 敌方意图变化 → 更新意图显示
+        _combat.OnEnemyIntentChanged += (intent) => _enemyIntentLabel.Text = intent;
+
+        // 游戏结束 → 显示弹窗
+        _combat.OnGameOver += ShowGameOverPopup;
     }
 
     // ===== 刷新方法 =====
@@ -837,6 +927,12 @@ public partial class CombatUI : Control
 
         // 每次刷新时重置为正常模式
         ResetSelection();
+
+        // 游戏结束时禁用操作
+        if (_combat.State.IsGameOver)
+        {
+            _endTurnButton.Disabled = true;
+        }
     }
 
     /// <summary>
@@ -900,6 +996,7 @@ public partial class CombatUI : Control
     /// <param name="isPlayerSide">点击的槽位是否属于玩家方</param>
     private void OnBoardSlotClicked(int slotIndex, bool isPlayerSide)
     {
+        if (_combat.State.IsGameOver) return;
         switch (_selectionMode)
         {
             case SelectionMode.PlacingMinion:
@@ -1041,6 +1138,7 @@ public partial class CombatUI : Control
     /// <param name="card">被选中的卡牌</param>
     private void OnCardSelectedFromHand(Card.Card card)
     {
+        if (_combat.State.IsGameOver) return;
         if (card == null) return;
 
         // 取消之前的攻击选择
@@ -1097,6 +1195,7 @@ public partial class CombatUI : Control
     /// </summary>
     private void OnCardDroppedHandler(CardUI cardUI, Vector2 screenPos)
     {
+        if (_combat.State.IsGameOver) return;
         if (_dragCardUI != cardUI) return;
 
         GD.Print($"[CombatUI] OnCardDropped — 模式 {_selectionMode}, 坐标 ({screenPos.X:F0}, {screenPos.Y:F0})");
@@ -1149,6 +1248,14 @@ public partial class CombatUI : Control
     /// </summary>
     private void HandleSpellDrop(Vector2 screenPos)
     {
+        // 优先检查是否落在敌方英雄面板上
+        if (_enemyHeroSpellButton.Visible && _enemyHeroPanel.GetGlobalRect().HasPoint(screenPos))
+        {
+            GD.Print("[CombatUI] 法术松手位置：敌方英雄");
+            OnEnemyHeroSpellTarget();
+            return;
+        }
+
         var hit = _boardUI.GetSlotAtPosition(screenPos);
         if (hit != null)
         {
@@ -1272,7 +1379,10 @@ public partial class CombatUI : Control
             _boardUI.HighlightSlots(friendlyTargets, isPlayerSide: true, highlight: true);
         }
 
-        GD.Print($"[CombatUI] 法术目标模式——{_selectedCard.CardName}（可用目标：{enemyTargets.Count + friendlyTargets.Count}）");
+        // 高亮敌方英雄作为法术目标
+        _enemyHeroSpellButton.Visible = true;
+
+        GD.Print($"[CombatUI] 法术目标模式——{_selectedCard.CardName}（可用目标：{enemyTargets.Count + friendlyTargets.Count} + 英雄）");
     }
 
     /// <summary>
@@ -1330,6 +1440,7 @@ public partial class CombatUI : Control
     /// </summary>
     private void OnEnemyHeroAttackPressed()
     {
+        if (_combat.State.IsGameOver) return;
         if (_selectedAttacker == null)
         {
             GD.PrintErr("[CombatUI] 无攻击方随从");
@@ -1341,6 +1452,23 @@ public partial class CombatUI : Control
         RefreshAll();
     }
 
+    /// <summary>
+    /// 对敌方英雄施法按钮点击——执行法术对敌方英雄施放。
+    /// </summary>
+    private void OnEnemyHeroSpellTarget()
+    {
+        if (_combat.State.IsGameOver) return;
+        if (_selectedCard == null)
+        {
+            GD.PrintErr("[CombatUI] 无法术牌选中");
+            return;
+        }
+
+        GD.Print($"[CombatUI] 对敌方英雄施放 {_selectedCard.CardName}");
+        _combat.PlaySpell(_selectedCard, _combat.EnemyHero);
+        RefreshAll();
+    }
+
     // ===== 事件处理——回合结束 =====
 
     /// <summary>
@@ -1349,10 +1477,23 @@ public partial class CombatUI : Control
     private void OnEndTurnPressed()
     {
         if (_combat == null) return;
+        if (_combat.State.IsGameOver) return;
 
         GD.Print("[CombatUI] 玩家结束回合");
         _combat.EndPlayerTurn();
         RefreshAll();
+    }
+
+    /// <summary>
+    /// 显示游戏结束弹窗。
+    /// </summary>
+    /// <param name="isVictory">是否胜利</param>
+    private void ShowGameOverPopup(bool isVictory)
+    {
+        if (_gameOverPopup == null) return;
+        _gameOverPopup.Title = isVictory ? "★ 胜利！" : "☠ 失败";
+        _gameOverPopup.PopupCentered();
+        GD.Print($"[CombatUI] 游戏结束 — {(isVictory ? "胜利" : "失败")}");
     }
 
     // ===== 选择状态管理 =====
@@ -1367,6 +1508,7 @@ public partial class CombatUI : Control
         _selectedAttacker = null;
         _boardUI.ClearHighlights();
         _enemyHeroAttackButton.Visible = false;
+        _enemyHeroSpellButton.Visible = false;
         _handUI.DeselectCard();
     }
 }

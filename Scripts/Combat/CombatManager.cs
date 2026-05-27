@@ -1,4 +1,5 @@
 using Godot;
+using OdysseyCards.AI;
 using OdysseyCards.Card;
 using OdysseyCards.Core;
 using OdysseyCards.Character;
@@ -57,6 +58,21 @@ public partial class CombatManager : Node
     /// 玩家角色（Godot Node 引用，用于场景树交互）。
     /// </summary>
     public Player Player { get; private set; }
+
+    /// <summary>
+    /// 当前敌方 AI 遭遇实例。
+    /// </summary>
+    private EnemyEncounter _currentEnemy = null!;
+
+    /// <summary>
+    /// 敌方意图变化事件（参数为意图描述文本）。
+    /// </summary>
+    public event Action<string>? OnEnemyIntentChanged;
+
+    /// <summary>
+    /// 游戏结束事件（参数为 true=胜利, false=失败）。
+    /// </summary>
+    public event Action<bool>? OnGameOver;
 
     // ===== 随从攻击追踪 =====
 
@@ -128,11 +144,13 @@ public partial class CombatManager : Node
         }
         GD.Print($"[CombatManager] 牌堆有 {player.Deck.CardCount} 张牌");
 
-        // 4. 创建敌方英雄（默认 30HP，纯 C# 对象，不加入场景树）
+        // 4. 创建敌方英雄和 AI 遭遇
+        _currentEnemy = new Cultist();
         var enemyCore = new CommanderCore();
-        enemyCore.SetMana(0, 0); // 敌人使用意图系统，无需法力
+        enemyCore.InitializeHealth(_currentEnemy.MaxHealth, _currentEnemy.CurrentHealth);
+        enemyCore.SetMana(0, 0);
         var enemyHero = new Hero(enemyCore);
-        GD.Print($"[CombatManager] 敌方英雄已创建 — {enemyHero.CurrentHealth}/{enemyHero.MaxHealth}");
+        GD.Print($"[CombatManager] 敌方已创建 — {_currentEnemy.Name}，{enemyHero.CurrentHealth}/{enemyHero.MaxHealth}HP");
 
         // 5. 初始化战斗管理器（创建 _playerCore、PlayerHero、Board、GameState）
         Initialize(player, enemyHero);
@@ -145,6 +163,10 @@ public partial class CombatManager : Node
         // 7. 开始战斗
         StartCombat();
         combatUI.RefreshAll(); // StartCombat 中法力变化后刷新 UI
+
+        // 触发初始意图事件
+        OnEnemyIntentChanged?.Invoke(_currentEnemy.GetCurrentIntent().Description);
+
         GD.Print("[CombatManager] BootstrapCombat 完成");
     }
 
@@ -307,8 +329,7 @@ public partial class CombatManager : Node
     private void ResolveBattlecryEffect(CardEffectData effect, Minion source)
     {
         GD.Print($"[CombatManager]     战吼效果：{effect.GetDescription()}（来源：{source.CardName}）");
-        // 未来扩展：根据 EffectType 解析具体战吼逻辑
-        // 例如：DealDamageToTarget 可对指定目标造成伤害
+        ExecuteEffect(effect, source);
     }
 
     // ===== 法术施放 =====
@@ -373,11 +394,12 @@ public partial class CombatManager : Node
     }
 
     /// <summary>
-    /// 解析单个法术效果，根据 EffectType 执行对应逻辑。
+    /// 执行单个卡牌效果，根据 EffectType 分发到对应的处理逻辑。
+    /// 供法术、战吼、亡语等所有效果触发场景共用。
     /// </summary>
     /// <param name="effect">效果数据</param>
-    /// <param name="target">法术目标对象</param>
-    private void ResolveSpellEffect(CardEffectData effect, object target)
+    /// <param name="target">效果目标对象（Minion 或 Hero，可为 null）</param>
+    private void ExecuteEffect(CardEffectData effect, object target)
     {
         switch (effect.EffectType)
         {
@@ -474,6 +496,16 @@ public partial class CombatManager : Node
                 GD.Print($"[CombatManager]   未处理的效果类型：{effect.EffectType}（{effect.GetDescription()}）");
                 break;
         }
+    }
+
+    /// <summary>
+    /// 解析单个法术效果，委托给共享的 ExecuteEffect 执行。
+    /// </summary>
+    /// <param name="effect">效果数据</param>
+    /// <param name="target">法术目标对象</param>
+    private void ResolveSpellEffect(CardEffectData effect, object target)
+    {
+        ExecuteEffect(effect, target);
     }
 
     // ===== 随从攻击 =====
@@ -599,6 +631,7 @@ public partial class CombatManager : Node
         {
             GD.Print("[CombatManager]   ★ 敌方英雄被击败！");
             State.SetVictory();
+            OnGameOver?.Invoke(true);
         }
 
         return true;
@@ -712,8 +745,7 @@ public partial class CombatManager : Node
         foreach (var effect in minion.DeathrattleEffects)
         {
             GD.Print($"[CombatManager]     亡语效果：{effect.GetDescription()}");
-            // 未来扩展：根据 EffectType 解析具体亡语逻辑
-            // 例如：SummonMinion 可召唤新随从
+            ExecuteEffect(effect, minion);
         }
     }
 
@@ -733,6 +765,7 @@ public partial class CombatManager : Node
         {
             GD.Print("[CombatManager] ★★★ 敌方英雄被击败 — 玩家胜利！★★★");
             State.SetVictory();
+            OnGameOver?.Invoke(true);
             return true;
         }
 
@@ -740,6 +773,7 @@ public partial class CombatManager : Node
         {
             GD.Print("[CombatManager] ☠☠☠ 玩家英雄被击败 — 玩家失败 ☠☠☠");
             State.SetDefeat();
+            OnGameOver?.Invoke(false);
             return true;
         }
 
@@ -749,8 +783,7 @@ public partial class CombatManager : Node
     // ===== 回合管理 =====
 
     /// <summary>
-    /// 结束玩家回合。
-    /// 清理攻击状态 → 切换到敌方回合 → 敌方原型无操作直接结束 → 开始新玩家回合。
+    /// 结束玩家回合。清理攻击状态 → 执行敌方 AI 回合 → 开始新玩家回合。
     /// </summary>
     public void EndPlayerTurn()
     {
@@ -766,16 +799,91 @@ public partial class CombatManager : Node
         _canAttackThisTurn.Clear();
         _attackCountThisTurn.Clear();
 
-        // 切换到敌方回合（仅设 Phase，敌人使用意图系统无需法力）
+        // 切换到敌方回合
         State.EndPlayerTurn();
-        GD.Print("[CombatManager] ---------- 敌方回合开始 ----------（原型：无操作）");
+        GD.Print($"[CombatManager] ---------- 敌方回合开始（{_currentEnemy.Name}）----------");
 
-        // 原型：敌方不做任何事（Phase 4 将添加 AI）
-        // 直接开始玩家新回合——法力增长/回满 + 抽 1 张 + 重置攻击状态
+        // 执行敌方回合
+        ExecuteEnemyTurn();
+
+        // 敌方回合结束，切换回玩家回合
+        State.EndEnemyTurn();
+
+        // 开始玩家新回合
         StartPlayerTurn();
 
         // 检查胜负
         CheckVictoryOrDefeat();
+    }
+
+    /// <summary>
+    /// 执行敌方 AI 回合：执行当前意图 → 推进意图轮转 → 敌方随从攻击 → 死亡检查 → 胜负判定。
+    /// </summary>
+    private void ExecuteEnemyTurn()
+    {
+        // 1. 执行敌方当前意图（攻击/防御/召唤等）
+        _currentEnemy.ExecuteIntent(this);
+
+        // 2. 推进到下一意图
+        _currentEnemy.AdvanceIntent();
+        GD.Print($"[CombatManager] 敌方下回合意图：{_currentEnemy.GetCurrentIntent().Description}");
+
+        // 3. 敌方随从攻击
+        EnemyMinionsAttack();
+
+        // 4. 全局死亡检查（意图/攻击可能造成随从死亡）
+        CheckDeaths();
+
+        // 5. 胜负判定
+        CheckVictoryOrDefeat();
+
+        // 6. 通知 UI 更新意图显示
+        OnEnemyIntentChanged?.Invoke(_currentEnemy.GetCurrentIntent().Description);
+    }
+
+    /// <summary>
+    /// 敌方所有随从依次攻击：有嘲讽时攻击嘲讽随从，无嘲讽时攻击玩家英雄。
+    /// </summary>
+    private void EnemyMinionsAttack()
+    {
+        var enemies = Board.GetEnemyMinions().Where(m => !m.IsDead).ToList();
+        if (enemies.Count == 0) return;
+
+        var playerTaunts = Board.GetTaunts(isEnemy: false);
+        bool hasPlayerTaunt = playerTaunts.Count > 0;
+
+        foreach (var attacker in enemies)
+        {
+            if (attacker.IsDead) continue;
+
+            if (hasPlayerTaunt)
+            {
+                // 攻击随机嘲讽随从
+                var tauntTargets = playerTaunts.Where(t => !t.IsDead).ToList();
+                if (tauntTargets.Count == 0) continue;
+                var defender = tauntTargets[new Random().Next(tauntTargets.Count)];
+                GD.Print($"[CombatManager] ⚔ 敌方 {attacker.CardName} 攻击我方嘲讽 {defender.CardName}");
+                defender.TakeDamage(attacker.Attack, attacker);
+                attacker.TakeDamage(defender.Attack, defender);
+
+                if (defender.IsDead)
+                {
+                    Board.RemoveMinion(defender);
+                    TriggerDeathrattle(defender);
+                }
+                if (attacker.IsDead)
+                {
+                    Board.RemoveMinion(attacker);
+                    TriggerDeathrattle(attacker);
+                }
+            }
+            else
+            {
+                // 攻击玩家英雄
+                GD.Print($"[CombatManager] ⚔ 敌方 {attacker.CardName} 攻击玩家英雄，造成 {attacker.Attack} 伤");
+                PlayerHero.TakeDamage(attacker.Attack, attacker);
+            }
+        }
     }
 
     /// <summary>
