@@ -86,6 +86,11 @@ game_call_method(nodePath="/root/DevConsole", method="DevCommand", args=["/damag
 | 命令 | 参数 | 效果 | 用途 |
 |------|------|------|------|
 | `/damage N` | 伤害值 | 对敌方英雄造成 N 点伤害 | 快速验证胜负/游戏结束弹窗 |
+| `/damage_enemy N` | 伤害值 | 对敌方英雄造成 N 点伤害（显式） | 同上 |
+| `/damage_self N` | 伤害值 | 对己方英雄造成 N 点伤害 | 测试失败弹窗 |
+| `/damage_eslot X N` | 槽位0-4, 伤害值 | 对敌方槽位 X 随从造成 N 点伤害 | 验证亡语/随从死亡 |
+| `/damage_pslot X N` | 槽位0-4, 伤害值 | 对己方槽位 X 随从造成 N 点伤害 | 测试己方亡语 |
+| `/damage_all N` | 伤害值 | 对所有敌方随从造成 N 点伤害 | AOE 测试 |
 | `/draw N` | 数量 | 抽 N 张牌 | 补手牌，搜索特定卡牌 |
 | `/mana N` | 数量 | 获得 N 点法力 | 解除费用限制测试高费操作 |
 | `/heal N` | 数量 | 恢复 N 点生命值 | 恢复玩家血量 |
