@@ -719,18 +719,18 @@ public partial class CardUI : Control
 		if (IsSelected) return; // 选中状态下不响应悬停
 
 		_hovering = true;
-		float s = UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
 
 		KillHoverTween();
 
+		// 仅缩放，不移动。移动会改变卡牌与鼠标的相对位置，
+		// 导致 mouse_exited 和 mouse_entered 交替触发，产生闪烁。
 		_hoverTween = CreateTween().SetParallel(true);
 		_hoverTween.TweenProperty(this, "scale", new Vector2(1.05f, 1.05f), 0.15f);
-		_hoverTween.TweenProperty(this, "offset_top", -HOVER_LIFT * s, 0.15f);
 		ZIndex = 1;
 	}
 
 	/// <summary>
-	/// 鼠标离开卡牌区域：恢复原始大小、位置和层级。
+	/// 鼠标离开卡牌区域：恢复原始大小和层级。
 	/// </summary>
 	private void OnMouseExitedHandler()
 	{
@@ -742,7 +742,6 @@ public partial class CardUI : Control
 
 		_hoverTween = CreateTween().SetParallel(true);
 		_hoverTween.TweenProperty(this, "scale", Vector2.One, 0.15f);
-		_hoverTween.TweenProperty(this, "offset_top", 0, 0.15f);
 		ZIndex = 0;
 	}
 

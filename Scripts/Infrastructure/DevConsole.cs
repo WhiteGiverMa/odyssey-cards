@@ -1,6 +1,7 @@
 using Godot;
 using OdysseyCards.Combat;
 using System;
+using System.Linq;
 
 namespace OdysseyCards.Infrastructure;
 
@@ -160,11 +161,10 @@ public partial class DevConsole : Node
         if (parts.Length == 0) return;
 
         var action = parts[0].ToLowerInvariant();
-        int arg = parts.Length >= 2 && int.TryParse(parts[1], out var v) ? v : 1;
 
         try
         {
-            Execute(action, arg);
+            Execute(action, parts);
         }
         catch (Exception e)
         {
@@ -175,7 +175,7 @@ public partial class DevConsole : Node
     /// <summary>
     /// 根据 action 执行对应的游戏操作。
     /// </summary>
-    private void Execute(string action, int arg)
+    private void Execute(string action, string[] parts)
     {
         var cm = CombatManager.Instance;
         if (cm == null && action != "help" && action != "clear")
@@ -184,42 +184,107 @@ public partial class DevConsole : Node
             return;
         }
 
+        int Arg(int i = 1) => parts.Length > i && int.TryParse(parts[i], out var v) ? v : 1;
+
         switch (action)
         {
             // ===== 伤害 =====
             case "damage":
             case "dmg":
-                cm!.EnemyHero.TakeDamage(arg, null);
-                WriteLine($"[color=#ff6644]对敌方英雄造成 {arg} 点伤害（剩余 {cm.EnemyHero.CurrentHealth}）[/color]");
-                cm.CheckVictoryOrDefeat(); // ← 注意：CheckVictoryOrDefeat 是 private，需要改为 internal
+                cm!.EnemyHero.TakeDamage(Arg(), null);
+                WriteLine($"[color=#ff6644]对敌方英雄造成 {Arg()} 点伤害（剩余 {cm.EnemyHero.CurrentHealth}）[/color]");
+                cm.CheckVictoryOrDefeat();
+                break;
+
+            // ===== 伤害敌方随从 =====
+            case "damage_eslot":
+            case "des":
+                if (parts.Length < 3)
+                { WriteLine("[color=#ffaa44]用法: /damage_eslot <槽位0-4> <伤害值>[/color]"); break; }
+                if (!int.TryParse(parts[1], out var eslot) || eslot < 0 || eslot > 4)
+                { WriteLine("[color=#ffaa44]槽位需为 0-4[/color]"); break; }
+                int edmg = int.Parse(parts[2]);
+                var em = cm!.Board.GetMinionAt(eslot, isPlayerSide: false);
+                if (em == null || em.IsDead)
+                { WriteLine($"[color=#ffaa44]敌方槽位 {eslot} 无有效随从[/color]"); break; }
+                em.TakeDamage(edmg, null);
+                WriteLine($"[color=#ff6644]对敌方槽位{eslot} {em.CardName} 造成 {edmg} 点伤害（剩余 {em.CurrentHealth}）[/color]");
+                if (em.IsDead) { cm.Board.RemoveMinion(em); cm.TriggerDeathrattle(em); }
+                cm.CheckDeaths();
+                cm.CheckVictoryOrDefeat();
+                break;
+
+            // ===== 伤害己方随从 =====
+            case "damage_pslot":
+            case "dps":
+                if (parts.Length < 3)
+                { WriteLine("[color=#ffaa44]用法: /damage_pslot <槽位0-4> <伤害值>[/color]"); break; }
+                if (!int.TryParse(parts[1], out var pslot) || pslot < 0 || pslot > 4)
+                { WriteLine("[color=#ffaa44]槽位需为 0-4[/color]"); break; }
+                int pdmg = int.Parse(parts[2]);
+                var pm = cm!.Board.GetMinionAt(pslot, isPlayerSide: true);
+                if (pm == null || pm.IsDead)
+                { WriteLine($"[color=#ffaa44]己方槽位 {pslot} 无有效随从[/color]"); break; }
+                pm.TakeDamage(pdmg, null);
+                WriteLine($"[color=#ff6644]对己方槽位{pslot} {pm.CardName} 造成 {pdmg} 点伤害（剩余 {pm.CurrentHealth}）[/color]");
+                if (pm.IsDead) { cm.Board.RemoveMinion(pm); cm.TriggerDeathrattle(pm); }
+                cm.CheckDeaths();
+                cm.CheckVictoryOrDefeat();
+                break;
+
+            // ===== 伤害己方英雄 =====
+            case "damage_self":
+            case "dself":
+                cm!.PlayerHero.TakeDamage(Arg(), null);
+                WriteLine($"[color=#ff6644]对己方英雄造成 {Arg()} 点伤害（剩余 {cm.PlayerHero.CurrentHealth}）[/color]");
+                cm.CheckVictoryOrDefeat();
+                break;
+
+            // ===== 伤害敌方英雄（显式） =====
+            case "damage_enemy":
+            case "denemy":
+                cm!.EnemyHero.TakeDamage(Arg(), null);
+                WriteLine($"[color=#ff6644]对敌方英雄造成 {Arg()} 点伤害（剩余 {cm.EnemyHero.CurrentHealth}）[/color]");
+                cm.CheckVictoryOrDefeat();
+                break;
+
+            // ===== 伤害全部敌方随从 =====
+            case "damage_all":
+            case "dall":
+                var enemies = cm!.Board.GetEnemyMinions().Where(m => !m.IsDead).ToList();
+                foreach (var e in enemies) { e.TakeDamage(Arg(), null);
+                    if (e.IsDead) { cm.Board.RemoveMinion(e); cm.TriggerDeathrattle(e); } }
+                WriteLine($"[color=#ff6644]对所有敌方随从造成 {Arg()} 点伤害（命中 {enemies.Count} 个目标）[/color]");
+                cm.CheckDeaths();
+                cm.CheckVictoryOrDefeat();
                 break;
 
             // ===== 抽牌 =====
             case "draw":
             case "d":
-                cm!.PlayerHero.DrawCards(arg);
-                WriteLine($"[color=#44aaff]抽 {arg} 张牌（手牌 {cm.PlayerHero.Hand.Count}）[/color]");
+                cm!.PlayerHero.DrawCards(Arg());
+                WriteLine($"[color=#44aaff]抽 {Arg()} 张牌（手牌 {cm.PlayerHero.Hand.Count}）[/color]");
                 break;
 
             // ===== 法力 =====
             case "mana":
             case "m":
-                cm!.PlayerHero.GainMana(arg);
-                WriteLine($"[color=#44ddff]获得 {arg} 点法力（当前 {cm.PlayerHero.CurrentMana}）[/color]");
+                cm!.PlayerHero.GainMana(Arg());
+                WriteLine($"[color=#44ddff]获得 {Arg()} 点法力（当前 {cm.PlayerHero.CurrentMana}）[/color]");
                 break;
 
             // ===== 治疗 =====
             case "heal":
             case "h":
-                cm!.PlayerHero.Heal(arg);
-                WriteLine($"[color=#44ff44]恢复 {arg} 点生命值（当前 {cm.PlayerHero.CurrentHealth}）[/color]");
+                cm!.PlayerHero.Heal(Arg());
+                WriteLine($"[color=#44ff44]恢复 {Arg()} 点生命值（当前 {cm.PlayerHero.CurrentHealth}）[/color]");
                 break;
 
             // ===== 护甲 =====
             case "armor":
             case "a":
-                cm!.PlayerHero.GainArmor(arg);
-                WriteLine($"[color=#aaaaff]获得 {arg} 点护甲（当前 {cm.PlayerHero.CurrentArmor}）[/color]");
+                cm!.PlayerHero.GainArmor(Arg());
+                WriteLine($"[color=#aaaaff]获得 {Arg()} 点护甲（当前 {cm.PlayerHero.CurrentArmor}）[/color]");
                 break;
 
             // ===== 强制结束回合 =====
@@ -246,15 +311,20 @@ public partial class DevConsole : Node
             case "help":
             case "?":
                 WriteLine("[color=#66ff66]=== 开发者命令 ===");
-                WriteLine("  /damage N  — 对敌方英雄造成 N 点伤害");
-                WriteLine("  /draw N    — 抽 N 张牌");
-                WriteLine("  /mana N    — 获得 N 点法力");
-                WriteLine("  /heal N    — 恢复 N 点生命值");
-                WriteLine("  /armor N   — 获得 N 点护甲");
-                WriteLine("  /end       — 强制结束回合");
-                WriteLine("  /refresh   — 刷新 UI");
-                WriteLine("  /clear     — 清空输出");
-                WriteLine("  /help      — 显示帮助[/color]");
+                WriteLine("  /damage N       — 对敌方英雄造成 N 点伤害");
+                WriteLine("  /damage_enemy N — 同上（显式）");
+                WriteLine("  /damage_self N  — 对己方英雄造成 N 点伤害");
+                WriteLine("  /damage_eslot X N — 对敌方槽位 X(0-4) 随从造成 N 点伤害");
+                WriteLine("  /damage_pslot X N — 对己方槽位 X(0-4) 随从造成 N 点伤害");
+                WriteLine("  /damage_all N   — 对所有敌方随从造成 N 点伤害");
+                WriteLine("  /draw N         — 抽 N 张牌");
+                WriteLine("  /mana N         — 获得 N 点法力");
+                WriteLine("  /heal N         — 恢复 N 点生命值");
+                WriteLine("  /armor N        — 获得 N 点护甲");
+                WriteLine("  /end            — 强制结束回合");
+                WriteLine("  /refresh        — 刷新 UI");
+                WriteLine("  /clear          — 清空输出");
+                WriteLine("  /help           — 显示帮助[/color]");
                 break;
 
             // ===== 清空输出 =====

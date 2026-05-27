@@ -711,7 +711,7 @@ public partial class CombatManager : Node
     /// 遍历战场双方所有随从，移除已死亡随从并触发亡语效果。
     /// 先收集再处理以避免迭代中修改集合。
     /// </summary>
-    private void CheckDeaths()
+    internal void CheckDeaths()
     {
         var deadMinions = Board.GetPlayerMinions()
             .Where(m => m.IsDead)
@@ -736,7 +736,7 @@ public partial class CombatManager : Node
     /// 原型阶段仅输出日志；后续可扩展为完整效果解析。
     /// </summary>
     /// <param name="minion">已死亡的随从</param>
-    private void TriggerDeathrattle(Minion minion)
+    internal void TriggerDeathrattle(Minion minion)
     {
         if (!minion.HasDeathrattle)
             return;
