@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://cminionslime"]
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://cminionslime"]
 
 [ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
 
