@@ -962,10 +962,15 @@ public partial class CombatUI : Control
             return;
         }
 
+        GD.Print($"[CombatUI] 尝试放置随从 {_selectedCard.CardName}（{_selectedCard.Cost}费）到槽位 {slotIndex}");
         bool success = _combat.PlayMinion(_selectedCard, slotIndex);
         if (success)
         {
-            GD.Print($"[CombatUI] 随从 {_selectedCard.CardName} 已放置到槽位 {slotIndex}");
+            GD.Print($"[CombatUI] ✓ 随从 {_selectedCard.CardName} 已放置到槽位 {slotIndex}");
+        }
+        else
+        {
+            GD.Print($"[CombatUI] ✗ PlayMinion 失败 — 查看上方 [CombatManager] 错误日志");
         }
 
         RefreshAll();
@@ -1049,6 +1054,9 @@ public partial class CombatUI : Control
             _dragLayer.AddChild(cardUI);
             _dragCardUI = cardUI;
 
+            // 从 HandUI 内部列表脱钩，防止 RefreshHand 误销毁拖拽中的卡片
+            _handUI.DetachCardFromList(cardUI);
+
             // 订阅拖拽松手事件——用于拖拽→松手打出 / 松手取消
             cardUI.OnCardDropped += OnCardDroppedHandler;
         }
@@ -1091,6 +1099,8 @@ public partial class CombatUI : Control
     {
         if (_dragCardUI != cardUI) return;
 
+        GD.Print($"[CombatUI] OnCardDropped — 模式 {_selectionMode}, 坐标 ({screenPos.X:F0}, {screenPos.Y:F0})");
+
         switch (_selectionMode)
         {
             case SelectionMode.PlacingMinion:
@@ -1118,14 +1128,18 @@ public partial class CombatUI : Control
     /// </summary>
     private void HandleMinionDrop(Vector2 screenPos)
     {
+        GD.Print($"[CombatUI] 拖拽松手 — 坐标 ({screenPos.X:F0}, {screenPos.Y:F0})");
         var hit = _boardUI.GetSlotAtPosition(screenPos);
         if (hit != null && hit.Value.isPlayerSide)
         {
+            GD.Print($"[CombatUI] 命中己方槽位 {hit.Value.slotIndex}，执行放置");
             HandleMinionPlacement(hit.Value.slotIndex, hit.Value.isPlayerSide);
         }
         else
         {
-            GD.Print("[CombatUI] 随从松手位置无效，取消拖拽");
+            GD.Print(hit != null
+                ? $"[CombatUI] 命中敌方槽位 {hit.Value.slotIndex}，但随从只能放在己方"
+                : "[CombatUI] 未命中任何槽位，取消拖拽");
             OnCardDragCancelled();
         }
     }
@@ -1186,6 +1200,7 @@ public partial class CombatUI : Control
         if (_dragCardUI != null)
         {
             _dragCardUI.OnCardDropped -= OnCardDroppedHandler;
+            _dragCardUI.CancelDragSilent(); // 退出拖拽状态，防止 _Process 残留
             _dragCardUI.QueueFree();
             _dragCardUI = null;
         }
