@@ -34,8 +34,9 @@ public partial class MainMenu : Control
         GD.Print("[MainMenu] OnStartPressed called");
         GD.Print($"[MainMenu] GameManager.Instance is null: {GameManager.Instance == null}");
 
-        GameManager.Instance?.CreateNewPlayer();
-        GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
+        // 开始新的冒险运行（创建玩家 + 初始化 RunState + 生成位面）
+        GameManager.Instance?.StartNewRun();
+        GetTree().ChangeSceneToFile("res://Scenes/Map.tscn");
     }
 
     private void OnSettingsPressed()

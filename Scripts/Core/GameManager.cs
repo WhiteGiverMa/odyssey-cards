@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using OdysseyCards.Character;
 using OdysseyCards.Localization;
+using OdysseyCards.Roguelike;
 
 namespace OdysseyCards.Core;
 
@@ -44,6 +45,12 @@ public partial class GameManager : Node
     /// 牌堆变化事件。
     /// </summary>
     public event Action OnDeckChanged;
+
+    /// <summary>
+    /// 当前游戏运行状态（一次冒险的完整生命周期）。
+    /// 跨战斗持久化，由 StartNewRun 创建，Boss 击败或玩家死亡时结束。
+    /// </summary>
+    public GameRunState? RunState { get; private set; }
 
     public override void _Ready()
     {
@@ -158,8 +165,28 @@ public partial class GameManager : Node
     }
 
     /// <summary>
-    /// 重置整局游戏。
+    /// 开始一次新的冒险运行。
+    /// 创建玩家角色、初始化 RunState 和第一位面。
     /// </summary>
+    public void StartNewRun()
+    {
+        GD.Print("[GameManager] 开始新冒险！");
+
+        CreateNewPlayer();
+        PlayerHealth = 30;
+        PlayerMaxHealth = 30;
+
+        RunState = new GameRunState();
+        RunState.OnRunCompleted += () => GD.Print("[GameManager] 冒险完成！");
+        RunState.OnRunFailed += () => GD.Print("[GameManager] 冒险失败！");
+        RunState.StartNewRun();
+
+        GD.Print($"[GameManager] 冒险已初始化 — {RunState.CurrentPlane?.PlaneName}，" +
+                  $"{RunState.TotalLayers} 层，首层 {RunState.CurrentChoiceCount} 个可选房间");
+    }
+
+    /// <summary>
+    /// 重置整局游戏。</summary>
     public void ResetRun()
     {
         PlayerHealth = 30;
