@@ -3,6 +3,7 @@ using OdysseyCards.AI;
 using OdysseyCards.Card;
 using OdysseyCards.Core;
 using OdysseyCards.Character;
+using OdysseyCards.Roguelike;
 using OdysseyCards.UI;
 using System;
 using System.Collections.Generic;
@@ -89,6 +90,13 @@ public partial class CombatManager : Node
     /// </summary>
     private readonly HashSet<Minion> _canAttackThisTurn = new();
 
+    /// <summary>
+    /// 本回合内可以攻击的敌方随从集合。
+    /// 敌方意图/召唤产生的随从默认不能立即攻击——只有回合开始时已存在的随从可以攻击。
+    /// 在 <see cref="ExecuteEnemyTurn"/> 开始时快照，在 <see cref="EnemyMinionsAttack"/> 中使用。
+    /// </summary>
+    private readonly HashSet<Minion> _enemyMinionsCanAttack = new();
+
     // ===== Godot 生命周期 =====
 
     /// <summary>
@@ -144,8 +152,21 @@ public partial class CombatManager : Node
         }
         GD.Print($"[CombatManager] 牌堆有 {player.Deck.CardCount} 张牌");
 
-        // 4. 创建敌方英雄和 AI 遭遇
-        _currentEnemy = new Cultist();
+        // 4. 创建敌方英雄和 AI 遭遇（从 GameRunState 读取遭遇类型）
+        var runState = gm.RunState;
+        if (runState != null && runState.SelectedRoom != null &&
+            runState.SelectedRoom.Type is RoomType.Monster or RoomType.Elite or RoomType.Boss)
+        {
+            _currentEnemy = runState.CreateEncounter();
+            GD.Print($"[CombatManager] 从 RunState 读取敌人 — {_currentEnemy.Name}（{runState.SelectedRoom.Type}）");
+        }
+        else
+        {
+            // 回退：如果没有运行状态（例如直接从 Combat.tscn 启动），使用默认邪教徒
+            _currentEnemy = new Cultist();
+            GD.Print($"[CombatManager] 回退使用默认敌人 — {_currentEnemy.Name}");
+        }
+
         var enemyCore = new CommanderCore();
         enemyCore.InitializeHealth(_currentEnemy.MaxHealth, _currentEnemy.CurrentHealth);
         enemyCore.SetMana(0, 0);
@@ -764,6 +785,15 @@ public partial class CombatManager : Node
         if (EnemyHero.IsDead)
         {
             GD.Print("[CombatManager] ★★★ 敌方英雄被击败 — 玩家胜利！★★★");
+
+            // 跨战斗保存玩家生命值（持久化到 GameManager）
+            var gm = GameManager.Instance;
+            if (gm != null)
+            {
+                gm.SavePlayerHealth(PlayerHero.CurrentHealth, PlayerHero.MaxHealth);
+                GD.Print($"[CombatManager] 已保存玩家生命值：{PlayerHero.CurrentHealth}/{PlayerHero.MaxHealth}");
+            }
+
             State.SetVictory();
             OnGameOver?.Invoke(true);
             return true;
@@ -772,6 +802,11 @@ public partial class CombatManager : Node
         if (PlayerHero.IsDead)
         {
             GD.Print("[CombatManager] ☠☠☠ 玩家英雄被击败 — 玩家失败 ☠☠☠");
+
+            // 标记运行失败
+            var gm = GameManager.Instance;
+            gm?.RunState?.FailRun();
+
             State.SetDefeat();
             OnGameOver?.Invoke(false);
             return true;
@@ -821,6 +856,13 @@ public partial class CombatManager : Node
     /// </summary>
     private void ExecuteEnemyTurn()
     {
+        // 0. 快照本回合开始时已存在的敌方随从——只有它们可以攻击
+        _enemyMinionsCanAttack.Clear();
+        foreach (var m in Board.GetEnemyMinions())
+        {
+            if (!m.IsDead) _enemyMinionsCanAttack.Add(m);
+        }
+
         // 1. 执行敌方当前意图（攻击/防御/召唤等）
         _currentEnemy.ExecuteIntent(this);
 
@@ -846,7 +888,10 @@ public partial class CombatManager : Node
     /// </summary>
     private void EnemyMinionsAttack()
     {
-        var enemies = Board.GetEnemyMinions().Where(m => !m.IsDead).ToList();
+        // 回合开始时已存在的随从可以攻击，有冲锋的新召唤随从也可以
+        var enemies = Board.GetEnemyMinions()
+            .Where(m => !m.IsDead && (_enemyMinionsCanAttack.Contains(m) || m.HasCharge))
+            .ToList();
         if (enemies.Count == 0) return;
 
         var playerTaunts = Board.GetTaunts(isEnemy: false);

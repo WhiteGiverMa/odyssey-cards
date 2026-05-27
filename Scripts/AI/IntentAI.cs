@@ -43,17 +43,40 @@ public struct EnemyIntent
     /// <summary>意图描述文本，供 UI 展示。</summary>
     public string Description;
 
+    // ===== 召唤意图的额外信息（供 UI 提前预览召唤物属性） =====
+
+    /// <summary>召唤物名称（仅 Summon 意图时有效）。</summary>
+    public string SummonMinionName;
+
+    /// <summary>召唤物攻击力。</summary>
+    public int SummonMinionAttack;
+
+    /// <summary>召唤物生命值。</summary>
+    public int SummonMinionHealth;
+
+    /// <summary>召唤物是否具有冲锋（入场即可攻击）。</summary>
+    public bool SummonMinionHasCharge;
+
     /// <summary>
     /// 创建敌人意图实例。
     /// </summary>
     /// <param name="type">意图类型</param>
     /// <param name="value">意图数值</param>
     /// <param name="description">意图描述文本</param>
-    public EnemyIntent(IntentType type, int value, string description)
+    /// <param name="summonName">召唤物名称（仅 Summon 意图）</param>
+    /// <param name="summonAttack">召唤物攻击力</param>
+    /// <param name="summonHealth">召唤物生命值</param>
+    /// <param name="summonHasCharge">召唤物是否有冲锋</param>
+    public EnemyIntent(IntentType type, int value, string description,
+        string summonName = "", int summonAttack = 0, int summonHealth = 0, bool summonHasCharge = false)
     {
         Type = type;
         Value = value;
         Description = description;
+        SummonMinionName = summonName;
+        SummonMinionAttack = summonAttack;
+        SummonMinionHealth = summonHealth;
+        SummonMinionHasCharge = summonHasCharge;
     }
 }
 
@@ -210,7 +233,8 @@ public class SlimeBoss : EnemyEncounter
         : base("史莱姆首领", 40, new EnemyIntent[]
         {
             new(IntentType.Attack, 8, "造成 8 点伤害"),
-            new(IntentType.Summon, 1, "召唤一只软泥怪"),
+            new(IntentType.Summon, 1, "召唤 软泥怪 (1/1 冲锋)",
+                summonName: "软泥怪", summonAttack: 1, summonHealth: 1, summonHasCharge: true),
             new(IntentType.Defend, 4, "获得 4 点护甲")
         })
     {
@@ -259,7 +283,8 @@ public class SlimeBoss : EnemyEncounter
             Cost = 0,
             Type = CardType.Minion,
             Attack = 1,
-            Health = 1
+            Health = 1,
+            Keywords = new Godot.Collections.Array<Keyword> { Keyword.Charge }
         };
 
         var slime = new Minion(slimeData, isPlayerSide: false);
@@ -299,6 +324,46 @@ public class WolfRider : EnemyEncounter
         {
             case IntentType.Attack:
                 combat.PlayerHero.TakeDamage(intent.Value, null);
+                break;
+        }
+    }
+}
+
+/// <summary>
+/// 守护者 — 第一位面 Boss。
+/// 意图模式：攻击(12) → 防御(8) → 攻击(12) → 循环。
+/// 生命值 60，高伤害高耐久，考验玩家的资源管理和爆发能力。
+/// </summary>
+public class GuardianBoss : EnemyEncounter
+{
+    /// <summary>
+    /// 创建守护者 Boss 遭遇实例。
+    /// </summary>
+    public GuardianBoss()
+        : base("守护者", 60, new EnemyIntent[]
+        {
+            new(IntentType.Attack, 12, "造成 12 点伤害"),
+            new(IntentType.Defend, 8, "获得 8 点护甲"),
+            new(IntentType.Attack, 12, "造成 12 点伤害")
+        })
+    {
+    }
+
+    /// <inheritdoc />
+    public override void ExecuteIntent(CombatManager combat)
+    {
+        var intent = GetCurrentIntent();
+
+        GD.Print($"[GuardianBoss] 执行意图：{intent.Description}");
+
+        switch (intent.Type)
+        {
+            case IntentType.Attack:
+                combat.PlayerHero.TakeDamage(intent.Value, null);
+                break;
+
+            case IntentType.Defend:
+                combat.EnemyHero.GainArmor(intent.Value);
                 break;
         }
     }
