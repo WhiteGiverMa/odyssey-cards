@@ -107,6 +107,11 @@ public partial class CombatUI : Control
     private AcceptDialog? _gameOverPopup;
 
     /// <summary>
+    /// 当前战斗结果是否为胜利（用于游戏结束弹窗的路由）。
+    /// </summary>
+    private bool _isVictory;
+
+    /// <summary>
     /// 拖拽层——卡牌拖拽时重parent到此，使其脱离 HandUI 的 HBoxContainer 布局约束。
     /// </summary>
     private Control _dragLayer = null!;
@@ -644,10 +649,8 @@ public partial class CombatUI : Control
             Visible = false,
             Size = new Vector2I(320, 180),
         };
-        _gameOverPopup.Confirmed += () =>
-        {
-            GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
-        };
+        // 终身单次连接，通过 _isVictory flag 区分胜利/失败路由
+        _gameOverPopup.Confirmed += OnGameOverConfirmed;
         AddChild(_gameOverPopup);
     }
 
@@ -1528,14 +1531,48 @@ public partial class CombatUI : Control
 
     /// <summary>
     /// 显示游戏结束弹窗。
+    /// 胜利：跳转至路线选择地图；失败：返回主菜单。
     /// </summary>
     /// <param name="isVictory">是否胜利</param>
     private void ShowGameOverPopup(bool isVictory)
     {
         if (_gameOverPopup == null) return;
-        _gameOverPopup.Title = isVictory ? "★ 胜利！" : "☠ 失败";
+
+        _isVictory = isVictory;
+
+        if (isVictory)
+        {
+            _gameOverPopup.Title = "★ 胜利！";
+            _gameOverPopup.OkButtonText = "继续冒险";
+        }
+        else
+        {
+            _gameOverPopup.Title = "☠ 失败";
+            _gameOverPopup.OkButtonText = "返回主菜单";
+        }
+
         _gameOverPopup.PopupCentered();
         GD.Print($"[CombatUI] 游戏结束 — {(isVictory ? "胜利" : "失败")}");
+    }
+
+    /// <summary>
+    /// 游戏结束弹窗确认回调。根据 <see cref="_isVictory"/> 决定跳转目标。
+    /// 胜利：完成房间 → 路线选择地图；失败：返回主菜单。
+    /// </summary>
+    private void OnGameOverConfirmed()
+    {
+        if (_isVictory)
+        {
+            GD.Print("[CombatUI] 继续冒险 → 路线选择地图");
+            var gm = GameManager.Instance;
+            gm?.RunState?.CompleteRoom();
+            GetTree().ChangeSceneToFile("res://Scenes/Map.tscn");
+        }
+        else
+        {
+            GD.Print("[CombatUI] 返回主菜单");
+            GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
+        }
     }
 
     // ===== 开发者伤害模式 =====
