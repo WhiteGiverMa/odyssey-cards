@@ -43,6 +43,11 @@ public partial class BoardUI : Control
     private static readonly Color _textDim = new(0.5f, 0.5f, 0.5f);
     private static readonly Color _textBright = new(0.9f, 0.9f, 0.9f);
 
+    // 费用/行动花费颜色（与 CardUI 一致）
+    private static readonly Color _costBlue = new("#4488cc");
+    private static readonly Color _actionCostRed = new("#cc3333");
+    private static readonly Color _costTextWhite = new("#f0f0e8");
+
     // ===== 公开事件 =====
 
     /// <summary>
@@ -282,6 +287,11 @@ public partial class BoardUI : Control
         private readonly ColorRect _borderRect;
         private readonly Label _indexLabel;
         private readonly Label _contentLabel;
+        // 左上角费用+行动花费显示
+        private readonly ColorRect _costBg;
+        private readonly Label _costLabel;
+        private readonly ColorRect _actionCostBg;
+        private readonly Label _actionCostLabel;
         private bool _isHovered;
 
         // ===== 构造函数 =====
@@ -321,15 +331,62 @@ public partial class BoardUI : Control
             };
             AddChild(_background);
 
-            // 槽位索引标签（左上角小字）
+            // 槽位索引标签（左上角小字，费用右侧）
             _indexLabel = new Label
             {
                 Text = $"[{slotIndex + 1}]",
-                Position = new Vector2(6, 4)
+                Position = new Vector2(22, 4)
             };
             _indexLabel.AddThemeColorOverride("font_color", _textDim);
             _indexLabel.AddThemeFontSizeOverride("font_size", 11);
             AddChild(_indexLabel);
+
+            // 费用+行动花费组合显示（左上角）
+            _costBg = new ColorRect
+            {
+                Color = _costBlue,
+                Size = new Vector2(16, 16),
+                Position = new Vector2(3, 2),
+                Visible = false,
+            };
+            _costBg.MouseFilter = MouseFilterEnum.Ignore;
+            AddChild(_costBg);
+
+            _costLabel = new Label
+            {
+                Size = new Vector2(16, 16),
+                Position = new Vector2(3, 2),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Visible = false,
+            };
+            _costLabel.AddThemeColorOverride("font_color", _costTextWhite);
+            _costLabel.AddThemeFontSizeOverride("font_size", 10);
+            _costLabel.MouseFilter = MouseFilterEnum.Ignore;
+            AddChild(_costLabel);
+
+            _actionCostBg = new ColorRect
+            {
+                Color = _actionCostRed,
+                Size = new Vector2(9, 9),
+                Position = new Vector2(12, 10),
+                Visible = false,
+            };
+            _actionCostBg.MouseFilter = MouseFilterEnum.Ignore;
+            AddChild(_actionCostBg);
+
+            _actionCostLabel = new Label
+            {
+                Size = new Vector2(9, 9),
+                Position = new Vector2(12, 10),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Visible = false,
+            };
+            _actionCostLabel.AddThemeColorOverride("font_color", _costTextWhite);
+            _actionCostLabel.AddThemeFontSizeOverride("font_size", 7);
+            _actionCostLabel.MouseFilter = MouseFilterEnum.Ignore;
+            AddChild(_actionCostLabel);
 
             // 主要内容标签（居中）
             _contentLabel = new Label
@@ -373,8 +430,20 @@ public partial class BoardUI : Control
                 _contentLabel.AddThemeColorOverride("font_color", _textDim);
                 _contentLabel.AddThemeFontSizeOverride("font_size", 13);
                 _background.Color = _bgNormal;
+                _costBg.Visible = false;
+                _costLabel.Visible = false;
+                _actionCostBg.Visible = false;
+                _actionCostLabel.Visible = false;
                 return;
             }
+
+            // 左上角费用+行动花费
+            _costLabel.Text = minion.Cost.ToString();
+            _costBg.Visible = true;
+            _costLabel.Visible = true;
+            _actionCostLabel.Text = minion.ActionCost.ToString();
+            _actionCostBg.Visible = true;
+            _actionCostLabel.Visible = true;
 
             // 随从名称与战斗属性
             string display = $"{minion.CardName}\n{minion.Attack}/{minion.CurrentHealth}";
