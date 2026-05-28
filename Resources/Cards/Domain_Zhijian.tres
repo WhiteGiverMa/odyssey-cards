@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+Value = 1
+TargetType = "blade_sharp"
+
+[resource]
+script = ExtResource("1_data")
+Id = "domain_zhijian"
+DomainId = "zhijian"
+CardName = "执锐"
+Description = "友方随从部署时攻击力+1"
+Rarity = 0
+Cost = 2
+Type = 2
+Effects = [SubResource("SubResource_1")]

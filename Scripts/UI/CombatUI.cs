@@ -1204,6 +1204,20 @@ public partial class CombatUI : Control
                 EnterSpellTargetMode(card);
                 break;
 
+            case CardType.Domain:
+                // 领域牌不需要选择目标，直接打出
+                bool success = _combat.PlayDomain(card);
+                if (success)
+                {
+                    RefreshAll();
+                }
+                else
+                {
+                    // 打出失败（如法力不足），取消拖拽返回手牌
+                    OnCardDragCancelled();
+                }
+                break;
+
             default:
                 GD.Print($"[CombatUI] 未知卡牌类型：{card.Type}");
                 break;

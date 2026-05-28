@@ -27,6 +27,12 @@ public partial class CardData : Resource, ICardData, ILocalizable
     /// </summary>
     [Export] public int Cost { get; set; } = 1;
 
+    /// <summary>
+    /// 领域标识（仅领域牌有效）。
+    /// 同名领域叠加层数，不同领域独立存在。
+    /// </summary>
+    [Export] public string DomainId { get; set; } = "";
+
     // ===== 随从专属字段 =====
 
     /// <summary>

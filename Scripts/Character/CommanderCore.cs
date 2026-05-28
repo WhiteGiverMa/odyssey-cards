@@ -199,6 +199,14 @@ public class CommanderCore
         CombatDeckState.DiscardHand();
     }
 
+    /// <summary>
+    /// 将卡牌插入抽牌堆随机位置。
+    /// </summary>
+    public void InsertCardToDrawPile(OdysseyCards.Card.Card card)
+    {
+        CombatDeckState.InsertCardToDrawPile(card);
+    }
+
     // ===== 回合管理 =====
 
     /// <summary>

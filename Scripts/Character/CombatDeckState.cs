@@ -108,6 +108,22 @@ public class CombatDeckState
         OnDrawPileChanged?.Invoke();
     }
 
+    /// <summary>
+    /// 将一张卡牌插入抽牌堆的随机位置。
+    /// 用于领域效果等外部来源向牌库添加卡牌。
+    /// </summary>
+    /// <param name="card">要插入的卡牌实例</param>
+    public void InsertCardToDrawPile(OdysseyCards.Card.Card card)
+    {
+        var random = new RandomNumberGenerator();
+        random.Randomize();
+        int insertIndex = random.RandiRange(0, DrawPile.Count);
+        DrawPile.Insert(insertIndex, card);
+
+        GD.Print($"[CombatDeckState] 将「{card.CardName}」插入抽牌堆位置 {insertIndex}（共 {DrawPile.Count} 张）");
+        OnDrawPileChanged?.Invoke();
+    }
+
     public void DiscardHand()
     {
         while (Hand.Count > 0)

@@ -641,6 +641,12 @@ public partial class CardUI : Control
 		_attackLabel.Visible = false;
 		_healthLabel.Visible = false;
 		_spellTypeLabel.Visible = true;
+		_spellTypeLabel.Text = card.Type switch
+		{
+			CardType.Spell => "法术",
+			CardType.Domain => "领域",
+			_ => "法术"
+		};
 	}
 
 	// ============================================================

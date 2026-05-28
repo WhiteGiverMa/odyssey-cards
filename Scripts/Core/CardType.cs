@@ -13,7 +13,13 @@ public enum CardType
     /// <summary>
     /// 法术牌：使用时立即生效。
     /// </summary>
-    Spell
+    Spell,
+
+    /// <summary>
+    /// 领域牌：展开一个持久领域效果，挂在英雄身上，整场战斗生效。
+    /// 同类领域可以叠加层数。
+    /// </summary>
+    Domain
 }
 
 /// <summary>

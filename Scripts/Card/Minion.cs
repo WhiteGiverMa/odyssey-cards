@@ -27,6 +27,15 @@ public class Minion : Card, IDamageSource, IDamageTarget
     public int Attack { get; private set; }
 
     /// <summary>
+    /// 修改攻击力（正数为增加，负数为减少，最小为 0）。
+    /// </summary>
+    /// <param name="delta">增减量</param>
+    public void ModifyAttack(int delta)
+    {
+        Attack = Math.Max(0, Attack + delta);
+    }
+
+    /// <summary>
     /// 基础攻击力（等同于 Attack，用于接口兼容）。
     /// </summary>
     public int BaseAttack => Attack;

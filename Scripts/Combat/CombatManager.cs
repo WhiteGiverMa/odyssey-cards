@@ -338,6 +338,10 @@ public partial class CombatManager : Node
         PlayerHero.RemoveFromHand(card);
 
         GD.Print($"[CombatManager] 玩家召唤了 {minion.CardName}（{minion.Attack}/{minion.CurrentHealth}）到槽位 {slotIndex}");
+
+        // 触发领域效果 — 友方随从部署后
+        TriggerDomainsOnMinionPlaced(minion);
+
         return true;
     }
 
@@ -412,6 +416,113 @@ public partial class CombatManager : Node
         CheckVictoryOrDefeat();
 
         return true;
+    }
+
+    // ===== 领域卡牌播放 =====
+
+    /// <summary>
+    /// 玩家打出一张领域牌，将持久效果附加到玩家英雄上。
+    /// 领域不需要选择目标，自动挂在己方英雄上。
+    /// 同名领域叠加层数，不同领域独立存在。
+    /// </summary>
+    /// <param name="card">要打出的领域牌</param>
+    /// <returns>成功返回 true</returns>
+    public bool PlayDomain(Card.Card card)
+    {
+        // 验证：玩家回合
+        if (!State.IsPlayerTurn)
+        {
+            GD.PrintErr("[CombatManager] PlayDomain 失败 — 不是玩家回合");
+            return false;
+        }
+
+        // 验证：卡牌有效性
+        if (card == null)
+        {
+            GD.PrintErr("[CombatManager] PlayDomain 失败 — 卡牌为 null");
+            return false;
+        }
+
+        // 验证：是领域牌
+        if (card.Type != CardType.Domain)
+        {
+            GD.PrintErr($"[CombatManager] PlayDomain 失败 — {card.CardName} 不是领域牌");
+            return false;
+        }
+
+        // 验证：法力值充足
+        if (!PlayerHero.CanSpendMana(card.Cost))
+        {
+            GD.PrintErr($"[CombatManager] PlayDomain 失败 — 法力值不足（需 {card.Cost}，现有 {PlayerHero.CurrentMana}）");
+            return false;
+        }
+
+        // 消耗法力值
+        PlayerHero.SpendMana(card.Cost);
+        GD.Print($"[CombatManager] 展开领域 {card.CardName}，消耗 {card.Cost} 法力值");
+
+        // 将领域效果附加到英雄
+        string domainId = card.Data.DomainId;
+        if (string.IsNullOrEmpty(domainId))
+        {
+            domainId = card.Data.Id; // fallback 用卡牌ID作为领域标识
+        }
+
+        foreach (var effect in card.Data.Effects)
+        {
+            PlayerHero.AddDomain(domainId, effect);
+        }
+
+        // 从手牌中移除（领域不进入弃牌堆）
+        PlayerHero.RemoveFromHand(card);
+
+        return true;
+    }
+
+    // ===== 领域触发 =====
+
+    /// <summary>
+    /// 触发「友方随从部署」相关领域效果。
+    /// 在 <see cref="PlayMinion"/> 中随从放置到棋盘后调用。
+    /// </summary>
+    /// <param name="minion">刚被部署的随从</param>
+    private void TriggerDomainsOnMinionPlaced(Minion minion)
+    {
+        foreach (var domain in PlayerHero.ActiveDomains.Values)
+        {
+            switch (domain.DomainId)
+            {
+                case "zhijian":
+                    int bonusAtk = domain.EffectData.Value * domain.StackCount;
+                    minion.ModifyAttack(bonusAtk);
+                    GD.Print($"[CombatManager] ◆ 「执锐」触发：{minion.CardName} 攻击力 +{bonusAtk}（{domain.StackCount}层）");
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 触发「友方回合结束」相关领域效果。
+    /// 在 <see cref="EndPlayerTurn"/> 中回合结束清理后调用。
+    /// </summary>
+    private void TriggerDomainsOnTurnEnd()
+    {
+        foreach (var domain in PlayerHero.ActiveDomains.Values)
+        {
+            switch (domain.DomainId)
+            {
+                case "infinite_fire":
+                    int shuffleCount = domain.EffectData.Value * domain.StackCount;
+                    for (int i = 0; i < shuffleCount; i++)
+                    {
+                        var strikeData = GD.Load<CardData>("res://Resources/Cards/Spell_Strike.tres");
+                        var strikeCard = new OdysseyCards.Card.Card(strikeData);
+                        PlayerHero.InsertCardToDrawPile(strikeCard);
+                    }
+                    GD.Print($"[CombatManager] ◆ 「无限火力」触发：洗入 {shuffleCount} 张打击（{domain.StackCount}层）");
+                    break;
+            }
+        }
     }
 
     /// <summary>
@@ -833,6 +944,9 @@ public partial class CombatManager : Node
         // 清理本回合攻击追踪
         _canAttackThisTurn.Clear();
         _attackCountThisTurn.Clear();
+
+        // 触发领域效果 — 友方回合结束时
+        TriggerDomainsOnTurnEnd();
 
         // 切换到敌方回合
         State.EndPlayerTurn();

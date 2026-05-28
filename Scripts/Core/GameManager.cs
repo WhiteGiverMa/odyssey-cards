@@ -138,6 +138,8 @@ public partial class GameManager : Node
             "res://Resources/Cards/Minion_18thRegiment.tres",
             "res://Resources/Cards/Minion_DetectiveSquad.tres",
             "res://Resources/Cards/Minion_LianshuScout.tres",
+            "res://Resources/Cards/Domain_Zhijian.tres",
+            "res://Resources/Cards/Domain_InfiniteFire.tres",
         };
 
         foreach (var path in cardPaths)

@@ -8,7 +8,7 @@ namespace OdysseyCards.Card;
 
 /// <summary>
 /// 炉石传说风格的英雄类。
-/// 包装 <see cref="CommanderCore"/>，添加护甲和英雄技能机制。
+/// 包装 <see cref="CommanderCore"/>，添加护甲、英雄技能和领域机制。
 /// 纯 C# 类，不继承 Godot Node。
 /// </summary>
 public class Hero : IDamageTarget
@@ -22,6 +22,11 @@ public class Hero : IDamageTarget
     /// 被包装的指挥官核心。
     /// </summary>
     private readonly CommanderCore _core;
+
+    /// <summary>
+    /// 当前展开的领域效果列表（key=DomainId, value=领域运行时数据）。
+    /// </summary>
+    private readonly Dictionary<string, ActiveDomain> _activeDomains = new();
 
     // ===== 指挥官属性（来自 CommanderCore） =====
 
@@ -71,6 +76,11 @@ public class Hero : IDamageTarget
     /// 英雄技能。可为 null 表示该英雄没有英雄技能。
     /// </summary>
     public IHeroPower HeroPower { get; set; }
+
+    /// <summary>
+    /// 当前展开的领域效果（只读）。
+    /// </summary>
+    public IReadOnlyDictionary<string, ActiveDomain> ActiveDomains => _activeDomains;
 
     // ===== IDamageTarget 实现 =====
 
@@ -240,4 +250,34 @@ public class Hero : IDamageTarget
     /// 弃掉所有手牌。
     /// </summary>
     public void DiscardHand() => _core.DiscardHand();
+
+    // ===== 领域管理 =====
+
+    /// <summary>
+    /// 展开一个领域效果。若同名领域已存在则叠加层数。
+    /// </summary>
+    /// <param name="domainId">领域标识</param>
+    /// <param name="effectData">领域效果数据</param>
+    public void AddDomain(string domainId, Core.CardEffectData effectData)
+    {
+        if (_activeDomains.TryGetValue(domainId, out var existing))
+        {
+            existing.StackCount++;
+            GD.Print($"[Hero] 领域「{domainId}」叠加到 {existing.StackCount} 层");
+        }
+        else
+        {
+            _activeDomains[domainId] = new ActiveDomain(domainId, effectData);
+            GD.Print($"[Hero] 展开领域「{domainId}」：{effectData.GetDescription()}（每层）");
+        }
+    }
+
+    /// <summary>
+    /// 将一张卡牌插入抽牌堆的随机位置。
+    /// </summary>
+    /// <param name="card">要插入的卡牌实例</param>
+    public void InsertCardToDrawPile(Card card)
+    {
+        _core.InsertCardToDrawPile(card);
+    }
 }
