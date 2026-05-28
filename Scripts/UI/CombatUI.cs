@@ -949,7 +949,7 @@ public partial class CombatUI : Control
         CleanupDragCard();
 
         _boardUI.RefreshBoard();
-        _boardUI.UpdateActionCostDimming(_combat.State.PlayerMana);
+        _boardUI.UpdateActionCostDimming(_combat.PlayerHero.CurrentMana);
         _handUI.RefreshHand();
         UpdateHealthBars();
         UpdateManaDisplay();
@@ -1066,9 +1066,9 @@ public partial class CombatUI : Control
         if (minion == null || minion.IsDead) return;
 
         // 行动花费检查：法力不足时拒绝进入攻击模式
-        if (minion.ActionCost > 0 && _combat.State.PlayerMana < minion.ActionCost)
+        if (minion.ActionCost > 0 && _combat.PlayerHero.CurrentMana < minion.ActionCost)
         {
-            GD.Print($"[CombatUI] {minion.CardName} 行动花费 {minion.ActionCost}，当前法力不足（{_combat.State.PlayerMana}），无法攻击");
+            GD.Print($"[CombatUI] {minion.CardName} 行动花费 {minion.ActionCost}，当前法力不足（{_combat.PlayerHero.CurrentMana}），无法攻击");
             return;
         }
 

@@ -665,8 +665,8 @@ public partial class CombatManager : Node
         // 消耗行动花费法力
         if (attacker.ActionCost > 0)
         {
-            State.SpendPlayerMana(attacker.ActionCost);
-            GD.Print($"[CombatManager]   {attacker.CardName} 行动花费 {attacker.ActionCost} 法力，剩余法力：{State.PlayerMana}");
+            PlayerHero.SpendMana(attacker.ActionCost);
+            GD.Print($"[CombatManager]   {attacker.CardName} 行动花费 {attacker.ActionCost} 法力，剩余法力：{PlayerHero.CurrentMana}");
         }
 
         // 验证：防御方有效性
@@ -751,8 +751,8 @@ public partial class CombatManager : Node
         // 消耗行动花费法力
         if (attacker.ActionCost > 0)
         {
-            State.SpendPlayerMana(attacker.ActionCost);
-            GD.Print($"[CombatManager]   {attacker.CardName} 行动花费 {attacker.ActionCost} 法力，剩余法力：{State.PlayerMana}");
+            PlayerHero.SpendMana(attacker.ActionCost);
+            GD.Print($"[CombatManager]   {attacker.CardName} 行动花费 {attacker.ActionCost} 法力，剩余法力：{PlayerHero.CurrentMana}");
         }
 
         // 嘲讽检测（攻击英雄）
@@ -830,9 +830,9 @@ public partial class CombatManager : Node
         }
 
         // 行动花费检查：随从攻击需要消耗法力值
-        if (attacker.ActionCost > 0 && State.PlayerMana < attacker.ActionCost)
+        if (attacker.ActionCost > 0 && PlayerHero.CurrentMana < attacker.ActionCost)
         {
-            GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 行动花费 {attacker.ActionCost}，当前法力不足（{State.PlayerMana}）");
+            GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 行动花费 {attacker.ActionCost}，当前法力不足（{PlayerHero.CurrentMana}）");
             return false;
         }
 
