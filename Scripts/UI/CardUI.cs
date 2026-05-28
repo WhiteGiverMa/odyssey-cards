@@ -263,7 +263,7 @@ public partial class CardUI : Control
 			Color = ClrActionCost,
 			Size = new Vector2(acSize, acSize),
 			Position = new Vector2(acX, acY),
-			Visible = false, // 仅随从显示
+			Visible = false, // 默认隐藏，ShowMinionLayout 中显示
 		};
 		AddChild(_actionCostBg);
 
@@ -480,11 +480,8 @@ public partial class CardUI : Control
 		// 法力消耗
 		_manaLabel.Text = card.Cost.ToString();
 
-		// 行动花费（仅随从且 > 0 时显示）
-		if (card.ActionCost > 0)
-		{
-			_actionCostLabel.Text = card.ActionCost.ToString();
-		}
+		// 行动花费（随从始终显示，法术隐藏）
+		_actionCostLabel.Text = card.ActionCost.ToString();
 
 		// 卡牌名称
 		_nameLabel.Text = card.CardName;
@@ -667,10 +664,9 @@ public partial class CardUI : Control
 		_healthLabel.Visible = true;
 		_spellTypeLabel.Visible = false;
 
-		// 行动花费：仅当 > 0 时显示红底数字
-		bool hasActionCost = card.ActionCost > 0;
-		_actionCostBg.Visible = hasActionCost;
-		_actionCostLabel.Visible = hasActionCost;
+		// 行动花费：随从始终显示红底数字
+		_actionCostBg.Visible = true;
+		_actionCostLabel.Visible = true;
 	}
 
 	/// <summary>
