@@ -9,6 +9,7 @@ CardName = "第18团"
 Description = "嘲讽"
 Rarity = 0
 Cost = 1
+ActionCost = 1
 Type = 0
 Attack = 1
 Health = 4

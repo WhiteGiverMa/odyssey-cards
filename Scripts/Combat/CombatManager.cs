@@ -662,6 +662,13 @@ public partial class CombatManager : Node
         if (!ValidateAttacker(attacker))
             return false;
 
+        // 消耗行动花费法力
+        if (attacker.ActionCost > 0)
+        {
+            State.SpendPlayerMana(attacker.ActionCost);
+            GD.Print($"[CombatManager]   {attacker.CardName} 行动花费 {attacker.ActionCost} 法力，剩余法力：{State.PlayerMana}");
+        }
+
         // 验证：防御方有效性
         if (defender == null || defender.IsDead)
         {
@@ -741,7 +748,14 @@ public partial class CombatManager : Node
         if (!ValidateAttacker(attacker))
             return false;
 
-        // 嘲讽检测
+        // 消耗行动花费法力
+        if (attacker.ActionCost > 0)
+        {
+            State.SpendPlayerMana(attacker.ActionCost);
+            GD.Print($"[CombatManager]   {attacker.CardName} 行动花费 {attacker.ActionCost} 法力，剩余法力：{State.PlayerMana}");
+        }
+
+        // 嘲讽检测（攻击英雄）
         var enemyTaunts = Board.GetTaunts(isEnemy: true);
         if (enemyTaunts.Count > 0)
         {
@@ -812,6 +826,13 @@ public partial class CombatManager : Node
         if (attacks >= 1 && !attacker.HasWindfury)
         {
             GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 无风怒，本回合已攻击过");
+            return false;
+        }
+
+        // 行动花费检查：随从攻击需要消耗法力值
+        if (attacker.ActionCost > 0 && State.PlayerMana < attacker.ActionCost)
+        {
+            GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 行动花费 {attacker.ActionCost}，当前法力不足（{State.PlayerMana}）");
             return false;
         }
 

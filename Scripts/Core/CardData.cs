@@ -23,9 +23,15 @@ public partial class CardData : Resource, ICardData, ILocalizable
     [Export] public Texture2D Artwork { get; set; }
 
     /// <summary>
-    /// 法力值消耗。
+    /// 法力值消耗（部署费用）。
     /// </summary>
     [Export] public int Cost { get; set; } = 1;
+
+    /// <summary>
+    /// 行动花费——随从攻击时额外消耗的法力值。
+    /// 类似 KARDS，攻击从法力池中扣除。仅随从牌有效。
+    /// </summary>
+    [Export] public int ActionCost { get; set; } = 0;
 
     /// <summary>
     /// 领域标识（仅领域牌有效）。

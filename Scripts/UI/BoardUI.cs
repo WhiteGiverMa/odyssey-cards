@@ -36,6 +36,8 @@ public partial class BoardUI : Control
     private static readonly Color _bgNormal = new(0.15f, 0.15f, 0.15f);
     private static readonly Color _bgHover = new(0.28f, 0.28f, 0.28f);
     private static readonly Color _bgHighlight = new(0.2f, 0.6f, 0.2f, 0.6f);
+    private static readonly Color _bgDimmed = new(0.1f, 0.1f, 0.1f);
+    private static readonly Color _textDimmed = new(0.35f, 0.35f, 0.35f);
     private static readonly Color _borderNormal = new(0.3f, 0.3f, 0.3f);
     private static readonly Color _borderHighlight = new(0.3f, 0.85f, 0.3f);
     private static readonly Color _textDim = new(0.5f, 0.5f, 0.5f);
@@ -183,6 +185,21 @@ public partial class BoardUI : Control
     }
 
     /// <summary>
+    /// 设置己方槽位的暗化状态——用于标识行动花费不足、无法攻击的随从。
+    /// </summary>
+    /// <param name="actionCostMana">当前可用法力值</param>
+    public void UpdateActionCostDimming(int availableMana)
+    {
+        for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+        {
+            var minion = _board?.GetMinionAt(i, true);
+            bool cannotAttack = minion != null && !minion.IsDead
+                && minion.ActionCost > 0 && minion.ActionCost > availableMana;
+            _playerSlots[i].SetDimmed(cannotAttack);
+        }
+    }
+
+    /// <summary>
     /// 检查指定全局坐标是否落在某个槽位内。
     /// 用于拖拽松手时判断落点目标。
     /// </summary>
@@ -247,6 +264,11 @@ public partial class BoardUI : Control
         /// 当前是否处于高亮（合法目标）状态。
         /// </summary>
         public bool IsHighlighted { get; private set; }
+
+        /// <summary>
+        /// 当前是否处于暗化（行动花费不足）状态。
+        /// </summary>
+        public bool IsDimmed { get; private set; }
 
         /// <summary>
         /// 当前槽位上的随从（null 表示空槽位）。
@@ -374,8 +396,12 @@ public partial class BoardUI : Control
             _contentLabel.AddThemeColorOverride("font_color", _textBright);
             _contentLabel.AddThemeFontSizeOverride("font_size", 12);
 
-            // 恢复背景色（高亮优先）
-            _background.Color = IsHighlighted ? _bgHighlight : (_isHovered ? _bgHover : _bgNormal);
+            // 恢复背景色（高亮/暗化 > 悬停 > 普通）
+            if (!IsHighlighted)
+            {
+                ApplyBackgroundColor();
+                ApplyTextColor();
+            }
         }
 
         /// <summary>
@@ -391,12 +417,55 @@ public partial class BoardUI : Control
             {
                 _borderRect.Color = _borderHighlight;
                 _background.Color = _bgHighlight;
+                _contentLabel.AddThemeColorOverride("font_color", _textBright);
             }
             else
             {
                 _borderRect.Color = _borderNormal;
-                _background.Color = _isHovered ? _bgHover : _bgNormal;
+                ApplyBackgroundColor();
+                ApplyTextColor();
             }
+        }
+
+        /// <summary>
+        /// 设置暗化状态——行动花费不足时，槽位显示为灰色。
+        /// </summary>
+        /// <param name="dimmed">是否暗化</param>
+        public void SetDimmed(bool dimmed)
+        {
+            IsDimmed = dimmed;
+
+            if (!IsHighlighted)
+            {
+                ApplyBackgroundColor();
+                ApplyTextColor();
+            }
+        }
+
+        /// <summary>
+        /// 根据当前状态应用正确的背景色。
+        /// </summary>
+        private void ApplyBackgroundColor()
+        {
+            if (IsDimmed)
+                _background.Color = _bgDimmed;
+            else if (_isHovered)
+                _background.Color = _bgHover;
+            else
+                _background.Color = _bgNormal;
+        }
+
+        /// <summary>
+        /// 根据当前状态应用正确的文字颜色。
+        /// </summary>
+        private void ApplyTextColor()
+        {
+            if (IsDimmed)
+                _contentLabel.AddThemeColorOverride("font_color", _textDimmed);
+            else if (OccupyingMinion != null && !OccupyingMinion.IsDead)
+                _contentLabel.AddThemeColorOverride("font_color", _textBright);
+            else
+                _contentLabel.AddThemeColorOverride("font_color", _textDim);
         }
 
         // ===== 输入处理 =====
@@ -422,7 +491,7 @@ public partial class BoardUI : Control
             _isHovered = true;
             if (!IsHighlighted)
             {
-                _background.Color = _bgHover;
+                ApplyBackgroundColor();
             }
         }
 
@@ -431,7 +500,7 @@ public partial class BoardUI : Control
             _isHovered = false;
             if (!IsHighlighted)
             {
-                _background.Color = _bgNormal;
+                ApplyBackgroundColor();
             }
             else
             {

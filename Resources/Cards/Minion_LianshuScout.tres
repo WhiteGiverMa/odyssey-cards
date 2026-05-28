@@ -15,6 +15,7 @@ CardName = "联树侦察犬"
 Description = "冲锋，亡语：抽1张牌"
 Rarity = 0
 Cost = 0
+ActionCost = 0
 Type = 0
 Attack = 1
 Health = 1

@@ -9,6 +9,7 @@ CardName = "武侦小组"
 Description = "冲锋"
 Rarity = 0
 Cost = 1
+ActionCost = 0
 Type = 0
 Attack = 3
 Health = 1

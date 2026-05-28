@@ -9,6 +9,7 @@ CardName = "软泥怪"
 Description = "冲锋"
 Rarity = 0
 Cost = 0
+ActionCost = 0
 Type = 0
 Attack = 1
 Health = 1

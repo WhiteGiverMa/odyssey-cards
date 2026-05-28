@@ -25,9 +25,14 @@ public class Card
     public string CardName => Data.CardName;
 
     /// <summary>
-    /// 法力值消耗。
+    /// 法力值消耗（部署费用）。
     /// </summary>
     public int Cost => Data.Cost;
+
+    /// <summary>
+    /// 行动花费——随从攻击时额外消耗的法力值。
+    /// </summary>
+    public int ActionCost => Data.ActionCost;
 
     /// <summary>
     /// 卡牌类型（随从或法术）。

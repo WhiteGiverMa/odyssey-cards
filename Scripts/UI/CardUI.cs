@@ -45,6 +45,7 @@ public partial class CardUI : Control
 	private static readonly Color ClrBattlecry = new("#cccc44");
 	private static readonly Color ClrDeathrattle = new("#8844cc");
 	private static readonly Color ClrWindfury = new("#44cccc");
+	private static readonly Color ClrActionCost = new("#cc3333");
 
 	// ============================================================
 	// 公共属性与事件
@@ -93,6 +94,8 @@ public partial class CardUI : Control
 	private ColorRect _headerRect = null!;
 	private ColorRect _manaCircle = null!;
 	private Label _manaLabel = null!;
+	private ColorRect _actionCostBg = null!;
+	private Label _actionCostLabel = null!;
 	private Label _nameLabel = null!;
 	private ColorRect _artworkRect = null!;
 	private Label _artworkLabel = null!;
@@ -222,13 +225,14 @@ public partial class CardUI : Control
 	}
 
 	/// <summary>
-	/// 构建左上角法力水晶（蓝色矩形 + 白色数字）。
+	/// 构建左上角法力水晶（蓝色矩形 + 白色数字）和右下角行动花费（红色小矩形 + 白色数字）。
 	/// </summary>
 	private void BuildManaCrystal(float s)
 	{
 		float d = MANA_DIAMETER * s;
 		float m = 4f * s;
 
+		// 法力水晶（蓝色底）
 		_manaCircle = new ColorRect
 		{
 			Color = ClrMana,
@@ -237,6 +241,7 @@ public partial class CardUI : Control
 		};
 		AddChild(_manaCircle);
 
+		// 法力消耗数字
 		_manaLabel = new Label
 		{
 			Size = new Vector2(d, d),
@@ -247,6 +252,32 @@ public partial class CardUI : Control
 		_manaLabel.AddThemeColorOverride("font_color", ClrTextWhite);
 		_manaLabel.AddThemeFontSizeOverride("font_size", (int)(14 * s));
 		AddChild(_manaLabel);
+
+		// 行动花费（红色小矩形，位于法力水晶右下角）
+		float acSize = d * 0.5f;
+		float acX = m + d * 0.55f;
+		float acY = m + d * 0.5f;
+
+		_actionCostBg = new ColorRect
+		{
+			Color = ClrActionCost,
+			Size = new Vector2(acSize, acSize),
+			Position = new Vector2(acX, acY),
+			Visible = false, // 仅随从显示
+		};
+		AddChild(_actionCostBg);
+
+		_actionCostLabel = new Label
+		{
+			Size = new Vector2(acSize, acSize),
+			Position = new Vector2(acX, acY),
+			HorizontalAlignment = HorizontalAlignment.Center,
+			VerticalAlignment = VerticalAlignment.Center,
+			Visible = false,
+		};
+		_actionCostLabel.AddThemeColorOverride("font_color", ClrTextWhite);
+		_actionCostLabel.AddThemeFontSizeOverride("font_size", (int)(9 * s));
+		AddChild(_actionCostLabel);
 	}
 
 	/// <summary>
@@ -449,6 +480,12 @@ public partial class CardUI : Control
 		// 法力消耗
 		_manaLabel.Text = card.Cost.ToString();
 
+		// 行动花费（仅随从且 > 0 时显示）
+		if (card.ActionCost > 0)
+		{
+			_actionCostLabel.Text = card.ActionCost.ToString();
+		}
+
 		// 卡牌名称
 		_nameLabel.Text = card.CardName;
 
@@ -629,6 +666,11 @@ public partial class CardUI : Control
 		_attackLabel.Visible = true;
 		_healthLabel.Visible = true;
 		_spellTypeLabel.Visible = false;
+
+		// 行动花费：仅当 > 0 时显示红底数字
+		bool hasActionCost = card.ActionCost > 0;
+		_actionCostBg.Visible = hasActionCost;
+		_actionCostLabel.Visible = hasActionCost;
 	}
 
 	/// <summary>
@@ -641,6 +683,8 @@ public partial class CardUI : Control
 		_attackLabel.Visible = false;
 		_healthLabel.Visible = false;
 		_spellTypeLabel.Visible = true;
+		_actionCostBg.Visible = false;
+		_actionCostLabel.Visible = false;
 		_spellTypeLabel.Text = card.Type switch
 		{
 			CardType.Spell => "法术",
