@@ -1187,6 +1187,16 @@ public partial class CombatUI : Control
         // 取消之前的攻击选择
         _selectedAttacker = null;
 
+        // 清理上一个拖拽中的卡牌（防止快速点击产生幽灵浮动卡）
+        if (_dragCardUI != null)
+        {
+            _dragCardUI.OnCardDropped -= OnCardDroppedHandler;
+            _dragCardUI.CancelDragSilent();
+            _dragCardUI.Visible = false;
+            _dragCardUI.QueueFree();
+            _dragCardUI = null;
+        }
+
         // 将卡牌 UI 从 HandUI 移到 DragLayer，脱离 HBoxContainer 布局约束
         var cardUI = _handUI.GetCardUIFor(card);
         if (cardUI != null)
@@ -1358,6 +1368,7 @@ public partial class CombatUI : Control
 
     /// <summary>
     /// 清理当前拖拽卡牌 UI 引用并取消订阅。
+    /// 先隐藏再 QueueFree，避免与 RefreshHand 新建的卡牌产生视觉重叠。
     /// </summary>
     private void CleanupDragCard()
     {
@@ -1365,6 +1376,7 @@ public partial class CombatUI : Control
         {
             _dragCardUI.OnCardDropped -= OnCardDroppedHandler;
             _dragCardUI.CancelDragSilent(); // 退出拖拽状态，防止 _Process 残留
+            _dragCardUI.Visible = false;     // 立即隐藏，防止与 RefreshHand 新建卡牌重叠
             _dragCardUI.QueueFree();
             _dragCardUI = null;
         }

@@ -172,6 +172,8 @@ public partial class HandUI : Control
 				_cardContainer.AddChild(oldUI);
 				oldUI.Deselect();
 			}
+			// 即使 oldUI 已脱离列表（例如已被 DetachCardFromList 移动到 DragLayer），
+			// 也必须清空 _selectedCard，避免后续切换时引用幽灵卡。
 			_selectedCard = null;
 		}
 
