@@ -124,7 +124,9 @@ public partial class CardUI : Control
     private Vector2 _dragOffset;
     private Vector2 _dragStartScreenPos;
     private bool _hasDragged;
-    private const float DragThreshold = 4f;
+    /// <summary>点击选中模式：用户快速点击（松手无拖拽位移）后进入，卡片跟随鼠标但不响应松手掉落。</summary>
+    private bool _clickSelectMode;
+    private const float DragThreshold = 10f;
     /// <summary>屏幕坐标跳变阈值（像素）。超过此距离视为重 parent 导致的坐标跳变，非用户拖拽。</summary>
     private const float ScreenJumpThreshold = 50f;
     private Tween? _hoverTween;
@@ -554,6 +556,7 @@ public partial class CardUI : Control
     {
         _isDragging = false;
         _hasDragged = false;
+        _clickSelectMode = false;
         MouseFilter = MouseFilterEnum.Stop;
         OffsetTop = 0;
     }
@@ -572,8 +575,9 @@ public partial class CardUI : Control
     /// 拖拽时每帧跟随鼠标移动，并轮询右键取消和左键松开。
     /// 由于拖拽中 MouseFilter=Ignore，GuiInput 不会收到事件，故在此轮询。
     ///
-    /// 交互等效性：
-    ///   点击选中 → 移动 → 点击有效目标打出 ≡ 按住拖拽 → 松开在有效目标打出
+    /// 交互等效性（参考杀戮尖塔2 NMouseCardPlay 的区域+按键状态模型）：
+    ///   快速点击选中 → 移动 → 点击有效目标打出（clickSelectMode）
+    ///   按住拖拽 → 松手在有效目标打出 / 无效区域取消（drag-drop）
     ///   右键取消 ≡ 拖拽中松开在无效区域
     /// </summary>
     public override void _Process(double delta)
@@ -594,10 +598,12 @@ public partial class CardUI : Control
             Position = parentCtrl.GetLocalMousePosition() - _dragOffset;
         }
 
-        // 跟踪拖拽距离：区分「快速点击选中」和「拖拽」
-        // 注意：重 parent（从 HandUI 移到 _dragLayer）会导致屏幕坐标大幅跳变，
-        // 误触发 _hasDragged。若跳变超过阈值，重置起点为当前位置，避免误判。
-        if (!_hasDragged)
+        bool leftDown = Input.IsMouseButtonPressed(MouseButton.Left);
+
+        // 跟踪拖拽距离：仅在非点击选中模式下检测
+        // 重 parent（从 HandUI 移到 _dragLayer）会导致屏幕坐标大幅跳变，
+        // 若跳变超过阈值，重置起点为当前位置，避免误判。
+        if (!_clickSelectMode && !_hasDragged)
         {
             float dist = GetScreenPosition().DistanceTo(_dragStartScreenPos);
             if (dist > ScreenJumpThreshold)
@@ -609,17 +615,31 @@ public partial class CardUI : Control
                 _hasDragged = true;
         }
 
-        // 左键松开处理：仅在确实拖拽过（非快速点击）时响应
-        // 使用全局鼠标位置作为落点坐标，而非卡片左上角，
-        // 避免因 _dragOffset 导致落点与用户预期不符而错过槽位检测。
-        if (_hasDragged && !Input.IsMouseButtonPressed(MouseButton.Left))
+        // 左键松开处理
+        if (!leftDown)
         {
-            Vector2 dropScreenPos = GetGlobalMousePosition();
-            _isDragging = false;
-            _hasDragged = false;
-            MouseFilter = MouseFilterEnum.Stop;
-            OnCardDropped?.Invoke(this, dropScreenPos);
+            if (_hasDragged)
+            {
+                // 拖拽后松手 → 触发 OnCardDropped（由 CombatUI 根据落点决定打出/取消）
+                Vector2 dropScreenPos = GetGlobalMousePosition();
+                _isDragging = false;
+                _hasDragged = false;
+                _clickSelectMode = false;
+                MouseFilter = MouseFilterEnum.Stop;
+                OnCardDropped?.Invoke(this, dropScreenPos);
+            }
+            else if (!_clickSelectMode)
+            {
+                // 快速点击（松手时无拖拽位移）→ 进入点击选中模式
+                // 卡片继续跟随鼠标，等待目标点击打出；RightClick 取消
+                _clickSelectMode = true;
+            }
+            // 已在点击选中模式：等待目标点击，不做任何操作
         }
+        // leftDown=true 时：
+        //   _clickSelectMode=true 不可能发生（MouseFilter=Ignore 后无法再次接收鼠标按下）
+        //   _hasDragged=false：继续跟踪拖拽距离
+        //   _hasDragged=true：等待松手触发 drop
     }
 
 	/// <summary>
