@@ -93,6 +93,21 @@ public partial class CombatUI : Control
     private Label _enemyIntentLabel = null!;
 
     /// <summary>
+    /// 暂停按钮——右上角，点击弹出暂停菜单。
+    /// </summary>
+    private Button _pauseButton = null!;
+
+    /// <summary>
+    /// 暂停菜单覆盖层——ESC 或暂停按钮触发时创建。
+    /// </summary>
+    private PauseMenu? _pauseMenu;
+
+    /// <summary>
+    /// 暂停菜单是否正在显示。
+    /// </summary>
+    private bool _isPaused;
+
+    /// <summary>
     /// 敌方英雄交互面板——有可见色块背景的容器。
     /// </summary>
     private Panel _enemyHeroPanel = null!;
@@ -266,10 +281,11 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
-    /// 全局输入处理——开发者伤害模式下右键取消。
+    /// 全局输入处理——ESC 暂停/恢复 + 开发者伤害模式下右键取消。
     /// </summary>
     public override void _UnhandledInput(InputEvent @event)
     {
+        // 开发者伤害模式——右键取消
         if (@event is InputEventMouseButton mb
             && mb.ButtonIndex == MouseButton.Right
             && mb.Pressed
@@ -277,6 +293,20 @@ public partial class CombatUI : Control
         {
             ExitDevDamageMode();
             GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        // ESC —— 暂停/恢复（游戏结束时不响应）
+        if (@event is InputEventKey key && key.Pressed && key.Keycode == Key.Escape)
+        {
+            if (_combat == null || !_combat.State.IsGameOver)
+            {
+                if (_isPaused)
+                    HidePauseMenu();
+                else
+                    ShowPauseMenu();
+                GetViewport().SetInputAsHandled();
+            }
         }
     }
 
@@ -452,6 +482,19 @@ public partial class CombatUI : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
         };
         container.AddChild(heroLabelPlaceholder);
+
+        // 暂停按钮（右上角）
+        _pauseButton = new Button
+        {
+            Name = "PauseButton",
+            Text = "⏸",
+            CustomMinimumSize = new Vector2(40, 36),
+            Flat = true,
+        };
+        _pauseButton.AddThemeFontSizeOverride("font_size", 20);
+        _pauseButton.AddThemeColorOverride("font_color", new Color(0.8f, 0.8f, 0.8f));
+        _pauseButton.Pressed += OnPauseButtonPressed;
+        container.AddChild(_pauseButton);
 
         return container;
     }
@@ -2314,6 +2357,85 @@ public partial class CombatUI : Control
             GD.Print("[CombatUI] 返回主菜单");
             GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
         }
+    }
+
+    // ===== 暂停菜单 =====
+
+    /// <summary>
+    /// 显示暂停菜单——创建全屏覆盖层，订阅其事件。
+    /// </summary>
+    private void ShowPauseMenu()
+    {
+        if (_pauseMenu != null) return;
+
+        GD.Print("[CombatUI] 暂停菜单 — 显示");
+
+        // 暂停时取消开发者伤害模式，避免恢复后状态混乱
+        if (_selectionMode == SelectionMode.DevDamageTargeting)
+        {
+            ExitDevDamageMode();
+        }
+
+        _pauseMenu = new PauseMenu();
+        _pauseMenu.OnContinue += HidePauseMenu;
+        _pauseMenu.OnSaveAndExit += OnSaveAndExit;
+        _pauseMenu.OnQuickSL += OnQuickSL;
+
+        AddChild(_pauseMenu);
+        _isPaused = true;
+    }
+
+    /// <summary>
+    /// 隐藏暂停菜单——清理覆盖层。
+    /// </summary>
+    private void HidePauseMenu()
+    {
+        if (_pauseMenu == null) return;
+
+        GD.Print("[CombatUI] 暂停菜单 — 关闭");
+
+        _pauseMenu.OnContinue -= HidePauseMenu;
+        _pauseMenu.OnSaveAndExit -= OnSaveAndExit;
+        _pauseMenu.OnQuickSL -= OnQuickSL;
+        _pauseMenu.QueueFree();
+        _pauseMenu = null;
+        _isPaused = false;
+    }
+
+    /// <summary>
+    /// 暂停按钮点击——显示暂停菜单。
+    /// </summary>
+    private void OnPauseButtonPressed()
+    {
+        if (_combat == null || _combat.State.IsGameOver) return;
+        ShowPauseMenu();
+    }
+
+    /// <summary>
+    /// 「保存并退出」——保存玩家生命值到 GameManager，返回主菜单。
+    /// 不标记当前房间为完成（RunState 保持不变，可重新进入此房间）。
+    /// </summary>
+    private void OnSaveAndExit()
+    {
+        GD.Print("[CombatUI] 保存并退出 → 返回主菜单");
+
+        if (_combat != null)
+        {
+            var gm = GameManager.Instance;
+            gm?.SavePlayerHealth(_combat.PlayerHero.CurrentHealth, _combat.PlayerHero.MaxHealth);
+        }
+
+        GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
+    }
+
+    /// <summary>
+    /// 「快速SL」——重载战斗场景，同一个房间从头开始。
+    /// CombatManager.BootstrapCombat 会从 RunState 读取相同敌人类型重新初始化。
+    /// </summary>
+    private void OnQuickSL()
+    {
+        GD.Print("[CombatUI] 快速SL → 重新加载战斗场景");
+        GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
     }
 
     // ===== 开发者伤害模式 =====

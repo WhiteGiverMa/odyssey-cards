@@ -14,7 +14,7 @@
 ```
 Scripts/
 ├── Core/ (14)          # CardData, DamageResolver, GameManager(Autoload), Keyword
-├── UI/ (10)            # CombatUI, BoardUI, HandUI, CardUI, CardAnimation
+├── UI/ (11)            # CombatUI, BoardUI, HandUI, CardUI, CardAnimation, PauseMenu
 ├── Card/ (5)           # Card(纯C#), Minion, Spell, Hero(纯C#), IHeroPower
 ├── Character/ (5)      # Player, CommanderCore, Deck, CombatDeckState, ICommander
 ├── Combat/ (3)         # CombatManager, Board(纯C#), GameState(纯C#)
@@ -41,6 +41,7 @@ Scenes/                 # Main.tscn, Combat.tscn (仅2个场景)
 | 战后奖励 | `Scripts/Roguelike/EventSelector.cs` | Fisher-Yates 洗牌，未接线 |
 | UI 编排 | `Scripts/UI/CombatUI.cs` | 程序化布局，4种选择模式 + 游戏结束弹窗 |
 | UI 缩放 | `Scripts/UI/UIScaler.cs` | Autoload 单例，基准 1152×648 |
+| 暂停菜单 | `Scripts/UI/PauseMenu.cs` | ESC/按钮触发，全屏覆盖，内嵌设置（语言切换） |
 | 全局状态 | `Scripts/Core/GameManager.cs` | Autoload，跨战斗持久化 |
 | 开发者控制台 | `Scripts/Infrastructure/DevConsole.cs` | Autoload，`键呼出，AI可调用 |
 
@@ -61,6 +62,7 @@ Scenes/                 # Main.tscn, Combat.tscn (仅2个场景)
 | `Player : Node, ICommander` | partial Node | `Character/Player.cs` | 包装 CommanderCore |
 | `CombatUI : Control` | partial Control | `UI/CombatUI.cs` | UI 编排器，Normal/PlacingMinion/TargetingSpell/SelectingAttackTarget 四种模式 |
 | `BoardUI : Control` | partial Control | `UI/BoardUI.cs` | 2×5 棋盘渲染，内嵌 BoardSlot 类 |
+| `PauseMenu : Control` | partial Control | `UI/PauseMenu.cs` | 全屏暂停覆盖层，ESC/按钮触发，内嵌语言切换设置 |
 | `DamageResolver` | static class | `Core/DamageResolver.cs` | 三阶段伤害计算 |
 | `EventSelector` | sealed class | `Roguelike/EventSelector.cs` | 战后奖励（未接线） |
 | `DevConsole` | partial Node | `Infrastructure/DevConsole.cs` | Autoload 开发者控制台 |
@@ -251,6 +253,7 @@ dotnet test
 - ✅ **起始牌堆已修复**：`CreateStartingDeck()` 加载 6 个 .tres (各2张，共12张)
 - ✅ **敌人 AI 已接线**：`BootstrapCombat` 创建 Cultist(20HP)，`EndPlayerTurn` 调用 `ExecuteEnemyTurn`
 - ✅ **游戏结束弹窗**：胜利/失败显示 AcceptDialog，"返回主菜单"→`ChangeSceneToFile(Main.tscn)`
+- ✅ **战斗中暂停界面**：ESC 或右上角 ⏸ 按钮触发，全屏覆盖层。包含「继续」「设置（语言切换）」「保存并退出」「快速SL」四个选项。内嵌设置页面复用 SettingsPage 模式（OptionButton + GameManager.SetLanguage()）。PauseMenu._Input 拦截 ESC（设置页→返回主菜单→关闭），CombatUI._UnhandledInput 仅在非暂停状态下响应 ESC。
 - ⚠️ **Spell.cs 从未实例化**：CombatManager 对所有卡牌使用 Card 基类，Spell 类是死代码
 - ⚠️ **EventSelector 未接线**：战后奖励逻辑完整但无调用入口
 - ⚠️ **英雄技能未实现**：IHeroPower 接口为空
