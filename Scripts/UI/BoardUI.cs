@@ -1,6 +1,7 @@
 using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
+using OdysseyCards.Localization;
 using System;
 using System.Collections.Generic;
 
@@ -391,7 +392,7 @@ public partial class BoardUI : Control
             // 主要内容标签（居中）
             _contentLabel = new Label
             {
-                Text = "空",
+                Text = Localization.Localization.T("ui.combat.board_empty", "空"),
                 Position = new Vector2(4, 22),
                 Size = new Vector2(SlotWidth - 8, SlotHeight - 30),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -426,7 +427,7 @@ public partial class BoardUI : Control
 
             if (minion is null || minion.IsDead)
             {
-                _contentLabel.Text = "空";
+                _contentLabel.Text = Localization.Localization.T("ui.combat.board_empty", "空");
                 _contentLabel.AddThemeColorOverride("font_color", _textDim);
                 _contentLabel.AddThemeFontSizeOverride("font_size", 13);
                 _costBg.Visible = false;
@@ -452,15 +453,15 @@ public partial class BoardUI : Control
 
             // 随从名称与战斗属性
             string defenseStr = minion.Defense != 0 ? $" 防{minion.Defense:+0;-#}" : "";
-            string display = $"{minion.CardName}\n{minion.Attack}/{minion.CurrentHealth}{defenseStr}";
+            string display = $"{minion.GetLocalizedName()}\n{minion.Attack}/{minion.CurrentHealth}{defenseStr}";
 
             // 关键词标签
             var keywords = new List<string>(4);
-            if (minion.HasTaunt) keywords.Add("嘲");
-            if (minion.HasCharge) keywords.Add("冲");
-            if (minion.HasWindfury) keywords.Add("风");
-            if (minion.HasBattlecry) keywords.Add("吼");
-            if (minion.HasDeathrattle) keywords.Add("亡");
+            if (minion.HasTaunt) keywords.Add(Localization.Localization.T("ui.board.keyword_taunt", "嘲"));
+            if (minion.HasCharge) keywords.Add(Localization.Localization.T("ui.board.keyword_charge", "冲"));
+            if (minion.HasWindfury) keywords.Add(Localization.Localization.T("ui.board.keyword_windfury", "风"));
+            if (minion.HasBattlecry) keywords.Add(Localization.Localization.T("ui.board.keyword_battlecry", "吼"));
+            if (minion.HasDeathrattle) keywords.Add(Localization.Localization.T("ui.board.keyword_deathrattle", "亡"));
 
             if (keywords.Count > 0)
             {

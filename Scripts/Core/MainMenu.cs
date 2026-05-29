@@ -26,6 +26,7 @@ public partial class MainMenu : Control
         _settingsButton.Pressed += OnSettingsPressed;
 
         Localization.Localization.OnLanguageChanged += OnLanguageChanged;
+        GameManager.Instance.LanguageChanged += OnLanguageChanged;
         UpdateLabels();
     }
 
@@ -69,5 +70,9 @@ public partial class MainMenu : Control
     public override void _ExitTree()
     {
         Localization.Localization.OnLanguageChanged -= OnLanguageChanged;
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.LanguageChanged -= OnLanguageChanged;
+        }
     }
 }

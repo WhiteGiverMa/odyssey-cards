@@ -491,8 +491,8 @@ public partial class CardUI : Control
 		// 行动花费（随从始终显示，法术隐藏）
 		_actionCostLabel.Text = card.ActionCost.ToString();
 
-		// 卡牌名称
-		_nameLabel.Text = card.CardName;
+		// 卡牌名称（本地化）
+		_nameLabel.Text = card.GetLocalizedName();
 
 		// 卡图区域：有真实资源时隐藏占位文字
 		_artworkLabel.Visible = card.Data.Artwork == null;
@@ -507,8 +507,8 @@ public partial class CardUI : Control
 			ShowSpellLayout(card, s);
 		}
 
-		// 描述文字
-		_descLabel.Text = card.Data.Description ?? string.Empty;
+		// 描述文字（本地化）
+		_descLabel.Text = card.GetLocalizedDescription();
 
 		// 关键词（仅随从）
 		RebuildKeywordLabels(card, s);

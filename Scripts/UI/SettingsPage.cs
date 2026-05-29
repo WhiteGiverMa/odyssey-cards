@@ -205,7 +205,7 @@ public partial class SettingsPage : Control
         _resolutionOptionButton.ItemSelected += OnResolutionSelected;
         _windowModeOptionButton.ItemSelected += OnWindowModeSelected;
         _backButton.Pressed += OnBackPressed;
-        Localization.Localization.OnLanguageChanged += OnLanguageChanged;
+        Core.GameManager.Instance.LanguageChanged += OnLanguageChanged;
     }
 
     private void OnLanguageSelected(long index)
@@ -214,7 +214,7 @@ public partial class SettingsPage : Control
         string lang = langVariant.AsString();
         if (!string.IsNullOrEmpty(lang))
         {
-            Localization.Localization.SetLanguage(lang);
+            Core.GameManager.Instance.SetLanguage(lang);
         }
     }
 
@@ -284,7 +284,7 @@ public partial class SettingsPage : Control
 
     public override void _ExitTree()
     {
-        Localization.Localization.OnLanguageChanged -= OnLanguageChanged;
+        Core.GameManager.Instance.LanguageChanged -= OnLanguageChanged;
 
         _languageOptionButton.ItemSelected -= OnLanguageSelected;
         _resolutionOptionButton.ItemSelected -= OnResolutionSelected;

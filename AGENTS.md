@@ -185,6 +185,18 @@ DevCommand("/mana 5")   # 获取法力
 - `[Export] PackedScene` 注入场景 → `Instantiate<T>()` 实例化
 - `GetNode<Type>(path)` / `GetNodeOrNull<Type>(path)` 获取节点
 
+### 本地化系统
+- **入口**：`GameManager.SetLanguage()`（Autoload 唯一入口），内部委托 `Localization.Localization.SetLanguage()`
+- **事件**：`GameManager.LanguageChanged` — 所有场景订阅此事件刷新 UI 文本
+- **数据**：YAML 翻译文件位于 `Resources/Localization/{lang}.yaml`，扁平化 key 以 `.` 分隔
+- **查找**：`Localization.Localization.T("key", "默认值")` — 优先返回 YAML 翻译，缺失时返回默认值
+- **占位符**：`T()` 支持 `{key}` 占位符替换，或手动 `.Replace("{key}", value)`
+- **卡牌翻译**：`Card.GetLocalizedName()` / `Card.GetLocalizedDescription()` — 惰性求值，优先读 YAML `cards.{id}.name`，回退到 `CardData.CardName`
+- **新增内容接线**：新增 UI 控件/场景时，**必须**：
+  1. 所有用户可见文本使用 `Localization.T("key", "默认中文")` 包裹
+  2. 在 `Resources/Localization/zh.yaml` 和 `en.yaml` 中添加对应 key
+  3. 在场景根节点订阅 `GameManager.Instance.LanguageChanged += OnLanguageChanged`，触发时刷新所有文本
+
 ### 注释
 - XML doc 使用中文（`/// <summary>` 中文内容）
 - 日志标签格式：`GD.Print("[ClassName] 消息")`
@@ -196,6 +208,7 @@ DevCommand("/mana 5")   # 获取法力
 - **禁止** 混淆 `Player._core` 和 `CombatManager._playerCore` — 两个不同的 CommanderCore 实例
 - **禁止** 在未检查 null 的情况下向 DamageResolver 传 null source — `Minion.TakeDamage(value, null)` 会 NRE
 - **禁止** 在 Hero 有护甲时假设 DamageResolver 生效 — 护甲吸收绕过 DamageResolver
+- **禁止** 在新增 UI 内容时使用硬编码中文字符串 — 必须使用 `Localization.Localization.T()` 包裹，并在两版 YAML 中添加对应 key
 - 新文件统一使用 `file_scoped` (`namespace X;`)
 
 ## UNIQUE STYLES
@@ -233,6 +246,7 @@ dotnet test
 
 ## NOTES
 
+- ✅ **本地化系统已全场景接线**：MainMenu → MapUI → CombatUI → BoardUI 全部通过 `GameManager.LanguageChanged` 感知语言切换，`Card.GetLocalizedName()` 实现卡牌名称动态翻译
 - ✅ **初始化缺口已修复**：`CombatManager._Ready` → `CallDeferred(BootstrapCombat)` 自动启动战斗
 - ✅ **起始牌堆已修复**：`CreateStartingDeck()` 加载 6 个 .tres (各2张，共12张)
 - ✅ **敌人 AI 已接线**：`BootstrapCombat` 创建 Cultist(20HP)，`EndPlayerTurn` 调用 `ExecuteEnemyTurn`

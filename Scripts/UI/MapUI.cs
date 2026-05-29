@@ -1,6 +1,7 @@
 using Godot;
 using OdysseyCards.Core;
 using OdysseyCards.Roguelike;
+using OdysseyCards.Localization;
 using System;
 
 namespace OdysseyCards.UI;
@@ -28,13 +29,13 @@ public partial class MapUI : Control
 
     private static string GetRoomIcon(RoomType type) => type switch
     {
-        RoomType.Monster => "[战斗]",
-        RoomType.Elite => "[精英]",
-        RoomType.Boss => "[BOSS]",
-        RoomType.Treasure => "[奖励]",
-        RoomType.Shop => "[商店]",
-        RoomType.RestSite => "[休息]",
-        RoomType.Event => "[事件]",
+        RoomType.Monster => Localization.Localization.T("ui.map.room_battle", "[战斗]"),
+        RoomType.Elite => Localization.Localization.T("ui.map.room_elite", "[精英]"),
+        RoomType.Boss => Localization.Localization.T("ui.map.room_boss", "[BOSS]"),
+        RoomType.Treasure => Localization.Localization.T("ui.map.room_reward", "[奖励]"),
+        RoomType.Shop => Localization.Localization.T("ui.map.room_shop", "[商店]"),
+        RoomType.RestSite => Localization.Localization.T("ui.map.room_rest", "[休息]"),
+        RoomType.Event => Localization.Localization.T("ui.map.room_event", "[事件]"),
         _ => "[?]"
     };
 
@@ -53,13 +54,15 @@ public partial class MapUI : Control
             _runState = gm?.RunState;
             if (_runState == null)
             {
-                ShowErrorAndQuit("无法初始化冒险数据");
+                ShowErrorAndQuit(Localization.Localization.T("ui.map.init_error", "无法初始化冒险数据"));
                 return;
             }
         }
 
         SetupUI();
         RefreshRoomChoices();
+
+        GameManager.Instance.LanguageChanged += OnLanguageChanged;
     }
 
     // ===== UI 构建 =====
@@ -94,7 +97,7 @@ public partial class MapUI : Control
         _titleLabel = new Label
         {
             Name = "TitleLabel",
-            Text = _runState?.CurrentPlane?.PlaneName ?? "路线选择",
+            Text = _runState?.CurrentPlane?.PlaneName ?? Localization.Localization.T("ui.map.title_fallback", "路线选择"),
             HorizontalAlignment = HorizontalAlignment.Center,
             LayoutMode = 2,
         };
@@ -123,7 +126,7 @@ public partial class MapUI : Control
         _layerLabel = new Label
         {
             Name = "LayerLabel",
-            Text = "选择下一个房间：",
+            Text = Localization.Localization.T("ui.map.select_room", "选择下一个房间："),
             HorizontalAlignment = HorizontalAlignment.Center,
             LayoutMode = 2,
         };
@@ -150,7 +153,7 @@ public partial class MapUI : Control
         _quitButton = new Button
         {
             Name = "QuitButton",
-            Text = "放弃冒险（返回主菜单）",
+            Text = Localization.Localization.T("ui.map.abandon", "放弃冒险（返回主菜单）"),
             LayoutMode = 2,
         };
         _quitButton.AddThemeFontSizeOverride("font_size", 16);
@@ -187,7 +190,7 @@ public partial class MapUI : Control
 
         if (_runState == null)
         {
-            ShowErrorAndQuit("运行状态丢失");
+            ShowErrorAndQuit(Localization.Localization.T("ui.map.error_no_runstate", "运行状态丢失"));
             return;
         }
 
@@ -204,25 +207,25 @@ public partial class MapUI : Control
         // 更新进度
         int current = _runState.CurrentLayerIndex + 1;
         int total = _runState.TotalLayers;
-        _progressLabel.Text = $"进度：第 {current}/{total} 层";
+        _progressLabel.Text = Localization.Localization.T("ui.map.progress_format", "进度：第 {current}/{total} 层").Replace("{current}", current.ToString()).Replace("{total}", total.ToString());
 
         // 获取当前层可选房间
         var choices = _runState.GetCurrentLayerChoices();
 
         if (choices.Count == 0)
         {
-            ShowErrorAndQuit("当前层没有可选房间");
+            ShowErrorAndQuit(Localization.Localization.T("ui.map.error_no_choices", "当前层没有可选房间"));
             return;
         }
 
         // 单选项提示
         if (choices.Count == 1)
         {
-            _layerLabel.Text = "前方只有一条路：";
+            _layerLabel.Text = Localization.Localization.T("ui.map.one_path", "前方只有一条路：");
         }
         else
         {
-            _layerLabel.Text = $"选择下一个房间（{choices.Count} 个可选）：";
+            _layerLabel.Text = Localization.Localization.T("ui.map.multi_choices", "选择下一个房间（{count} 个可选）：").Replace("{count}", choices.Count.ToString());
         }
 
         // 创建房间按钮
@@ -333,14 +336,14 @@ public partial class MapUI : Control
         var popup = new AcceptDialog
         {
             Title = $"{GetRoomIcon(room.Type)} {room.DisplayName}",
-            OkButtonText = "继续",
+            OkButtonText = Localization.Localization.T("ui.map.continue_button", "继续"),
             Exclusive = true,
             Size = new Vector2I(400, 200),
         };
 
         var label = new Label
         {
-            Text = $"[占位符] {room.DisplayName} 房间尚未实现。\n\n{room.Description}\n\n点击「继续」推进冒险。",
+            Text = Localization.Localization.T("ui.map.placeholder_format", "[占位符] {name} 房间尚未实现。\n\n{desc}\n\n点击「继续」推进冒险。").Replace("{name}", room.DisplayName).Replace("{desc}", room.Description),
             HorizontalAlignment = HorizontalAlignment.Center,
             LayoutMode = 2,
         };
@@ -387,12 +390,12 @@ public partial class MapUI : Control
         }
 
         _layerLabel.Text = "";
-        _progressLabel.Text = "冒险完成！";
-        _titleLabel.Text = "★ 胜利 ★";
+        _progressLabel.Text = Localization.Localization.T("ui.map.adventure_complete", "冒险完成！");
+        _titleLabel.Text = Localization.Localization.T("ui.map.victory_title", "★ 胜利 ★");
 
         var victoryLabel = new Label
         {
-            Text = "你击败了守护者！\n第一位面冒险完成！",
+            Text = Localization.Localization.T("ui.map.victory_desc", "你击败了守护者！\n第一位面冒险完成！"),
             HorizontalAlignment = HorizontalAlignment.Center,
             LayoutMode = 2,
         };
@@ -404,7 +407,7 @@ public partial class MapUI : Control
 
         var returnBtn = new Button
         {
-            Text = "返回主菜单",
+            Text = Localization.Localization.T("ui.combat.back_to_menu", "返回主菜单"),
             LayoutMode = 2,
             CustomMinimumSize = new Vector2(250, 50),
         };
@@ -424,15 +427,15 @@ public partial class MapUI : Control
 
         var popup = new AcceptDialog
         {
-            Title = "错误",
-            OkButtonText = "返回主菜单",
+            Title = Localization.Localization.T("ui.map.error_title", "错误"),
+            OkButtonText = Localization.Localization.T("ui.combat.back_to_menu", "返回主菜单"),
             Exclusive = true,
             Size = new Vector2I(400, 150),
         };
 
         var label = new Label
         {
-            Text = $"发生错误：{message}",
+            Text = Localization.Localization.T("ui.map.error_format", "发生错误：{message}").Replace("{message}", message),
             HorizontalAlignment = HorizontalAlignment.Center,
             LayoutMode = 2,
         };
@@ -441,6 +444,32 @@ public partial class MapUI : Control
         popup.Confirmed += () => GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
         AddChild(popup);
         popup.PopupCentered();
+    }
+
+    // ===== 语言切换 =====
+
+    private void OnLanguageChanged(string newLanguage)
+    {
+        RefreshLabels();
+    }
+
+    private void RefreshLabels()
+    {
+        _titleLabel.Text = _runState?.CurrentPlane?.PlaneName ?? Localization.Localization.T("ui.map.title_fallback", "路线选择");
+        _quitButton.Text = Localization.Localization.T("ui.map.abandon", "放弃冒险（返回主菜单）");
+
+        if (_runState != null)
+        {
+            RefreshRoomChoices();
+        }
+    }
+
+    public override void _ExitTree()
+    {
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.LanguageChanged -= OnLanguageChanged;
+        }
     }
 
     // ===== 退出 =====
@@ -483,7 +512,7 @@ internal partial class RewardPopup : Control
 
         _dialog = new AcceptDialog
         {
-            Title = "选择一张奖励卡牌",
+            Title = Localization.Localization.T("ui.map.reward_title", "选择一张奖励卡牌"),
             Exclusive = true,
             Size = new Vector2I(600, 400),
         };
@@ -497,7 +526,7 @@ internal partial class RewardPopup : Control
 
         var headerLabel = new Label
         {
-            Text = "选择一张卡牌加入你的牌堆：",
+            Text = Localization.Localization.T("ui.map.reward_prompt", "选择一张卡牌加入你的牌堆："),
             HorizontalAlignment = HorizontalAlignment.Center,
             LayoutMode = 2,
         };
@@ -520,14 +549,16 @@ internal partial class RewardPopup : Control
     /// </summary>
     private Button CreateCardButton(CardData card)
     {
-        string cardType = card.Type == CardType.Minion ? "随从" : "法术";
+        string cardType = card.Type == CardType.Minion ? Localization.Localization.T("ui.map.card_type_minion", "随从") : Localization.Localization.T("ui.map.card_type_spell", "法术");
         string keywords = card.Keywords?.Count > 0
             ? $" [{string.Join(", ", card.Keywords)}]"
             : "";
 
         string btnText = card.Type == CardType.Minion
-            ? $"{card.CardName} [{cardType}] {card.Attack}/{card.Health}{keywords}\n{card.Description}"
-            : $"{card.CardName} [{cardType}] 费用{card.Cost}\n{card.Description}";
+            ? Localization.Localization.T("ui.map.reward_minion_format", "{name} [{type}] {atk}/{hp}{keywords}\n{desc}")
+                .Replace("{name}", card.GetLocalizedName()).Replace("{type}", cardType).Replace("{atk}", card.Attack.ToString()).Replace("{hp}", card.Health.ToString()).Replace("{keywords}", keywords).Replace("{desc}", card.GetLocalizedDescription())
+            : Localization.Localization.T("ui.map.reward_card_format", "{name} [{type}] 费用{cost}\n{desc}")
+                .Replace("{name}", card.GetLocalizedName()).Replace("{type}", cardType).Replace("{cost}", card.Cost.ToString()).Replace("{desc}", card.GetLocalizedDescription());
 
         var btn = new Button
         {

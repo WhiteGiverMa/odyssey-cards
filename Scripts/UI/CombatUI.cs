@@ -4,6 +4,7 @@ using System.Linq;
 using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Core;
+using OdysseyCards.Localization;
 using OdysseyCards.Character;
 using OdysseyCards.Combat;
 
@@ -325,7 +326,26 @@ public partial class CombatUI : Control
         // 首次刷新
         RefreshAll();
 
+        // 订阅语言变更事件
+        GameManager.Instance.LanguageChanged += OnLanguageChanged;
+
         GD.Print("[CombatUI] 初始化完成");
+    }
+
+    /// <summary>
+    /// 退出场景树时取消语言变更事件订阅。
+    /// </summary>
+    public override void _ExitTree()
+    {
+        GameManager.Instance.LanguageChanged -= OnLanguageChanged;
+    }
+
+    /// <summary>
+    /// 语言变更时刷新所有 UI 文本标签。
+    /// </summary>
+    private void OnLanguageChanged(string lang)
+    {
+        RefreshAll();
     }
 
     // ===== 布局构建 =====
@@ -572,7 +592,7 @@ public partial class CombatUI : Control
             // 生命值前缀标签
             var hpLabel = new Label
             {
-                Text = "生命 ",
+                Text = Localization.Localization.T("ui.combat.hp_label", "生命 "),
                 CustomMinimumSize = new Vector2(50, 24),
             };
             hpLabel.AddThemeColorOverride("font_color", new Color(0.7f, 1f, 0.7f));
@@ -589,7 +609,7 @@ public partial class CombatUI : Control
             // 生命值前缀标签
             var hpLabel = new Label
             {
-                Text = "生命 ",
+                Text = Localization.Localization.T("ui.combat.hp_label", "生命 "),
                 CustomMinimumSize = new Vector2(50, 24),
             };
             hpLabel.AddThemeColorOverride("font_color", new Color(1f, 0.6f, 0.6f));
@@ -655,7 +675,7 @@ public partial class CombatUI : Control
         _playerManaLabel = new Label
         {
             Name = "PlayerManaLabel",
-            Text = "法力 0/1",
+            Text = Localization.Localization.T("ui.combat.mana_format", "法力 {current}/{max}").Replace("{current}", "0").Replace("{max}", "1"),
             HorizontalAlignment = HorizontalAlignment.Center,
             CustomMinimumSize = new Vector2(120, 32),
         };
@@ -675,7 +695,7 @@ public partial class CombatUI : Control
         _playerArmorLabel = new Label
         {
             Name = "PlayerArmorLabel",
-            Text = "护甲: 0",
+            Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", "0"),
             Visible = false,
             CustomMinimumSize = new Vector2(100, 20),
         };
@@ -689,7 +709,7 @@ public partial class CombatUI : Control
         _enemyArmorLabel = new Label
         {
             Name = "EnemyArmorLabel",
-            Text = "护甲: 0",
+            Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", "0"),
             Visible = false,
             CustomMinimumSize = new Vector2(100, 20),
         };
@@ -734,7 +754,7 @@ public partial class CombatUI : Control
         _endTurnButton = new Button
         {
             Name = "EndTurnButton",
-            Text = "结束回合",
+            Text = Localization.Localization.T("ui.combat.end_turn", "结束回合"),
             CustomMinimumSize = new Vector2(120, 40),
         };
 
@@ -750,8 +770,8 @@ public partial class CombatUI : Control
         _gameOverPopup = new AcceptDialog
         {
             Name = "GameOverPopup",
-            Title = "游戏结束",
-            OkButtonText = "返回主菜单",
+            Title = Localization.Localization.T("ui.combat.game_over", "游戏结束"),
+            OkButtonText = Localization.Localization.T("ui.combat.back_to_menu", "返回主菜单"),
             Exclusive = true,
             Visible = false,
             Size = new Vector2I(320, 180),
@@ -812,7 +832,7 @@ public partial class CombatUI : Control
         var heroLabel = new Label
         {
             Name = "EnemyHeroLabel",
-            Text = "敌方英雄",
+            Text = Localization.Localization.T("ui.combat.enemy_hero", "敌方英雄"),
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         heroLabel.AddThemeColorOverride("font_color", new Color(1f, 0.5f, 0.5f));
@@ -823,7 +843,7 @@ public partial class CombatUI : Control
         _enemyHeroAttackButton = new Button
         {
             Name = "EnemyHeroAttackButton",
-            Text = "⚔ 攻击敌方英雄",
+            Text = Localization.Localization.T("ui.combat.attack_enemy_hero", "⚔ 攻击敌方英雄"),
             CustomMinimumSize = new Vector2(140, 36),
             Visible = false,
         };
@@ -834,7 +854,7 @@ public partial class CombatUI : Control
         _enemyHeroSpellButton = new Button
         {
             Name = "EnemyHeroSpellButton",
-            Text = "✦ 对敌方英雄施法",
+            Text = Localization.Localization.T("ui.combat.spell_enemy_hero", "✦ 对敌方英雄施法"),
             CustomMinimumSize = new Vector2(140, 36),
             Visible = false,
         };
@@ -890,7 +910,7 @@ public partial class CombatUI : Control
         _drawPileBtn = new Button
         {
             Name = "DrawPileBtn",
-            Text = "抽牌堆 (0)",
+            Text = Localization.Localization.T("ui.combat.draw_pile_format", "抽牌堆 ({count})").Replace("{count}", "0"),
             CustomMinimumSize = new Vector2(100, 32),
         };
         _drawPileBtn.AddThemeColorOverride("font_color", new Color(0.7f, 0.8f, 1f));
@@ -900,7 +920,7 @@ public partial class CombatUI : Control
             if (_combat != null)
             {
                 var cards = _combat.PlayerHero.DeckState.DrawPile;
-                ShowPileViewer("抽牌堆", cards);
+                ShowPileViewer(Localization.Localization.T("ui.combat.draw_pile", "抽牌堆"), cards);
             }
         };
         btnContainer.AddChild(_drawPileBtn);
@@ -913,7 +933,7 @@ public partial class CombatUI : Control
         _discardPileBtn = new Button
         {
             Name = "DiscardPileBtn",
-            Text = "弃牌堆 (0)",
+            Text = Localization.Localization.T("ui.combat.discard_pile_format", "弃牌堆 ({count})").Replace("{count}", "0"),
             CustomMinimumSize = new Vector2(100, 32),
         };
         _discardPileBtn.AddThemeColorOverride("font_color", new Color(0.8f, 0.7f, 0.6f));
@@ -923,7 +943,7 @@ public partial class CombatUI : Control
             if (_combat != null)
             {
                 var cards = _combat.PlayerHero.DeckState.DiscardPile;
-                ShowPileViewer("弃牌堆", cards);
+                ShowPileViewer(Localization.Localization.T("ui.combat.discard_pile", "弃牌堆"), cards);
             }
         };
         btnContainer.AddChild(_discardPileBtn);
@@ -966,7 +986,7 @@ public partial class CombatUI : Control
         _weaponAttackButton = new Button
         {
             Name = "WeaponAttackButton",
-            Text = "⚔ 武器攻击",
+            Text = Localization.Localization.T("ui.combat.weapon_attack", "⚔ 武器攻击"),
             CustomMinimumSize = new Vector2(100, 28),
             Visible = false,
         };
@@ -978,7 +998,7 @@ public partial class CombatUI : Control
         _weaponActiveSkillButton = new Button
         {
             Name = "WeaponActiveSkillButton",
-            Text = "✦ 技能",
+            Text = Localization.Localization.T("ui.combat.weapon_skill", "✦ 技能"),
             CustomMinimumSize = new Vector2(100, 28),
             Visible = false,
         };
@@ -1044,7 +1064,7 @@ public partial class CombatUI : Control
         {
             Title = title,
             Size = new Vector2I(280, 320),
-            OkButtonText = "关闭",
+            OkButtonText = Localization.Localization.T("ui.combat.close", "关闭"),
         };
 
         var scroll = new ScrollContainer
@@ -1062,7 +1082,7 @@ public partial class CombatUI : Control
         {
             var emptyLabel = new Label
             {
-                Text = "（空）",
+                Text = Localization.Localization.T("ui.combat.empty", "（空）"),
                 HorizontalAlignment = HorizontalAlignment.Center,
             };
             emptyLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.5f, 0.5f));
@@ -1075,7 +1095,9 @@ public partial class CombatUI : Control
             {
                 var cardLabel = new Label
                 {
-                    Text = $"[{card.Cost}费] {card.CardName}",
+                    Text = Localization.Localization.T("ui.combat.card_pile_item", "[{cost}费] {name}")
+                        .Replace("{cost}", card.Cost.ToString())
+                        .Replace("{name}", card.GetLocalizedName()),
                 };
                 cardLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.9f, 0.8f));
                 cardLabel.AddThemeFontSizeOverride("font_size", 14);
@@ -1098,8 +1120,8 @@ public partial class CombatUI : Control
         if (_combat == null) return;
 
         var deckState = _combat.PlayerHero.DeckState;
-        _drawPileBtn.Text = $"抽牌堆 ({deckState.DrawPile.Count})";
-        _discardPileBtn.Text = $"弃牌堆 ({deckState.DiscardPile.Count})";
+        _drawPileBtn.Text = Localization.Localization.T("ui.combat.draw_pile_format", "抽牌堆 ({count})").Replace("{count}", deckState.DrawPile.Count.ToString());
+        _discardPileBtn.Text = Localization.Localization.T("ui.combat.discard_pile_format", "弃牌堆 ({count})").Replace("{count}", deckState.DiscardPile.Count.ToString());
     }
 
     // ===== 事件订阅 =====
@@ -1215,7 +1237,9 @@ public partial class CombatUI : Control
     {
         if (_combat == null) return;
 
-        _playerManaLabel.Text = $"法力 {_combat.PlayerHero.CurrentMana}/{_combat.PlayerHero.MaxMana}";
+        _playerManaLabel.Text = Localization.Localization.T("ui.combat.mana_format", "法力 {current}/{max}")
+            .Replace("{current}", _combat.PlayerHero.CurrentMana.ToString())
+            .Replace("{max}", _combat.PlayerHero.MaxMana.ToString());
     }
 
     /// <summary>
@@ -1230,7 +1254,7 @@ public partial class CombatUI : Control
         _playerArmorLabel.Visible = playerArmor > 0;
         if (playerArmor > 0)
         {
-            _playerArmorLabel.Text = $"护甲: {playerArmor}";
+            _playerArmorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", playerArmor.ToString());
         }
 
         // 敌方护甲
@@ -1238,7 +1262,7 @@ public partial class CombatUI : Control
         _enemyArmorLabel.Visible = enemyArmor > 0;
         if (enemyArmor > 0)
         {
-            _enemyArmorLabel.Text = $"护甲: {enemyArmor}";
+            _enemyArmorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", enemyArmor.ToString());
         }
     }
 
@@ -1255,7 +1279,7 @@ public partial class CombatUI : Control
         _playerDefenseLabel.Visible = playerDef != 0;
         if (playerDef != 0)
         {
-            _playerDefenseLabel.Text = $"防御: {playerDef:+0;-#}";
+            _playerDefenseLabel.Text = Localization.Localization.T("ui.combat.defense_format", "防御: {value}").Replace("{value}", playerDef >= 0 ? $"+{playerDef}" : $"{playerDef}");
             _playerDefenseLabel.AddThemeColorOverride("font_color",
                 playerDef > 0 ? new Color(0.3f, 0.7f, 1f) : new Color(1f, 0.3f, 0.3f));
         }
@@ -1265,7 +1289,7 @@ public partial class CombatUI : Control
         _enemyDefenseLabel.Visible = enemyDef != 0;
         if (enemyDef != 0)
         {
-            _enemyDefenseLabel.Text = $"防御: {enemyDef:+0;-#}";
+            _enemyDefenseLabel.Text = Localization.Localization.T("ui.combat.defense_format", "防御: {value}").Replace("{value}", enemyDef >= 0 ? $"+{enemyDef}" : $"{enemyDef}");
             _enemyDefenseLabel.AddThemeColorOverride("font_color",
                 enemyDef > 0 ? new Color(0.3f, 0.7f, 1f) : new Color(1f, 0.3f, 0.3f));
         }
@@ -1891,12 +1915,25 @@ public partial class CombatUI : Control
         if (weapon != null)
         {
             // 武器信息标签
-            string costText = weapon.AttackCost > 0 ? $"{weapon.AttackCost}费" : "免费";
-            string disabledText = weapon.IsDisabled ? " [禁用]" : "";
-            _weaponInfoLabel.Text = $"{weapon.Name} {weapon.Attack}攻 {costText}{disabledText}";
+            string costSuffix = Localization.Localization.T("ui.combat.cost_suffix", "费");
+            string costText = weapon.AttackCost > 0 ? $"{weapon.AttackCost}{costSuffix}" : Localization.Localization.T("ui.combat.free_cost", "免费");
+            string disabledText = weapon.IsDisabled ? Localization.Localization.T("ui.combat.disabled_suffix", " [禁用]") : "";
+            string localWeaponName = !string.IsNullOrEmpty(weapon.NameKey)
+                ? Localization.Localization.T(weapon.NameKey, weapon.Name)
+                : weapon.Name;
+            _weaponInfoLabel.Text = Localization.Localization.T("ui.combat.weapon_format", "{name} {attack}攻 {cost}")
+                .Replace("{name}", localWeaponName)
+                .Replace("{attack}", weapon.Attack.ToString())
+                .Replace("{cost}", costText) + disabledText;
 
             if (weapon.PassiveSkill != null)
-                _weaponInfoLabel.TooltipText = $"被动：{weapon.PassiveSkill.Description}";
+            {
+                string localPassiveDesc = !string.IsNullOrEmpty(weapon.PassiveSkill.DescKey)
+                    ? Localization.Localization.T(weapon.PassiveSkill.DescKey, weapon.PassiveSkill.Description)
+                    : weapon.PassiveSkill.Description;
+                _weaponInfoLabel.TooltipText = Localization.Localization.T("ui.combat.passive_skill", "被动：{desc}")
+                    .Replace("{desc}", localPassiveDesc);
+            }
 
             // 武器攻击按钮——普通模式下显示
             if (_selectionMode == SelectionMode.Normal && !_combat.State.IsGameOver)
@@ -1906,8 +1943,8 @@ public partial class CombatUI : Control
                 _weaponAttackButton.Visible = true;
                 _weaponAttackButton.Disabled = !canAttack || weapon.IsDisabled;
                 _weaponAttackButton.Text = weapon.IsDisabled
-                    ? "⚔ 武器攻击 [禁用]"
-                    : $"⚔ 武器攻击 ({weapon.AttackCost}费)";
+                    ? Localization.Localization.T("ui.combat.weapon_disabled", "⚔ 武器攻击 [禁用]")
+                    : Localization.Localization.T("ui.combat.weapon_attack_cost", "⚔ 武器攻击 ({cost}费)").Replace("{cost}", weapon.AttackCost.ToString());
             }
 
             // 主动技能按钮
@@ -1918,22 +1955,38 @@ public partial class CombatUI : Control
                 _weaponActiveSkillButton.Disabled = !active.CanUse(_combat.PlayerHero);
 
                 if (active.CurrentCooldown > 0)
-                    _weaponActiveSkillButton.Text = $"✦ {active.Name} (冷却{active.CurrentCooldown})";
+                {
+                    string localActiveName = !string.IsNullOrEmpty(active.NameKey)
+                        ? Localization.Localization.T(active.NameKey, active.Name)
+                        : active.Name;
+                    _weaponActiveSkillButton.Text = Localization.Localization.T("ui.combat.skill_cooldown", "✦ {name} (冷却{cooldown})")
+                        .Replace("{name}", localActiveName).Replace("{cooldown}", active.CurrentCooldown.ToString());
+                }
                 else
-                    _weaponActiveSkillButton.Text = $"✦ {active.Name} ({active.Cost}费)";
+                {
+                    string localActiveName = !string.IsNullOrEmpty(active.NameKey)
+                        ? Localization.Localization.T(active.NameKey, active.Name)
+                        : active.Name;
+                    _weaponActiveSkillButton.Text = Localization.Localization.T("ui.combat.skill_cost", "✦ {name} ({cost}费)")
+                        .Replace("{name}", localActiveName).Replace("{cost}", active.Cost.ToString());
+                }
             }
         }
         else
         {
-            _weaponInfoLabel.Text = "无武器";
+            _weaponInfoLabel.Text = Localization.Localization.T("ui.combat.weapon_none", "无武器");
         }
 
         // --- 敌方武器 ---
         var enemyWeapon = _combat.EnemyHero.Weapon;
         if (enemyWeapon != null)
         {
-            string disabledText = enemyWeapon.IsDisabled ? " [禁用]" : "";
-            _enemyWeaponLabel.Text = $"武器: {enemyWeapon.Name} {enemyWeapon.Attack}攻{disabledText}";
+            string disabledText = enemyWeapon.IsDisabled ? Localization.Localization.T("ui.combat.disabled_suffix", " [禁用]") : "";
+            string localEnemyWeaponName = !string.IsNullOrEmpty(enemyWeapon.NameKey)
+                ? Localization.Localization.T(enemyWeapon.NameKey, enemyWeapon.Name)
+                : enemyWeapon.Name;
+            _enemyWeaponLabel.Text = Localization.Localization.T("ui.combat.enemy_weapon_format", "武器: {name} {attack}攻{disabled}")
+                .Replace("{name}", localEnemyWeaponName).Replace("{attack}", enemyWeapon.Attack.ToString()).Replace("{disabled}", disabledText);
         }
         else
         {
@@ -2103,7 +2156,7 @@ public partial class CombatUI : Control
         }
 
         // 显示敌方英雄按钮作为目标（复用，修改文本和事件）
-        _enemyHeroAttackButton.Text = $"✦ 离子脉冲";
+        _enemyHeroAttackButton.Text = Localization.Localization.T("ui.combat.ion_pulse", "✦ 离子脉冲");
         _enemyHeroAttackButton.Visible = true;
         _enemyHeroAttackButton.Disabled = false;
 
@@ -2173,7 +2226,7 @@ public partial class CombatUI : Control
             }
 
             // 显示攻击英雄按钮（复用已有的敌方英雄攻击按钮，修改文本）
-            _enemyHeroAttackButton.Text = $"⚔ 武器攻击 ({_combat.PlayerHero.Weapon!.AttackCost}费)";
+            _enemyHeroAttackButton.Text = Localization.Localization.T("ui.combat.weapon_attack_cost", "⚔ 武器攻击 ({cost}费)").Replace("{cost}", _combat.PlayerHero.Weapon!.AttackCost.ToString());
             _enemyHeroAttackButton.Visible = true;
             _enemyHeroAttackButton.Disabled = false;
 
@@ -2230,13 +2283,13 @@ public partial class CombatUI : Control
 
         if (isVictory)
         {
-            _gameOverPopup.Title = "★ 胜利！";
-            _gameOverPopup.OkButtonText = "继续冒险";
+            _gameOverPopup.Title = Localization.Localization.T("ui.combat.victory_title", "★ 胜利！");
+            _gameOverPopup.OkButtonText = Localization.Localization.T("ui.combat.continue_adventure", "继续冒险");
         }
         else
         {
-            _gameOverPopup.Title = "☠ 失败";
-            _gameOverPopup.OkButtonText = "返回主菜单";
+            _gameOverPopup.Title = Localization.Localization.T("ui.combat.defeat_title", "☠ 失败");
+            _gameOverPopup.OkButtonText = Localization.Localization.T("ui.combat.back_to_menu", "返回主菜单");
         }
 
         _gameOverPopup.PopupCentered();
@@ -2396,7 +2449,7 @@ public partial class CombatUI : Control
         _playZoneLabel = new Label
         {
             Name = "PlayZoneLabel",
-            Text = "松手打出\n（或点击此处）",
+            Text = Localization.Localization.T("ui.combat.play_zone_hint", "松手打出\n（或点击此处）"),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             MouseFilter = MouseFilterEnum.Ignore,
