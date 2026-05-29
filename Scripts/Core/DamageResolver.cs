@@ -80,7 +80,21 @@ namespace OdysseyCards.Core
         /// <returns>The preview damage value.</returns>
         public static int ResolvePreviewDamage(int baseDamage, IDamageSource source)
         {
-            return ResolveDamage(baseDamage, source, null);
+            return ResolvePreviewDamage(baseDamage, source, null);
+        }
+
+        /// <summary>
+        /// Resolves preview damage with target-aware defense calculation.
+        /// 解析预览伤害值（含目标防御力计算）。
+        /// 用于意图系统实时计算最终伤害——考虑攻击方力量和目标方防御后的预览值。
+        /// </summary>
+        /// <param name="baseDamage">基础伤害值</param>
+        /// <param name="source">伤害来源</param>
+        /// <param name="target">伤害目标（用于计算目标防御力等减免）</param>
+        /// <returns>预览伤害值</returns>
+        public static int ResolvePreviewDamage(int baseDamage, IDamageSource? source, IDamageTarget? target)
+        {
+            return ResolveDamage(baseDamage, source, target);
         }
 
         private static int ApplyModifiers(int damage, DamageContext context, IReadOnlyList<IDamageModifier> modifiers, DamagePhase phase, bool isDealt)

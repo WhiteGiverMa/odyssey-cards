@@ -52,6 +52,11 @@ public partial class CardData : Resource, ICardData, ILocalizable
     [Export] public int Health { get; set; } = 1;
 
     /// <summary>
+    /// 防御力（仅随从）。影响受到的伤害：伤害 = max(0, 伤害 - 防御力)。可为负值。
+    /// </summary>
+    [Export] public int Defense { get; set; } = 0;
+
+    /// <summary>
     /// 关键词列表（仅随从）。
     /// </summary>
     [Export] public Godot.Collections.Array<Keyword> Keywords { get; set; } = new();
