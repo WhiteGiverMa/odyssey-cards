@@ -24,7 +24,10 @@ public enum CombatPhase
     Victory,
 
     /// <summary>玩家失败。</summary>
-    Defeat
+    Defeat,
+
+    /// <summary>发现选牌阶段——暂停回合流转，等待玩家从 N 张卡牌中选择。</summary>
+    Discovering
 }
 
 /// <summary>
@@ -75,9 +78,9 @@ public class GameState
     public int PlayerMaxMana { get; private set; }
 
     /// <summary>
-    /// 当前是否为玩家回合。
+    /// 当前是否为玩家回合（含发现选牌阶段，玩家仍可交互）。
     /// </summary>
-    public bool IsPlayerTurn => Phase == CombatPhase.PlayerTurn;
+    public bool IsPlayerTurn => Phase == CombatPhase.PlayerTurn || Phase == CombatPhase.Discovering;
 
     /// <summary>
     /// 当前是否为敌人回合。
@@ -176,6 +179,25 @@ public class GameState
     public void EndPlayerTurn()
     {
         StartEnemyTurn();
+    }
+
+    // ===== 发现选牌阶段 =====
+
+    /// <summary>
+    /// 进入发现选牌阶段。暂停回合流转，玩家不可进行攻击/出牌等操作。
+    /// 仅保留发现 UI 的交互。
+    /// </summary>
+    public void SetDiscovering()
+    {
+        Phase = CombatPhase.Discovering;
+    }
+
+    /// <summary>
+    /// 退出发现选牌阶段，恢复到玩家回合。
+    /// </summary>
+    public void ResumePlayerTurn()
+    {
+        Phase = CombatPhase.PlayerTurn;
     }
 
     // ===== 游戏结束 =====

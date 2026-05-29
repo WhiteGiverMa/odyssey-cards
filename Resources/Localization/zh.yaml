@@ -104,6 +104,9 @@ ui:
     settings: "设置"
     save_and_exit: "保存并退出"
     quick_sl: "快速SL"
+  discover:
+    title: "发现"
+    skip: "跳过"
 
 weapon:
   ion_pistol:
@@ -181,6 +184,9 @@ cards:
   domain_unlimited_potential:
     name: "无限潜能"
     description: "解除自然增长的水晶槽上限"
+  spell_Discover:
+    name: "发现"
+    description: "从3张随机卡牌中选取一张加入手牌"
 
 intent:
   attack_format: "对{target}造成 {damage} 点伤害"

@@ -107,7 +107,13 @@ public enum CardEffectType
     /// 使每回合开始的自动法力增长不再受自然上限(12)限制，可持续增长至硬上限(30)。
     /// Value 不使用。
     /// </summary>
-    RemoveNaturalManaCap
+    RemoveNaturalManaCap,
+
+    /// <summary>
+    /// 发现：从 N 张随机卡牌中选取一张加入手牌。
+    /// Value = 选项数量（默认 3），TargetType = 稀有度过滤（可选，"0"=仅衍生卡，"all"=全部）。
+    /// </summary>
+    Discover
 }
 
 public partial class CardEffectData : Resource
@@ -141,6 +147,7 @@ public partial class CardEffectData : Resource
             CardEffectType.ReturnToDeck => "返回抽牌堆",
             CardEffectType.GainManaSlot => $"获得{Value}个额外的法力水晶槽",
             CardEffectType.RemoveNaturalManaCap => "解除自然增长的水晶槽上限",
+            CardEffectType.Discover => $"发现：从{Value}张卡牌中选1张",
             CardEffectType.Custom => CustomEffectName,
             _ => ""
         };

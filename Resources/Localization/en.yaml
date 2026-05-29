@@ -104,6 +104,9 @@ ui:
     settings: "Settings"
     save_and_exit: "Save & Exit"
     quick_sl: "Quick S/L"
+  discover:
+    title: "Discover"
+    skip: "Skip"
 
 weapon:
   ion_pistol:
@@ -181,6 +184,9 @@ cards:
   domain_unlimited_potential:
     name: "Unlimited Potential"
     description: "Remove the natural growth cap of Mana Crystals."
+  spell_Discover:
+    name: "Discover"
+    description: "Choose 1 of 3 random cards to add to your hand"
 
 intent:
   attack_format: "Deal {damage} damage to {target}"

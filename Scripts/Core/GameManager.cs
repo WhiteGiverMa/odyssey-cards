@@ -161,6 +161,7 @@ public partial class GameManager : Node
             "res://Resources/Cards/Spell_Ignite.tres",
             "res://Resources/Cards/Spell_Longtermism.tres",
             "res://Resources/Cards/Domain_UnlimitedPotential.tres",
+            "res://Resources/Cards/Spell_Discover.tres",
         };
 
         foreach (var path in cardPaths)

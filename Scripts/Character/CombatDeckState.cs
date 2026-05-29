@@ -78,6 +78,18 @@ public class CombatDeckState
         OnHandChanged?.Invoke();
     }
 
+    /// <summary>
+    /// 直接将一张卡牌加入手牌（外部来源：发现、/token 命令等）。
+    /// 与 DrawCards 不同，不经过抽牌堆，直接加入并触发 UI 刷新。
+    /// </summary>
+    /// <param name="card">要加入的卡牌实例</param>
+    public void AddToHand(OdysseyCards.Card.Card card)
+    {
+        Hand.Add(card);
+        OnHandChanged?.Invoke();
+        GD.Print($"[CombatDeckState] 将「{card.CardName}」加入手牌（共 {Hand.Count} 张）");
+    }
+
     public void ReturnToDrawPile(OdysseyCards.Card.Card card)
     {
         if (!Hand.Contains(card))

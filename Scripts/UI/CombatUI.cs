@@ -159,6 +159,11 @@ public partial class CombatUI : Control
     /// </summary>
     private Player _player = null!;
 
+    /// <summary>
+    /// 发现选牌覆盖层（全屏半透明遮罩 + N 张卡牌选择）。
+    /// </summary>
+    private DiscoverUI? _discoverUI;
+
     // ===== 选择状态 =====
 
     /// <summary>
@@ -296,17 +301,20 @@ public partial class CombatUI : Control
             return;
         }
 
-        // ESC —— 暂停/恢复（游戏结束时不响应）
+        // ESC —— 暂停/恢复（发现选牌和游戏结束时不响应）
         if (@event is InputEventKey key && key.Pressed && key.Keycode == Key.Escape)
         {
-            if (_combat == null || !_combat.State.IsGameOver)
-            {
-                if (_isPaused)
-                    HidePauseMenu();
-                else
-                    ShowPauseMenu();
-                GetViewport().SetInputAsHandled();
-            }
+            if (_combat == null || _combat.State.IsGameOver)
+                return;
+
+            if (_combat.IsDiscovering)
+                return;
+
+            if (_isPaused)
+                HidePauseMenu();
+            else
+                ShowPauseMenu();
+            GetViewport().SetInputAsHandled();
         }
     }
 
@@ -1209,6 +1217,9 @@ public partial class CombatUI : Control
         // 敌方意图变化 → 更新意图显示
         _combat.OnCombatStateChanged += RefreshIntentDisplay;
 
+        // 发现选牌阶段切换
+        _combat.OnCombatStateChanged += OnCombatStateChangedForDiscover;
+
         // 游戏结束 → 显示弹窗
         _combat.OnGameOver += ShowGameOverPopup;
     }
@@ -1221,6 +1232,20 @@ public partial class CombatUI : Control
     /// </summary>
     public void RefreshAll()
     {
+        // 发现选牌阶段：仅更新状态显示（生命值/法力值等），跳过手牌和棋盘刷新
+        if (_combat != null && _combat.IsDiscovering)
+        {
+            CleanupDragCard();
+            UpdateHealthBars();
+            UpdateManaDisplay();
+            UpdateArmorDisplay();
+            UpdateDefenseDisplay();
+            UpdateDeckCounts();
+            UpdateWeaponDisplay();
+            UpdateStatusEffectDisplay();
+            return;
+        }
+
         // 清理拖拽中的卡牌 UI（含取消事件订阅）
         CleanupDragCard();
 
@@ -2523,6 +2548,61 @@ public partial class CombatUI : Control
         _weaponActiveSkillButton.Visible = false;
         _handUI.DeselectCard();
         HidePlayZonePanel();
+    }
+
+    // ===== 发现选牌 UI =====
+
+    /// <summary>
+    /// 战斗状态变化时的发现选牌 UI 切换。
+    /// 进入 Discovering 阶段时显示选牌界面，退出时隐藏并刷新。
+    /// </summary>
+    private void OnCombatStateChangedForDiscover()
+    {
+        if (_combat == null) return;
+
+        if (_combat.IsDiscovering)
+        {
+            ShowDiscoverUI();
+        }
+        else if (_discoverUI != null && _discoverUI.Visible)
+        {
+            HideDiscoverUI();
+            RefreshAll();
+        }
+    }
+
+    /// <summary>
+    /// 显示发现选牌覆盖层。
+    /// </summary>
+    private void ShowDiscoverUI()
+    {
+        if (_combat?.DiscoverOptions == null) return;
+
+        _discoverUI ??= new DiscoverUI();
+        if (_discoverUI.GetParent() == null)
+            AddChild(_discoverUI);
+
+        _discoverUI.ShowCards(_combat.DiscoverOptions, canSkip: true, onChosen: chosen =>
+        {
+            _combat.ConfirmDiscoverChoice(chosen);
+        });
+
+        // 暂停时禁用 ESC 和回合结束
+        _endTurnButton.Disabled = true;
+        GD.Print("[CombatUI] 发现选牌 UI 已显示");
+    }
+
+    /// <summary>
+    /// 隐藏发现选牌覆盖层。
+    /// </summary>
+    private void HideDiscoverUI()
+    {
+        if (_discoverUI != null)
+        {
+            _discoverUI.Hide();
+        }
+        _endTurnButton.Disabled = false;
+        GD.Print("[CombatUI] 发现选牌 UI 已隐藏");
     }
 
     // ===== 播放区域（类 STS2 风格） =====

@@ -131,6 +131,33 @@ public partial class CombatManager : Node
     /// </summary>
     public bool IsEnemyTurnAnimating => _isEnemyTurnAnimating;
 
+    // ===== 发现选牌状态 =====
+
+    /// <summary>
+    /// 当前正在等待玩家进行发现选牌。
+    /// </summary>
+    public bool IsDiscovering => _pendingDiscoverOptions != null;
+
+    /// <summary>
+    /// 当前发现选牌的 N 个候选卡牌（只读）。
+    /// </summary>
+    public IReadOnlyList<CardData>? DiscoverOptions => _pendingDiscoverOptions?.AsReadOnly();
+
+    /// <summary>
+    /// 手牌数量上限（炉石规则：10 张）。
+    /// </summary>
+    public const int MaxHandSize = 10;
+
+    /// <summary>
+    /// 发现选牌候选卡牌列表（null 表示不在发现阶段）。
+    /// </summary>
+    private List<CardData>? _pendingDiscoverOptions;
+
+    /// <summary>
+    /// 触发发现效果的法术牌（选牌完成后从手牌移除）。
+    /// </summary>
+    private Card.Card? _pendingDiscoverSpellCard;
+
     // ===== Godot 生命周期 =====
 
     /// <summary>
@@ -420,6 +447,7 @@ public partial class CombatManager : Node
     /// <summary>
     /// 玩家打出一张法术牌，对目标施放效果。
     /// 目标可以是随从（Minion）或英雄（Hero），通过 IDamageTarget 接口统一处理伤害。
+    /// 如果法术包含 Discover 效果，则暂停清理流程，等待玩家选牌后通过 <see cref="ConfirmDiscoverChoice"/> 完成。
     /// </summary>
     /// <param name="card">要打出的法术牌</param>
     /// <param name="target">法术目标（Minion 或 Hero 实例）</param>
@@ -459,9 +487,22 @@ public partial class CombatManager : Node
         GD.Print($"[CombatManager] 施放法术 {card.CardName}，消耗 {card.Cost} 法力值");
 
         // 解析每个法术效果
+        bool discoverTriggered = false;
         foreach (var effect in card.Data.Effects)
         {
+            if (effect.EffectType == CardEffectType.Discover)
+            {
+                discoverTriggered = true;
+                _pendingDiscoverSpellCard = card;
+            }
             ResolveSpellEffect(effect, target);
+        }
+
+        // 如果触发了发现效果，延迟清理——ConfirmDiscoverChoice 会处理 RemoveFromHand/CheckDeaths
+        if (discoverTriggered)
+        {
+            GD.Print("[CombatManager]   发现效果已触发，等待玩家选牌...");
+            return true;
         }
 
         // 从手牌中弃掉
@@ -697,6 +738,11 @@ public partial class CombatManager : Node
                 GD.Print("[CombatManager]   无限潜能领域已展开，自然增长上限提升至 30");
                 break;
 
+            // ----- 发现选牌 -----
+            case CardEffectType.Discover:
+                HandleDiscoverEffect(effect);
+                break;
+
             // ----- 自定义效果 -----
             case CardEffectType.Custom:
                 if (effect.CustomEffectName == "AddPlanToHand")
@@ -705,8 +751,7 @@ public partial class CombatManager : Node
                     if (planData != null)
                     {
                         var planCard = new OdysseyCards.Card.Card(planData);
-                        _playerCore.Hand.Add(planCard);
-                        // OnHandChanged 会在后续的 RemoveFromHand 中触发，UI 自动刷新
+                        _playerCore.AddToHand(planCard);
                         GD.Print("[CombatManager]   将「计划」加入手牌");
                     }
                     else
@@ -1415,6 +1460,146 @@ public partial class CombatManager : Node
     /// </summary>
     public void AddCardToHand(OdysseyCards.Card.Card card)
     {
-        _playerCore.Hand.Add(card);
+        _playerCore.AddToHand(card);
+    }
+
+    // ===== 发现选牌系统 =====
+
+    /// <summary>
+    /// 处理发现效果——从卡牌池中随机生成 N 张候选卡牌，进入发现选牌阶段。
+    /// </summary>
+    /// <param name="effect">Discover 效果数据。Value=选项数量，TargetType=稀有度过滤（可选，"all"=全部）</param>
+    private void HandleDiscoverEffect(CardEffectData effect)
+    {
+        int count = effect.Value > 0 ? effect.Value : 3;
+        var pool = GetRandomCardsFromPool(count);
+        if (pool.Count == 0)
+        {
+            GD.PrintErr("[CombatManager] HandleDiscoverEffect 失败 — 卡牌池为空");
+            return;
+        }
+
+        _pendingDiscoverOptions = pool;
+        State.SetDiscovering();
+        GD.Print($"[CombatManager] ◆ 发现：展示 {pool.Count} 张候选卡牌");
+        foreach (var c in pool)
+            GD.Print($"[CombatManager]     {c.GetLocalizedName()} — {c.Description}");
+
+        OnCombatStateChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 确认发现选牌结果——由 DiscoverUI 在选择/跳过时调用。
+    /// </summary>
+    /// <param name="chosen">玩家选中的卡牌数据，null 表示跳过</param>
+    public void ConfirmDiscoverChoice(CardData? chosen)
+    {
+        if (!IsDiscovering)
+        {
+            GD.PrintErr("[CombatManager] ConfirmDiscoverChoice 失败 — 不在发现阶段");
+            return;
+        }
+
+        if (chosen != null)
+        {
+            GD.Print($"[CombatManager] ◆ 发现选牌：{chosen.GetLocalizedName()}");
+
+            // 检查手牌上限
+            if (_playerCore.Hand.Count >= MaxHandSize)
+            {
+                GD.Print($"[CombatManager]   手牌已满（{MaxHandSize}张），{chosen.GetLocalizedName()} 被烧毁！");
+            }
+            else
+            {
+                var card = new OdysseyCards.Card.Card(chosen);
+                _playerCore.AddToHand(card);
+                GD.Print($"[CombatManager]   已将 {chosen.GetLocalizedName()} 加入手牌（共 {_playerCore.Hand.Count} 张）");
+            }
+        }
+        else
+        {
+            GD.Print("[CombatManager] ◆ 发现选牌：跳过");
+        }
+
+        // 移除触发发现的法术牌
+        if (_pendingDiscoverSpellCard != null)
+        {
+            PlayerHero.RemoveFromHand(_pendingDiscoverSpellCard);
+            _pendingDiscoverSpellCard = null;
+        }
+
+        // 清除发现状态
+        _pendingDiscoverOptions = null;
+        State.ResumePlayerTurn();
+
+        // 检查死亡和胜负
+        CheckDeaths();
+        CheckVictoryOrDefeat();
+
+        OnCombatStateChanged?.Invoke();
+        GD.Print("[CombatManager] 发现选牌完成，恢复玩家回合");
+    }
+
+    /// <summary>
+    /// 取消发现选牌（等同跳过）。
+    /// </summary>
+    public void CancelDiscover()
+    {
+        ConfirmDiscoverChoice(null);
+    }
+
+    /// <summary>
+    /// 从全卡牌池中随机抽取不重复的 N 张卡牌。
+    /// 加载 Resources/Cards/ 下所有 .tres 文件，Fisher-Yates 洗牌后取前 N 张。
+    /// </summary>
+    /// <param name="count">需要的卡牌数量</param>
+    /// <returns>随机卡牌列表</returns>
+    private List<CardData> GetRandomCardsFromPool(int count)
+    {
+        var pool = new List<CardData>();
+
+        // 加载 Resources/Cards/ 下所有 .tres 文件
+        using var dir = DirAccess.Open("res://Resources/Cards/");
+        if (dir != null)
+        {
+            dir.ListDirBegin();
+            string fileName = dir.GetNext();
+            while (!string.IsNullOrEmpty(fileName))
+            {
+                if (!dir.CurrentIsDir() && fileName.EndsWith(".tres", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    var cardData = GD.Load<CardData>($"res://Resources/Cards/{fileName}");
+                    if (cardData != null && !string.IsNullOrEmpty(cardData.Id))
+                    {
+                        pool.Add(cardData);
+                    }
+                }
+                fileName = dir.GetNext();
+            }
+            dir.ListDirEnd();
+        }
+
+        GD.Print($"[CombatManager] GetRandomCardsFromPool: 卡牌池共 {pool.Count} 张，请求 {count} 张");
+
+        // 排除不可发现的卡牌（如「发现」自身不能发现「发现」）
+        var nonDiscoverableIds = new System.Collections.Generic.HashSet<string>
+        {
+            "spell_Discover",
+        };
+        pool.RemoveAll(c => nonDiscoverableIds.Contains(c.Id));
+        GD.Print($"[CombatManager]   过滤后池共 {pool.Count} 张");
+
+        if (pool.Count <= count)
+            return pool;
+
+        // Fisher-Yates 洗牌后取前 count 张
+        using var rng = new RandomNumberGenerator();
+        rng.Randomize();
+        for (int i = pool.Count - 1; i > 0; i--)
+        {
+            int j = rng.RandiRange(0, i);
+            (pool[i], pool[j]) = (pool[j], pool[i]);
+        }
+        return pool.Take(count).ToList();
     }
 }

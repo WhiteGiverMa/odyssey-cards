@@ -186,6 +186,14 @@ public class CommanderCore
         CombatDeckState.RemoveFromHand(card);
     }
 
+    /// <summary>
+    /// 直接将卡牌加入手牌（外部来源：发现、/token 等）。
+    /// </summary>
+    public void AddToHand(OdysseyCards.Card.Card card)
+    {
+        CombatDeckState.AddToHand(card);
+    }
+
     public void ReturnToDrawPile(OdysseyCards.Card.Card card)
     {
         CombatDeckState.ReturnToDrawPile(card);
