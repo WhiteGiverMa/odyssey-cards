@@ -169,6 +169,18 @@ cards:
   minion_slime:
     name: "软泥怪"
     description: "冲锋"
+  spell_plan:
+    name: "计划"
+    description: "获得1个额外的法力水晶槽"
+  spell_ignite:
+    name: "燃起"
+    description: "获得1个额外的法力水晶槽，抽1张牌"
+  spell_longtermism:
+    name: "长期主义"
+    description: "获得1个额外的法力水晶槽，回复3点生命，将一张「计划」加入手牌"
+  domain_unlimited_potential:
+    name: "无限潜能"
+    description: "解除自然增长的水晶槽上限"
 
 intent:
   attack_format: "对{target}造成 {damage} 点伤害"

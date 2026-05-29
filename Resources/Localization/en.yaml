@@ -169,6 +169,18 @@ cards:
   minion_slime:
     name: "Slime"
     description: "Charge"
+  spell_plan:
+    name: "Plan"
+    description: "Gain an additional Mana Crystal slot"
+  spell_ignite:
+    name: "Ignite"
+    description: "Gain an additional Mana Crystal slot. Draw 1 card."
+  spell_longtermism:
+    name: "Long-termism"
+    description: "Gain an additional Mana Crystal slot, restore 3 Health, add a 'Plan' to your hand."
+  domain_unlimited_potential:
+    name: "Unlimited Potential"
+    description: "Remove the natural growth cap of Mana Crystals."
 
 intent:
   attack_format: "Deal {damage} damage to {target}"

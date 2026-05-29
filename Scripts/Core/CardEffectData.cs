@@ -93,7 +93,21 @@ public enum CardEffectType
     /// <summary>
     /// 自定义效果。
     /// </summary>
-    Custom
+    Custom,
+
+    /// <summary>
+    /// 获得额外的法力水晶槽（永久增加法力上限）。
+    /// Value = 增加的槽数。只增加上限，不增加当前法力。
+    /// 可突破自然增长上限，但不超过硬上限(30)。
+    /// </summary>
+    GainManaSlot,
+
+    /// <summary>
+    /// 解除自然增长的水晶槽上限。
+    /// 使每回合开始的自动法力增长不再受自然上限(12)限制，可持续增长至硬上限(30)。
+    /// Value 不使用。
+    /// </summary>
+    RemoveNaturalManaCap
 }
 
 public partial class CardEffectData : Resource
@@ -125,6 +139,8 @@ public partial class CardEffectData : Resource
             CardEffectType.ApplyBuff => $"获得{TargetType}{Value}层",
             CardEffectType.Discard => $"弃掉{Value}张牌",
             CardEffectType.ReturnToDeck => "返回抽牌堆",
+            CardEffectType.GainManaSlot => $"获得{Value}个额外的法力水晶槽",
+            CardEffectType.RemoveNaturalManaCap => "解除自然增长的水晶槽上限",
             CardEffectType.Custom => CustomEffectName,
             _ => ""
         };

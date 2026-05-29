@@ -24,26 +24,23 @@ public enum CardType
 
 /// <summary>
 /// 卡牌稀有度。
+/// 0=衍生（Token，无法自然获得），1=金卡（大师级），2=银卡（极佳），3=铜卡（良好），4=铁卡（普通）。
+/// 稀有度当前仅用于标注，对游戏机制无影响。
 /// </summary>
 public enum CardRarity
 {
-    /// <summary>
-    /// 普通：常见卡牌，基础效果。
-    /// </summary>
-    Common,
+    /// <summary>衍生卡（Token），无法通过奖励/商店自然获得。</summary>
+    Derivative = 0,
 
-    /// <summary>
-    /// 稀有：不太常见，中等效果。
-    /// </summary>
-    Uncommon,
+    /// <summary>大师级，金卡。</summary>
+    Master = 1,
 
-    /// <summary>
-    /// 罕见：不常见，强力效果。
-    /// </summary>
-    Rare,
+    /// <summary>极佳，银卡。</summary>
+    Excellent = 2,
 
-    /// <summary>
-    /// 传说：非常稀有，独特强力效果。
-    /// </summary>
-    Legendary
+    /// <summary>良好，铜卡。</summary>
+    Good = 3,
+
+    /// <summary>普通，铁卡。</summary>
+    Common = 4
 }

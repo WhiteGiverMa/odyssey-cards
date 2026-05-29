@@ -299,7 +299,11 @@ public partial class CombatManager : Node
     /// </summary>
     private void StartPlayerTurn()
     {
-        State.StartPlayerTurn();
+        // 检查英雄是否拥有「无限潜能」领域，决定自然增长上限
+        int growthCap = PlayerHero.ActiveDomains.ContainsKey("unlimited_potential")
+            ? GameState.HardMaxManaCap
+            : GameState.MaxManaCrystals;
+        State.StartPlayerTurn(growthCap);
         _playerCore.SetMana(State.PlayerMana, State.PlayerMaxMana);
 
         // 回合开始抽 1 张牌
@@ -524,6 +528,8 @@ public partial class CombatManager : Node
 
         foreach (var effect in card.Data.Effects)
         {
+            // 先执行即时效果（如 RemoveNaturalManaCap），再存储为持久领域效果
+            ExecuteEffect(effect, null);
             PlayerHero.AddDomain(domainId, effect);
         }
 
@@ -674,6 +680,43 @@ public partial class CombatManager : Node
                 else
                 {
                     GD.Print($"[CombatManager]   BuffMinion 需要有效的随从目标");
+                }
+                break;
+
+            // ----- 法力水晶槽 -----
+            case CardEffectType.GainManaSlot:
+                State.GainManaSlot(effect.Value);
+                // 同步 CommanderCore 的 MaxMana，但不增加 CurrentMana
+                _playerCore.SetMana(_playerCore.CurrentMana, State.PlayerMaxMana);
+                GD.Print($"[CombatManager]   获得 {effect.Value} 个法力水晶槽（总上限 {State.PlayerMaxMana}）");
+                break;
+
+            case CardEffectType.RemoveNaturalManaCap:
+                // 领域效果由 Hero 领域系统持久管理，
+                // 自然增长上限在 StartPlayerTurn 中根据领域存在与否动态判定。
+                GD.Print("[CombatManager]   无限潜能领域已展开，自然增长上限提升至 30");
+                break;
+
+            // ----- 自定义效果 -----
+            case CardEffectType.Custom:
+                if (effect.CustomEffectName == "AddPlanToHand")
+                {
+                    var planData = GD.Load<CardData>("res://Resources/Cards/Spell_Plan.tres");
+                    if (planData != null)
+                    {
+                        var planCard = new OdysseyCards.Card.Card(planData);
+                        _playerCore.Hand.Add(planCard);
+                        // OnHandChanged 会在后续的 RemoveFromHand 中触发，UI 自动刷新
+                        GD.Print("[CombatManager]   将「计划」加入手牌");
+                    }
+                    else
+                    {
+                        GD.PrintErr("[CombatManager]   无法加载计划卡牌资源");
+                    }
+                }
+                else
+                {
+                    GD.Print($"[CombatManager]   未处理的Custom效果：{effect.CustomEffectName}");
                 }
                 break;
 

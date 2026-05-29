@@ -11,8 +11,10 @@ namespace OdysseyCards.Character;
 /// </summary>
 public class CommanderCore
 {
-    public const int MaxManaCrystals = 10;
-    public const int HardMaxManaCap = 24;
+    /// <summary>自然增长的法力水晶上限（每回合+1直到此值）。</summary>
+    public const int MaxManaCrystals = 12;
+    /// <summary>法力水晶的硬上限（任何方式均不可超过）。</summary>
+    public const int HardMaxManaCap = 30;
 
     /// <summary>
     /// 当前生命值。

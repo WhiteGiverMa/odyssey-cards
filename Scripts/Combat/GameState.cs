@@ -37,14 +37,19 @@ public class GameState
     // ===== 常量 =====
 
     /// <summary>
-    /// 法力水晶上限。
+    /// 法力水晶自然增长上限（每回合+1直到此值）。
     /// </summary>
-    public const int MaxManaCrystals = 10;
+    public const int MaxManaCrystals = 12;
+
+    /// <summary>
+    /// 法力水晶硬上限（任何方式均不可超过）。
+    /// </summary>
+    public const int HardMaxManaCap = 30;
 
     /// <summary>
     /// 游戏开始时的最大法力水晶数。
     /// </summary>
-    public const int StartingMaxMana = 1;
+    public const int StartingMaxMana = 3;
 
     // ===== 属性 =====
 
@@ -95,24 +100,25 @@ public class GameState
     {
         Phase = CombatPhase.Mulligan;
         TurnCount = 0;
-        PlayerMana = 0;
-        PlayerMaxMana = 0;
+        PlayerMaxMana = StartingMaxMana;
+        PlayerMana = StartingMaxMana;
     }
 
     /// <summary>
     /// 开始玩家回合。
-    /// 回合数 +1，若最大法力水晶未达上限则增长 1 点，
+    /// 回合数 +1，法力水晶增长 1 点（不超过 naturalGrowthCap），
     /// 并将当前法力水晶恢复至最大值。
     /// </summary>
-    public void StartPlayerTurn()
+    /// <param name="naturalGrowthCap">当前有效的自然增长上限（默认 12，无限潜能领域下为 30）。</param>
+    public void StartPlayerTurn(int naturalGrowthCap)
     {
         Phase = CombatPhase.PlayerTurn;
 
         // 回合数递增（每次轮到玩家时递增）
         TurnCount++;
 
-        // 法力水晶增长
-        if (PlayerMaxMana < MaxManaCrystals)
+        // 法力水晶增长：不超过自然增长上限和硬上限
+        if (PlayerMaxMana < naturalGrowthCap && PlayerMaxMana < HardMaxManaCap)
             PlayerMaxMana++;
         PlayerMana = PlayerMaxMana;
     }
@@ -148,6 +154,18 @@ public class GameState
             return false;
         PlayerMana -= amount;
         return true;
+    }
+
+    /// <summary>
+    /// 获得额外的法力水晶槽（永久增加法力上限）。
+    /// 只增加最大法力值，不增加当前法力（当前回合无法使用）。
+    /// 可突破自然增长上限，但不超过硬上限 HardMaxManaCap(30)。
+    /// </summary>
+    /// <param name="amount">增加的槽数</param>
+    public void GainManaSlot(int amount)
+    {
+        PlayerMaxMana = Math.Min(PlayerMaxMana + amount, HardMaxManaCap);
+        // 只增加上限，不增加当前法力（本回合无法使用新槽）
     }
 
     // ===== 回合结束 =====

@@ -95,7 +95,7 @@ public partial class GameManager : Node
         CurrentPlayer = new Player();
         CurrentPlayer.CharacterName = "Ironclad";
         CurrentPlayer.InitializeHealth(30);
-        CurrentPlayer.SetMana(0, 1);
+        CurrentPlayer.SetMana(0, 3);
 
         var startingDeck = CreateStartingDeck();
         CurrentPlayer.Initialize(startingDeck);
@@ -144,6 +144,7 @@ public partial class GameManager : Node
 
         string[] cardPaths =
         {
+            // 基础卡牌（各2张）
             "res://Resources/Cards/Spell_Alert.tres",
             "res://Resources/Cards/Spell_Assault.tres",
             "res://Resources/Cards/Spell_Strike.tres",
@@ -152,6 +153,14 @@ public partial class GameManager : Node
             "res://Resources/Cards/Minion_LianshuScout.tres",
             "res://Resources/Cards/Domain_Zhijian.tres",
             "res://Resources/Cards/Domain_InfiniteFire.tres",
+        };
+
+        // 新卡牌（各1张）
+        string[] newCardPaths =
+        {
+            "res://Resources/Cards/Spell_Ignite.tres",
+            "res://Resources/Cards/Spell_Longtermism.tres",
+            "res://Resources/Cards/Domain_UnlimitedPotential.tres",
         };
 
         foreach (var path in cardPaths)
@@ -170,6 +179,24 @@ public partial class GameManager : Node
             }
 
             cards.Add(cardData);
+            cards.Add(cardData);
+        }
+
+        foreach (var path in newCardPaths)
+        {
+            if (!ResourceLoader.Exists(path))
+            {
+                GD.PrintErr($"[GameManager] 警告：未找到 {path}");
+                continue;
+            }
+
+            var cardData = GD.Load<CardData>(path);
+            if (cardData == null)
+            {
+                GD.PrintErr($"[GameManager] 警告：加载失败 {path}");
+                continue;
+            }
+
             cards.Add(cardData);
         }
 

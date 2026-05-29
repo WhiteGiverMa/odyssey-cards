@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 18
+Value = 1
+
+[sub_resource type="Resource" id="SubResource_2"]
+script = ExtResource("2_effect")
+EffectType = 1
+Value = 3
+
+[sub_resource type="Resource" id="SubResource_3"]
+script = ExtResource("2_effect")
+EffectType = 17
+Value = 1
+CustomEffectName = "AddPlanToHand"
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_longtermism"
+CardName = "长期主义"
+Description = "获得1个额外的法力水晶槽，回复3点生命，将一张「计划」加入手牌"
+Rarity = 3
+Cost = 3
+Type = 1
+Effects = [SubResource("SubResource_1"), SubResource("SubResource_2"), SubResource("SubResource_3")]
