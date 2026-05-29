@@ -150,6 +150,8 @@ public partial class CombatUI : Control
         SelectingAttackTarget,
         /// <summary>武器攻击目标模式——玩家点击武器攻击后，等待选择敌方目标（随从或英雄）。</summary>
         SelectingWeaponTarget,
+        /// <summary>无目标卡牌打出模式——拖拽到屏幕中央播放区域打出（类 STS2 风格）。</summary>
+        PlayingNoTargetCard,
         /// <summary>开发者伤害模式——点击任意实体造成指定伤害。</summary>
         DevDamageTargeting,
     }
@@ -207,6 +209,27 @@ public partial class CombatUI : Control
     /// 敌方状态效果图标容器（HBoxContainer）。
     /// </summary>
     private HBoxContainer _enemyStatusContainer = null!;
+
+    /// <summary>
+    /// 播放区域视觉指示器——拖拽无目标卡牌时在屏幕中央显示。
+    /// </summary>
+    private Panel? _playZonePanel;
+
+    /// <summary>
+    /// 播放区域 Label——指示器内的提示文字。
+    /// </summary>
+    private Label? _playZoneLabel;
+
+    /// <summary>
+    /// 播放区域面板的 GuiInput 事件是否已连接（防止重复连接/断开）。
+    /// </summary>
+    private bool _playZonePanelConnected;
+
+    /// <summary>
+    /// 播放区域 Y 坐标阈值比例（屏幕高度的百分比，从顶部算起）。
+    /// 鼠标 Y 小于此阈值即认为卡牌在播放区域内。默认 60%。
+    /// </summary>
+    private const float PlayZoneThresholdRatio = 0.60f;
 
     // ===== Godot 生命周期 =====
 
@@ -282,6 +305,7 @@ public partial class CombatUI : Control
         CreateWeaponUI();
         CreateStatusEffectUI();
         CreateGameOverPopup();
+        CreatePlayZonePanel();
 
         // 订阅事件
         SubscribeEvents();
@@ -1403,21 +1427,20 @@ public partial class CombatUI : Control
                 break;
 
             case CardType.Spell:
-                EnterSpellTargetMode(card);
-                break;
-
-            case CardType.Domain:
-                // 领域牌不需要选择目标，直接打出
-                bool success = _combat.PlayDomain(card);
-                if (success)
+                if (card.Data.RequiresTarget)
                 {
-                    RefreshAll();
+                    EnterSpellTargetMode(card);
                 }
                 else
                 {
-                    // 打出失败（如法力不足），取消拖拽返回手牌
-                    OnCardDragCancelled();
+                    // 无目标法术（如「警戒」）：进入拖拽播放模式
+                    EnterNoTargetPlayMode(card);
                 }
+                break;
+
+            case CardType.Domain:
+                // 领域牌：进入拖拽播放模式（类 STS2 风格，拖到中央打出）
+                EnterNoTargetPlayMode(card);
                 break;
 
             default:
@@ -1463,6 +1486,10 @@ public partial class CombatUI : Control
 
             case SelectionMode.SelectingAttackTarget:
                 HandleAttackDrop(screenPos);
+                break;
+
+            case SelectionMode.PlayingNoTargetCard:
+                HandleNoTargetCardDrop(screenPos);
                 break;
 
             default:
@@ -1529,6 +1556,32 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
+    /// 无目标卡牌播放模式下的松手处理：检查落点是否在播放区域内。
+    /// 在区域内→打出卡牌；在区域外→取消拖拽（等效右键）。
+    /// </summary>
+    private void HandleNoTargetCardDrop(Vector2 screenPos)
+    {
+        if (_selectedCard == null)
+        {
+            GD.PrintErr("[CombatUI] 内部错误：播放模式但 _selectedCard 为 null");
+            ResetSelection();
+            _handUI.RefreshHand();
+            return;
+        }
+
+        bool inZone = IsInPlayZone(screenPos);
+        GD.Print($"[CombatUI] 无目标卡牌松手 — {_selectedCard.CardName}，{(inZone ? "在播放区域内" : "不在播放区域内")}");
+
+        if (!inZone)
+        {
+            OnCardDragCancelled();
+            return;
+        }
+
+        PlaySelectedNoTargetCard();
+    }
+
+    /// <summary>
     /// 攻击目标模式下的松手处理：检查落点是否在敌方槽位或敌方英雄面板上。
     /// </summary>
     private void HandleAttackDrop(Vector2 screenPos)
@@ -1559,6 +1612,7 @@ public partial class CombatUI : Control
         if (_dragCardUI != null)
         {
             _dragCardUI.OnCardDropped -= OnCardDroppedHandler;
+            _dragCardUI.OnDragMove -= OnDragMoveForPlayZone;
             _dragCardUI.CancelDragSilent(); // 退出拖拽状态，防止 _Process 残留
             _dragCardUI.Visible = false;     // 立即隐藏，防止与 RefreshHand 新建卡牌重叠
             _dragCardUI.QueueFree();
@@ -1636,6 +1690,26 @@ public partial class CombatUI : Control
         _enemyHeroSpellButton.Visible = true;
 
         GD.Print($"[CombatUI] 法术目标模式——{_selectedCard.CardName}（可用目标：{enemyTargets.Count + friendlyTargets.Count} + 英雄）");
+    }
+
+    /// <summary>
+    /// 进入无目标卡牌播放模式——显示播放区域指示器，等待玩家拖拽到播放区域松手打出。
+    /// 适用于：领域（Domain）、无目标的法术（Spell.RequiresTarget == false）。
+    /// </summary>
+    private void EnterNoTargetPlayMode(Card.Card card)
+    {
+        _selectionMode = SelectionMode.PlayingNoTargetCard;
+        _selectedCard = card;
+
+        ShowPlayZonePanel();
+
+        // 订阅拖拽卡牌的逐帧位置更新（用于播放区域判定和视觉反馈）
+        if (_dragCardUI != null)
+        {
+            _dragCardUI.OnDragMove += OnDragMoveForPlayZone;
+        }
+
+        GD.Print($"[CombatUI] 无目标播放模式——{card.CardName}（拖到绿色区域松手打出，右键取消）");
     }
 
     /// <summary>
@@ -2091,5 +2165,167 @@ public partial class CombatUI : Control
         _weaponAttackButton.Visible = false;
         _weaponActiveSkillButton.Visible = false;
         _handUI.DeselectCard();
+        HidePlayZonePanel();
+    }
+
+    // ===== 播放区域（类 STS2 风格） =====
+
+    /// <summary>
+    /// 判断屏幕坐标是否在播放区域内。
+    /// 播放区域 = 屏幕顶部到高度×PlayZoneThresholdRatio 的区间。
+    /// 类 STS2 NMouseCardPlay.IsCardInPlayZone() 的 Y 阈值判定。
+    /// </summary>
+    private bool IsInPlayZone(Vector2 screenPos)
+    {
+        float threshold = GetViewport().GetVisibleRect().Size.Y * PlayZoneThresholdRatio;
+        return screenPos.Y < threshold;
+    }
+
+    /// <summary>
+    /// 创建播放区域视觉指示器——半透明面板 + 提示文字。
+    /// 在 Initialize 中调用一次，默认隐藏。
+    /// </summary>
+    private void CreatePlayZonePanel()
+    {
+        float scale = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+
+        _playZonePanel = new Panel
+        {
+            Name = "PlayZonePanel",
+            Visible = false,
+            ZIndex = 50,
+        };
+
+        var style = new StyleBoxFlat
+        {
+            BgColor = new Color(0.2f, 0.6f, 0.2f, 0.12f),
+            BorderWidthLeft = 2,
+            BorderWidthRight = 2,
+            BorderWidthTop = 2,
+            BorderWidthBottom = 2,
+            BorderColor = new Color(0.3f, 0.8f, 0.3f, 0.4f),
+            CornerRadiusTopLeft = 12,
+            CornerRadiusTopRight = 12,
+            CornerRadiusBottomLeft = 12,
+            CornerRadiusBottomRight = 12,
+        };
+        _playZonePanel.AddThemeStyleboxOverride("panel", style);
+
+        _playZoneLabel = new Label
+        {
+            Name = "PlayZoneLabel",
+            Text = "松手打出\n（或点击此处）",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        _playZoneLabel.AddThemeColorOverride("font_color", new Color(0.5f, 1f, 0.5f, 0.6f));
+        _playZoneLabel.AddThemeFontSizeOverride("font_size", (int)(20 * scale));
+        _playZonePanel.AddChild(_playZoneLabel);
+
+        AddChild(_playZonePanel);
+    }
+
+    /// <summary>
+    /// 显示播放区域面板并计算其位置（在棋盘区域上方）。
+    /// 设置鼠标过滤为 Stop 以接收点击事件（用于 click-select 模式打出）。
+    /// </summary>
+    private void ShowPlayZonePanel()
+    {
+        if (_playZonePanel == null) return;
+
+        var viewport = GetViewport().GetVisibleRect().Size;
+        float threshold = viewport.Y * PlayZoneThresholdRatio;
+        float panelH = 80f * (UIScaler.Instance?.GetScaleFactor() ?? 1f);
+        float margin = 20f;
+
+        _playZonePanel.Position = new Vector2(margin, threshold - panelH - margin);
+        _playZonePanel.Size = new Vector2(viewport.X - margin * 2, panelH);
+        _playZonePanel.MouseFilter = MouseFilterEnum.Stop;
+
+        if (!_playZonePanelConnected)
+        {
+            _playZonePanel.GuiInput += OnPlayZoneGuiInput;
+            _playZonePanelConnected = true;
+        }
+
+        _playZonePanel.Visible = true;
+    }
+
+    /// <summary>
+    /// 隐藏播放区域面板并断开点击事件。
+    /// </summary>
+    private void HidePlayZonePanel()
+    {
+        if (_playZonePanel == null) return;
+
+        if (_playZonePanelConnected)
+        {
+            _playZonePanel.GuiInput -= OnPlayZoneGuiInput;
+            _playZonePanelConnected = false;
+        }
+
+        _playZonePanel.MouseFilter = MouseFilterEnum.Ignore;
+        _playZonePanel.Visible = false;
+    }
+
+    /// <summary>
+    /// 播放区域面板点击事件——click-select 模式下点击播放区域即打出卡牌。
+    /// </summary>
+    private void OnPlayZoneGuiInput(InputEvent @event)
+    {
+        if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
+        {
+            if (_selectionMode == SelectionMode.PlayingNoTargetCard && _selectedCard != null)
+            {
+                GD.Print($"[CombatUI] 播放区域被点击 — 打出 {_selectedCard.CardName}");
+                PlaySelectedNoTargetCard();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 执行无目标卡牌打出——拖拽松手或点击播放区域后的统一入口。
+    /// </summary>
+    private void PlaySelectedNoTargetCard()
+    {
+        if (_selectedCard == null || _combat.State.IsGameOver) return;
+
+        bool success;
+        switch (_selectedCard.Type)
+        {
+            case CardType.Spell:
+                success = _combat.PlaySpell(_selectedCard, _combat.PlayerHero);
+                break;
+            case CardType.Domain:
+                success = _combat.PlayDomain(_selectedCard);
+                break;
+            default:
+                GD.PrintErr($"[CombatUI] 不支持的类型：{_selectedCard.Type}");
+                OnCardDragCancelled();
+                return;
+        }
+
+        if (success)
+        {
+            GD.Print($"[CombatUI] ✓ 无目标卡牌 {_selectedCard.CardName} 已打出");
+            RefreshAll();
+        }
+        else
+        {
+            GD.Print($"[CombatUI] ✗ 打出失败，取消");
+            OnCardDragCancelled();
+        }
+    }
+
+    /// <summary>
+    /// 拖拽卡牌逐帧位置更新回调——检查是否进入/离开播放区域并更新视觉反馈。
+    /// </summary>
+    private void OnDragMoveForPlayZone(CardUI cardUI, Vector2 screenPos)
+    {
+        if (_selectionMode != SelectionMode.PlayingNoTargetCard) return;
+
+        bool inZone = IsInPlayZone(screenPos);
+        cardUI.SetPlayZoneHighlight(inZone);
     }
 }

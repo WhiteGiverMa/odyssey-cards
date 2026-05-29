@@ -87,6 +87,12 @@ public partial class CardUI : Control
     /// </summary>
     public event Action<CardUI, Vector2>? OnCardDropped;
 
+    /// <summary>
+    /// 卡牌在拖拽中逐帧触发。参数为卡牌 UI 和当前全局坐标。
+    /// 接收方（CombatUI）根据位置更新播放区域视觉反馈。
+    /// </summary>
+    public event Action<CardUI, Vector2>? OnDragMove;
+
 	// ============================================================
 	// 私有 UI 节点
 	// ============================================================
@@ -598,6 +604,9 @@ public partial class CardUI : Control
             Position = parentCtrl.GetLocalMousePosition() - _dragOffset;
         }
 
+        // 逐帧通知拖拽位置（用于播放区域判定等）
+        OnDragMove?.Invoke(this, GetGlobalMousePosition());
+
         bool leftDown = Input.IsMouseButtonPressed(MouseButton.Left);
 
         // 跟踪拖拽距离：仅在非点击选中模式下检测
@@ -656,15 +665,39 @@ public partial class CardUI : Control
 		ZIndex = 1;
 	}
 
-	/// <summary>
-	/// 取消选中：清除高亮状态，恢复原位置。
-	/// </summary>
-	public void Deselect()
-	{
-		IsSelected = false;
-		OffsetTop = 0;
-		ZIndex = 0;
-	}
+    /// <summary>
+    /// 取消选中：清除高亮状态，恢复原位置。
+    /// </summary>
+    public void Deselect()
+    {
+        IsSelected = false;
+        OffsetTop = 0;
+        ZIndex = 0;
+    }
+
+    /// <summary>
+    /// 设置播放区域高亮状态——卡牌拖入播放区域时显示绿色边框反馈。
+    /// </summary>
+    /// <param name="active">true=在播放区域内，false=离开</param>
+    public void SetPlayZoneHighlight(bool active)
+    {
+        if (_bgPanel == null) return;
+
+        var style = new StyleBoxFlat
+        {
+            BgColor = ClrBg,
+            CornerRadiusTopLeft = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
+            CornerRadiusTopRight = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
+            CornerRadiusBottomLeft = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
+            CornerRadiusBottomRight = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
+            BorderWidthBottom = active ? 3 : 1,
+            BorderWidthLeft = active ? 3 : 1,
+            BorderWidthRight = active ? 3 : 1,
+            BorderWidthTop = active ? 3 : 1,
+            BorderColor = active ? new Color(0.3f, 0.9f, 0.3f, 0.8f) : ClrBorder,
+        };
+        _bgPanel.AddThemeStyleboxOverride("panel", style);
+    }
 
 	// ============================================================
 	// 布局切换
