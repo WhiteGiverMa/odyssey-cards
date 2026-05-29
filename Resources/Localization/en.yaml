@@ -98,6 +98,12 @@ ui:
     keyword_windfury: "W"
     keyword_battlecry: "B"
     keyword_deathrattle: "D"
+  pause:
+    title: "Pause"
+    continue_game: "Continue"
+    settings: "Settings"
+    save_and_exit: "Save & Exit"
+    quick_sl: "Quick S/L"
 
 weapon:
   ion_pistol:

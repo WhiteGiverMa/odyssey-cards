@@ -98,6 +98,12 @@ ui:
     keyword_windfury: "风"
     keyword_battlecry: "吼"
     keyword_deathrattle: "亡"
+  pause:
+    title: "暂停"
+    continue_game: "继续"
+    settings: "设置"
+    save_and_exit: "保存并退出"
+    quick_sl: "快速SL"
 
 weapon:
   ion_pistol:
