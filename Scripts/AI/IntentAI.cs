@@ -174,6 +174,13 @@ public abstract class EnemyEncounter
     public int CurrentHealth { get; set; }
 
     /// <summary>
+    /// 敌人的攻击力。影响意图造成的伤害——意图伤害 = 意图基础值 + 攻击力。
+    /// 攻击力也可被降低（如离子脉冲），攻击力降低会减少意图伤害。
+    /// 最小为 0（攻击力为负会减少意图伤害，但不会让意图变为治疗）。
+    /// </summary>
+    public int Attack { get; set; }
+
+    /// <summary>
     /// 是否已死亡。
     /// </summary>
     public bool IsDead => CurrentHealth <= 0;
@@ -203,6 +210,7 @@ public abstract class EnemyEncounter
         Name = name;
         MaxHealth = maxHealth;
         CurrentHealth = maxHealth;
+        Attack = 0; // 默认无额外攻击力，子类可覆盖
         IntentPattern = intentPattern;
         CurrentPatternIndex = 0;
     }
@@ -223,7 +231,14 @@ public abstract class EnemyEncounter
         if (intent.Type == IntentType.Attack)
         {
             intent.TargetSelector = ResolveAttackTarget;
-            intent.DamageCalc = (c) => DamageResolver.ResolvePreviewDamage(intent.Value, null);
+            intent.DamageCalc = (c) =>
+            {
+                // 先解析目标（用于获取目标的防御力）
+                var resolvedTarget = intent.TargetSelector?.Invoke(c);
+                // 意图伤害 = 意图基础值 + 敌人攻击力，再经过目标防御力修正
+                int baseWithAttack = intent.Value + Attack;
+                return DamageResolver.ResolvePreviewDamage(baseWithAttack, null, resolvedTarget);
+            };
         }
         return intent;
     }
@@ -299,7 +314,8 @@ public class Cultist : EnemyEncounter
         {
             case IntentType.Attack:
                 var target = intent.GetTarget(combat);
-                target?.TakeDamage(intent.Value, null);
+                int effectiveDmg = intent.GetEffectiveDamage(combat);
+                target?.TakeDamage(effectiveDmg, null);
                 break;
 
             case IntentType.Defend:
@@ -341,7 +357,8 @@ public class SlimeBoss : EnemyEncounter
         {
             case IntentType.Attack:
                 var target = intent.GetTarget(combat);
-                target?.TakeDamage(intent.Value, null);
+                int effectiveDmg = intent.GetEffectiveDamage(combat);
+                target?.TakeDamage(effectiveDmg, null);
                 break;
 
             case IntentType.Summon:
@@ -419,7 +436,8 @@ public class WolfRider : EnemyEncounter
         {
             case IntentType.Attack:
                 var target = intent.GetTarget(combat);
-                target?.TakeDamage(intent.Value, null);
+                int effectiveDmg = intent.GetEffectiveDamage(combat);
+                target?.TakeDamage(effectiveDmg, null);
                 break;
         }
     }
@@ -456,7 +474,8 @@ public class GuardianBoss : EnemyEncounter
         {
             case IntentType.Attack:
                 var target = intent.GetTarget(combat);
-                target?.TakeDamage(intent.Value, null);
+                int effectiveDmg = intent.GetEffectiveDamage(combat);
+                target?.TakeDamage(effectiveDmg, null);
                 break;
 
             case IntentType.Defend:

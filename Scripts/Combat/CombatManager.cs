@@ -56,6 +56,12 @@ public partial class CombatManager : Node
     public Hero EnemyHero { get; private set; }
 
     /// <summary>
+    /// 武器主动技能的目标。IonPulse 等需要选择目标的主动技能在 Execute 时读取此属性。
+    /// 由 CombatUI 在进入技能目标选择模式时设置，Execute 完成后清除。
+    /// </summary>
+    public IDamageTarget? ActiveSkillTarget { get; set; }
+
+    /// <summary>
     /// 玩家角色（Godot Node 引用，用于场景树交互）。
     /// </summary>
     public Player Player { get; private set; }
@@ -255,6 +261,9 @@ public partial class CombatManager : Node
         EnemyHero.Weapon = new RollingLog();
         GD.Print($"[CombatManager] 玩家武器：{PlayerHero.Weapon.Name}（{PlayerHero.Weapon.Attack}攻/{PlayerHero.Weapon.AttackCost}费），" +
                   $"敌方武器：{EnemyHero.Weapon.Name}（{EnemyHero.Weapon.Attack}攻）");
+
+        // 同步敌人攻击力到意图系统
+        _currentEnemy.Attack = EnemyHero.Weapon?.Attack ?? 0;
 
         GD.Print($"[CombatManager] 初始化完成 — 玩家 {PlayerHero.CurrentHealth}/{PlayerHero.MaxHealth}，" +
                   $"敌方 {EnemyHero.CurrentHealth}/{EnemyHero.MaxHealth}");
@@ -873,6 +882,9 @@ public partial class CombatManager : Node
         // 对敌方英雄造成伤害（敌方英雄的武器反击由 Hero.TakeDamage → CounterAttack 自动处理）
         EnemyHero.TakeDamage(weaponDamage, PlayerHero);
 
+        // 触发武器被动命中效果（如熔毁：目标防御-1）
+        PlayerHero.Weapon?.PassiveSkill?.OnWeaponHit(EnemyHero, PlayerHero);
+
         // 记录武器攻击
         PlayerHero.RecordWeaponAttack();
 
@@ -957,6 +969,9 @@ public partial class CombatManager : Node
         // 英雄武器攻击随从（第一次伤害：英雄→随从）
         target.TakeDamage(weaponDamage, PlayerHero);
 
+        // 触发武器被动命中效果（如熔毁：目标防御-1）
+        PlayerHero.Weapon?.PassiveSkill?.OnWeaponHit(target, PlayerHero);
+
         // 随从反击英雄（第二次伤害：随从→英雄）。
         // 抑制武器反击，避免英雄武器对随从的反击再次触发。
         if (!target.IsDead)
@@ -1012,8 +1027,18 @@ public partial class CombatManager : Node
             return false;
         }
 
+        // 清除上一帧残留的目标选择
+        ActiveSkillTarget = null;
+
         GD.Print($"[CombatManager] ★ 使用武器主动技能：{active.Name}");
         active.Execute(PlayerHero, this);
+
+        // 触发武器被动命中效果（如熔毁：目标防御-1）
+        if (ActiveSkillTarget != null)
+        {
+            PlayerHero.Weapon?.PassiveSkill?.OnWeaponHit(ActiveSkillTarget, PlayerHero);
+            ActiveSkillTarget = null;
+        }
 
         return true;
     }
@@ -1207,6 +1232,12 @@ public partial class CombatManager : Node
         PlayerHero.TickStatusEffects(TickTiming.PlayerTurnEnd);
         EnemyHero.TickStatusEffects(TickTiming.PlayerTurnEnd);
 
+        // Minion 状态效果衰减 — 友方回合结束时
+        foreach (var minion in Board.GetPlayerMinions())
+            minion.TickStatusEffects(TickTiming.PlayerTurnEnd);
+        foreach (var minion in Board.GetEnemyMinions())
+            minion.TickStatusEffects(TickTiming.PlayerTurnEnd);
+
         // 切换到敌方回合
         State.EndPlayerTurn();
         GD.Print($"[CombatManager] ---------- 敌方回合开始（{_currentEnemy.Name}）----------");
@@ -1241,6 +1272,8 @@ public partial class CombatManager : Node
         }
 
         // 1. 执行敌方当前意图（攻击/防御/召唤等）——使用动态目标选择
+        // 同步敌方攻击力到意图系统（考虑武器禁用等状态）
+        _currentEnemy.Attack = EnemyHero.Weapon is { IsDisabled: false } ? EnemyHero.Weapon.Attack : 0;
         _currentEnemy.ExecuteIntent(this);
 
         // 2. 推进到下一意图
@@ -1262,6 +1295,12 @@ public partial class CombatManager : Node
         // 7. 状态效果衰减 — 敌方回合结束时（武器禁用等 debuff 在此触发）
         PlayerHero.TickStatusEffects(TickTiming.EnemyTurnEnd);
         EnemyHero.TickStatusEffects(TickTiming.EnemyTurnEnd);
+
+        // Minion 状态效果衰减 — 敌方回合结束时
+        foreach (var minion in Board.GetPlayerMinions())
+            minion.TickStatusEffects(TickTiming.EnemyTurnEnd);
+        foreach (var minion in Board.GetEnemyMinions())
+            minion.TickStatusEffects(TickTiming.EnemyTurnEnd);
 
         // 8. 通知 UI 刷新意图显示（解冻后触发）
         OnCombatStateChanged?.Invoke();
