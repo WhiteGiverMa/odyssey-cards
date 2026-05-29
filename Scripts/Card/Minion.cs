@@ -2,6 +2,7 @@ using Godot;
 using OdysseyCards.Core;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace OdysseyCards.Card;
 
@@ -14,10 +15,9 @@ namespace OdysseyCards.Card;
 public class Minion : Card, IDamageSource, IDamageTarget
 {
     /// <summary>
-    /// 空的伤害修改器列表，用于满足接口要求。
-    /// 后续可扩展为支持 Buff/光环等修改器。
+    /// 伤害修改器列表（防御力修改器等）。
     /// </summary>
-    private static readonly IReadOnlyList<IDamageModifier> _emptyModifiers = Array.Empty<IDamageModifier>();
+    private readonly List<IDamageModifier> _damageModifiers = new();
 
     // ===== 随从基础属性 =====
 
@@ -33,6 +33,23 @@ public class Minion : Card, IDamageSource, IDamageTarget
     public void ModifyAttack(int delta)
     {
         Attack = Math.Max(0, Attack + delta);
+    }
+
+    /// <summary>
+    /// 防御力。影响受到的伤害：最终伤害 = max(0, 基础伤害 - 防御力)。
+    /// 通过 DefenseModifier 在 DamageResolver ADDITIVE 阶段自动生效。
+    /// 可为负值表示脆弱（受到额外伤害）。
+    /// </summary>
+    public int Defense { get; private set; }
+
+    /// <summary>
+    /// 修改防御力（正数为增加，负数为减少）。
+    /// 最大值不设上限，最小值不设下限（允许负防御表示脆弱状态）。
+    /// </summary>
+    /// <param name="delta">增减量</param>
+    public void ModifyDefense(int delta)
+    {
+        Defense += delta;
     }
 
     /// <summary>
@@ -108,9 +125,93 @@ public class Minion : Card, IDamageSource, IDamageTarget
     // ===== IDamageSource 实现 =====
 
     /// <summary>
-    /// 攻击方伤害修改器列表（当前返回空列表）。
+    /// 伤害修改器列表。包含防御力修改器等，由 DamageResolver 在各阶段调用。
     /// </summary>
-    public IReadOnlyList<IDamageModifier> DamageModifiers => _emptyModifiers;
+    public IReadOnlyList<IDamageModifier> DamageModifiers => _damageModifiers;
+
+    // ===== 状态效果系统 =====
+
+    private readonly Dictionary<string, StatusEffect> _statusEffects = new();
+
+    public IReadOnlyDictionary<string, StatusEffect> StatusEffects => _statusEffects;
+
+    public void AddStatusEffect(StatusEffect effect)
+    {
+        if (_statusEffects.TryGetValue(effect.Id, out var existing))
+        {
+            existing.Stacks += effect.Stacks;
+            GD.Print($"[Minion:{CardName}] 状态「{effect.Id}」叠加到 {existing.Stacks} 层");
+        }
+        else
+        {
+            _statusEffects[effect.Id] = effect;
+            GD.Print($"[Minion:{CardName}] 获得状态「{effect.Id}」{effect.Stacks} 层");
+            ApplyStatusEffectImmediate(effect);
+        }
+    }
+
+    public void RemoveStatusEffect(string id)
+    {
+        if (_statusEffects.Remove(id))
+        {
+            GD.Print($"[Minion:{CardName}] 状态「{id}」已移除");
+            OnStatusEffectRemoved(id);
+        }
+    }
+
+    public void TickStatusEffects(TickTiming timing)
+    {
+        var expiredIds = _statusEffects
+            .Where(kv => kv.Value.TickOn == timing)
+            .Select(kv => { kv.Value.Tick(); return kv; })
+            .Where(kv => kv.Value.IsExpired)
+            .Select(kv => kv.Key)
+            .ToList();
+
+        foreach (var id in expiredIds)
+        {
+            RemoveStatusEffect(id);
+        }
+    }
+
+    public bool HasStatusEffect(string id)
+    {
+        return _statusEffects.ContainsKey(id) && !_statusEffects[id].IsExpired;
+    }
+
+    private void ApplyStatusEffectImmediate(StatusEffect effect)
+    {
+        switch (effect.Id)
+        {
+            case "attack_zero":
+                Attack = 0;
+                GD.Print($"[Minion:{CardName}] 攻击力被设为 0");
+                break;
+            case "meltdown":
+                // 熔毁：防御力-1，最多叠加2层
+                int currentStacks = HasStatusEffect("meltdown") ? _statusEffects["meltdown"].Stacks : 0;
+                if (currentStacks <= 2) // 允许第1层和第2层触发
+                {
+                    ModifyDefense(-1);
+                    GD.Print($"[Minion:{CardName}] 熔毁！防御力 {Defense}（已叠{currentStacks}层）");
+                }
+                break;
+        }
+    }
+
+    private void OnStatusEffectRemoved(string id)
+    {
+        switch (id)
+        {
+            case "attack_zero":
+                if (!HasStatusEffect("attack_zero"))
+                {
+                    Attack = Data.Attack; // 恢复到原始攻击力
+                    GD.Print($"[Minion:{CardName}] 攻击力已恢复为 {Attack}");
+                }
+                break;
+        }
+    }
 
     // ===== 构造函数 =====
 
@@ -128,6 +229,12 @@ public class Minion : Card, IDamageSource, IDamageTarget
         Attack = data.Attack;
         MaxHealth = data.Health;
         CurrentHealth = MaxHealth;
+
+        // 复制防御力
+        Defense = data.Defense;
+
+        // 注册防御力修改器到 DamageModifiers
+        _damageModifiers.Add(new OdysseyCards.Core.DefenseModifier(() => Defense));
 
         // 解析关键词
         HasCharge = data.HasKeyword(Keyword.Charge);
@@ -190,6 +297,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// <returns>随从信息字符串</returns>
     public override string GetCardInfo()
     {
-        return $"{CardName} | {Cost}费 {Attack}/{CurrentHealth}";
+        string defenseStr = Defense != 0 ? $" 防{Defense}" : "";
+        return $"{CardName} | {Cost}费 {Attack}/{CurrentHealth}{defenseStr}";
     }
 }

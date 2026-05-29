@@ -90,6 +90,24 @@ public class Hero : IDamageTarget, IDamageSource
     public int CurrentArmor { get; private set; }
 
     /// <summary>
+    /// 防御力。影响受到伤害的数值：最终伤害 = max(0, 基础伤害 - 防御力)。
+    /// 通过 DefenseModifier 在 DamageResolver ADDITIVE 阶段自动生效。
+    /// 可为负值表示脆弱状态（受到额外伤害）。
+    /// 注意：防御力在护甲之前计算——先减防御，剩余伤害再由护甲吸收。
+    /// </summary>
+    public int Defense { get; private set; }
+
+    /// <summary>
+    /// 修改防御力（正数为增加，负数为减少）。
+    /// </summary>
+    /// <param name="delta">增减量</param>
+    public void ModifyDefense(int delta)
+    {
+        Defense += delta;
+        GD.Print($"[Hero] 防御力变化 {delta:+0;-#}，当前：{Defense}");
+    }
+
+    /// <summary>
     /// 英雄技能。可为 null 表示该英雄没有英雄技能。
     /// </summary>
     public IHeroPower HeroPower { get; set; }
@@ -156,6 +174,9 @@ public class Hero : IDamageTarget, IDamageSource
     public Hero(CommanderCore core)
     {
         _core = core ?? throw new ArgumentNullException(nameof(core));
+
+        // 注册防御力修改器
+        _damageModifiers.Add(new DefenseModifier(() => Defense));
     }
 
     // ===== 伤害处理 =====
@@ -170,32 +191,29 @@ public class Hero : IDamageTarget, IDamageSource
     /// <param name="source">伤害来源</param>
     public void TakeDamage(int baseDamage, IDamageSource? source)
     {
+        // Step 1: ALWAYS go through DamageResolver first (Defense modifier applies here)
+        int resolvedDamage = DamageResolver.ResolveDamage(baseDamage, source, this);
+
+        // Step 2: Armor absorbs remaining damage AFTER defense
         if (CurrentArmor > 0)
         {
-            int absorbed = Math.Min(CurrentArmor, baseDamage);
+            int absorbed = Math.Min(CurrentArmor, resolvedDamage);
             CurrentArmor -= absorbed;
-            baseDamage -= absorbed;
+            resolvedDamage -= absorbed;
 
-            GD.Print($"[Hero] 护甲吸收了 {absorbed} 点伤害，剩余护甲：{CurrentArmor}");
+            GD.Print($"[Hero] 护甲吸收了 {absorbed} 点伤害（防御力调整后），剩余护甲：{CurrentArmor}");
 
-            if (baseDamage <= 0)
+            if (resolvedDamage <= 0)
             {
-                // 护甲完全吸收，仍然触发武器反击
+                // 防御+护甲完全吸收，仍然触发武器反击
                 CounterAttack(source);
                 return;
             }
-
-            // 剩余伤害穿透护甲，直接应用（绕过伤害修改器）
-        }
-        else
-        {
-            // 无护甲 → 通过统一伤害解析器计算最终伤害
-            baseDamage = DamageResolver.ResolveDamage(baseDamage, source, this);
         }
 
-        ApplyDamage(baseDamage, source);
+        ApplyDamage(resolvedDamage, source);
 
-        // 武器反击：结算完自身伤害后，对攻击者造成反击伤害
+        // Step 3: Weapon counter-attack after damage is settled
         CounterAttack(source);
     }
 
