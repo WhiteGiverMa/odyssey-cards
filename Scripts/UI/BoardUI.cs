@@ -429,11 +429,16 @@ public partial class BoardUI : Control
                 _contentLabel.Text = "空";
                 _contentLabel.AddThemeColorOverride("font_color", _textDim);
                 _contentLabel.AddThemeFontSizeOverride("font_size", 13);
-                _background.Color = _bgNormal;
                 _costBg.Visible = false;
                 _costLabel.Visible = false;
                 _actionCostBg.Visible = false;
                 _actionCostLabel.Visible = false;
+
+                // 仅在非高亮状态恢复背景色——若槽位正被合法目标高亮则不覆盖
+                if (!IsHighlighted)
+                {
+                    _background.Color = _bgNormal;
+                }
                 return;
             }
 
