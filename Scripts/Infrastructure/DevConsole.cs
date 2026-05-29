@@ -2,6 +2,7 @@ using Godot;
 using OdysseyCards.Combat;
 using OdysseyCards.UI;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace OdysseyCards.Infrastructure;
@@ -19,7 +20,15 @@ public partial class DevConsole : Node
     private Panel _panel = null!;
     private RichTextLabel _output = null!;
     private LineEdit _input = null!;
+    private Label _completionLabel = null!;
     private bool _visible;
+
+    // ===== 命令注册表 =====
+
+    private record DevCommandDef(string Name, string[] Aliases, string Signature, string Description, string[]? ArgHints = null);
+
+    private readonly List<DevCommandDef> _commands = new();
+    private readonly Dictionary<string, OdysseyCards.Core.CardData> _cardCache = new();
 
     // ===== 生命周期 =====
 
@@ -90,7 +99,24 @@ public partial class DevConsole : Node
             CustomMinimumSize = new Vector2(0, 32),
         };
         _input.TextSubmitted += OnCommandSubmitted;
+        _input.TextChanged += OnTextChanged;
         vbox.AddChild(_input);
+
+        // 补全提示 Label（输入栏上方）
+        _completionLabel = new Label
+        {
+            Name = "Completion",
+            CustomMinimumSize = new Vector2(0, 0),
+        };
+        _completionLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.85f, 0.7f, 0.9f));
+        _completionLabel.AddThemeFontSizeOverride("font_size", 12);
+        vbox.AddChild(_completionLabel);
+
+        // 注册命令
+        RegisterCommands();
+
+        // 构建卡牌缓存
+        BuildCardCache();
 
         WriteLine("[color=#66ff66][DevConsole] 按 ` 键呼出/隐藏。输入 /help 查看命令[/color]");
     }
@@ -122,14 +148,17 @@ public partial class DevConsole : Node
     {
         _visible = true;
         _panel.Visible = true;
+        _completionLabel.Visible = true;
         _input.GrabFocus();
         _input.Clear();
+        OnTextChanged("");
     }
 
     private void Hide()
     {
         _visible = false;
         _panel.Visible = false;
+        _completionLabel.Visible = false;
         _input.ReleaseFocus();
     }
 
@@ -332,7 +361,35 @@ public partial class DevConsole : Node
                 WriteLine("  /end            — 强制结束回合");
                 WriteLine("  /refresh        — 刷新 UI");
                 WriteLine("  /clear          — 清空输出");
+                WriteLine("  /token <id>     — 将指定ID的卡牌加入手牌");
                 WriteLine("  /help           — 显示帮助[/color]");
+                break;
+
+            // ===== 加入手牌 =====
+            case "token":
+            case "t":
+                if (parts.Length < 2)
+                {
+                    WriteLine("[color=#ffaa44]用法: /token <card_id>  可用ID见补全提示[/color]");
+                    break;
+                }
+                var tokenId = parts[1];
+                if (!_cardCache.TryGetValue(tokenId, out var cardData))
+                {
+                    // 尝试大小写不敏感匹配
+                    var match = _cardCache.Keys.FirstOrDefault(k =>
+                        string.Equals(k, tokenId, StringComparison.OrdinalIgnoreCase));
+                    if (match != null)
+                        _cardCache.TryGetValue(match, out cardData);
+                }
+                if (cardData == null)
+                {
+                    WriteLine($"[color=#ffaa44]未找到卡牌: {tokenId}  可用ID见补全提示[/color]");
+                    break;
+                }
+                var tokenCard = new OdysseyCards.Card.Card(cardData);
+                cm!.AddCardToHand(tokenCard);
+                WriteLine($"[color=#66ff66]将「{cardData.CardName}」加入手牌（手牌 {cm.PlayerHero.Hand.Count} 张）[/color]");
                 break;
 
             // ===== 清空输出 =====
@@ -400,5 +457,140 @@ public partial class DevConsole : Node
             return true;
         }
         return false;
+    }
+
+    // ===== 命令注册与补全 =====
+
+    private void RegisterCommands()
+    {
+        _commands.AddRange(new[]
+        {
+            new DevCommandDef("damage",       ["dmg"],    "/damage [-c] N",       "对敌方英雄造成 N 点伤害",     ["N", "-c N（点击模式）"]),
+            new DevCommandDef("damage_enemy", ["denemy"], "/damage_enemy N",      "对敌方英雄造成 N 点伤害（显式）", ["N"]),
+            new DevCommandDef("damage_self",  ["dself"],  "/damage_self N",       "对己方英雄造成 N 点伤害",     ["N"]),
+            new DevCommandDef("damage_eslot", ["des"],    "/damage_eslot X N",    "对敌方槽位 X(0-4) 随从造成 N 点伤害", ["X(0-4)", "N"]),
+            new DevCommandDef("damage_pslot", ["dps"],    "/damage_pslot X N",    "对己方槽位 X(0-4) 随从造成 N 点伤害", ["X(0-4)", "N"]),
+            new DevCommandDef("damage_all",   ["dall"],   "/damage_all N",        "对所有敌方随从造成 N 点伤害",   ["N"]),
+            new DevCommandDef("draw",         ["d"],      "/draw N",              "抽 N 张牌",                  ["N"]),
+            new DevCommandDef("mana",         ["m"],      "/mana N",              "获得 N 点法力",              ["N"]),
+            new DevCommandDef("heal",         ["h"],      "/heal N",              "恢复 N 点生命值",            ["N"]),
+            new DevCommandDef("armor",        ["a"],      "/armor N",             "获得 N 点护甲",              ["N"]),
+            new DevCommandDef("end",          ["endturn"],"/end",                 "强制结束回合",               null),
+            new DevCommandDef("refresh",      ["r"],      "/refresh",             "刷新 UI",                   null),
+            new DevCommandDef("clear",        ["cls"],    "/clear",               "清空输出",                   null),
+            new DevCommandDef("token",        ["t"],      "/token <card_id>",     "将指定ID的卡牌加入手牌",        _cardCache.Keys.ToArray()),
+            new DevCommandDef("help",         ["?"],      "/help",                "显示帮助",                   null),
+        });
+    }
+
+    /// <summary>
+    /// 构建卡牌 ID → CardData 缓存。扫描 Resources/Cards/ 目录。
+    /// </summary>
+    private void BuildCardCache()
+    {
+        _cardCache.Clear();
+        var cardDir = "res://Resources/Cards/";
+
+        using var dir = DirAccess.Open(cardDir);
+        if (dir == null)
+        {
+            GD.PrintErr("[DevConsole] 无法打开卡牌目录");
+            return;
+        }
+
+        dir.ListDirBegin();
+        string fileName;
+        while ((fileName = dir.GetNext()) != "")
+        {
+            if (dir.CurrentIsDir()) continue;
+            if (!fileName.EndsWith(".tres") && !fileName.EndsWith(".res")) continue;
+
+            var fullPath = $"{cardDir}{fileName}";
+            var cardData = GD.Load<OdysseyCards.Core.CardData>(fullPath);
+            if (cardData == null) continue;
+
+            _cardCache[cardData.Id] = cardData;
+        }
+        dir.ListDirEnd();
+
+        GD.Print($"[DevConsole] 卡牌缓存已构建，共 {_cardCache.Count} 张");
+    }
+
+    /// <summary>
+    /// 输入框文本变化时更新补全提示。
+    /// </summary>
+    private void OnTextChanged(string text)
+    {
+        _completionLabel.Text = GetCompletionHint(text);
+    }
+
+    /// <summary>
+    /// 根据当前输入生成补全提示文本。
+    /// </summary>
+    private string GetCompletionHint(string input)
+    {
+        if (string.IsNullOrEmpty(input) || !input.StartsWith("/"))
+            return "";
+
+        var content = input[1..]; // 去掉 /
+        var spaceIdx = content.IndexOf(' ');
+        var partialCmd = spaceIdx < 0 ? content.ToLowerInvariant() : content[..spaceIdx].ToLowerInvariant();
+        var argPart = spaceIdx < 0 ? "" : content[(spaceIdx + 1)..].TrimStart();
+
+        // 还没输入完整命令名 → 显示匹配的命令
+        if (spaceIdx < 0 || string.IsNullOrEmpty(argPart))
+        {
+            var matches = _commands
+                .Where(c => c.Name.StartsWith(partialCmd) || c.Aliases.Any(a => a.StartsWith(partialCmd)))
+                .Take(6)
+                .ToList();
+
+            if (matches.Count == 0)
+                return $"[color=#ff6644]未知命令: /{partialCmd}[/color]";
+
+            var lines = matches.Select(m =>
+            {
+                var aliasStr = m.Aliases.Length > 0 ? $"（别名: {string.Join(", ", m.Aliases)}）" : "";
+                return $"[color=#66ff66]/{m.Name}[/color] [color=#aaaaaa]{m.Signature.Split(' ', 2).ElementAtOrDefault(1) ?? ""}[/color] [color=#888888]— {m.Description}{aliasStr}[/color]";
+            });
+            return string.Join("\n", lines);
+        }
+
+        // 已输入命令名 + 空格 → 显示参数提示
+        var cmd = _commands.FirstOrDefault(c =>
+            c.Name.Equals(partialCmd, StringComparison.OrdinalIgnoreCase) ||
+            c.Aliases.Any(a => a.Equals(partialCmd, StringComparison.OrdinalIgnoreCase)));
+
+        if (cmd == null)
+            return "";
+
+        // token 命令特殊处理：显示可用 card_id
+        if (partialCmd is "token" or "t")
+        {
+            var filtered = _cardCache.Keys
+                .Where(id => id.StartsWith(argPart, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(id => id)
+                .Take(8)
+                .ToList();
+
+            if (filtered.Count == 0)
+                return $"[color=#ffaa44]无匹配的卡牌ID[/color]";
+
+            var lines = filtered.Select(id =>
+            {
+                var c = _cardCache[id];
+                return $"  [color=#66ff66]{id}[/color] [color=#aaaaaa]— {c.CardName}（{c.Cost}费）[/color]";
+            });
+            return "[color=#aaaaaa]可用卡牌ID:[/color]\n" + string.Join("\n", lines);
+        }
+
+        // 通用参数提示
+        if (cmd.ArgHints != null && cmd.ArgHints.Length > 0)
+        {
+            var hints = string.Join("  ", cmd.ArgHints);
+            return $"[color=#aaaaaa]参数: {hints}[/color]";
+        }
+
+        return "";
     }
 }

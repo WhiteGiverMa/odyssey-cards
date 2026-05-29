@@ -1409,4 +1409,12 @@ public partial class CombatManager : Node
             _canAttackThisTurn.Add(minion);
         }
     }
+
+    /// <summary>
+    /// 将一张卡牌直接加入玩家手牌（用于 DevConsole /token 命令）。
+    /// </summary>
+    public void AddCardToHand(OdysseyCards.Card.Card card)
+    {
+        _playerCore.Hand.Add(card);
+    }
 }
