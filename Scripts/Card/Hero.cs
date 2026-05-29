@@ -8,15 +8,15 @@ namespace OdysseyCards.Card;
 
 /// <summary>
 /// 炉石传说风格的英雄类。
-/// 包装 <see cref="CommanderCore"/>，添加护甲、英雄技能和领域机制。
+/// 包装 <see cref="CommanderCore"/>，添加护甲、英雄技能、武器系统和领域机制。
 /// 纯 C# 类，不继承 Godot Node。
 /// </summary>
-public class Hero : IDamageTarget
+public class Hero : IDamageTarget, IDamageSource
 {
     /// <summary>
-    /// 空的伤害修改器列表，当前英雄未实现伤害修改。
+    /// 伤害修改器列表。动态列表，支持武器技能和状态效果注入修改器。
     /// </summary>
-    private static readonly IReadOnlyList<IDamageModifier> _emptyModifiers = Array.Empty<IDamageModifier>();
+    private readonly List<IDamageModifier> _damageModifiers = new();
 
     /// <summary>
     /// 被包装的指挥官核心。
@@ -27,6 +27,23 @@ public class Hero : IDamageTarget
     /// 当前展开的领域效果列表（key=DomainId, value=领域运行时数据）。
     /// </summary>
     private readonly Dictionary<string, ActiveDomain> _activeDomains = new();
+
+    /// <summary>
+    /// 状态效果列表（key=效果ID, value=状态效果运行时数据）。
+    /// 用于武器禁用等持续性减益效果。
+    /// </summary>
+    private readonly Dictionary<string, StatusEffect> _statusEffects = new();
+
+    /// <summary>
+    /// 本回合已使用武器攻击的次数。
+    /// </summary>
+    private int _weaponAttacksThisTurn;
+
+    /// <summary>
+    /// 武器反击抑制标志。武器主动攻击目标后，目标的反击不应再次触发武器反击，
+    /// 以避免无限循环。由 CombatManager 在武器攻击流程中控制。
+    /// </summary>
+    internal bool SuppressWeaponCounter { get; set; }
 
     // ===== 指挥官属性（来自 CommanderCore） =====
 
@@ -82,17 +99,41 @@ public class Hero : IDamageTarget
     /// </summary>
     public IReadOnlyDictionary<string, ActiveDomain> ActiveDomains => _activeDomains;
 
+    // ===== 武器系统 =====
+
+    /// <summary>
+    /// 英雄当前装备的武器。可为 null 表示无武器。
+    /// </summary>
+    public Weapon? Weapon { get; set; }
+
+    /// <summary>
+    /// 本回合已使用武器攻击的次数。
+    /// </summary>
+    public int WeaponAttacksThisTurn => _weaponAttacksThisTurn;
+
+    /// <summary>
+    /// 当前状态效果（只读）。
+    /// </summary>
+    public IReadOnlyDictionary<string, StatusEffect> StatusEffects => _statusEffects;
+
     // ===== IDamageTarget 实现 =====
 
     /// <summary>
-    /// 英雄的伤害修改器列表。当前返回空列表。
+    /// 英雄的伤害修改器列表（作为伤害目标）。
     /// </summary>
-    public IReadOnlyList<IDamageModifier> DamageModifiers => _emptyModifiers;
+    public IReadOnlyList<IDamageModifier> DamageModifiers => _damageModifiers;
 
     /// <summary>
     /// 英雄是否已死亡。
     /// </summary>
     public bool IsDead => _core.IsDead;
+
+    // ===== IDamageSource 实现 =====
+
+    /// <summary>
+    /// 英雄的基础攻击力（来自武器）。
+    /// </summary>
+    int IDamageSource.BaseAttack => Weapon?.Attack ?? 0;
 
     // ===== 事件 =====
 
@@ -123,6 +164,7 @@ public class Hero : IDamageTarget
     /// 受到来自某个伤害来源的基础伤害。
     /// 护甲优先吸收伤害：护甲 > 0 时先消耗护甲，剩余伤害直接应用；
     /// 无护甲时通过 <see cref="DamageResolver"/> 计算最终伤害后应用。
+    /// 伤害结算完成后，若英雄持有未被禁用的武器，对攻击者发动反击。
     /// </summary>
     /// <param name="baseDamage">基础伤害值</param>
     /// <param name="source">伤害来源</param>
@@ -137,7 +179,11 @@ public class Hero : IDamageTarget
             GD.Print($"[Hero] 护甲吸收了 {absorbed} 点伤害，剩余护甲：{CurrentArmor}");
 
             if (baseDamage <= 0)
+            {
+                // 护甲完全吸收，仍然触发武器反击
+                CounterAttack(source);
                 return;
+            }
 
             // 剩余伤害穿透护甲，直接应用（绕过伤害修改器）
         }
@@ -148,6 +194,31 @@ public class Hero : IDamageTarget
         }
 
         ApplyDamage(baseDamage, source);
+
+        // 武器反击：结算完自身伤害后，对攻击者造成反击伤害
+        CounterAttack(source);
+    }
+
+    /// <summary>
+    /// 武器反击逻辑。英雄持有未被禁用的武器时，对攻击者造成等同于武器攻击力的伤害。
+    /// 仅当攻击者可被伤害（实现 IDamageTarget）时生效。
+    /// 当 SuppressWeaponCounter 为 true 时跳过，用于武器主动攻击时的互砍流程。
+    /// </summary>
+    /// <param name="source">发起攻击的伤害来源</param>
+    private void CounterAttack(IDamageSource source)
+    {
+        if (SuppressWeaponCounter) return;
+        if (Weapon == null || !Weapon.CanCounter) return;
+        if (source is not IDamageTarget target) return;
+
+        // 防止自我反击（如疲劳伤害等 source 为自身的情况）
+        if (ReferenceEquals(target, this)) return;
+
+        int counterDamage = Weapon.GetModifiedDamage(Weapon.Attack);
+        if (counterDamage <= 0) return;
+
+        GD.Print($"[Hero] ⚔ 武器反击！{Weapon.Name} 对攻击者造成 {counterDamage} 点伤害");
+        target.ApplyDamage(counterDamage, this);
     }
 
     /// <summary>
@@ -279,5 +350,163 @@ public class Hero : IDamageTarget
     public void InsertCardToDrawPile(Card card)
     {
         _core.InsertCardToDrawPile(card);
+    }
+
+    // ===== 状态效果管理 =====
+
+    /// <summary>
+    /// 添加一个状态效果。若同名效果已存在则叠加层数。
+    /// </summary>
+    /// <param name="effect">要添加的状态效果</param>
+    public void AddStatusEffect(StatusEffect effect)
+    {
+        if (_statusEffects.TryGetValue(effect.Id, out var existing))
+        {
+            existing.Stacks += effect.Stacks;
+            GD.Print($"[Hero] 状态「{effect.Id}」叠加到 {existing.Stacks} 层");
+        }
+        else
+        {
+            _statusEffects[effect.Id] = effect;
+            GD.Print($"[Hero] 获得状态「{effect.Id}」{effect.Stacks} 层");
+
+            // 立即应用状态效果（如武器禁用）
+            ApplyStatusEffectImmediate(effect);
+        }
+    }
+
+    /// <summary>
+    /// 移除指定 ID 的状态效果。
+    /// </summary>
+    /// <param name="id">效果标识符</param>
+    public void RemoveStatusEffect(string id)
+    {
+        if (_statusEffects.Remove(id))
+        {
+            GD.Print($"[Hero] 状态「{id}」已移除");
+            OnStatusEffectRemoved(id);
+        }
+    }
+
+    /// <summary>
+    /// 对指定触发时机的状态效果执行一次衰减计时。
+    /// 层数归零的效果将被自动移除。
+    /// </summary>
+    /// <param name="timing">触发时机</param>
+    public void TickStatusEffects(TickTiming timing)
+    {
+        var expiredIds = new List<string>();
+
+        foreach (var (id, effect) in _statusEffects)
+        {
+            if (effect.TickOn != timing) continue;
+
+            effect.Tick();
+            if (effect.IsExpired)
+            {
+                expiredIds.Add(id);
+            }
+        }
+
+        foreach (var id in expiredIds)
+        {
+            RemoveStatusEffect(id);
+        }
+    }
+
+    /// <summary>
+    /// 状态效果添加时的即时应用逻辑。
+    /// 根据效果 ID 执行特定的即时行为（如武器禁用）。
+    /// </summary>
+    /// <param name="effect">新添加的状态效果</param>
+    private void ApplyStatusEffectImmediate(StatusEffect effect)
+    {
+        switch (effect.Id)
+        {
+            case "weapon_disabled":
+                if (Weapon != null)
+                {
+                    Weapon.IsDisabled = true;
+                    GD.Print($"[Hero] 武器「{Weapon.Name}」已被禁用");
+                }
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 状态效果移除时的清理逻辑。
+    /// 根据效果 ID 执行特定的恢复行为。
+    /// </summary>
+    /// <param name="id">被移除的效果 ID</param>
+    private void OnStatusEffectRemoved(string id)
+    {
+        switch (id)
+        {
+            case "weapon_disabled":
+                if (Weapon != null && !HasStatusEffect("weapon_disabled"))
+                {
+                    Weapon.IsDisabled = false;
+                    GD.Print($"[Hero] 武器「{Weapon.Name}」已恢复");
+                }
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 检查是否持有指定 ID 的活跃状态效果。
+    /// </summary>
+    /// <param name="id">效果标识符</param>
+    /// <returns>存在时返回 true</returns>
+    public bool HasStatusEffect(string id)
+    {
+        return _statusEffects.ContainsKey(id) && !_statusEffects[id].IsExpired;
+    }
+
+    // ===== 武器攻击追踪 =====
+
+    /// <summary>
+    /// 检查英雄当前是否可以使用武器攻击。
+    /// 条件：持有武器、武器未被禁用、本回合攻击次数未达上限。
+    /// </summary>
+    /// <returns>可以攻击返回 true</returns>
+    public bool CanWeaponAttack()
+    {
+        if (Weapon == null) return false;
+        if (Weapon.IsDisabled) return false;
+        if (Weapon.AttacksPerTurn <= 0) return false;
+        return _weaponAttacksThisTurn < Weapon.AttacksPerTurn;
+    }
+
+    /// <summary>
+    /// 记录一次武器攻击。增加本回合攻击计数。
+    /// </summary>
+    public void RecordWeaponAttack()
+    {
+        _weaponAttacksThisTurn++;
+        GD.Print($"[Hero] 武器攻击次数：{_weaponAttacksThisTurn}/{Weapon?.AttacksPerTurn ?? 0}");
+    }
+
+    /// <summary>
+    /// 重置本回合武器攻击计数。回合开始时调用。
+    /// </summary>
+    public void ResetWeaponAttacks()
+    {
+        _weaponAttacksThisTurn = 0;
+    }
+
+    // ===== 武器主动技能冷却 =====
+
+    /// <summary>
+    /// 对武器主动技能执行一次冷却衰减。友方回合开始时调用。
+    /// </summary>
+    public void TickWeaponCooldown()
+    {
+        if (Weapon?.ActiveSkill == null) return;
+
+        if (Weapon.ActiveSkill.CurrentCooldown > 0)
+        {
+            Weapon.ActiveSkill.CurrentCooldown--;
+            GD.Print($"[Hero] 武器技能「{Weapon.ActiveSkill.Name}」冷却剩余 {Weapon.ActiveSkill.CurrentCooldown} 回合");
+        }
     }
 }

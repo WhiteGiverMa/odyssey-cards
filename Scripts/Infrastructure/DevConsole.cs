@@ -212,7 +212,7 @@ public partial class DevConsole : Node
                 { WriteLine($"[color=#ffaa44]敌方槽位 {eslot} 无有效随从[/color]"); break; }
                 em.TakeDamage(edmg, null);
                 WriteLine($"[color=#ff6644]对敌方槽位{eslot} {em.CardName} 造成 {edmg} 点伤害（剩余 {em.CurrentHealth}）[/color]");
-                if (em.IsDead) { cm.Board.RemoveMinion(em); cm.TriggerDeathrattle(em); }
+                if (em.IsDead) { cm.Board.RemoveMinion(em); }
                 cm.CheckDeaths();
                 cm.CheckVictoryOrDefeat();
                 RefreshCombatUI(cm);
@@ -231,7 +231,7 @@ public partial class DevConsole : Node
                 { WriteLine($"[color=#ffaa44]己方槽位 {pslot} 无有效随从[/color]"); break; }
                 pm.TakeDamage(pdmg, null);
                 WriteLine($"[color=#ff6644]对己方槽位{pslot} {pm.CardName} 造成 {pdmg} 点伤害（剩余 {pm.CurrentHealth}）[/color]");
-                if (pm.IsDead) { cm.Board.RemoveMinion(pm); cm.TriggerDeathrattle(pm); }
+                if (pm.IsDead) { cm.Board.RemoveMinion(pm); }
                 cm.CheckDeaths();
                 cm.CheckVictoryOrDefeat();
                 RefreshCombatUI(cm);
@@ -260,7 +260,7 @@ public partial class DevConsole : Node
             case "dall":
                 var enemies = cm!.Board.GetEnemyMinions().Where(m => !m.IsDead).ToList();
                 foreach (var e in enemies) { e.TakeDamage(Arg(), null);
-                    if (e.IsDead) { cm.Board.RemoveMinion(e); cm.TriggerDeathrattle(e); } }
+                    if (e.IsDead) { cm.Board.RemoveMinion(e); } }
                 WriteLine($"[color=#ff6644]对所有敌方随从造成 {Arg()} 点伤害（命中 {enemies.Count} 个目标）[/color]");
                 cm.CheckDeaths();
                 cm.CheckVictoryOrDefeat();

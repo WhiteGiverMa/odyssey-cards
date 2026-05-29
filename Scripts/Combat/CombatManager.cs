@@ -215,6 +215,15 @@ public partial class CombatManager : Node
         Board = new Board();
         State = new GameState();
 
+        // 亡语驱动：随从从棋盘移除时自动触发亡语，无需在各处手动调用
+        Board.OnMinionRemoved += TriggerDeathrattle;
+
+        // 装配默认武器
+        PlayerHero.Weapon = new IonPistol();
+        EnemyHero.Weapon = new RollingLog();
+        GD.Print($"[CombatManager] 玩家武器：{PlayerHero.Weapon.Name}（{PlayerHero.Weapon.Attack}攻/{PlayerHero.Weapon.AttackCost}费），" +
+                  $"敌方武器：{EnemyHero.Weapon.Name}（{EnemyHero.Weapon.Attack}攻）");
+
         GD.Print($"[CombatManager] 初始化完成 — 玩家 {PlayerHero.CurrentHealth}/{PlayerHero.MaxHealth}，" +
                   $"敌方 {EnemyHero.CurrentHealth}/{EnemyHero.MaxHealth}");
     }
@@ -257,6 +266,10 @@ public partial class CombatManager : Node
 
         // 重置随从攻击状态
         ResetAttackTracking();
+
+        // 重置武器攻击次数 + 冷却衰减
+        PlayerHero.ResetWeaponAttacks();
+        PlayerHero.TickWeaponCooldown();
 
         GD.Print($"[CombatManager] 第 {State.TurnCount} 回合开始（法力 {State.PlayerMana}/{State.PlayerMaxMana}），手牌 {_playerCore.Hand.Count} 张");
     }
@@ -708,7 +721,6 @@ public partial class CombatManager : Node
         {
             GD.Print($"[CombatManager]   ☠ {defender.CardName} 被击杀");
             Board.RemoveMinion(defender);
-            TriggerDeathrattle(defender);
         }
 
         // 检查攻击方死亡
@@ -716,7 +728,6 @@ public partial class CombatManager : Node
         {
             GD.Print($"[CombatManager]   ☠ {attacker.CardName} 在攻击中阵亡");
             Board.RemoveMinion(attacker);
-            TriggerDeathrattle(attacker);
             _canAttackThisTurn.Remove(attacker);
             _attackCountThisTurn.Remove(attacker);
         }
@@ -772,6 +783,15 @@ public partial class CombatManager : Node
 
         GD.Print($"[CombatManager]   敌方英雄剩余生命值：{hero.CurrentHealth}（护甲：{hero.CurrentArmor}）");
 
+        // 检查攻击方是否因敌方武器反击而死亡
+        if (attacker.IsDead)
+        {
+            GD.Print($"[CombatManager]   ☠ {attacker.CardName} 在攻击英雄时被反击击杀");
+            Board.RemoveMinion(attacker);
+            _canAttackThisTurn.Remove(attacker);
+            _attackCountThisTurn.Remove(attacker);
+        }
+
         // 检查胜负
         if (hero.IsDead)
         {
@@ -779,6 +799,189 @@ public partial class CombatManager : Node
             State.SetVictory();
             OnGameOver?.Invoke(true);
         }
+
+        return true;
+    }
+
+    // ===== 武器攻击 =====
+
+    /// <summary>
+    /// 玩家英雄使用武器攻击敌方英雄。
+    /// 对敌方英雄造成武器攻击力伤害，同时受到敌方武器反击伤害。
+    /// </summary>
+    /// <returns>攻击成功返回 true</returns>
+    public bool HeroWeaponAttackHero()
+    {
+        if (!State.IsPlayerTurn)
+        {
+            GD.PrintErr("[CombatManager] HeroWeaponAttackHero 失败 — 不是玩家回合");
+            return false;
+        }
+
+        if (!PlayerHero.CanWeaponAttack())
+        {
+            GD.PrintErr("[CombatManager] HeroWeaponAttackHero 失败 — 武器不可用");
+            return false;
+        }
+
+        if (!PlayerHero.CanSpendMana(PlayerHero.Weapon!.AttackCost))
+        {
+            GD.PrintErr($"[CombatManager] HeroWeaponAttackHero 失败 — 法力不足（需 {PlayerHero.Weapon.AttackCost}，现有 {PlayerHero.CurrentMana}）");
+            return false;
+        }
+
+        // 消耗法力
+        PlayerHero.SpendMana(PlayerHero.Weapon.AttackCost);
+
+        // 计算武器伤害
+        int weaponDamage = PlayerHero.Weapon.GetModifiedDamage(PlayerHero.Weapon.Attack);
+
+        GD.Print($"[CombatManager] ⚔ 玩家英雄使用 {PlayerHero.Weapon.Name} 攻击敌方英雄，造成 {weaponDamage} 点伤害");
+
+        // 对敌方英雄造成伤害（敌方英雄的武器反击由 Hero.TakeDamage → CounterAttack 自动处理）
+        EnemyHero.TakeDamage(weaponDamage, PlayerHero);
+
+        // 记录武器攻击
+        PlayerHero.RecordWeaponAttack();
+
+        GD.Print($"[CombatManager]   敌方英雄剩余生命值：{EnemyHero.CurrentHealth}（护甲：{EnemyHero.CurrentArmor}）");
+
+        // 检查我方英雄是否被敌方武器反击致死
+        if (PlayerHero.IsDead)
+        {
+            GD.Print("[CombatManager]   ☠ 玩家英雄在武器攻击时被敌方武器反击击杀！");
+            GameManager.Instance?.RunState?.FailRun();
+            State.SetDefeat();
+            OnGameOver?.Invoke(false);
+            return true;
+        }
+
+        // 检查胜负
+        if (EnemyHero.IsDead)
+        {
+            GD.Print("[CombatManager]   ★ 敌方英雄被击败！");
+            State.SetVictory();
+            OnGameOver?.Invoke(true);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 玩家英雄使用武器攻击敌方随从。
+    /// 对敌方随从造成武器攻击力伤害，同时受到随从攻击力反击（互砍）。
+    /// 武器反击在此流程中被抑制，避免无限循环。
+    /// </summary>
+    /// <param name="target">目标敌方随从</param>
+    /// <returns>攻击成功返回 true</returns>
+    public bool HeroWeaponAttackMinion(Minion target)
+    {
+        if (!State.IsPlayerTurn)
+        {
+            GD.PrintErr("[CombatManager] HeroWeaponAttackMinion 失败 — 不是玩家回合");
+            return false;
+        }
+
+        if (!PlayerHero.CanWeaponAttack())
+        {
+            GD.PrintErr("[CombatManager] HeroWeaponAttackMinion 失败 — 武器不可用");
+            return false;
+        }
+
+        if (!PlayerHero.CanSpendMana(PlayerHero.Weapon!.AttackCost))
+        {
+            GD.PrintErr($"[CombatManager] HeroWeaponAttackMinion 失败 — 法力不足（需 {PlayerHero.Weapon.AttackCost}，现有 {PlayerHero.CurrentMana}）");
+            return false;
+        }
+
+        if (target == null || target.IsDead)
+        {
+            GD.PrintErr("[CombatManager] HeroWeaponAttackMinion 失败 — 目标无效");
+            return false;
+        }
+
+        if (target.IsPlayerSide)
+        {
+            GD.PrintErr("[CombatManager] HeroWeaponAttackMinion 失败 — 不能攻击己方随从");
+            return false;
+        }
+
+        // 嘲讽检测：武器攻击也受嘲讽限制
+        var enemyTaunts = Board.GetTaunts(isEnemy: true);
+        if (enemyTaunts.Count > 0 && !enemyTaunts.Contains(target))
+        {
+            GD.PrintErr($"[CombatManager] HeroWeaponAttackMinion 失败 — 敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
+            return false;
+        }
+
+        // 消耗法力
+        PlayerHero.SpendMana(PlayerHero.Weapon.AttackCost);
+
+        // 计算武器伤害
+        int weaponDamage = PlayerHero.Weapon.GetModifiedDamage(PlayerHero.Weapon.Attack);
+
+        GD.Print($"[CombatManager] ⚔ 玩家英雄使用 {PlayerHero.Weapon.Name} 攻击 {target.CardName}，造成 {weaponDamage} 点伤害");
+
+        // 英雄武器攻击随从（第一次伤害：英雄→随从）
+        target.TakeDamage(weaponDamage, PlayerHero);
+
+        // 随从反击英雄（第二次伤害：随从→英雄）。
+        // 抑制武器反击，避免英雄武器对随从的反击再次触发。
+        if (!target.IsDead)
+        {
+            PlayerHero.SuppressWeaponCounter = true;
+            PlayerHero.TakeDamage(target.Attack, target);
+            PlayerHero.SuppressWeaponCounter = false;
+        }
+
+        // 记录武器攻击
+        PlayerHero.RecordWeaponAttack();
+
+        GD.Print($"[CombatManager]   交锋后 — 英雄剩余 {PlayerHero.CurrentHealth}HP，" +
+                  $"{target.CardName}：{target.CurrentHealth}血");
+
+        // 检查随从死亡
+        if (target.IsDead)
+        {
+            GD.Print($"[CombatManager]   ☠ {target.CardName} 被击杀");
+            Board.RemoveMinion(target);
+        }
+
+        // 全局死亡检查与胜负判定
+        CheckDeaths();
+        CheckVictoryOrDefeat();
+
+        return true;
+    }
+
+    /// <summary>
+    /// 执行武器主动技能。
+    /// 由 CombatUI 的技能按钮触发。
+    /// </summary>
+    /// <returns>执行成功返回 true</returns>
+    public bool UseWeaponActiveSkill()
+    {
+        if (!State.IsPlayerTurn)
+        {
+            GD.PrintErr("[CombatManager] UseWeaponActiveSkill 失败 — 不是玩家回合");
+            return false;
+        }
+
+        var active = PlayerHero.Weapon?.ActiveSkill;
+        if (active == null)
+        {
+            GD.PrintErr("[CombatManager] UseWeaponActiveSkill 失败 — 武器无主动技能");
+            return false;
+        }
+
+        if (!active.CanUse(PlayerHero))
+        {
+            GD.PrintErr($"[CombatManager] UseWeaponActiveSkill 失败 — 技能不可用（冷却 {active.CurrentCooldown}，法力 {PlayerHero.CurrentMana}/{active.Cost}）");
+            return false;
+        }
+
+        GD.Print($"[CombatManager] ★ 使用武器主动技能：{active.Name}");
+        active.Execute(PlayerHero, this);
 
         return true;
     }
@@ -876,7 +1079,6 @@ public partial class CombatManager : Node
             GD.Print($"[CombatManager] ☠ {minion.CardName}（{minion.IsPlayerSide switch { true => "玩家方", false => "敌方" }}）死亡");
 
             Board.RemoveMinion(minion);
-            TriggerDeathrattle(minion);
 
             // 清理攻击追踪
             _canAttackThisTurn.Remove(minion);
@@ -889,7 +1091,7 @@ public partial class CombatManager : Node
     /// 原型阶段仅输出日志；后续可扩展为完整效果解析。
     /// </summary>
     /// <param name="minion">已死亡的随从</param>
-    internal void TriggerDeathrattle(Minion minion)
+    private void TriggerDeathrattle(Minion minion)
     {
         if (!minion.HasDeathrattle)
             return;
@@ -969,6 +1171,10 @@ public partial class CombatManager : Node
         // 触发领域效果 — 友方回合结束时
         TriggerDomainsOnTurnEnd();
 
+        // 状态效果衰减 — 友方回合结束时
+        PlayerHero.TickStatusEffects(TickTiming.PlayerTurnEnd);
+        EnemyHero.TickStatusEffects(TickTiming.PlayerTurnEnd);
+
         // 切换到敌方回合
         State.EndPlayerTurn();
         GD.Print($"[CombatManager] ---------- 敌方回合开始（{_currentEnemy.Name}）----------");
@@ -1016,6 +1222,10 @@ public partial class CombatManager : Node
 
         // 6. 通知 UI 更新意图显示
         OnEnemyIntentChanged?.Invoke(_currentEnemy.GetCurrentIntent().Description);
+
+        // 7. 状态效果衰减 — 敌方回合结束时（武器禁用等 debuff 在此触发）
+        PlayerHero.TickStatusEffects(TickTiming.EnemyTurnEnd);
+        EnemyHero.TickStatusEffects(TickTiming.EnemyTurnEnd);
     }
 
     /// <summary>
@@ -1049,12 +1259,10 @@ public partial class CombatManager : Node
                 if (defender.IsDead)
                 {
                     Board.RemoveMinion(defender);
-                    TriggerDeathrattle(defender);
                 }
                 if (attacker.IsDead)
                 {
                     Board.RemoveMinion(attacker);
-                    TriggerDeathrattle(attacker);
                 }
             }
             else

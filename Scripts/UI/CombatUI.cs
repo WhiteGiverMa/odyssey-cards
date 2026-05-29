@@ -148,6 +148,8 @@ public partial class CombatUI : Control
         TargetingSpell,
         /// <summary>攻击目标模式——棋盘上选了一个己方随从，等待选择敌方目标。</summary>
         SelectingAttackTarget,
+        /// <summary>武器攻击目标模式——玩家点击武器攻击后，等待选择敌方目标（随从或英雄）。</summary>
+        SelectingWeaponTarget,
         /// <summary>开发者伤害模式——点击任意实体造成指定伤害。</summary>
         DevDamageTargeting,
     }
@@ -173,6 +175,38 @@ public partial class CombatUI : Control
     /// 开发者伤害模式完成事件（一次性）。
     /// </summary>
     public event Action? OnDevDamageModeCompleted;
+
+    // ===== 武器 UI 字段 =====
+
+    /// <summary>
+    /// 玩家武器信息标签（攻击力 + 费用）。
+    /// </summary>
+    private Label _weaponInfoLabel = null!;
+
+    /// <summary>
+    /// 武器攻击按钮——点击后进入武器目标选择模式。
+    /// </summary>
+    private Button _weaponAttackButton = null!;
+
+    /// <summary>
+    /// 武器主动技能按钮——点击后使用武器主动技能。
+    /// </summary>
+    private Button _weaponActiveSkillButton = null!;
+
+    /// <summary>
+    /// 敌方武器信息标签。
+    /// </summary>
+    private Label _enemyWeaponLabel = null!;
+
+    /// <summary>
+    /// 玩家状态效果图标容器（HBoxContainer）。
+    /// </summary>
+    private HBoxContainer _playerStatusContainer = null!;
+
+    /// <summary>
+    /// 敌方状态效果图标容器（HBoxContainer）。
+    /// </summary>
+    private HBoxContainer _enemyStatusContainer = null!;
 
     // ===== Godot 生命周期 =====
 
@@ -245,6 +279,8 @@ public partial class CombatUI : Control
         CreateEnemyHeroAttackButton();
         CreateEnemyIntentLabel();
         CreateDeckButtons();
+        CreateWeaponUI();
+        CreateStatusEffectUI();
         CreateGameOverPopup();
 
         // 订阅事件
@@ -415,6 +451,15 @@ public partial class CombatUI : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
         };
         container.AddChild(manaPlaceholder);
+
+        // 武器区域占位
+        var weaponPlaceholder = new VBoxContainer
+        {
+            Name = "WeaponPlaceholder",
+            Alignment = BoxContainer.AlignmentMode.Center,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+        container.AddChild(weaponPlaceholder);
 
         // 牌堆区域占位
         var deckPlaceholder = new CenterContainer
@@ -824,6 +869,104 @@ public partial class CombatUI : Control
         deckPlaceholder.AddChild(btnContainer);
     }
 
+    // ===== 武器 UI =====
+
+    /// <summary>
+    /// 创建武器相关 UI：信息标签、攻击按钮、主动技能按钮。
+    /// 玩家武器 UI 放置在 WeaponPlaceholder，敌方武器信息显示在 EnemyIntentPlaceholder 下方。
+    /// </summary>
+    private void CreateWeaponUI()
+    {
+        // --- 玩家武器 UI ---
+        var weaponPlaceholder = GetNode<VBoxContainer>("CombatRoot/PlayerArea/WeaponPlaceholder");
+        if (weaponPlaceholder == null) return;
+
+        // 武器信息标签
+        _weaponInfoLabel = new Label
+        {
+            Name = "WeaponInfoLabel",
+            Text = "",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            CustomMinimumSize = new Vector2(120, 18),
+        };
+        _weaponInfoLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.9f, 1f));
+        _weaponInfoLabel.AddThemeFontSizeOverride("font_size", 12);
+        weaponPlaceholder.AddChild(_weaponInfoLabel);
+
+        // 按钮容器
+        var weaponBtnContainer = new HBoxContainer
+        {
+            Name = "WeaponButtonContainer",
+            Alignment = BoxContainer.AlignmentMode.Center,
+        };
+
+        // 武器攻击按钮
+        _weaponAttackButton = new Button
+        {
+            Name = "WeaponAttackButton",
+            Text = "⚔ 武器攻击",
+            CustomMinimumSize = new Vector2(100, 28),
+            Visible = false,
+        };
+        _weaponAttackButton.AddThemeColorOverride("font_color", new Color(1f, 0.5f, 0.3f));
+        _weaponAttackButton.AddThemeFontSizeOverride("font_size", 12);
+        weaponBtnContainer.AddChild(_weaponAttackButton);
+
+        // 主动技能按钮
+        _weaponActiveSkillButton = new Button
+        {
+            Name = "WeaponActiveSkillButton",
+            Text = "✦ 技能",
+            CustomMinimumSize = new Vector2(100, 28),
+            Visible = false,
+        };
+        _weaponActiveSkillButton.AddThemeColorOverride("font_color", new Color(0.8f, 0.6f, 1f));
+        _weaponActiveSkillButton.AddThemeFontSizeOverride("font_size", 12);
+        weaponBtnContainer.AddChild(_weaponActiveSkillButton);
+
+        weaponPlaceholder.AddChild(weaponBtnContainer);
+
+        // --- 敌方武器信息 ---
+        var enemyArea = GetNode<HBoxContainer>("CombatRoot/EnemyArea");
+        if (enemyArea == null) return;
+
+        _enemyWeaponLabel = new Label
+        {
+            Name = "EnemyWeaponLabel",
+            Text = "",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            CustomMinimumSize = new Vector2(120, 18),
+        };
+        _enemyWeaponLabel.AddThemeColorOverride("font_color", new Color(1f, 0.4f, 0.4f));
+        _enemyWeaponLabel.AddThemeFontSizeOverride("font_size", 11);
+        enemyArea.AddChild(_enemyWeaponLabel);
+    }
+
+    /// <summary>
+    /// 创建状态效果图标容器。
+    /// 放置在双方英雄生命值区域下方，用于显示 buff/debuff 图标。
+    /// </summary>
+    private void CreateStatusEffectUI()
+    {
+        // 玩家状态效果容器
+        _playerStatusContainer = new HBoxContainer
+        {
+            Name = "PlayerStatusContainer",
+            Alignment = BoxContainer.AlignmentMode.Center,
+        };
+        var playerHealthContainer = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
+        playerHealthContainer?.AddChild(_playerStatusContainer);
+
+        // 敌方状态效果容器
+        _enemyStatusContainer = new HBoxContainer
+        {
+            Name = "EnemyStatusContainer",
+            Alignment = BoxContainer.AlignmentMode.Center,
+        };
+        var enemyHealthContainer = GetNode<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
+        enemyHealthContainer?.AddChild(_enemyStatusContainer);
+    }
+
     /// <summary>
     /// 弹出牌堆查看窗口，以列表形式展示所有卡牌名称和费用。
     /// 复用同一个弹窗实例，点击关闭按钮或 OK 即可关闭。
@@ -922,6 +1065,12 @@ public partial class CombatUI : Control
         // 对敌方英雄施法按钮
         _enemyHeroSpellButton.Pressed += OnEnemyHeroSpellTarget;
 
+        // 武器攻击按钮
+        _weaponAttackButton.Pressed += OnWeaponAttackPressed;
+
+        // 武器主动技能按钮
+        _weaponActiveSkillButton.Pressed += OnWeaponActiveSkillPressed;
+
         // 牌堆/手牌状态变化 → 自动刷新 UI
         _combat.PlayerHero.DeckState.OnDrawPileChanged += UpdateDeckCounts;
         _combat.PlayerHero.DeckState.OnDiscardPileChanged += UpdateDeckCounts;
@@ -956,8 +1105,11 @@ public partial class CombatUI : Control
         UpdateArmorDisplay();
         UpdateDeckCounts();
 
-        // 每次刷新时重置为正常模式
+        // 每次刷新时重置为正常模式（先重置再更新武器，避免显示被覆盖）
         ResetSelection();
+
+        UpdateWeaponDisplay();
+        UpdateStatusEffectDisplay();
 
         // 游戏结束时禁用操作
         if (_combat.State.IsGameOver)
@@ -1040,6 +1192,10 @@ public partial class CombatUI : Control
 
             case SelectionMode.SelectingAttackTarget:
                 HandleAttackTarget(slotIndex, isPlayerSide);
+                break;
+
+            case SelectionMode.SelectingWeaponTarget:
+                HandleWeaponAttackTarget(slotIndex, isPlayerSide);
                 break;
 
             case SelectionMode.Normal:
@@ -1169,6 +1325,34 @@ public partial class CombatUI : Control
 
         GD.Print($"[CombatUI] {_selectedAttacker.CardName} 攻击 {defender.CardName}");
         _combat.MinionAttack(_selectedAttacker, defender);
+        RefreshAll();
+    }
+
+    /// <summary>
+    /// 武器攻击目标模式下点击敌方槽位 → 发动武器攻击随从。
+    /// </summary>
+    private void HandleWeaponAttackTarget(int slotIndex, bool isPlayerSide)
+    {
+        if (isPlayerSide)
+        {
+            GD.Print("[CombatUI] 武器不能攻击己方随从");
+            return;
+        }
+
+        var target = _combat.Board.GetMinionAt(slotIndex, isPlayerSide: false);
+        if (target == null || target.IsDead)
+        {
+            GD.Print("[CombatUI] 武器攻击目标无效");
+            return;
+        }
+
+        GD.Print($"[CombatUI] 武器攻击 {target.CardName}");
+
+        // 清理敌方英雄按钮（可能在武器模式下修改过事件）
+        _enemyHeroAttackButton.Pressed -= OnWeaponAttackHeroPressed;
+        _enemyHeroAttackButton.Pressed += OnEnemyHeroAttackPressed;
+
+        _combat.HeroWeaponAttackMinion(target);
         RefreshAll();
     }
 
@@ -1502,6 +1686,114 @@ public partial class CombatUI : Control
         }
     }
 
+    /// <summary>
+    /// 更新武器信息显示——攻击力、费用、冷却信息。
+    /// 普通模式下显示武器攻击按钮（如果可用），技能按钮显示冷却状态。
+    /// </summary>
+    private void UpdateWeaponDisplay()
+    {
+        if (_combat == null) return;
+
+        // --- 玩家武器 ---
+        var weapon = _combat.PlayerHero.Weapon;
+        if (weapon != null)
+        {
+            // 武器信息标签
+            string costText = weapon.AttackCost > 0 ? $"{weapon.AttackCost}费" : "免费";
+            string disabledText = weapon.IsDisabled ? " [禁用]" : "";
+            _weaponInfoLabel.Text = $"{weapon.Name} {weapon.Attack}攻 {costText}{disabledText}";
+
+            if (weapon.PassiveSkill != null)
+                _weaponInfoLabel.TooltipText = $"被动：{weapon.PassiveSkill.Description}";
+
+            // 武器攻击按钮——普通模式下显示
+            if (_selectionMode == SelectionMode.Normal && !_combat.State.IsGameOver)
+            {
+                bool canAttack = _combat.PlayerHero.CanWeaponAttack()
+                    && _combat.PlayerHero.CanSpendMana(weapon.AttackCost);
+                _weaponAttackButton.Visible = true;
+                _weaponAttackButton.Disabled = !canAttack || weapon.IsDisabled;
+                _weaponAttackButton.Text = weapon.IsDisabled
+                    ? "⚔ 武器攻击 [禁用]"
+                    : $"⚔ 武器攻击 ({weapon.AttackCost}费)";
+            }
+
+            // 主动技能按钮
+            if (weapon.ActiveSkill != null)
+            {
+                var active = weapon.ActiveSkill;
+                _weaponActiveSkillButton.Visible = _selectionMode == SelectionMode.Normal && !_combat.State.IsGameOver;
+                _weaponActiveSkillButton.Disabled = !active.CanUse(_combat.PlayerHero);
+
+                if (active.CurrentCooldown > 0)
+                    _weaponActiveSkillButton.Text = $"✦ {active.Name} (冷却{active.CurrentCooldown})";
+                else
+                    _weaponActiveSkillButton.Text = $"✦ {active.Name} ({active.Cost}费)";
+            }
+        }
+        else
+        {
+            _weaponInfoLabel.Text = "无武器";
+        }
+
+        // --- 敌方武器 ---
+        var enemyWeapon = _combat.EnemyHero.Weapon;
+        if (enemyWeapon != null)
+        {
+            string disabledText = enemyWeapon.IsDisabled ? " [禁用]" : "";
+            _enemyWeaponLabel.Text = $"武器: {enemyWeapon.Name} {enemyWeapon.Attack}攻{disabledText}";
+        }
+        else
+        {
+            _enemyWeaponLabel.Text = "";
+        }
+    }
+
+    /// <summary>
+    /// 更新双方英雄的状态效果图标显示。
+    /// 每个状态效果显示为一个小标签（层数 + ID 缩写）。
+    /// </summary>
+    private void UpdateStatusEffectDisplay()
+    {
+        if (_combat == null) return;
+
+        // 清空现有图标
+        foreach (var child in _playerStatusContainer.GetChildren())
+            child.QueueFree();
+        foreach (var child in _enemyStatusContainer.GetChildren())
+            child.QueueFree();
+
+        // 玩家状态效果
+        foreach (var (id, effect) in _combat.PlayerHero.StatusEffects)
+        {
+            var label = CreateStatusIcon(id, effect.Stacks);
+            _playerStatusContainer.AddChild(label);
+        }
+
+        // 敌方状态效果
+        foreach (var (id, effect) in _combat.EnemyHero.StatusEffects)
+        {
+            var label = CreateStatusIcon(id, effect.Stacks);
+            _enemyStatusContainer.AddChild(label);
+        }
+    }
+
+    /// <summary>
+    /// 创建单个状态效果图标标签。
+    /// </summary>
+    private static Label CreateStatusIcon(string id, int stacks)
+    {
+        var label = new Label
+        {
+            Text = $"{id}({stacks})",
+            CustomMinimumSize = new Vector2(60, 18),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        label.AddThemeColorOverride("font_color", new Color(1f, 0.3f, 0.3f));
+        label.AddThemeFontSizeOverride("font_size", 10);
+        return label;
+    }
+
     // ===== 事件处理——敌方英雄攻击 =====
 
     /// <summary>
@@ -1545,6 +1837,112 @@ public partial class CombatUI : Control
 
         GD.Print($"[CombatUI] 对敌方英雄施放 {_selectedCard.CardName}");
         _combat.PlaySpell(_selectedCard, _combat.EnemyHero);
+        RefreshAll();
+    }
+
+    // ===== 事件处理——武器攻击 =====
+
+    /// <summary>
+    /// 武器攻击按钮点击——进入武器目标选择模式。
+    /// 高亮敌方随从并显示攻击敌方英雄按钮。
+    /// </summary>
+    private void OnWeaponAttackPressed()
+    {
+        if (_combat.State.IsGameOver) return;
+        if (!_combat.PlayerHero.CanWeaponAttack()) return;
+
+        var weapon = _combat.PlayerHero.Weapon;
+        if (weapon == null || weapon.IsDisabled) return;
+        if (!_combat.PlayerHero.CanSpendMana(weapon.AttackCost)) return;
+
+        GD.Print($"[CombatUI] 进入武器攻击目标选择模式 — {weapon.Name}");
+
+        _selectionMode = SelectionMode.SelectingWeaponTarget;
+        _selectedAttacker = null;
+        _selectedCard = null;
+
+        // 高亮合法攻击目标
+        HighlightWeaponTargets();
+    }
+
+    /// <summary>
+    /// 武器主动技能按钮点击——使用武器主动技能。
+    /// </summary>
+    private void OnWeaponActiveSkillPressed()
+    {
+        if (_combat.State.IsGameOver) return;
+
+        GD.Print("[CombatUI] 武器主动技能按钮按下");
+        _combat.UseWeaponActiveSkill();
+        RefreshAll();
+    }
+
+    /// <summary>
+    /// 高亮武器攻击合法目标——敌方随从（受嘲讽限制）+ 敌方英雄。
+    /// </summary>
+    private void HighlightWeaponTargets()
+    {
+        _boardUI.ClearHighlights();
+
+        var enemyTaunts = _combat.Board.GetTaunts(isEnemy: true);
+        if (enemyTaunts.Count > 0)
+        {
+            // 有嘲讽——仅高亮嘲讽随从
+            var tauntIndices = enemyTaunts
+                .Where(m => m.BoardSlotIndex >= 0)
+                .Select(m => m.BoardSlotIndex)
+                .ToList();
+
+            _boardUI.HighlightSlots(tauntIndices, isPlayerSide: false, highlight: true);
+            _enemyHeroAttackButton.Visible = false;
+
+            GD.Print($"[CombatUI] 武器攻击模式——敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
+        }
+        else
+        {
+            // 无嘲讽——高亮所有敌方随从
+            var allEnemyIndices = new List<int>();
+            for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+            {
+                var m = _combat.Board.GetMinionAt(i, isPlayerSide: false);
+                if (m != null && !m.IsDead)
+                {
+                    allEnemyIndices.Add(i);
+                }
+            }
+
+            if (allEnemyIndices.Count > 0)
+            {
+                _boardUI.HighlightSlots(allEnemyIndices, isPlayerSide: false, highlight: true);
+            }
+
+            // 显示攻击英雄按钮（复用已有的敌方英雄攻击按钮，修改文本）
+            _enemyHeroAttackButton.Text = $"⚔ 武器攻击 ({_combat.PlayerHero.Weapon!.AttackCost}费)";
+            _enemyHeroAttackButton.Visible = true;
+            _enemyHeroAttackButton.Disabled = false;
+
+            // 断开旧事件，连接武器攻击事件
+            _enemyHeroAttackButton.Pressed -= OnEnemyHeroAttackPressed;
+            _enemyHeroAttackButton.Pressed += OnWeaponAttackHeroPressed;
+
+            GD.Print("[CombatUI] 武器攻击模式——可攻击敌方英雄或随从");
+        }
+    }
+
+    /// <summary>
+    /// 武器攻击敌方英雄——在武器目标选择模式下点击敌方英雄按钮触发。
+    /// </summary>
+    private void OnWeaponAttackHeroPressed()
+    {
+        if (_combat.State.IsGameOver) return;
+
+        GD.Print("[CombatUI] 武器攻击敌方英雄");
+        _combat.HeroWeaponAttackHero();
+
+        // 恢复敌方英雄按钮的原始事件
+        _enemyHeroAttackButton.Pressed -= OnWeaponAttackHeroPressed;
+        _enemyHeroAttackButton.Pressed += OnEnemyHeroAttackPressed;
+
         RefreshAll();
     }
 
@@ -1690,6 +2088,8 @@ public partial class CombatUI : Control
         _boardUI.ClearHighlights();
         _enemyHeroAttackButton.Visible = false;
         _enemyHeroSpellButton.Visible = false;
+        _weaponAttackButton.Visible = false;
+        _weaponActiveSkillButton.Visible = false;
         _handUI.DeselectCard();
     }
 }
