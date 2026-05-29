@@ -21,6 +21,12 @@ public partial class GameManager : Node
     public static string CurrentLanguage => Instance?._currentLanguage ?? "zh";
 
     /// <summary>
+    /// 语言变更事件。所有场景通过此事件感知语言切换并刷新 UI。
+    /// GameManager 是语言变更的唯一入口。
+    /// </summary>
+    public event Action<string> LanguageChanged;
+
+    /// <summary>
     /// 玩家的牌堆定义。
     /// </summary>
     public Deck PlayerDeck => _playerDeck;
@@ -62,15 +68,21 @@ public partial class GameManager : Node
 
     public void SetLanguage(string language)
     {
+        if (string.IsNullOrEmpty(language) || _currentLanguage == language)
+        {
+            return;
+        }
+
         _currentLanguage = language;
         Localization.Localization.SetLanguage(language);
+        LanguageChanged?.Invoke(language);
+        GD.Print($"[GameManager] Language changed to: {language}");
     }
 
     public void ToggleLanguage()
     {
         string newLang = _currentLanguage == "en" ? "zh" : "en";
         SetLanguage(newLang);
-        GD.Print($"[GameManager] Language toggled to: {newLang}");
     }
 
     /// <summary>

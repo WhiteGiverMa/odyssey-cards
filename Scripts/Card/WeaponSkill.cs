@@ -19,6 +19,12 @@ public interface IWeaponPassive
     /// <summary>技能描述文本。</summary>
     string Description { get; }
 
+    /// <summary>本地化 key —— 用于 UI 层通过 Localization.T() 查找名称翻译。空 = 使用 Name。</summary>
+    string NameKey => string.Empty;
+
+    /// <summary>本地化 key —— 用于 UI 层通过 Localization.T() 查找描述翻译。空 = 使用 Description。</summary>
+    string DescKey => string.Empty;
+
     /// <summary>
     /// 修改武器攻击伤害。
     /// </summary>
@@ -46,6 +52,12 @@ public interface IWeaponActive
 
     /// <summary>技能描述文本。</summary>
     string Description { get; }
+
+    /// <summary>本地化 key —— 用于 UI 层通过 Localization.T() 查找名称翻译。空 = 使用 Name。</summary>
+    string NameKey => string.Empty;
+
+    /// <summary>本地化 key —— 用于 UI 层通过 Localization.T() 查找描述翻译。空 = 使用 Description。</summary>
+    string DescKey => string.Empty;
 
     /// <summary>法力消耗。</summary>
     int Cost { get; }
@@ -84,6 +96,8 @@ public class MeltdownPassive : IWeaponPassive
 {
     public string Name => "熔毁";
     public string Description => "武器攻击或主动技能命中时，目标防御力-1（最多2层）";
+    public string NameKey => "weapon.passive.meltdown.name";
+    public string DescKey => "weapon.passive.meltdown.desc";
 
     public int ModifyWeaponDamage(int baseDamage)
     {
@@ -156,6 +170,8 @@ public class IonPulse : IWeaponActive
 {
     public string Name => "离子脉冲";
     public string Description => "禁用敌人武器（对英雄）或使随从攻击力归零（对随从），持续2个敌方回合";
+    public string NameKey => "weapon.skill.ion_pulse.name";
+    public string DescKey => "weapon.skill.ion_pulse.desc";
     public int Cost => 4;
     public int Cooldown => 3;
     public int CurrentCooldown { get; set; }
@@ -225,6 +241,8 @@ public class IonPistol : Weapon
             active: new IonPulse())
     {
     }
+
+    public override string NameKey => "weapon.ion_pistol.name";
 }
 
 // ====================================================================
@@ -245,4 +263,6 @@ public class RollingLog : Weapon
             attackCost: 0)
     {
     }
+
+    public override string NameKey => "weapon.rolling_log.name";
 }

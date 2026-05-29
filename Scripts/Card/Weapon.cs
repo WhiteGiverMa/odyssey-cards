@@ -14,6 +14,12 @@ public class Weapon
     public string Name { get; }
 
     /// <summary>
+    /// 本地化 key。用于在 UI 层通过 <c>Localization.T(NameKey, Name)</c> 查找翻译。
+    /// 返回空字符串表示无本地化（直接使用 Name 原始值）。
+    /// </summary>
+    public virtual string NameKey => string.Empty;
+
+    /// <summary>
     /// 基础攻击力。使用武器攻击时造成的基础伤害值。
     /// </summary>
     public int Attack { get; }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using OdysseyCards.Core;
 
 namespace OdysseyCards.Card;
@@ -20,7 +21,8 @@ public class Card
     public string Id => Data.Id;
 
     /// <summary>
-    /// 卡牌名称。
+    /// 卡牌名称（原始数据，不作为 UI 渲染源）。
+    /// 渲染时使用 <see cref="GetLocalizedName"/> 以支持多语言切换。
     /// </summary>
     public string CardName => Data.CardName;
 
@@ -46,6 +48,25 @@ public class Card
     public Card(CardData data)
     {
         Data = data;
+    }
+
+    /// <summary>
+    /// 获取本地化的卡牌名称。
+    /// 优先读取 YAML 翻译，缺失时回退到 CardData.CardName 原始字段。
+    /// </summary>
+    public string GetLocalizedName()
+    {
+        return Data?.GetLocalizedName() ?? CardName;
+    }
+
+    /// <summary>
+    /// 获取本地化的卡牌描述。
+    /// 优先读取 YAML 翻译，缺失时回退到 CardData.Description 原始字段。
+    /// </summary>
+    /// <param name="parameters">占位符替换参数（可选）</param>
+    public string GetLocalizedDescription(Dictionary<string, object> parameters = null)
+    {
+        return Data?.GetLocalizedDescription(parameters) ?? Data?.Description ?? string.Empty;
     }
 
     /// <summary>
