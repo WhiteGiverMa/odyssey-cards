@@ -451,7 +451,8 @@ public partial class BoardUI : Control
             _actionCostLabel.Visible = true;
 
             // 随从名称与战斗属性
-            string display = $"{minion.CardName}\n{minion.Attack}/{minion.CurrentHealth}";
+            string defenseStr = minion.Defense != 0 ? $" 防{minion.Defense:+0;-#}" : "";
+            string display = $"{minion.CardName}\n{minion.Attack}/{minion.CurrentHealth}{defenseStr}";
 
             // 关键词标签
             var keywords = new List<string>(4);

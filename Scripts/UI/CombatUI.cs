@@ -67,6 +67,16 @@ public partial class CombatUI : Control
     private Label _enemyArmorLabel = null!;
 
     /// <summary>
+    /// 玩家防御力显示——生命值条旁，防御 != 0 时可见。
+    /// </summary>
+    private Label _playerDefenseLabel = null!;
+
+    /// <summary>
+    /// 敌方防御力显示——敌方生命值条旁。
+    /// </summary>
+    private Label _enemyDefenseLabel = null!;
+
+    /// <summary>
     /// 攻击敌方英雄按钮——攻击目标选择模式下可见。
     /// </summary>
     private Button _enemyHeroAttackButton = null!;
@@ -150,6 +160,8 @@ public partial class CombatUI : Control
         SelectingAttackTarget,
         /// <summary>武器攻击目标模式——玩家点击武器攻击后，等待选择敌方目标（随从或英雄）。</summary>
         SelectingWeaponTarget,
+        /// <summary>武器主动技能目标模式——玩家点击主动技能后，等待选择敌方目标（随从或英雄）。无视嘲讽。</summary>
+        SelectingActiveSkillTarget,
         /// <summary>无目标卡牌打出模式——拖拽到屏幕中央播放区域打出（类 STS2 风格）。</summary>
         PlayingNoTargetCard,
         /// <summary>开发者伤害模式——点击任意实体造成指定伤害。</summary>
@@ -686,6 +698,32 @@ public partial class CombatUI : Control
 
         var enemyHealthContainer = GetNode<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
         enemyHealthContainer?.AddChild(_enemyArmorLabel);
+
+        // 玩家防御
+        _playerDefenseLabel = new Label
+        {
+            Name = "PlayerDefenseLabel",
+            Text = "",
+            Visible = false,
+            CustomMinimumSize = new Vector2(80, 20),
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        _playerDefenseLabel.AddThemeColorOverride("font_color", new Color(0.3f, 0.7f, 1f));
+        _playerDefenseLabel.AddThemeFontSizeOverride("font_size", 13);
+        playerHealthContainer?.AddChild(_playerDefenseLabel);
+
+        // 敌方防御
+        _enemyDefenseLabel = new Label
+        {
+            Name = "EnemyDefenseLabel",
+            Text = "",
+            Visible = false,
+            CustomMinimumSize = new Vector2(80, 20),
+            HorizontalAlignment = HorizontalAlignment.Right,
+        };
+        _enemyDefenseLabel.AddThemeColorOverride("font_color", new Color(0.3f, 0.7f, 1f));
+        _enemyDefenseLabel.AddThemeFontSizeOverride("font_size", 13);
+        enemyHealthContainer?.AddChild(_enemyDefenseLabel);
     }
 
     /// <summary>
@@ -1127,6 +1165,7 @@ public partial class CombatUI : Control
         UpdateHealthBars();
         UpdateManaDisplay();
         UpdateArmorDisplay();
+        UpdateDefenseDisplay();
         UpdateDeckCounts();
 
         // 每次刷新时重置为正常模式（先重置再更新武器，避免显示被覆盖）
@@ -1203,6 +1242,35 @@ public partial class CombatUI : Control
         }
     }
 
+    /// <summary>
+    /// 更新双方防御力显示——防御 != 0 时显示标签，否则隐藏。
+    /// 正防御显示为蓝色（增益），负防御显示为红色（减益/脆弱）。
+    /// </summary>
+    private void UpdateDefenseDisplay()
+    {
+        if (_combat == null) return;
+
+        // 玩家防御
+        int playerDef = _combat.PlayerHero.Defense;
+        _playerDefenseLabel.Visible = playerDef != 0;
+        if (playerDef != 0)
+        {
+            _playerDefenseLabel.Text = $"防御: {playerDef:+0;-#}";
+            _playerDefenseLabel.AddThemeColorOverride("font_color",
+                playerDef > 0 ? new Color(0.3f, 0.7f, 1f) : new Color(1f, 0.3f, 0.3f));
+        }
+
+        // 敌方防御
+        int enemyDef = _combat.EnemyHero.Defense;
+        _enemyDefenseLabel.Visible = enemyDef != 0;
+        if (enemyDef != 0)
+        {
+            _enemyDefenseLabel.Text = $"防御: {enemyDef:+0;-#}";
+            _enemyDefenseLabel.AddThemeColorOverride("font_color",
+                enemyDef > 0 ? new Color(0.3f, 0.7f, 1f) : new Color(1f, 0.3f, 0.3f));
+        }
+    }
+
     // ===== 事件处理——棋盘点击 =====
 
     /// <summary>
@@ -1235,6 +1303,10 @@ public partial class CombatUI : Control
 
             case SelectionMode.SelectingWeaponTarget:
                 HandleWeaponAttackTarget(slotIndex, isPlayerSide);
+                break;
+
+            case SelectionMode.SelectingActiveSkillTarget:
+                HandleActiveSkillTarget(slotIndex, isPlayerSide);
                 break;
 
             case SelectionMode.Normal:
@@ -1392,6 +1464,37 @@ public partial class CombatUI : Control
         _enemyHeroAttackButton.Pressed += OnEnemyHeroAttackPressed;
 
         _combat.HeroWeaponAttackMinion(target);
+        RefreshAll();
+    }
+
+    /// <summary>
+    /// 武器主动技能目标模式下点击敌方槽位 → 对目标随从释放主动技能。
+    /// 无视嘲讽限制。
+    /// </summary>
+    private void HandleActiveSkillTarget(int slotIndex, bool isPlayerSide)
+    {
+        if (isPlayerSide)
+        {
+            GD.Print("[CombatUI] 主动技能不能对己方随从释放");
+            return;
+        }
+
+        var target = _combat.Board.GetMinionAt(slotIndex, isPlayerSide: false);
+        if (target == null || target.IsDead)
+        {
+            GD.Print("[CombatUI] 主动技能目标无效");
+            return;
+        }
+
+        GD.Print($"[CombatUI] 主动技能目标：{target.CardName}");
+
+        // 恢复敌方英雄按钮的原始事件（如果在高亮时改了事件）
+        _enemyHeroAttackButton.Pressed -= OnActiveSkillHeroPressed;
+        _enemyHeroAttackButton.Pressed += OnEnemyHeroAttackPressed;
+
+        // 设置目标并执行技能
+        _combat.ActiveSkillTarget = target;
+        _combat.UseWeaponActiveSkill();
         RefreshAll();
     }
 
@@ -1811,7 +1914,7 @@ public partial class CombatUI : Control
             if (weapon.ActiveSkill != null)
             {
                 var active = weapon.ActiveSkill;
-                _weaponActiveSkillButton.Visible = _selectionMode == SelectionMode.Normal && !_combat.State.IsGameOver;
+                _weaponActiveSkillButton.Visible = (_selectionMode == SelectionMode.Normal || _selectionMode == SelectionMode.SelectingActiveSkillTarget) && !_combat.State.IsGameOver;
                 _weaponActiveSkillButton.Disabled = !active.CanUse(_combat.PlayerHero);
 
                 if (active.CurrentCooldown > 0)
@@ -1955,20 +2058,84 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
-    /// 武器主动技能按钮点击——使用武器主动技能。
+    /// 武器主动技能按钮点击——进入主动技能目标选择模式。
+    /// 所有敌方随从 + 敌方英雄都是合法目标（无视嘲讽——这是减益技能不是攻击）。
     /// </summary>
     private void OnWeaponActiveSkillPressed()
     {
         if (_combat.State.IsGameOver) return;
 
-        GD.Print("[CombatUI] 武器主动技能按钮按下");
+        var weapon = _combat.PlayerHero.Weapon;
+        if (weapon?.ActiveSkill == null) return;
+        if (!weapon.ActiveSkill.CanUse(_combat.PlayerHero)) return;
+
+        GD.Print($"[CombatUI] 进入主动技能目标选择模式 — {weapon.ActiveSkill.Name}");
+
+        _selectionMode = SelectionMode.SelectingActiveSkillTarget;
+        _selectedAttacker = null;
+        _selectedCard = null;
+
+        HighlightActiveSkillTargets();
+    }
+
+    /// <summary>
+    /// 高亮武器主动技能合法目标——敌方所有随从 + 敌方英雄。
+    /// 无视嘲讽限制（主动技能是减益效果，不是攻击）。
+    /// </summary>
+    private void HighlightActiveSkillTargets()
+    {
+        _boardUI.ClearHighlights();
+
+        // 高亮所有敌方随从（无视嘲讽）
+        var allEnemyIndices = new List<int>();
+        for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+        {
+            var m = _combat.Board.GetMinionAt(i, isPlayerSide: false);
+            if (m != null && !m.IsDead)
+            {
+                allEnemyIndices.Add(i);
+            }
+        }
+
+        if (allEnemyIndices.Count > 0)
+        {
+            _boardUI.HighlightSlots(allEnemyIndices, isPlayerSide: false, highlight: true);
+        }
+
+        // 显示敌方英雄按钮作为目标（复用，修改文本和事件）
+        _enemyHeroAttackButton.Text = $"✦ 离子脉冲";
+        _enemyHeroAttackButton.Visible = true;
+        _enemyHeroAttackButton.Disabled = false;
+
+        // 从 Normal 模式进入时只有 OnEnemyHeroAttackPressed 是连接的
+        _enemyHeroAttackButton.Pressed -= OnEnemyHeroAttackPressed;
+        _enemyHeroAttackButton.Pressed += OnActiveSkillHeroPressed;
+
+        GD.Print("[CombatUI] 主动技能目标模式——可对敌方英雄或任意随从释放");
+    }
+
+    /// <summary>
+    /// 武器主动技能对敌方英雄释放——在技能目标选择模式下点击敌方英雄按钮触发。
+    /// 目标设为 null（IonPulse 默认行为：禁用敌方武器）。
+    /// </summary>
+    private void OnActiveSkillHeroPressed()
+    {
+        if (_combat.State.IsGameOver) return;
+
+        GD.Print("[CombatUI] 主动技能目标：敌方英雄");
+
+        // 恢复敌方英雄按钮的原始事件
+        _enemyHeroAttackButton.Pressed -= OnActiveSkillHeroPressed;
+        _enemyHeroAttackButton.Pressed += OnEnemyHeroAttackPressed;
+
+        // 目标为 null 表示对英雄释放（IonPulse 的默认行为）
+        _combat.ActiveSkillTarget = null;
         _combat.UseWeaponActiveSkill();
         RefreshAll();
     }
 
     /// <summary>
-    /// 高亮武器攻击合法目标——敌方随从（受嘲讽限制）+ 敌方英雄。
-    /// </summary>
+    /// 高亮武器攻击合法目标——敌方随从（受嘲讽限制）+ 敌方英雄。</summary>
     private void HighlightWeaponTargets()
     {
         _boardUI.ClearHighlights();
