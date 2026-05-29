@@ -20,7 +20,7 @@ public partial class DevConsole : Node
     private Panel _panel = null!;
     private RichTextLabel _output = null!;
     private LineEdit _input = null!;
-    private Label _completionLabel = null!;
+    private RichTextLabel _completionLabel = null!;
     private bool _visible;
 
     // ===== 命令注册表 =====
@@ -103,13 +103,13 @@ public partial class DevConsole : Node
         vbox.AddChild(_input);
 
         // 补全提示 Label（输入栏上方）
-        _completionLabel = new Label
+        _completionLabel = new RichTextLabel
         {
             Name = "Completion",
-            CustomMinimumSize = new Vector2(0, 0),
+            BbcodeEnabled = true,
+            FitContent = true,
+            ScrollFollowing = true,
         };
-        _completionLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.85f, 0.7f, 0.9f));
-        _completionLabel.AddThemeFontSizeOverride("font_size", 12);
         vbox.AddChild(_completionLabel);
 
         // 注册命令
@@ -128,10 +128,12 @@ public partial class DevConsole : Node
             if (keyEvent.Keycode == Key.Quoteleft) // 反引号键
             {
                 Toggle();
+                GetViewport().SetInputAsHandled();
             }
             else if (_visible && keyEvent.Keycode == Key.Escape)
             {
                 Hide();
+                GetViewport().SetInputAsHandled();
             }
         }
     }
