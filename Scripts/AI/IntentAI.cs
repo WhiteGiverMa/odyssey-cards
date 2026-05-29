@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
@@ -43,6 +44,22 @@ public struct EnemyIntent
     /// <summary>意图描述文本，供 UI 展示。</summary>
     public string Description;
 
+    // ===== 动态意图计算（延迟查询，每次调用重算） =====
+
+    /// <summary>
+    /// 攻击目标选择器——每次调用根据当前战场状态动态决定目标。
+    /// 注入时机：<see cref="EnemyEncounter.GetCurrentIntent"/> 为 Attack 意图自动注入。
+    /// 若为 null 则退化为无目标攻击（非 Attack 意图）。
+    /// </summary>
+    public Func<CombatManager, IDamageTarget>? TargetSelector;
+
+    /// <summary>
+    /// 伤害计算函数——每次调用重新走 DamageResolver 管线，反映当前力量/易伤等修饰。
+    /// 注入时机：<see cref="EnemyEncounter.GetCurrentIntent"/> 为 Attack 意图自动注入。
+    /// 若为 null 则返回静态 <see cref="Value"/>。
+    /// </summary>
+    public Func<CombatManager, int>? DamageCalc;
+
     // ===== 召唤意图的额外信息（供 UI 提前预览召唤物属性） =====
 
     /// <summary>召唤物名称（仅 Summon 意图时有效）。</summary>
@@ -77,6 +94,53 @@ public struct EnemyIntent
         SummonMinionAttack = summonAttack;
         SummonMinionHealth = summonHealth;
         SummonMinionHasCharge = summonHasCharge;
+    }
+
+    // ===== 动态查询方法 =====
+
+    /// <summary>
+    /// 获取当前攻击目标（仅 Attack 意图有效）。
+    /// 每次调用根据战场实时状态重新计算——若有嘲讽则指向嘲讽随从，反之指向英雄。
+    /// </summary>
+    /// <param name="combat">战斗管理器</param>
+    /// <returns>攻击目标，若 TargetSelector 未注入则返回 null</returns>
+    public readonly IDamageTarget? GetTarget(CombatManager combat)
+    {
+        return TargetSelector?.Invoke(combat);
+    }
+
+    /// <summary>
+    /// 获取当前有效伤害值（经过所有伤害修饰后的预览值）。
+    /// 每次调用重新走 DamageResolver 管线，用于 UI 实时预览和实际执行。
+    /// </summary>
+    /// <param name="combat">战斗管理器</param>
+    /// <returns>有效伤害值</returns>
+    public readonly int GetEffectiveDamage(CombatManager combat)
+    {
+        return DamageCalc?.Invoke(combat) ?? Value;
+    }
+
+    /// <summary>
+    /// 获取带目标信息的动态意图描述文本。
+    /// 若为 Attack 意图且 TargetSelector 已注入，则显示"对{目标名}造成 {伤害} 点伤害"。
+    /// 否则返回静态 <see cref="Description"/>。
+    /// </summary>
+    /// <param name="combat">战斗管理器</param>
+    /// <returns>意图 UI 显示文本</returns>
+    public readonly string GetDisplayDescription(CombatManager combat)
+    {
+        if (Type != IntentType.Attack || TargetSelector == null)
+            return Description;
+
+        var target = GetTarget(combat);
+        int damage = GetEffectiveDamage(combat);
+        string targetName = target switch
+        {
+            Hero => "英雄",
+            Minion m => m.CardName,
+            _ => "目标"
+        };
+        return $"对{targetName}造成 {damage} 点伤害";
     }
 }
 
@@ -146,12 +210,37 @@ public abstract class EnemyEncounter
     // ===== 意图操作 =====
 
     /// <summary>
-    /// 获取当前回合的意图。
+    /// 获取当前回合的意图，并根据当前战场状态注入动态选择器。
+    /// 对于 Attack 意图，自动注入 <see cref="ResolveAttackTarget"/> 和
+    /// 基于 <see cref="DamageResolver.ResolvePreviewDamage"/> 的伤害计算函数。
+    /// 调用者每次查询都会获得反映最新战场状态的意图。
     /// </summary>
-    /// <returns>当前意图结构体</returns>
-    public EnemyIntent GetCurrentIntent()
+    /// <param name="combat">战斗管理器，提供战场和目标信息</param>
+    /// <returns>包含动态选择器的意图结构体</returns>
+    public EnemyIntent GetCurrentIntent(CombatManager combat)
     {
-        return IntentPattern[CurrentPatternIndex];
+        var intent = IntentPattern[CurrentPatternIndex];
+        if (intent.Type == IntentType.Attack)
+        {
+            intent.TargetSelector = ResolveAttackTarget;
+            intent.DamageCalc = (c) => DamageResolver.ResolvePreviewDamage(intent.Value, null);
+        }
+        return intent;
+    }
+
+    /// <summary>
+    /// 默认攻击目标选择器。
+    /// 根据战场实时状态：若玩家方有嘲讽随从则随机选择一个，否则攻击玩家英雄。
+    /// 子类可重写以实现特殊的目标选择逻辑（如"总是攻击最左侧随从"）。
+    /// </summary>
+    /// <param name="combat">战斗管理器</param>
+    /// <returns>攻击目标</returns>
+    protected virtual IDamageTarget ResolveAttackTarget(CombatManager combat)
+    {
+        var taunts = combat.Board.GetTaunts(isEnemy: false);
+        if (taunts.Count > 0)
+            return taunts[Random.Shared.Next(taunts.Count)];
+        return combat.PlayerHero;
     }
 
     /// <summary>
@@ -202,14 +291,15 @@ public class Cultist : EnemyEncounter
     /// <inheritdoc />
     public override void ExecuteIntent(CombatManager combat)
     {
-        var intent = GetCurrentIntent();
+        var intent = GetCurrentIntent(combat);
 
         GD.Print($"[Cultist] 执行意图：{intent.Description}");
 
         switch (intent.Type)
         {
             case IntentType.Attack:
-                combat.PlayerHero.TakeDamage(intent.Value, null);
+                var target = intent.GetTarget(combat);
+                target?.TakeDamage(intent.Value, null);
                 break;
 
             case IntentType.Defend:
@@ -243,14 +333,15 @@ public class SlimeBoss : EnemyEncounter
     /// <inheritdoc />
     public override void ExecuteIntent(CombatManager combat)
     {
-        var intent = GetCurrentIntent();
+        var intent = GetCurrentIntent(combat);
 
         GD.Print($"[SlimeBoss] 执行意图：{intent.Description}");
 
         switch (intent.Type)
         {
             case IntentType.Attack:
-                combat.PlayerHero.TakeDamage(intent.Value, null);
+                var target = intent.GetTarget(combat);
+                target?.TakeDamage(intent.Value, null);
                 break;
 
             case IntentType.Summon:
@@ -320,14 +411,15 @@ public class WolfRider : EnemyEncounter
     /// <inheritdoc />
     public override void ExecuteIntent(CombatManager combat)
     {
-        var intent = GetCurrentIntent();
+        var intent = GetCurrentIntent(combat);
 
         GD.Print($"[WolfRider] 执行意图：{intent.Description}");
 
         switch (intent.Type)
         {
             case IntentType.Attack:
-                combat.PlayerHero.TakeDamage(intent.Value, null);
+                var target = intent.GetTarget(combat);
+                target?.TakeDamage(intent.Value, null);
                 break;
         }
     }
@@ -356,14 +448,15 @@ public class GuardianBoss : EnemyEncounter
     /// <inheritdoc />
     public override void ExecuteIntent(CombatManager combat)
     {
-        var intent = GetCurrentIntent();
+        var intent = GetCurrentIntent(combat);
 
         GD.Print($"[GuardianBoss] 执行意图：{intent.Description}");
 
         switch (intent.Type)
         {
             case IntentType.Attack:
-                combat.PlayerHero.TakeDamage(intent.Value, null);
+                var target = intent.GetTarget(combat);
+                target?.TakeDamage(intent.Value, null);
                 break;
 
             case IntentType.Defend:

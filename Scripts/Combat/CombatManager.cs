@@ -71,9 +71,26 @@ public partial class CombatManager : Node
     public event Action<string>? OnEnemyIntentChanged;
 
     /// <summary>
+    /// 战斗状态变更事件——在随从部署/移除、英雄受伤等任何可能影响意图显示的
+    /// 状态变更时触发。UI 监听此事件来刷新意图标签和目标高亮。
+    /// 参考 STS2 的 CombatStateTracker.CombatStateChanged。
+    /// </summary>
+    public event Action? OnCombatStateChanged;
+
+    /// <summary>
     /// 游戏结束事件（参数为 true=胜利, false=失败）。
     /// </summary>
     public event Action<bool>? OnGameOver;
+
+    /// <summary>
+    /// 获取当前敌方遭遇的动态意图（含实时目标和伤害计算）。
+    /// UI 在 <see cref="OnCombatStateChanged"/> 触发时调用此方法刷新显示。
+    /// </summary>
+    /// <returns>包含动态 TargetSelector 和 DamageCalc 的意图结构体</returns>
+    public EnemyIntent GetCurrentEnemyIntent()
+    {
+        return _currentEnemy.GetCurrentIntent(this);
+    }
 
     // ===== 随从攻击追踪 =====
 
@@ -96,6 +113,17 @@ public partial class CombatManager : Node
     /// 在 <see cref="ExecuteEnemyTurn"/> 开始时快照，在 <see cref="EnemyMinionsAttack"/> 中使用。
     /// </summary>
     private readonly HashSet<Minion> _enemyMinionsCanAttack = new();
+
+    /// <summary>
+    /// 敌方回合执行动画进行中。设为 true 时冻结意图 UI 刷新，
+    /// 防止执行动画期间意图数值跳变。参考 STS2 的 NIntent._isFrozen。
+    /// </summary>
+    private bool _isEnemyTurnAnimating;
+
+    /// <summary>
+    /// 公开的冻结状态查询——UI 通过此属性判断是否应跳过意图刷新。
+    /// </summary>
+    public bool IsEnemyTurnAnimating => _isEnemyTurnAnimating;
 
     // ===== Godot 生命周期 =====
 
@@ -185,8 +213,8 @@ public partial class CombatManager : Node
         StartCombat();
         combatUI.RefreshAll(); // StartCombat 中法力变化后刷新 UI
 
-        // 触发初始意图事件
-        OnEnemyIntentChanged?.Invoke(_currentEnemy.GetCurrentIntent().Description);
+        // 触发初始意图事件（使用动态意图）
+        OnCombatStateChanged?.Invoke();
 
         GD.Print("[CombatManager] BootstrapCombat 完成");
     }
@@ -217,6 +245,10 @@ public partial class CombatManager : Node
 
         // 亡语驱动：随从从棋盘移除时自动触发亡语，无需在各处手动调用
         Board.OnMinionRemoved += TriggerDeathrattle;
+
+        // 状态变更事件：随从部署/移除时触发，驱动意图 UI 实时刷新
+        Board.OnMinionPlaced += (_, _) => OnCombatStateChanged?.Invoke();
+        Board.OnMinionRemoved += (_) => OnCombatStateChanged?.Invoke();
 
         // 装配默认武器
         PlayerHero.Weapon = new IonPistol();
@@ -1194,9 +1226,13 @@ public partial class CombatManager : Node
 
     /// <summary>
     /// 执行敌方 AI 回合：执行当前意图 → 推进意图轮转 → 敌方随从攻击 → 死亡检查 → 胜负判定。
+    /// 执行期间冻结意图 UI 刷新（_isEnemyTurnAnimating），防止动画中数值跳变。
     /// </summary>
     private void ExecuteEnemyTurn()
     {
+        // 冻结意图 UI 刷新——防止执行动画期间数值跳变
+        _isEnemyTurnAnimating = true;
+
         // 0. 快照本回合开始时已存在的敌方随从——只有它们可以攻击
         _enemyMinionsCanAttack.Clear();
         foreach (var m in Board.GetEnemyMinions())
@@ -1204,12 +1240,12 @@ public partial class CombatManager : Node
             if (!m.IsDead) _enemyMinionsCanAttack.Add(m);
         }
 
-        // 1. 执行敌方当前意图（攻击/防御/召唤等）
+        // 1. 执行敌方当前意图（攻击/防御/召唤等）——使用动态目标选择
         _currentEnemy.ExecuteIntent(this);
 
         // 2. 推进到下一意图
         _currentEnemy.AdvanceIntent();
-        GD.Print($"[CombatManager] 敌方下回合意图：{_currentEnemy.GetCurrentIntent().Description}");
+        GD.Print($"[CombatManager] 敌方下回合意图：{_currentEnemy.GetCurrentIntent(this).Description}");
 
         // 3. 敌方随从攻击
         EnemyMinionsAttack();
@@ -1220,12 +1256,15 @@ public partial class CombatManager : Node
         // 5. 胜负判定
         CheckVictoryOrDefeat();
 
-        // 6. 通知 UI 更新意图显示
-        OnEnemyIntentChanged?.Invoke(_currentEnemy.GetCurrentIntent().Description);
+        // 6. 解冻——允许 UI 重新响应状态变更
+        _isEnemyTurnAnimating = false;
 
         // 7. 状态效果衰减 — 敌方回合结束时（武器禁用等 debuff 在此触发）
         PlayerHero.TickStatusEffects(TickTiming.EnemyTurnEnd);
         EnemyHero.TickStatusEffects(TickTiming.EnemyTurnEnd);
+
+        // 8. 通知 UI 刷新意图显示（解冻后触发）
+        OnCombatStateChanged?.Invoke();
     }
 
     /// <summary>

@@ -1104,7 +1104,7 @@ public partial class CombatUI : Control
         _combat.PlayerHero.OnManaChanged += (_, _) => UpdateManaDisplay();
 
         // 敌方意图变化 → 更新意图显示
-        _combat.OnEnemyIntentChanged += (intent) => _enemyIntentLabel.Text = intent;
+        _combat.OnCombatStateChanged += RefreshIntentDisplay;
 
         // 游戏结束 → 显示弹窗
         _combat.OnGameOver += ShowGameOverPopup;
@@ -1140,6 +1140,21 @@ public partial class CombatUI : Control
         {
             _endTurnButton.Disabled = true;
         }
+    }
+
+    /// <summary>
+    /// 刷新敌方意图显示——根据当前战场状态重新计算攻击目标和伤害数值。
+    /// 若敌方回合动画进行中则跳过（冻结机制，参考 STS2 的 NIntent._isFrozen）。
+    /// </summary>
+    private void RefreshIntentDisplay()
+    {
+        if (_combat == null) return;
+
+        // 冻结检查：敌方回合执行动画期间不刷新，防止数值跳变
+        if (_combat.IsEnemyTurnAnimating) return;
+
+        var intent = _combat.GetCurrentEnemyIntent();
+        _enemyIntentLabel.Text = intent.GetDisplayDescription(_combat);
     }
 
     /// <summary>

@@ -145,7 +145,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// </summary>
     /// <param name="baseDamage">基础伤害值</param>
     /// <param name="source">伤害来源</param>
-    public void TakeDamage(int baseDamage, IDamageSource source)
+    public void TakeDamage(int baseDamage, IDamageSource? source)
     {
         int result = DamageResolver.ResolveDamage(baseDamage, source, this);
         ApplyDamage(result, source);

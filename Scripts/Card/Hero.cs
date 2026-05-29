@@ -168,7 +168,7 @@ public class Hero : IDamageTarget, IDamageSource
     /// </summary>
     /// <param name="baseDamage">基础伤害值</param>
     /// <param name="source">伤害来源</param>
-    public void TakeDamage(int baseDamage, IDamageSource source)
+    public void TakeDamage(int baseDamage, IDamageSource? source)
     {
         if (CurrentArmor > 0)
         {
