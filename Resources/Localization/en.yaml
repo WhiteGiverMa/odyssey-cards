@@ -19,8 +19,41 @@ ui:
     enemy_turn: "Enemy Turn"
     draw_pile: "Draw Pile"
     discard_pile: "Discard Pile"
+    draw_pile_format: "Draw Pile ({count})"
+    discard_pile_format: "Discard Pile ({count})"
     energy: "Energy"
     select_target: "Select Target"
+    hp_label: "HP "
+    mana_format: "Mana {current}/{max}"
+    armor_format: "Armor: {value}"
+    defense_format: "Defense: {value}"
+    enemy_hero: "Enemy Hero"
+    attack_enemy_hero: "⚔ Attack Hero"
+    spell_enemy_hero: "✦ Cast on Hero"
+    game_over: "Game Over"
+    victory_title: "★ Victory!"
+    defeat_title: "☠ Defeat"
+    continue_adventure: "Continue"
+    back_to_menu: "Back to Menu"
+    close: "Close"
+    empty: "(Empty)"
+    weapon_attack: "⚔ Weapon Attack"
+    weapon_skill: "✦ Skill"
+    free_cost: "Free"
+    disabled_suffix: " [Disabled]"
+    weapon_attack_cost: "⚔ Weapon Attack ({cost} MP)"
+    weapon_disabled: "⚔ Weapon Attack [Disabled]"
+    skill_cooldown: "✦ {name} (CD {cooldown})"
+    skill_cost: "✦ {name} ({cost} MP)"
+    weapon_none: "No Weapon"
+    enemy_weapon_format: "Weapon: {name} {attack} ATK{disabled}"
+    weapon_format: "{name} {attack} ATK {cost}"
+    ion_pulse: "✦ Ion Pulse"
+    play_zone_hint: "Release to Play\n(or Click Here)"
+    card_pile_item: "[{cost} MP] {name}"
+    board_empty: "Empty"
+    passive_skill: "Passive: {desc}"
+    cost_suffix: " MP"
   card:
     type_unit: "UNIT"
     type_order: "ORDER"
@@ -31,26 +64,113 @@ ui:
     choose_card: "Choose a Card"
     skip: "Skip"
     gold: "Gold"
+  map:
+    room_battle: "[Battle]"
+    room_elite: "[Elite]"
+    room_reward: "[Reward]"
+    room_shop: "[Shop]"
+    room_rest: "[Rest]"
+    room_event: "[Event]"
+    title_fallback: "Map"
+    select_room: "Select next room:"
+    abandon: "Abandon Run (Back to Menu)"
+    error_no_runstate: "Run state lost"
+    progress_format: "Progress: Layer {current}/{total}"
+    error_no_choices: "No rooms available on this layer"
+    one_path: "Only one path ahead:"
+    multi_choices: "Choose next room ({count} available):"
+    continue_button: "Continue"
+    placeholder_format: "[Placeholder] {name} room not implemented.\n\n{desc}\n\nClick Continue to advance."
+    adventure_complete: "Adventure Complete!"
+    victory_title: "★ Victory ★"
+    victory_desc: "You defeated the Guardian!\nFirst Plane completed!"
+    error_title: "Error"
+    error_format: "An error occurred: {message}"
+    reward_title: "Choose a Reward"
+    reward_prompt: "Add a card to your deck:"
+    card_type_minion: "Minion"
+    card_type_spell: "Spell"
+    reward_card_format: "{name} [{type}] Cost {cost}\n{desc}"
+    init_error: "Failed to initialize adventure data"
+  board:
+    keyword_taunt: "T"
+    keyword_charge: "C"
+    keyword_windfury: "W"
+    keyword_battlecry: "B"
+    keyword_deathrattle: "D"
+
+weapon:
+  ion_pistol:
+    name: "Ion Pistol"
+  rolling_log:
+    name: "Stick Wood"
+  passive:
+    meltdown:
+      name: "Meltdown"
+      desc: "On weapon hit: target's Defense -1 (max 2 stacks per target)"
+  skill:
+    ion_pulse:
+      name: "Ion Pulse"
+      desc: "Disable enemy weapon (vs Hero) or reduce minion Attack to 0 (vs minion), lasts 2 enemy turns"
+
+plane:
+  first_plane: "First Plane"
+
+room:
+  display_name:
+    monster: "Battle"
+    event: "Event"
+    shop: "Shop"
+    treasure: "Treasure"
+    rest: "Rest"
+    elite: "Elite"
+    boss: "BOSS"
+  description:
+    first_battle: "Defeat the enemies ahead and begin your adventure"
+    first_event: "A random event awaits — the gears of fate begin to turn"
+    first_shop: "Buy cards and relics to strengthen your forces"
+    first_treasure: "Gain random card rewards to improve your deck"
+    first_battle2: "Defeat enemies and claim rich rewards"
+    first_rest: "Restore HP and prepare for the battles ahead"
+    first_elite: "Face a stronger foe with even greater rewards"
+    first_boss: "Plane Guardian — defeat it to complete the First Plane!"
 
 cards:
-  order_Strike:
+  spell_Strike:
     name: "Strike"
     description: "Deal 3 damage."
-  order_Assault:
+  spell_Assault:
     name: "Assault"
     description: "Rotation\nDeal 2 damage, draw 1 card"
-  order_Alert:
+  spell_Alert:
     name: "Alert"
     description: "Rotation\nDraw 1 card, friendly HQ +2 HP"
-  unit_18thRegiment:
+  minion_18thRegiment:
     name: "18th Regiment"
     description: "Guard, Rotation"
-  unit_DetectiveSquad:
+  minion_DetectiveSquad:
     name: "Detective Squad"
     description: "Ambush, Mobile"
-  unit_LianshuScout:
+  minion_LianshuScout:
     name: "Lianshu Mech Hound Scout"
     description: "Ambush, Rotation\nLast Words: Draw 1 card"
+  domain_zhijian:
+    name: "Paper Sword Domain"
+    description: "Domain: All minions gain +1 Attack"
+  domain_infinite_fire:
+    name: "Infinite Fire Domain"
+    description: "Domain: Deal 1 damage to all enemy minions each turn"
+  minion_slime:
+    name: "Slime"
+    description: "Charge"
+
+intent:
+  attack_format: "Deal {damage} damage to {target}"
+  defend_format: "Gain {amount} Armor"
+  summon_format: "Summon {name} ({atk}/{hp})"
+  summon_charge_format: "Summon {name} ({atk}/{hp} Charge)"
+  target_hero: "Hero"
+  target_unknown: "Target"
 
 combat:
   victory: "Victory!"

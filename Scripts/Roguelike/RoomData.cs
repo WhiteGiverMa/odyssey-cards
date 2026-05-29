@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using OdysseyCards.Localization;
 
 namespace OdysseyCards.Roguelike;
 
@@ -79,10 +80,9 @@ public class PlaneDefinition
     {
         return new PlaneDefinition
         {
-            PlaneName = "第一位面",
+            PlaneName = Localization.Localization.T("plane.first_plane", "第一位面"),
             Layers = new List<PlaneLayer>
             {
-                // 第 1 层：入口战斗
                 new()
                 {
                     Choices =
@@ -90,13 +90,12 @@ public class PlaneDefinition
                         new RoomDefinition
                         {
                             Type = RoomType.Monster,
-                            DisplayName = "战斗",
-                            Description = "击败前方出现的敌人，开启冒险之旅"
+                            DisplayName = Localization.Localization.T("room.display_name.monster", "战斗"),
+                            Description = Localization.Localization.T("room.description.first_battle", "击败前方出现的敌人，开启冒险之旅")
                         }
                     }
                 },
 
-                // 第 2 层：事件 / 商店（2选1）
                 new()
                 {
                     Choices =
@@ -104,19 +103,18 @@ public class PlaneDefinition
                         new RoomDefinition
                         {
                             Type = RoomType.Event,
-                            DisplayName = "事件",
-                            Description = "触发随机事件，命运的齿轮开始转动"
+                            DisplayName = Localization.Localization.T("room.display_name.event", "事件"),
+                            Description = Localization.Localization.T("room.description.first_event", "触发随机事件，命运的齿轮开始转动")
                         },
                         new RoomDefinition
                         {
                             Type = RoomType.Shop,
-                            DisplayName = "商店",
-                            Description = "购买卡牌和遗物，补充你的战力"
+                            DisplayName = Localization.Localization.T("room.display_name.shop", "商店"),
+                            Description = Localization.Localization.T("room.description.first_shop", "购买卡牌和遗物，补充你的战力")
                         }
                     }
                 },
 
-                // 第 3 层：奖励 / 战斗（2选1）
                 new()
                 {
                     Choices =
@@ -124,19 +122,18 @@ public class PlaneDefinition
                         new RoomDefinition
                         {
                             Type = RoomType.Treasure,
-                            DisplayName = "奖励",
-                            Description = "获得随机卡牌战利品，强化你的牌堆"
+                            DisplayName = Localization.Localization.T("room.display_name.treasure", "奖励"),
+                            Description = Localization.Localization.T("room.description.first_treasure", "获得随机卡牌战利品，强化你的牌堆")
                         },
                         new RoomDefinition
                         {
                             Type = RoomType.Monster,
-                            DisplayName = "战斗",
-                            Description = "击败敌人，获取丰厚战利品"
+                            DisplayName = Localization.Localization.T("room.display_name.monster", "战斗"),
+                            Description = Localization.Localization.T("room.description.first_battle2", "击败敌人，获取丰厚战利品")
                         }
                     }
                 },
 
-                // 第 4 层：休息 / 商店（2选1）
                 new()
                 {
                     Choices =
@@ -144,19 +141,18 @@ public class PlaneDefinition
                         new RoomDefinition
                         {
                             Type = RoomType.RestSite,
-                            DisplayName = "休息",
-                            Description = "回复生命值，为后续战斗做好准备"
+                            DisplayName = Localization.Localization.T("room.display_name.rest", "休息"),
+                            Description = Localization.Localization.T("room.description.first_rest", "回复生命值，为后续战斗做好准备")
                         },
                         new RoomDefinition
                         {
                             Type = RoomType.Shop,
-                            DisplayName = "商店",
-                            Description = "购买卡牌和遗物，补充你的战力"
+                            DisplayName = Localization.Localization.T("room.display_name.shop", "商店"),
+                            Description = Localization.Localization.T("room.description.first_shop", "购买卡牌和遗物，补充你的战力")
                         }
                     }
                 },
 
-                // 第 5 层：精英 / 战斗（2选1）
                 new()
                 {
                     Choices =
@@ -164,19 +160,18 @@ public class PlaneDefinition
                         new RoomDefinition
                         {
                             Type = RoomType.Monster,
-                            DisplayName = "战斗",
-                            Description = "击败敌人，获取丰厚战利品"
+                            DisplayName = Localization.Localization.T("room.display_name.monster", "战斗"),
+                            Description = Localization.Localization.T("room.description.first_battle2", "击败敌人，获取丰厚战利品")
                         },
                         new RoomDefinition
                         {
                             Type = RoomType.Elite,
-                            DisplayName = "精英",
-                            Description = "面对更强的敌人，但奖励更为丰厚"
+                            DisplayName = Localization.Localization.T("room.display_name.elite", "精英"),
+                            Description = Localization.Localization.T("room.description.first_elite", "面对更强的敌人，但奖励更为丰厚")
                         }
                     }
                 },
 
-                // 第 6 层：Boss（1选1）
                 new()
                 {
                     Choices =
@@ -184,8 +179,8 @@ public class PlaneDefinition
                         new RoomDefinition
                         {
                             Type = RoomType.Boss,
-                            DisplayName = "Boss",
-                            Description = "位面首领——守护者，击败它完成第一位面！"
+                            DisplayName = Localization.Localization.T("room.display_name.boss", "BOSS"),
+                            Description = Localization.Localization.T("room.description.first_boss", "位面首领——守护者，击败它完成第一位面！")
                         }
                     }
                 },

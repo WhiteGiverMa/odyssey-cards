@@ -3,6 +3,7 @@ using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
+using OdysseyCards.Localization;
 
 namespace OdysseyCards.AI;
 
@@ -121,26 +122,48 @@ public struct EnemyIntent
     }
 
     /// <summary>
-    /// 获取带目标信息的动态意图描述文本。
-    /// 若为 Attack 意图且 TargetSelector 已注入，则显示"对{目标名}造成 {伤害} 点伤害"。
-    /// 否则返回静态 <see cref="Description"/>。
+    /// 获取带目标信息的动态意图描述文本（已本地化）。
+    /// 根据意图类型和结构化数据动态生成本地化描述。
     /// </summary>
     /// <param name="combat">战斗管理器</param>
     /// <returns>意图 UI 显示文本</returns>
     public readonly string GetDisplayDescription(CombatManager combat)
     {
-        if (Type != IntentType.Attack || TargetSelector == null)
-            return Description;
+        return Type switch
+        {
+            IntentType.Attack => BuildAttackDescription(combat),
+            IntentType.Defend => Localization.Localization.T("intent.defend_format", "获得 {amount} 点护甲")
+                .Replace("{amount}", Value.ToString()),
+            IntentType.Summon => BuildSummonDescription(),
+            IntentType.Buff => Description,
+            _ => Description
+        };
+    }
 
-        var target = GetTarget(combat);
-        int damage = GetEffectiveDamage(combat);
+    private readonly string BuildAttackDescription(CombatManager combat)
+    {
+        var target = TargetSelector?.Invoke(combat);
+        int damage = DamageCalc?.Invoke(combat) ?? Value;
         string targetName = target switch
         {
-            Hero => "英雄",
-            Minion m => m.CardName,
-            _ => "目标"
+            Hero => Localization.Localization.T("intent.target_hero", "英雄"),
+            Minion m => m.GetLocalizedName(),
+            _ => Localization.Localization.T("intent.target_unknown", "目标")
         };
-        return $"对{targetName}造成 {damage} 点伤害";
+        return Localization.Localization.T("intent.attack_format", "对{target}造成 {damage} 点伤害")
+            .Replace("{target}", targetName)
+            .Replace("{damage}", damage.ToString());
+    }
+
+    private readonly string BuildSummonDescription()
+    {
+        string format = SummonMinionHasCharge
+            ? Localization.Localization.T("intent.summon_charge_format", "召唤 {name} ({atk}/{hp} 冲锋)")
+            : Localization.Localization.T("intent.summon_format", "召唤 {name} ({atk}/{hp})");
+        return format
+            .Replace("{name}", SummonMinionName)
+            .Replace("{atk}", SummonMinionAttack.ToString())
+            .Replace("{hp}", SummonMinionHealth.ToString());
     }
 }
 
