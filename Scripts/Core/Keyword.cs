@@ -12,7 +12,7 @@ public enum Keyword
     None,
 
     /// <summary>
-    /// 冲锋：召唤的回合即可攻击。
+    /// 闪击：召唤的回合即可攻击。
     /// </summary>
     Charge,
 
@@ -35,4 +35,16 @@ public enum Keyword
     /// 风怒：每回合可以攻击两次。
     /// </summary>
     Windfury,
+
+    /// <summary>
+    /// 伏击：每回合第一次被攻击时，先于攻击者造成反击伤害。
+    /// 若攻击者被伏击伤害消灭，则攻击被取消，攻击者不造成任何伤害。
+    /// </summary>
+    Ambush,
+
+    /// <summary>
+    /// 冲击：攻击时抵消所有反击伤害（一次性消耗，类似圣盾）。
+    /// 冲击随从攻击伏击随从时，伏击的先手伤害也被免疫。
+    /// </summary>
+    Impact,
 }

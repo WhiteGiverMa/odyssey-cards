@@ -45,6 +45,32 @@ public class Hero : IDamageTarget, IDamageSource
     /// </summary>
     internal bool SuppressWeaponCounter { get; set; }
 
+    // ===== 关键词属性（英雄也可拥有词条） =====
+
+    /// <summary>
+    /// 伏击：每回合第一次被攻击时，先于攻击者造成反击伤害。
+    /// 若攻击者被伏击伤害消灭，则攻击被取消。
+    /// </summary>
+    public bool HasAmbush { get; set; }
+
+    /// <summary>
+    /// 冲击：攻击时抵消所有反击伤害（一次性消耗，类似圣盾）。
+    /// </summary>
+    public bool HasImpact { get; set; }
+
+    /// <summary>
+    /// 本回合伏击是否已被消耗。回合开始时重置。
+    /// </summary>
+    internal bool AmbushUsedThisTurn { get; set; }
+
+    /// <summary>
+    /// 重置伏击状态（新回合开始时调用）。
+    /// </summary>
+    internal void ResetAmbush()
+    {
+        AmbushUsedThisTurn = false;
+    }
+
     // ===== 指挥官属性（来自 CommanderCore） =====
 
     /// <summary>

@@ -86,7 +86,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
     // ===== 关键词属性 =====
 
     /// <summary>
-    /// 冲锋：召唤的回合即可攻击。
+    /// 闪击：召唤的回合即可攻击。
     /// </summary>
     public bool HasCharge { get; }
 
@@ -109,6 +109,31 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// 风怒：每回合可以攻击两次。
     /// </summary>
     public bool HasWindfury { get; }
+
+    /// <summary>
+    /// 伏击：每回合第一次被攻击时，先于攻击者造成反击伤害。
+    /// 若攻击者被伏击伤害消灭，则攻击被取消。
+    /// </summary>
+    public bool HasAmbush { get; }
+
+    /// <summary>
+    /// 冲击：攻击时抵消所有反击伤害（一次性消耗，类似圣盾）。
+    /// 冲击随从攻击伏击随从时，伏击的先手伤害也被免疫。
+    /// </summary>
+    public bool HasImpact { get; internal set; }
+
+    /// <summary>
+    /// 本回合伏击是否已被消耗。回合开始时重置。
+    /// </summary>
+    internal bool AmbushUsedThisTurn { get; set; }
+
+    /// <summary>
+    /// 重置伏击状态（新回合开始时调用）。
+    /// </summary>
+    internal void ResetAmbush()
+    {
+        AmbushUsedThisTurn = false;
+    }
 
     // ===== 效果访问器 =====
 
@@ -242,6 +267,8 @@ public class Minion : Card, IDamageSource, IDamageTarget
         HasBattlecry = data.HasKeyword(Keyword.Battlecry) || data.BattlecryEffects?.Count > 0;
         HasDeathrattle = data.HasKeyword(Keyword.Deathrattle) || data.DeathrattleEffects?.Count > 0;
         HasWindfury = data.HasKeyword(Keyword.Windfury);
+        HasAmbush = data.HasKeyword(Keyword.Ambush);
+        HasImpact = data.HasKeyword(Keyword.Impact);
     }
 
     // ===== 伤害与治疗 =====

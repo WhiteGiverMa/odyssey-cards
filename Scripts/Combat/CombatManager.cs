@@ -108,7 +108,7 @@ public partial class CombatManager : Node
 
     /// <summary>
     /// 本回合内可以攻击的随从集合。
-    /// 新召唤的随从默认不可攻击（除非有冲锋）；
+        /// 新召唤的随从默认不可攻击（除非有闪击）；
     /// 回合开始时所有玩家随从重置为可攻击状态。
     /// </summary>
     private readonly HashSet<Minion> _canAttackThisTurn = new();
@@ -339,6 +339,14 @@ public partial class CombatManager : Node
         // 重置随从攻击状态
         ResetAttackTracking();
 
+        // 重置伏击状态（所有随从和英雄的伏击在新整轮重新可用）
+        foreach (var minion in Board.GetPlayerMinions())
+            minion.ResetAmbush();
+        foreach (var minion in Board.GetEnemyMinions())
+            minion.ResetAmbush();
+        PlayerHero.ResetAmbush();
+        EnemyHero.ResetAmbush();
+
         // 重置武器攻击次数 + 冷却衰减
         PlayerHero.ResetWeaponAttacks();
         PlayerHero.TickWeaponCooldown();
@@ -350,7 +358,7 @@ public partial class CombatManager : Node
 
     /// <summary>
     /// 玩家打出一张随从牌，将其召唤至战场的指定槽位。
-    /// 验证玩家回合、法力值、槽位可用性，处理战吼和冲锋关键词。
+        /// 验证玩家回合、法力值、槽位可用性，处理战吼和闪击关键词。
     /// </summary>
     /// <param name="card">要打出的卡牌（手牌中的运行时实例）</param>
     /// <param name="slotIndex">目标槽位索引（0-4）</param>
@@ -412,11 +420,11 @@ public partial class CombatManager : Node
         // 放置随从到战场
         Board.PlaceMinion(minion, slotIndex);
 
-        // 冲锋关键词：召唤的回合即可攻击
+        // 闪击关键词：召唤的回合即可攻击
         if (minion.HasCharge)
         {
             _canAttackThisTurn.Add(minion);
-            GD.Print($"[CombatManager]   ⚡ {minion.CardName} 具有冲锋，本回合可以攻击");
+            GD.Print($"[CombatManager]   ⚡ {minion.CardName} 具有闪击，本回合可以攻击");
         }
 
         // 从手牌中移除
@@ -789,8 +797,91 @@ public partial class CombatManager : Node
     // ===== 随从攻击 =====
 
     /// <summary>
+    /// 统一的随从间战斗序列（炉石规则 + 伏击 + 冲击）。
+    ///
+    /// 结算顺序：
+    /// 1. 伏击检查 — 防御者有伏击且本回合未消耗时，防御者先手攻击
+    /// 2. 冲击检查 — 攻击者有冲击时免疫所有反击伤害（包括伏击先手）
+    /// 3. 攻击者造成伤害
+    /// 4. 防御者反击（如果存活且攻击者无冲击）
+    /// 5. 消耗冲击 + 消耗伏击
+    /// 6. 死亡检查
+    ///
+    /// 伏击 vs 冲击交互（KARDS 规则）：冲击免疫伏击的先手伤害，
+    /// 伏击仍然消耗，攻击者仍正常造成伤害。
+    /// </summary>
+    /// <param name="attacker">攻击方随从</param>
+    /// <param name="defender">防御方随从</param>
+    /// <returns>向调用方返回是否应继续后续处理（若伏击击杀攻击方则为 false）</returns>
+    private bool ResolveMinionCombat(Minion attacker, Minion defender)
+    {
+        bool ambushTriggers = defender.HasAmbush && !defender.AmbushUsedThisTurn;
+        bool impactActive = attacker.HasImpact;
+
+        GD.Print($"[CombatManager] ⚔ {attacker.CardName}（{attacker.Attack}攻/{attacker.CurrentHealth}血）攻击 " +
+                  $"{defender.CardName}（{defender.Attack}攻/{defender.CurrentHealth}血）" +
+                  (ambushTriggers ? " [伏击触发！]" : "") +
+                  (impactActive ? " [冲击激活]" : ""));
+
+        // ===== Phase 1: 伏击先手（防御者先于攻击者造成伤害） =====
+        if (ambushTriggers)
+        {
+            defender.AmbushUsedThisTurn = true;
+
+            if (impactActive)
+            {
+                // KARDS 规则：冲击免疫伏击的先手伤害
+                GD.Print($"[CombatManager]   🛡 冲击免疫了 {defender.CardName} 的伏击伤害（{defender.Attack}）");
+            }
+            else
+            {
+                // 伏击先手：防御者先对攻击者造成伤害
+                GD.Print($"[CombatManager]   ⚡ {defender.CardName} 伏击先手，造成 {defender.Attack} 伤害");
+                attacker.TakeDamage(defender.Attack, defender);
+            }
+
+            // 伏击击杀攻击者 → 战斗结束，攻击被取消
+            if (attacker.IsDead)
+            {
+                GD.Print($"[CombatManager]   ☠ {attacker.CardName} 被伏击击杀，攻击被取消（不造成伤害）");
+                return false;
+            }
+        }
+
+        // ===== Phase 2: 攻击者造成伤害 =====
+        defender.TakeDamage(attacker.Attack, attacker);
+
+        // ===== Phase 3: 防御者反击（炉石规则：双方同时伤害，防御者被击杀仍能反击） =====
+        // 注意：即使防御者在 Phase 2 中被击杀，也要造成反击伤害（炉石同时伤害规则）
+        {
+            if (impactActive)
+            {
+                // 冲击免疫正常反击伤害
+                GD.Print($"[CombatManager]   🛡 冲击免疫了 {defender.CardName} 的反击伤害（{defender.Attack}）");
+            }
+            else
+            {
+                attacker.TakeDamage(defender.Attack, defender);
+            }
+        }
+
+        // ===== Phase 4: 消耗冲击（一次性效果） =====
+        if (impactActive)
+        {
+            attacker.HasImpact = false;
+            GD.Print($"[CombatManager]   ✨ {attacker.CardName} 的冲击已被消耗");
+        }
+
+        GD.Print($"[CombatManager]     交锋后 — {attacker.CardName}：{attacker.CurrentHealth}血，" +
+                  $"{defender.CardName}：{defender.CurrentHealth}血");
+
+        return true;
+    }
+
+    /// <summary>
     /// 玩家随从攻击敌方随从。
-    /// 双方同时造成伤害（炉石规则），支持嘲讽检测和风怒多次攻击。
+    /// 通过统一战斗序列 <see cref="ResolveMinionCombat"/> 处理伤害交互，
+    /// 自动支持伏击、冲击、嘲讽检测和风怒多次攻击。
     /// </summary>
     /// <param name="attacker">攻击方（必须是玩家随从）</param>
     /// <param name="defender">防御方（敌方随从）</param>
@@ -836,18 +927,11 @@ public partial class CombatManager : Node
             return false;
         }
 
-        // 双方同时造成伤害
-        GD.Print($"[CombatManager] ⚔ {attacker.CardName}（{attacker.Attack}攻/{attacker.CurrentHealth}血）攻击 " +
-                  $"{defender.CardName}（{defender.Attack}攻/{defender.CurrentHealth}血）");
+        // 通过统一战斗序列执行随从间战斗（自动处理伏击、冲击）
+        bool combatContinues = ResolveMinionCombat(attacker, defender);
 
-        defender.TakeDamage(attacker.Attack, attacker);
-        attacker.TakeDamage(defender.Attack, defender);
-
-        // 记录攻击次数
+        // 记录攻击次数（即使被伏击击杀也算消耗）
         RecordAttack(attacker);
-
-        GD.Print($"[CombatManager]   交锋后 — {attacker.CardName}：{attacker.CurrentHealth}血，" +
-                  $"{defender.CardName}：{defender.CurrentHealth}血");
 
         // 检查防御方死亡
         if (defender.IsDead)
@@ -907,9 +991,22 @@ public partial class CombatManager : Node
             return false;
         }
 
-        GD.Print($"[CombatManager] ⚔ {attacker.CardName} 攻击敌方英雄，造成 {attacker.Attack} 点伤害");
+        GD.Print($"[CombatManager] ⚔ {attacker.CardName} 攻击敌方英雄，造成 {attacker.Attack} 点伤害" +
+                  (attacker.HasImpact ? " [冲击]" : ""));
+
+        // 冲击：攻击时免疫反击伤害（抑制敌方英雄武器反击）
+        bool impactActive = attacker.HasImpact;
+        if (impactActive)
+            hero.SuppressWeaponCounter = true;
 
         hero.TakeDamage(attacker.Attack, attacker);
+
+        if (impactActive)
+        {
+            hero.SuppressWeaponCounter = false;
+            attacker.HasImpact = false;
+            GD.Print($"[CombatManager]   🛡 冲击免疫了反击伤害，冲击已消耗");
+        }
 
         // 记录攻击次数
         RecordAttack(attacker);
@@ -1058,6 +1155,25 @@ public partial class CombatManager : Node
 
         GD.Print($"[CombatManager] ⚔ 玩家英雄使用 {PlayerHero.Weapon.Name} 攻击 {target.CardName}，造成 {weaponDamage} 点伤害");
 
+        // 伏击检查：目标有伏击且本回合未消耗时，目标先手攻击英雄
+        bool targetAmbush = target.HasAmbush && !target.AmbushUsedThisTurn;
+        if (targetAmbush)
+        {
+            target.AmbushUsedThisTurn = true;
+            GD.Print($"[CombatManager]   ⚡ {target.CardName} 伏击先手，对英雄造成 {target.Attack} 伤害");
+            PlayerHero.SuppressWeaponCounter = true;
+            PlayerHero.TakeDamage(target.Attack, target);
+            PlayerHero.SuppressWeaponCounter = false;
+
+            // 伏击击杀英雄 → 攻击被取消
+            if (PlayerHero.IsDead)
+            {
+                GD.Print($"[CombatManager]   ☠ 玩家英雄被 {target.CardName} 伏击击杀，攻击被取消");
+                CheckVictoryOrDefeat();
+                return false;
+            }
+        }
+
         // 英雄武器攻击随从（第一次伤害：英雄→随从）
         target.TakeDamage(weaponDamage, PlayerHero);
 
@@ -1065,8 +1181,9 @@ public partial class CombatManager : Node
         PlayerHero.Weapon?.PassiveSkill?.OnWeaponHit(target, PlayerHero);
 
         // 随从反击英雄（第二次伤害：随从→英雄）。
+        // 如果伏击已触发则跳过——伏击先手已经完成了随从的反击。
         // 抑制武器反击，避免英雄武器对随从的反击再次触发。
-        if (!target.IsDead)
+        if (!target.IsDead && !targetAmbush)
         {
             PlayerHero.SuppressWeaponCounter = true;
             PlayerHero.TakeDamage(target.Attack, target);
@@ -1163,7 +1280,7 @@ public partial class CombatManager : Node
 
         if (!_canAttackThisTurn.Contains(attacker))
         {
-            GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 本回合无法攻击（召唤回合无冲锋）");
+            GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 本回合无法攻击（召唤回合无闪击）");
             return false;
         }
 
@@ -1403,7 +1520,7 @@ public partial class CombatManager : Node
     /// </summary>
     private void EnemyMinionsAttack()
     {
-        // 回合开始时已存在的随从可以攻击，有冲锋的新召唤随从也可以
+            // 回合开始时已存在的随从可以攻击，有闪击的新召唤随从也可以
         var enemies = Board.GetEnemyMinions()
             .Where(m => !m.IsDead && (_enemyMinionsCanAttack.Contains(m) || m.HasCharge))
             .ToList();
@@ -1422,9 +1539,9 @@ public partial class CombatManager : Node
                 var tauntTargets = playerTaunts.Where(t => !t.IsDead).ToList();
                 if (tauntTargets.Count == 0) continue;
                 var defender = tauntTargets[new Random().Next(tauntTargets.Count)];
-                GD.Print($"[CombatManager] ⚔ 敌方 {attacker.CardName} 攻击我方嘲讽 {defender.CardName}");
-                defender.TakeDamage(attacker.Attack, attacker);
-                attacker.TakeDamage(defender.Attack, defender);
+
+                // 通过统一战斗序列执行（自动处理伏击、冲击）
+                ResolveMinionCombat(attacker, defender);
 
                 if (defender.IsDead)
                 {
@@ -1438,8 +1555,22 @@ public partial class CombatManager : Node
             else
             {
                 // 攻击玩家英雄
-                GD.Print($"[CombatManager] ⚔ 敌方 {attacker.CardName} 攻击玩家英雄，造成 {attacker.Attack} 伤");
+                GD.Print($"[CombatManager] ⚔ 敌方 {attacker.CardName} 攻击玩家英雄，造成 {attacker.Attack} 伤" +
+                          (attacker.HasImpact ? " [冲击]" : ""));
+
+                // 冲击：攻击时免疫武器反击
+                bool impactActive = attacker.HasImpact;
+                if (impactActive)
+                    PlayerHero.SuppressWeaponCounter = true;
+
                 PlayerHero.TakeDamage(attacker.Attack, attacker);
+
+                if (impactActive)
+                {
+                    PlayerHero.SuppressWeaponCounter = false;
+                    attacker.HasImpact = false;
+                    GD.Print($"[CombatManager]   🛡 冲击免疫了武器反击，冲击已消耗");
+                }
             }
         }
     }
