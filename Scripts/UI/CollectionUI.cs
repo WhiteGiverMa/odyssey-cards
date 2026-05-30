@@ -238,7 +238,10 @@ public partial class CollectionUI : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
-        _deckCardList = new VBoxContainer();
+        _deckCardList = new VBoxContainer
+        {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
         _deckCardList.AddThemeConstantOverride("separation", Mathf.RoundToInt(2 * s));
         deckListScroll.AddChild(_deckCardList);
         leftPanel.AddChild(deckListScroll);
