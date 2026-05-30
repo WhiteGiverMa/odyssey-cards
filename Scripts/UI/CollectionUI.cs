@@ -500,6 +500,23 @@ public partial class CollectionUI : Control
     }
 
     /// <summary>
+    /// 根据卡牌稀有度返回对应的颜色。
+    /// </summary>
+    private static Color GetRarityColor(CardRarity rarity)
+    {
+        return rarity switch
+        {
+            CardRarity.Derivative => new Color(0.53f, 0.53f, 0.53f, 1),  // 灰色 — 衍生卡
+            CardRarity.Master => new Color(1f, 0.84f, 0f, 1),            // 亮金色 — 金卡
+            CardRarity.Excellent => new Color(0.75f, 0.75f, 0.75f, 1),   // 银白色 — 银卡
+            CardRarity.Good => new Color(0.8f, 0.5f, 0.2f, 1),           // 铜色 — 铜卡
+            CardRarity.Common => new Color(0.53f, 0.53f, 0.53f, 1),      // 灰色 — 铁卡
+            CardRarity.Special => new Color(1f, 0.55f, 0f, 1),           // 橙色 — 特殊卡
+            _ => new Color(0.6f, 0.6f, 0.6f, 1),
+        };
+    }
+
+    /// <summary>
     /// 刷新左侧牌组卡片列表（按 ID 分组显示）。
     /// </summary>
     private void RefreshDeckList()
@@ -584,9 +601,7 @@ public partial class CollectionUI : Control
                 CustomMinimumSize = new Vector2(36 * s, 0),
             };
             countLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
-            countLabel.AddThemeColorOverride("font_color", count > 1
-                ? new Color(0.9f, 0.85f, 0.3f, 1)
-                : new Color(0.6f, 0.6f, 0.6f, 1));
+            countLabel.AddThemeColorOverride("font_color", GetRarityColor(cardData.Rarity));
             countLabel.MouseFilter = MouseFilterEnum.Ignore;
             innerRow.AddChild(countLabel);
 
@@ -1009,6 +1024,44 @@ public partial class CollectionUI : Control
             return;
         }
 
+        // 空牌组且无未保存更改 → 直接删；其余情况需要确认
+        if (deck.CardCount == 0 && !_hasUnsavedChanges)
+        {
+            DoDeleteDeck(deck.Name);
+            return;
+        }
+
+        ShowDeleteConfirmDialog(deck);
+    }
+
+    /// <summary>
+    /// 非空牌组删除确认弹窗。
+    /// </summary>
+    private void ShowDeleteConfirmDialog(OdysseyCards.Character.Deck deck)
+    {
+        var confirm = new ConfirmationDialog
+        {
+            Title = Loc.T("ui.collection.delete_confirm_title", "确认删除牌组"),
+            DialogText = Loc.T("ui.collection.delete_confirm_message", "确定要删除牌组「{name}」吗？（共 {count} 张卡牌）")
+                .Replace("{name}", deck.Name)
+                .Replace("{count}", deck.CardCount.ToString()),
+            Exclusive = true,
+        };
+        confirm.Confirmed += () =>
+        {
+            confirm.QueueFree();
+            ExecuteDelete(deck);
+        };
+        confirm.Canceled += () => confirm.QueueFree();
+        AddChild(confirm);
+        confirm.PopupCentered();
+    }
+
+    /// <summary>
+    /// 执行牌组删除（处理未保存变更后）。
+    /// </summary>
+    private void ExecuteDelete(OdysseyCards.Character.Deck deck)
+    {
         if (_hasUnsavedChanges)
         {
             ShowUnsavedChangesDialog(

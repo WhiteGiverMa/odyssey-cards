@@ -163,6 +163,8 @@ ui:
     deck_saved: "牌组已保存"
     deck_overflow_title: "牌组超过上限"
     deck_overflow_message: "牌组超过上限（最多 20 张）。\n请减少卡牌后再保存。"
+    delete_confirm_title: "确认删除牌组"
+    delete_confirm_message: "确定要删除牌组「{name}」吗？（共 {count} 张卡牌）"
     changes_undone: "已撤销未保存的更改"
 
 weapon:

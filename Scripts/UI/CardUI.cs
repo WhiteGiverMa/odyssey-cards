@@ -453,10 +453,11 @@ public partial class CardUI : Control
 			Position = new Vector2(4f * s, y + 2f * s),
 			HorizontalAlignment = HorizontalAlignment.Center,
 			VerticalAlignment = VerticalAlignment.Center,
+			AutowrapMode = TextServer.AutowrapMode.Word,
 			ClipText = true,
 		};
 		_descLabel.AddThemeColorOverride("font_color", ClrDescText);
-		_descLabel.AddThemeFontSizeOverride("font_size", (int)(8 * s));
+		_descLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(7 * s));
 		AddChild(_descLabel);
 	}
 
