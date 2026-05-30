@@ -420,86 +420,44 @@ public partial class CollectionUI : Control
 
         foreach (var (cardData, count) in sorted)
         {
-            var row = new HBoxContainer();
-            row.AddThemeConstantOverride("separation", Mathf.RoundToInt(4 * s));
-            row.CustomMinimumSize = new Vector2(0, 28 * s);
-
-            // 点击移除 / 拖拽到网格移除
             var displayName = GetSafeCardName(cardData);
-            var cardBtn = new Button
+
+            // 用 Panel + Label 替代 Button（避免 Godot Button 主题干扰）
+            var row = new Panel
+            {
+                CustomMinimumSize = new Vector2(0, 28 * s),
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                MouseFilter = MouseFilterEnum.Stop,
+            };
+            var rowStyle = new StyleBoxFlat
+            {
+                BgColor = new Color(0.12f, 0.12f, 0.18f, 1),
+                CornerRadiusTopLeft = 3,
+                CornerRadiusTopRight = 3,
+                CornerRadiusBottomLeft = 3,
+                CornerRadiusBottomRight = 3,
+            };
+            row.AddThemeStyleboxOverride("panel", rowStyle);
+
+            // 内部 HBox 布局
+            var innerRow = new HBoxContainer();
+            innerRow.AddThemeConstantOverride("separation", Mathf.RoundToInt(4 * s));
+            innerRow.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+            innerRow.MouseFilter = MouseFilterEnum.Ignore;
+            row.AddChild(innerRow);
+
+            // 卡牌名称
+            var nameLabel = new Label
             {
                 Text = displayName,
-                Flat = true,
                 SizeFlagsHorizontal = SizeFlags.ExpandFill,
-                TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+                VerticalAlignment = VerticalAlignment.Center,
+                ClipText = true,
             };
-            cardBtn.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
-            cardBtn.AddThemeColorOverride("font_color", new Color(0.95f, 0.92f, 0.85f, 1));
-            cardBtn.AddThemeColorOverride("font_hover_color", new Color(1, 0.4f, 0.3f, 1));
-            cardBtn.AddThemeColorOverride("font_pressed_color", new Color(1, 0.85f, 0.3f, 1));
-
-            // 拖拽/点击逻辑
-            bool btnDragStarted = false;
-            cardBtn.GuiInput += (InputEvent @event) =>
-            {
-                if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left)
-                {
-                    if (mb.Pressed)
-                    {
-                        btnDragStarted = true;
-                        _deckDraggingCardData = cardData;
-                        _deckDragStartPos = cardBtn.GetGlobalMousePosition();
-                        _deckIsDragging = false;
-                        cardBtn.AcceptEvent();
-                    }
-                    else
-                    {
-                        if (!_deckIsDragging && btnDragStarted)
-                        {
-                            // 无位移 → 点击（飞回动画）
-                            OnDeckCardRemoveClicked(cardData);
-                        }
-                        else if (_deckIsDragging)
-                        {
-                            // 拖拽松手 → 检查是否在网格上
-                            var dropPos = GetViewport().GetMousePosition();
-                            Rect2 gridRect = new(_cardGrid.GlobalPosition, _cardGrid.Size);
-                            if (gridRect.HasPoint(dropPos))
-                            {
-                                OnDeckCardRemoveClicked(cardData);
-                            }
-                            CleanupDeckDrag();
-                        }
-                        btnDragStarted = false;
-                        _deckDraggingCardData = null;
-                    }
-                }
-                else if (@event is InputEventMouseMotion
-                    && btnDragStarted
-                    && _deckDraggingCardData != null)
-                {
-                    float dist = cardBtn.GetGlobalMousePosition().DistanceTo(_deckDragStartPos);
-                    if (dist > DeckDragThreshold && !_deckIsDragging)
-                    {
-                        _deckIsDragging = true;
-                        StartDeckDragClone(cardData, _deckDragStartPos);
-                    }
-                    if (_deckIsDragging && _deckDragClone != null)
-                    {
-                        _deckDragClone.GlobalPosition = cardBtn.GetGlobalMousePosition()
-                            - (_deckDragClone.Size / 2);
-                    }
-                }
-                else if (@event is InputEventMouseButton rmb
-                    && rmb.Pressed
-                    && rmb.ButtonIndex == MouseButton.Right)
-                {
-                    OnDeckCardRemoveClicked(cardData);
-                    cardBtn.AcceptEvent();
-                }
-            };
-
-            row.AddChild(cardBtn);
+            nameLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
+            nameLabel.AddThemeColorOverride("font_color", new Color(0.95f, 0.92f, 0.85f, 1));
+            nameLabel.MouseFilter = MouseFilterEnum.Ignore;
+            innerRow.AddChild(nameLabel);
 
             // 数量徽章
             var countLabel = new Label
@@ -513,7 +471,63 @@ public partial class CollectionUI : Control
             countLabel.AddThemeColorOverride("font_color", count > 1
                 ? new Color(0.9f, 0.85f, 0.3f, 1)
                 : new Color(0.6f, 0.6f, 0.6f, 1));
-            row.AddChild(countLabel);
+            countLabel.MouseFilter = MouseFilterEnum.Ignore;
+            innerRow.AddChild(countLabel);
+
+            // 点击/拖拽逻辑
+            bool rowDragStarted = false;
+            row.GuiInput += (InputEvent @event) =>
+            {
+                if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left)
+                {
+                    if (mb.Pressed)
+                    {
+                        rowDragStarted = true;
+                        _deckDraggingCardData = cardData;
+                        _deckDragStartPos = row.GetGlobalMousePosition();
+                        _deckIsDragging = false;
+                        row.AcceptEvent();
+                    }
+                    else
+                    {
+                        if (!_deckIsDragging && rowDragStarted)
+                        {
+                            OnDeckCardRemoveClicked(cardData);
+                        }
+                        else if (_deckIsDragging)
+                        {
+                            var dropPos = GetViewport().GetMousePosition();
+                            Rect2 gridRect = new(_cardGrid.GlobalPosition, _cardGrid.Size);
+                            if (gridRect.HasPoint(dropPos))
+                                OnDeckCardRemoveClicked(cardData);
+                            CleanupDeckDrag();
+                        }
+                        rowDragStarted = false;
+                        _deckDraggingCardData = null;
+                    }
+                }
+                else if (@event is InputEventMouseMotion
+                    && rowDragStarted && _deckDraggingCardData != null)
+                {
+                    float dist = row.GetGlobalMousePosition().DistanceTo(_deckDragStartPos);
+                    if (dist > DeckDragThreshold && !_deckIsDragging)
+                    {
+                        _deckIsDragging = true;
+                        StartDeckDragClone(cardData, _deckDragStartPos);
+                    }
+                    if (_deckIsDragging && _deckDragClone != null)
+                    {
+                        _deckDragClone.GlobalPosition = row.GetGlobalMousePosition()
+                            - (_deckDragClone.Size / 2);
+                    }
+                }
+                else if (@event is InputEventMouseButton rmb
+                    && rmb.Pressed && rmb.ButtonIndex == MouseButton.Right)
+                {
+                    OnDeckCardRemoveClicked(cardData);
+                    row.AcceptEvent();
+                }
+            };
 
             _deckCardList.AddChild(row);
         }
