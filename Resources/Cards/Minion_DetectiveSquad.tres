@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3]
+[gd_resource type="Resource" format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="1_yubka"]
 
 [resource]
 script = ExtResource("1_data")
@@ -8,9 +9,5 @@ Id = "minion_DetectiveSquad"
 CardName = "武侦小组"
 Description = "冲锋"
 Rarity = 0
-Cost = 1
-ActionCost = 0
-Type = 0
 Attack = 3
-Health = 1
-Keywords = [1]
+Keywords = Array[int]([1])

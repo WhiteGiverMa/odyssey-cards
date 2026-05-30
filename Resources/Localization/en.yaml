@@ -104,6 +104,8 @@ ui:
     keyword_windfury: "W"
     keyword_battlecry: "B"
     keyword_deathrattle: "D"
+    keyword_ambush: "A"
+    keyword_impact: "I"
   pause:
     title: "Pause"
     continue_game: "Continue"
@@ -218,10 +220,10 @@ cards:
     description: "Guard, Rotation"
   minion_DetectiveSquad:
     name: "Detective Squad"
-    description: "Ambush, Mobile"
+    description: "Charge, Mobile"
   minion_LianshuScout:
     name: "Lianshu Mech Hound Scout"
-    description: "Ambush, Rotation\nLast Words: Draw 1 card"
+    description: "Charge, Rotation\nLast Words: Draw 1 card"
   domain_zhijian:
     name: "Blade Sharp"
     description: "Domain: Friendly minions gain +1 Attack when deployed"
@@ -246,6 +248,12 @@ cards:
   spell_Discover:
     name: "Discover"
     description: "Choose 1 of 3 random cards to add to your hand"
+  minion_knight_type1:
+    name: "Knight Type-I"
+    description: "Charge, Impact"
+  minion_centipede_siege:
+    name: "Mech Centipede - Siege"
+    description: "Ambush"
 
 intent:
   attack_format: "Deal {damage} damage to {target}"

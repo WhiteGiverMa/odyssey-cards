@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://b2dmdpsfobkb3"]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_knight_type1"
+CardName = "骑士I型"
+Description = "闪击，冲击"
+Rarity = 3
+Cost = 4
+ActionCost = 0
+Type = 0
+Attack = 6
+Health = 2
+Keywords = [1, 7]

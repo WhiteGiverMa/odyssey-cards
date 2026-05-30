@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://cminionslime"]
+[gd_resource type="Resource" format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="1_xn0ax"]
 
 [resource]
 script = ExtResource("1_data")
@@ -9,8 +10,4 @@ CardName = "软泥怪"
 Description = "冲锋"
 Rarity = 0
 Cost = 0
-ActionCost = 0
-Type = 0
-Attack = 1
-Health = 1
-Keywords = [1]
+Keywords = Array[int]([1])

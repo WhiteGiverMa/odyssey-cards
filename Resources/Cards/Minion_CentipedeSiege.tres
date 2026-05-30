@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://dq0nltscb3cyy"]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_centipede_siege"
+CardName = "机械蜈蚣-攻城型"
+Description = "伏击"
+Rarity = 4
+Cost = 4
+ActionCost = 2
+Type = 0
+Attack = 4
+Health = 5
+Defense = 1
+Keywords = [6]

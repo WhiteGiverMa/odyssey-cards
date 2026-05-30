@@ -29,12 +29,14 @@ public class KeywordTests
         Assert.Contains(Keyword.Battlecry, values);
         Assert.Contains(Keyword.Deathrattle, values);
         Assert.Contains(Keyword.Windfury, values);
+        Assert.Contains(Keyword.Ambush, values);
+        Assert.Contains(Keyword.Impact, values);
     }
 
     [Fact]
-    public void KeywordCount_AtLeastFive()
+    public void KeywordCount_AtLeastSeven()
     {
         var values = Enum.GetValues<Keyword>();
-        Assert.True(values.Length >= 5, $"Expected at least 5 keywords, got {values.Length}");
+        Assert.True(values.Length >= 7, $"Expected at least 7 keywords, got {values.Length}");
     }
 }

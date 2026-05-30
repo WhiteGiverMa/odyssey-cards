@@ -44,8 +44,10 @@ public partial class CardUI : Control
 	private static readonly Color ClrTaunt = new("#cc8844");
 	private static readonly Color ClrBattlecry = new("#cccc44");
 	private static readonly Color ClrDeathrattle = new("#8844cc");
-	private static readonly Color ClrWindfury = new("#44cccc");
-	private static readonly Color ClrActionCost = new("#cc3333");
+    private static readonly Color ClrWindfury = new("#44cccc");
+    private static readonly Color ClrAmbush = new("#cc6644");
+    private static readonly Color ClrImpact = new("#cccc66");
+    private static readonly Color ClrActionCost = new("#cc3333");
 
 	// ============================================================
 	// 公共属性与事件
@@ -810,12 +812,14 @@ public partial class CardUI : Control
 	{
 		return keyword switch
 		{
-			Keyword.Charge => ("冲锋", ClrCharge),
+        Keyword.Charge => ("闪击", ClrCharge),
 			Keyword.Taunt => ("嘲讽", ClrTaunt),
 			Keyword.Battlecry => ("战吼", ClrBattlecry),
 			Keyword.Deathrattle => ("亡语", ClrDeathrattle),
-			Keyword.Windfury => ("风怒", ClrWindfury),
-			_ => (null, Colors.White),
+        Keyword.Windfury => ("风怒", ClrWindfury),
+        Keyword.Ambush => ("伏击", ClrAmbush),
+        Keyword.Impact => ("冲击", ClrImpact),
+        _ => (null, Colors.White),
 		};
 	}
 

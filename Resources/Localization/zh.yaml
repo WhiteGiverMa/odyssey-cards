@@ -104,6 +104,8 @@ ui:
     keyword_windfury: "风"
     keyword_battlecry: "吼"
     keyword_deathrattle: "亡"
+    keyword_ambush: "伏"
+    keyword_impact: "击"
   pause:
     title: "暂停"
     continue_game: "继续"
@@ -230,7 +232,13 @@ cards:
     description: "领域：友方回合结束时，将一张「打击」洗入牌库"
   minion_slime:
     name: "软泥怪"
-    description: "冲锋"
+    description: "闪击"
+  minion_knight_type1:
+    name: "骑士I型"
+    description: "闪击，冲击"
+  minion_centipede_siege:
+    name: "机械蜈蚣-攻城型"
+    description: "伏击"
   spell_plan:
     name: "计划"
     description: "获得1个额外的法力水晶槽"
@@ -251,7 +259,7 @@ intent:
   attack_format: "对{target}造成 {damage} 点伤害"
   defend_format: "获得 {amount} 点护甲"
   summon_format: "召唤 {name} ({atk}/{hp})"
-  summon_charge_format: "召唤 {name} ({atk}/{hp} 冲锋)"
+  summon_charge_format: "召唤 {name} ({atk}/{hp} 闪击)"
   target_hero: "英雄"
   target_unknown: "目标"
 

@@ -473,6 +473,8 @@ public partial class GameManager : Node
             "res://Resources/Cards/Spell_Longtermism.tres",
             "res://Resources/Cards/Domain_UnlimitedPotential.tres",
             "res://Resources/Cards/Spell_Discover.tres",
+            "res://Resources/Cards/Minion_KnightType1.tres",
+            "res://Resources/Cards/Minion_CentipedeSiege.tres",
         };
 
         foreach (var path in cardPaths)

@@ -462,6 +462,8 @@ public partial class BoardUI : Control
             if (minion.HasWindfury) keywords.Add(Localization.Localization.T("ui.board.keyword_windfury", "风"));
             if (minion.HasBattlecry) keywords.Add(Localization.Localization.T("ui.board.keyword_battlecry", "吼"));
             if (minion.HasDeathrattle) keywords.Add(Localization.Localization.T("ui.board.keyword_deathrattle", "亡"));
+            if (minion.HasAmbush) keywords.Add(Localization.Localization.T("ui.board.keyword_ambush", "伏"));
+            if (minion.HasImpact) keywords.Add(Localization.Localization.T("ui.board.keyword_impact", "击"));
 
             if (keywords.Count > 0)
             {
