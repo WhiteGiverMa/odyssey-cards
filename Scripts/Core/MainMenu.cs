@@ -8,6 +8,7 @@ namespace OdysseyCards.Core;
 public partial class MainMenu : Control
 {
     private Button _startButton;
+    private Button _collectionButton;
     private Button _settingsButton;
     private Label _titleLabel;
     private Control _mainMenuContainer;
@@ -22,7 +23,22 @@ public partial class MainMenu : Control
         _settingsButton = GetNode<Button>("MainMenuContainer/ButtonContainer/SettingsButton");
         _titleLabel = GetNode<Label>("MainMenuContainer/TitleLabel");
 
+        // 在 VBoxContainer 中动态插入「我的收藏」按钮
+        var btnContainer = GetNode<VBoxContainer>("MainMenuContainer/ButtonContainer");
+        _collectionButton = new Button
+        {
+            Name = "CollectionButton",
+            LayoutMode = 2,
+        };
+        _collectionButton.AddThemeColorOverride("font_color", new Color(1, 1, 1, 1));
+        _collectionButton.AddThemeFontSizeOverride("font_size", 24);
+        // 插入在 Settings 按钮之前
+        int settingsIdx = _settingsButton.GetIndex();
+        btnContainer.AddChild(_collectionButton);
+        btnContainer.MoveChild(_collectionButton, settingsIdx);
+
         _startButton.Pressed += OnStartPressed;
+        _collectionButton.Pressed += OnCollectionPressed;
         _settingsButton.Pressed += OnSettingsPressed;
 
         Localization.Localization.OnLanguageChanged += OnLanguageChanged;
@@ -33,11 +49,55 @@ public partial class MainMenu : Control
     private void OnStartPressed()
     {
         GD.Print("[MainMenu] OnStartPressed called");
-        GD.Print($"[MainMenu] GameManager.Instance is null: {GameManager.Instance == null}");
+
+        // 检查牌组是否满足最小要求
+        var gm = GameManager.Instance;
+        if (gm != null && !gm.IsActiveDeckValid())
+        {
+            GD.Print("[MainMenu] 牌组不满足最小卡牌数要求");
+            ShowDeckNotReadyDialog();
+            return;
+        }
 
         // 开始新的冒险运行（创建玩家 + 初始化 RunState + 生成位面）
-        GameManager.Instance?.StartNewRun();
+        gm?.StartNewRun();
         GetTree().ChangeSceneToFile("res://Scenes/Map.tscn");
+    }
+
+    private void ShowDeckNotReadyDialog()
+    {
+        var dialog = new AcceptDialog
+        {
+            Title = Localization.Localization.T("ui.menu.deck_not_ready_title", "牌组未就绪"),
+            OkButtonText = Localization.Localization.T("ui.menu.go_to_collection", "前往收藏"),
+            Exclusive = true,
+            Size = new Vector2I(400, 180),
+        };
+        dialog.GetOkButton().Text = Localization.Localization.T("ui.menu.go_to_collection", "前往收藏");
+
+        var label = new Label
+        {
+            Text = Localization.Localization.T("ui.menu.deck_not_ready_desc",
+                "当前牌组不满足最小卡牌数要求（至少 10 张）。\n请先前往收藏界面构筑牌组。"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            LayoutMode = 2,
+        };
+        label.AddThemeFontSizeOverride("font_size", 14);
+        dialog.AddChild(label);
+
+        dialog.Confirmed += () =>
+        {
+            GetTree().ChangeSceneToFile("res://Scenes/Collection.tscn");
+        };
+
+        AddChild(dialog);
+        dialog.PopupCentered();
+    }
+
+    private void OnCollectionPressed()
+    {
+        GD.Print("[MainMenu] OnCollectionPressed → 收藏界面");
+        GetTree().ChangeSceneToFile("res://Scenes/Collection.tscn");
     }
 
     private void OnSettingsPressed()
@@ -64,6 +124,7 @@ public partial class MainMenu : Control
     {
         _titleLabel.Text = Localization.Localization.T("ui.menu.title", "Odyssey Cards");
         _startButton.Text = Localization.Localization.T("ui.menu.start_game", "Start Game");
+        _collectionButton.Text = Localization.Localization.T("ui.menu.collection", "我的收藏");
         _settingsButton.Text = Localization.Localization.T("ui.menu.settings", "Settings");
     }
 

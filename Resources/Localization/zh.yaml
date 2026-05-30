@@ -2,8 +2,12 @@ ui:
   menu:
     title: "奥德赛卡牌"
     start_game: "开始游戏"
+    collection: "我的收藏"
     settings: "设置"
     quit: "退出"
+    deck_not_ready_title: "牌组未就绪"
+    deck_not_ready_desc: "当前牌组不满足最小卡牌数要求（至少 10 张）。\n请先前往收藏界面构筑牌组。"
+    go_to_collection: "前往收藏"
   settings:
     title: "设置"
     language: "语言"
@@ -104,9 +108,42 @@ ui:
     settings: "设置"
     save_and_exit: "保存并退出"
     quick_sl: "快速SL"
+  reward:
+    title: "选择奖励卡牌"
+    skip: "跳过"
+    rarity_common: "普通"
+    rarity_good: "良好"
+    rarity_excellent: "极佳"
+    rarity_master: "大师级"
+    copy_format: "×{count} — {rarity}"
   discover:
     title: "发现"
     skip: "跳过"
+  common:
+    ok: "确定"
+  collection:
+    back: "← 返回主菜单"
+    deck_label: "牌组:"
+    deck_name_placeholder: "输入牌组名称"
+    new_deck: "新建牌组"
+    delete_deck: "删除当前牌组"
+    min_cards_warning: "⚠ 牌组不足 10 张卡牌，无法用于战斗"
+    deck_contents: "牌组内容"
+    empty_deck: "牌组为空\n\n点击右侧卡牌添加到牌组"
+    export: "导出牌组"
+    import: "导入牌组"
+    export_title: "导出牌组"
+    import_title: "导入牌组"
+    no_deck_selected: "请先创建或选择一个牌组"
+    deck_full: "牌组已满（上限 20 张）"
+    default_deck_name: "新牌组"
+    cannot_delete_last: "至少需要保留一个牌组"
+    no_deck_to_export: "没有可导出的牌组"
+    export_success: "牌组导出成功"
+    export_failed: "牌组导出失败"
+    import_success: "牌组导入成功"
+    import_failed: "牌组导入失败（文件格式可能无效）"
+    notification_title: "提示"
 
 weapon:
   ion_pistol:
@@ -208,3 +245,35 @@ enemies:
     name: "邪教徒"
   jaw_worm:
     name: "大颚虫"
+
+collection:
+  title: "卡牌收藏"
+  back_button: "← 返回主菜单"
+  deck_name: "牌组名称"
+  card_count: "{current}/{max}"
+  add_card: "加入牌组"
+  remove_card: "移出牌组"
+  export: "导出牌组"
+  import: "导入牌组"
+  delete_deck: "删除牌组"
+  new_deck: "新建牌组"
+  no_active_deck: "没有选中的牌组"
+  deck_not_min: "牌组不满足最小卡牌数（至少 {min} 张）"
+  all: "全部"
+  minion: "随从"
+  spell: "法术"
+  domain: "领域"
+
+reward:
+  title: "选择奖励卡牌"
+  skip: "跳过"
+  copies_format: "×{count}"
+  card_selected: "已选择：{name} ×{count}"
+
+rarity:
+  derivative: "衍生"
+  master: "大师级"
+  excellent: "极佳"
+  good: "良好"
+  common: "普通"
+  special: "专属"

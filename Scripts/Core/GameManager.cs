@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using OdysseyCards.Character;
 using OdysseyCards.Localization;
 using OdysseyCards.Roguelike;
@@ -9,8 +10,7 @@ namespace OdysseyCards.Core;
 
 /// <summary>
 /// 全局游戏状态管理器（Autoload 单例）。
-/// 管理玩家进度、牌堆状态和跨场景持久化。
-/// 已移除对 Application/Infrastructure 层的依赖。
+/// 管理玩家进度、牌堆状态、卡牌收藏和跨场景持久化。
 /// </summary>
 public partial class GameManager : Node
 {
@@ -27,7 +27,7 @@ public partial class GameManager : Node
     public event Action<string> LanguageChanged;
 
     /// <summary>
-    /// 玩家的牌堆定义。
+    /// 玩家的牌堆定义（运行中构建）。
     /// </summary>
     public Deck PlayerDeck => _playerDeck;
     private Deck _playerDeck;
@@ -53,59 +53,312 @@ public partial class GameManager : Node
     public event Action OnDeckChanged;
 
     /// <summary>
+    /// 收藏变化事件（解锁新卡、牌组增删时触发）。
+    /// </summary>
+    public event Action OnCollectionChanged;
+
+    /// <summary>
     /// 当前游戏运行状态（一次冒险的完整生命周期）。
-    /// 跨战斗持久化，由 StartNewRun 创建，Boss 击败或玩家死亡时结束。
     /// </summary>
     public GameRunState? RunState { get; private set; }
+
+    // ===== 收藏与持久化 =====
+
+    /// <summary>
+    /// 已解锁的卡牌 ID 集合。
+    /// Demo 阶段默认解锁全部 14 张卡。
+    /// </summary>
+    public HashSet<string> OwnedCardIds { get; private set; } = new();
+
+    /// <summary>
+    /// 所有已保存的牌组。
+    /// </summary>
+    public List<Deck> Decks { get; private set; } = new();
+
+    /// <summary>
+    /// 当前激活的牌组索引。-1 表示无。
+    /// </summary>
+    public int ActiveDeckIndex { get; set; } = -1;
+
+    /// <summary>
+    /// 所有卡牌资源的注册表（Id → CardData）。
+    /// </summary>
+    private readonly Dictionary<string, CardData> _allCardRegistry = new();
+
+    /// <summary>
+    /// JSON 持久化管理器。
+    /// </summary>
+    private readonly SaveDataManager _saveManager = new();
+
+    /// <summary>
+    /// 当前激活的牌组（用于带进战斗）。
+    /// 如果没有选中牌组则返回 null。
+    /// </summary>
+    public Deck? ActiveDeck
+    {
+        get
+        {
+            if (ActiveDeckIndex < 0 || ActiveDeckIndex >= Decks.Count)
+                return null;
+            return Decks[ActiveDeckIndex];
+        }
+    }
+
+    // ===== 生命周期 =====
 
     public override void _Ready()
     {
         Instance = this;
         Localization.Localization.Initialize();
         Localization.Localization.SetLanguage(_currentLanguage);
-        GD.Print("[GameManager] _Ready called, Instance set");
+        GD.Print($"[GameManager] _Ready — language: {_currentLanguage}");
+
+        // 1. 加载所有卡牌资源到注册表
+        LoadAllCardResources();
+        GD.Print($"[GameManager] 注册表卡片数: {_allCardRegistry.Count}, IDs: [{string.Join(", ", _allCardRegistry.Keys.Take(3))}...]");
+
+        // 2. 加载存档
+        LoadFromDisk();
+        GD.Print($"[GameManager] 存档加载后 — OwnedCardIds: {OwnedCardIds.Count}, Decks: {Decks.Count}, ActiveDeckIndex: {ActiveDeckIndex}");
+
+        // 3. Demo 默认：如果没有存档，解锁全部卡牌 + 创建默认牌组
+        if (OwnedCardIds.Count == 0)
+        {
+            GD.Print("[GameManager] OwnedCardIds 为空，执行首次初始化...");
+            UnlockAllCards();
+            CreateDefaultDeck();
+            SaveToDisk();
+            GD.Print($"[GameManager] 首次初始化完成 — OwnedCardIds: {OwnedCardIds.Count}, Decks: {Decks.Count}, Deck[0] cards: {Decks[0]?.CardCount ?? 0}");
+        }
+        else
+        {
+            GD.Print($"[GameManager] 从存档恢复 — OwnedCardIds: {OwnedCardIds.Count}, Decks: {Decks.Count}");
+            // 确保至少有一个牌组
+            if (Decks.Count == 0)
+            {
+                GD.Print("[GameManager] 警告：存档中无牌组，创建默认牌组");
+                CreateDefaultDeck();
+                SaveToDisk();
+            }
+            if (ActiveDeckIndex < 0 || ActiveDeckIndex >= Decks.Count)
+            {
+                GD.Print($"[GameManager] 修正 ActiveDeckIndex: {ActiveDeckIndex} → 0");
+                ActiveDeckIndex = 0;
+            }
+        }
+
+        // 4. 最终验证修复
+        VerifyAndRepairCollection();
+
+        GD.Print("[GameManager] _Ready — 初始化完成");
     }
 
-    public void SetLanguage(string language)
+    /// <summary>
+    /// 验证并修复收藏数据：确保所有注册表中的卡牌都在 OwnedCardIds 中。
+    /// 如果激活牌组无效，创建默认牌组。
+    /// </summary>
+    public void VerifyAndRepairCollection()
     {
-        if (string.IsNullOrEmpty(language) || _currentLanguage == language)
+        // 修复 OwnedCardIds：确保所有注册表卡牌都已解锁
+        int addedCount = 0;
+        foreach (var id in _allCardRegistry.Keys)
         {
+            if (OwnedCardIds.Add(id))
+                addedCount++;
+        }
+        if (addedCount > 0)
+            GD.Print($"[GameManager] 修复：解锁了 {addedCount} 张缺失的卡牌");
+
+        // 修复牌组：确保存在且激活
+        if (Decks.Count == 0)
+        {
+            GD.Print("[GameManager] 修复：创建默认牌组");
+            CreateDefaultDeck();
+        }
+        if (ActiveDeckIndex < 0 || ActiveDeckIndex >= Decks.Count)
+        {
+            GD.Print($"[GameManager] 修复：ActiveDeckIndex {ActiveDeckIndex} → 0");
+            ActiveDeckIndex = 0;
+        }
+
+        SaveToDisk();
+    }
+
+    // ===== 卡牌注册表 =====
+
+    /// <summary>
+    /// 扫描 Resources/Cards/ 目录，将所有 .tres 卡牌加载到注册表。
+    /// </summary>
+    private void LoadAllCardResources()
+    {
+        _allCardRegistry.Clear();
+
+        using var dir = DirAccess.Open("res://Resources/Cards/");
+        if (dir == null)
+        {
+            GD.PushError("[GameManager] 无法打开 Resources/Cards/ 目录");
             return;
         }
 
-        _currentLanguage = language;
-        Localization.Localization.SetLanguage(language);
-        LanguageChanged?.Invoke(language);
-        GD.Print($"[GameManager] Language changed to: {language}");
-    }
+        dir.ListDirBegin();
+        string fileName;
+        while ((fileName = dir.GetNext()) != "")
+        {
+            if (dir.CurrentIsDir()) continue;
+            if (!fileName.EndsWith(".tres", StringComparison.OrdinalIgnoreCase)) continue;
 
-    public void ToggleLanguage()
-    {
-        string newLang = _currentLanguage == "en" ? "zh" : "en";
-        SetLanguage(newLang);
+            var fullPath = $"res://Resources/Cards/{fileName}";
+            var cardData = GD.Load<CardData>(fullPath);
+            if (cardData == null || string.IsNullOrEmpty(cardData.Id)) continue;
+
+            _allCardRegistry[cardData.Id] = cardData;
+        }
+        dir.ListDirEnd();
+
+        GD.Print($"[GameManager] 卡牌注册表已初始化 — {_allCardRegistry.Count} 张卡牌");
     }
 
     /// <summary>
-    /// 创建新玩家。
+    /// 通过 Id 从注册表获取卡牌数据。
     /// </summary>
-    public void CreateNewPlayer()
+    public CardData? GetCardById(string id)
     {
-        GD.Print("[GameManager] CreateNewPlayer called");
-
-        CurrentPlayer = new Player();
-        CurrentPlayer.CharacterName = "Ironclad";
-        CurrentPlayer.InitializeHealth(30);
-        CurrentPlayer.SetMana(0, 3);
-
-        var startingDeck = CreateStartingDeck();
-        CurrentPlayer.Initialize(startingDeck);
-        _playerDeck = startingDeck;
-
-        GD.Print($"[GameManager] Player created: {CurrentPlayer.CharacterName}, deck size: {startingDeck.CardCount}");
+        _allCardRegistry.TryGetValue(id, out var card);
+        return card;
     }
 
     /// <summary>
-    /// 添加卡牌到牌堆。
+    /// 获取所有已加载的卡牌资源。
+    /// </summary>
+    public IReadOnlyList<CardData> GetAllCards()
+    {
+        return _allCardRegistry.Values.ToList().AsReadOnly();
+    }
+
+    /// <summary>
+    /// 获取所有已解锁且可出现在奖励中的卡牌。
+    /// </summary>
+    public List<CardData> GetRewardEligibleCards()
+    {
+        return _allCardRegistry.Values
+            .Where(c => OwnedCardIds.Contains(c.Id) && c.Rarity.CanAppearInReward())
+            .ToList();
+    }
+
+    // ===== 收藏管理 =====
+
+    /// <summary>
+    /// 解锁全部卡牌（demo 用）。
+    /// </summary>
+    public void UnlockAllCards()
+    {
+        OwnedCardIds.Clear();
+        foreach (var id in _allCardRegistry.Keys)
+        {
+            OwnedCardIds.Add(id);
+        }
+        GD.Print($"[GameManager] 已解锁全部 {OwnedCardIds.Count} 张卡牌");
+    }
+
+    /// <summary>
+    /// 解锁指定卡牌。
+    /// </summary>
+    public void UnlockCard(string cardId)
+    {
+        if (!_allCardRegistry.ContainsKey(cardId))
+        {
+            GD.PushWarning($"[GameManager] 尝试解锁未知卡牌: {cardId}");
+            return;
+        }
+
+        if (OwnedCardIds.Add(cardId))
+        {
+            GD.Print($"[GameManager] 解锁卡牌: {cardId}");
+            OnCollectionChanged?.Invoke();
+        }
+    }
+
+    // ===== 牌组管理 =====
+
+    /// <summary>
+    /// 创建默认牌组（首次启动时自动调用）。
+    /// 使用硬编码的起始牌堆。
+    /// </summary>
+    private void CreateDefaultDeck()
+    {
+        Decks.Clear();
+        var defaultDeck = CreateStartingDeck();
+        defaultDeck.Name = "默认牌组";
+        Decks.Add(defaultDeck);
+        ActiveDeckIndex = 0;
+        GD.Print("[GameManager] 默认牌组已创建");
+    }
+
+    /// <summary>
+    /// 创建新牌组并设为激活。
+    /// </summary>
+    public Deck CreateDeck(string name)
+    {
+        var deck = new Deck { Name = name };
+        Decks.Add(deck);
+        ActiveDeckIndex = Decks.Count - 1;
+        OnCollectionChanged?.Invoke();
+        return deck;
+    }
+
+    /// <summary>
+    /// 删除指定牌组。
+    /// </summary>
+    public bool DeleteDeck(int index)
+    {
+        if (index < 0 || index >= Decks.Count) return false;
+
+        Decks.RemoveAt(index);
+
+        if (ActiveDeckIndex == index)
+            ActiveDeckIndex = Decks.Count > 0 ? 0 : -1;
+        else if (ActiveDeckIndex > index)
+            ActiveDeckIndex--;
+
+        OnCollectionChanged?.Invoke();
+        return true;
+    }
+
+    /// <summary>
+    /// 设置当前激活的牌组索引。
+    /// </summary>
+    public void SetActiveDeck(int index)
+    {
+        if (index >= 0 && index < Decks.Count)
+        {
+            ActiveDeckIndex = index;
+            OnCollectionChanged?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// 获取当前激活牌组的卡牌数量统计（按卡牌 Id 分组）。
+    /// </summary>
+    public Dictionary<string, int> GetActiveDeckCardCounts()
+    {
+        var counts = new Dictionary<string, int>();
+        var deck = ActiveDeck;
+        if (deck == null) return counts;
+
+        foreach (var card in deck.Cards)
+        {
+            if (counts.ContainsKey(card.Id))
+                counts[card.Id]++;
+            else
+                counts[card.Id] = 1;
+        }
+        return counts;
+    }
+
+    // ===== 卡牌添加/移除（运行中） =====
+
+    /// <summary>
+    /// 构筑时添加卡牌到当前牌组（带上限检查）。
     /// </summary>
     public bool AddCardToDeck(CardData card)
     {
@@ -115,6 +368,24 @@ public partial class GameManager : Node
         bool success = _playerDeck.AddCardWithCheck(card);
         if (success)
         {
+            OnDeckChanged?.Invoke();
+        }
+        return success;
+    }
+
+    /// <summary>
+    /// 战斗中通过奖励添加卡牌（带上限 999 检查）。
+    /// 同时解锁该卡牌。
+    /// </summary>
+    public bool AddCardToDeckInCombat(CardData card)
+    {
+        if (_playerDeck == null || card == null)
+            return false;
+
+        bool success = _playerDeck.AddCardInCombat(card);
+        if (success)
+        {
+            UnlockCard(card.Id);
             OnDeckChanged?.Invoke();
         }
         return success;
@@ -134,17 +405,57 @@ public partial class GameManager : Node
     }
 
     /// <summary>
-    /// 创建起始牌堆（使用硬编码的初始卡牌数据）。
-    /// 注意：需要 CardData .tres 文件存在才能正常工作。
+    /// 向激活的收藏牌组添加卡牌（构筑界面用）。
+    /// </summary>
+    public bool AddCardToActiveCollectionDeck(CardData card)
+    {
+        var deck = ActiveDeck;
+        if (deck == null) return false;
+        return deck.AddCardWithCheck(card);
+    }
+
+    /// <summary>
+    /// 从激活的收藏牌组移除卡牌（构筑界面用）。
+    /// </summary>
+    public bool RemoveCardFromActiveCollectionDeck(CardData card)
+    {
+        var deck = ActiveDeck;
+        if (deck == null) return false;
+        deck.RemoveCard(card);
+        return true;
+    }
+
+    // ===== 牌堆创建 =====
+
+    /// <summary>
+    /// 创建起始牌堆。
+    /// 优先使用玩家选中的激活牌组；若无效则回退到硬编码默认牌堆。
     /// </summary>
     private Deck CreateStartingDeck()
+    {
+        // 优先使用激活牌组
+        var activeDeck = ActiveDeck;
+        if (activeDeck != null && activeDeck.CardCount >= Deck.MinCards)
+        {
+            GD.Print($"[GameManager] 使用激活牌组「{activeDeck.Name}」— {activeDeck.CardCount} 张");
+            return activeDeck.Clone();
+        }
+
+        // 回退到硬编码默认牌堆
+        GD.Print("[GameManager] 回退到硬编码起始牌堆");
+        return CreateHardcodedStartingDeck();
+    }
+
+    /// <summary>
+    /// 硬编码的起始牌堆（回退用）。
+    /// </summary>
+    private static Deck CreateHardcodedStartingDeck()
     {
         var deck = new Deck();
         var cards = new List<CardData>(12);
 
         string[] cardPaths =
         {
-            // 基础卡牌（各2张）
             "res://Resources/Cards/Spell_Alert.tres",
             "res://Resources/Cards/Spell_Assault.tres",
             "res://Resources/Cards/Spell_Strike.tres",
@@ -155,7 +466,6 @@ public partial class GameManager : Node
             "res://Resources/Cards/Domain_InfiniteFire.tres",
         };
 
-        // 新卡牌（各1张）
         string[] newCardPaths =
         {
             "res://Resources/Cards/Spell_Ignite.tres",
@@ -202,13 +512,32 @@ public partial class GameManager : Node
         }
 
         deck.Initialize(cards);
-        GD.Print($"[GameManager] 起始牌堆已创建，共 {cards.Count} 张牌");
         return deck;
+    }
+
+    // ===== 玩家管理 =====
+
+    /// <summary>
+    /// 创建新玩家。
+    /// </summary>
+    public void CreateNewPlayer()
+    {
+        GD.Print("[GameManager] CreateNewPlayer called");
+
+        CurrentPlayer = new Player();
+        CurrentPlayer.CharacterName = "Ironclad";
+        CurrentPlayer.InitializeHealth(30);
+        CurrentPlayer.SetMana(0, 3);
+
+        var startingDeck = CreateStartingDeck();
+        CurrentPlayer.Initialize(startingDeck);
+        _playerDeck = startingDeck;
+
+        GD.Print($"[GameManager] Player created: {CurrentPlayer.CharacterName}, deck size: {startingDeck.CardCount}");
     }
 
     /// <summary>
     /// 开始一次新的冒险运行。
-    /// 创建玩家角色、初始化 RunState 和第一位面。
     /// </summary>
     public void StartNewRun()
     {
@@ -228,7 +557,8 @@ public partial class GameManager : Node
     }
 
     /// <summary>
-    /// 重置整局游戏。</summary>
+    /// 重置整局游戏。
+    /// </summary>
     public void ResetRun()
     {
         PlayerHealth = 30;
@@ -237,28 +567,131 @@ public partial class GameManager : Node
     }
 
     /// <summary>
-    /// 保存英雄生命值（跨战斗）。
+    /// 检查当前激活牌组是否满足最小卡牌数要求。
     /// </summary>
+    public bool IsActiveDeckValid()
+    {
+        var deck = ActiveDeck;
+        return deck != null && deck.MeetsMinimum();
+    }
+
+    // ===== 生命值管理 =====
+
     public void SavePlayerHealth(int currentHealth, int maxHealth)
     {
         PlayerHealth = Mathf.Min(currentHealth, maxHealth);
         PlayerMaxHealth = maxHealth;
     }
 
-    /// <summary>
-    /// 获取保存的英雄生命值。
-    /// </summary>
     public (int currentHealth, int maxHealth) GetPlayerHealth()
     {
         return (PlayerHealth, PlayerMaxHealth);
     }
 
-    /// <summary>
-    /// 重置英雄生命值为默认值。
-    /// </summary>
     public void ResetPlayerHealth()
     {
         PlayerHealth = 30;
         PlayerMaxHealth = 30;
+    }
+
+    // ===== 语言管理 =====
+
+    public void SetLanguage(string language)
+    {
+        if (string.IsNullOrEmpty(language) || _currentLanguage == language)
+        {
+            return;
+        }
+
+        _currentLanguage = language;
+        Localization.Localization.SetLanguage(language);
+        LanguageChanged?.Invoke(language);
+        GD.Print($"[GameManager] Language changed to: {language}");
+    }
+
+    public void ToggleLanguage()
+    {
+        string newLang = _currentLanguage == "en" ? "zh" : "en";
+        SetLanguage(newLang);
+    }
+
+    // ===== 持久化 =====
+
+    /// <summary>
+    /// 将当前状态保存到磁盘。
+    /// </summary>
+    public void SaveToDisk()
+    {
+        var data = new GameSaveData
+        {
+            Version = 1,
+            Language = _currentLanguage,
+            OwnedCardIds = OwnedCardIds.ToList(),
+            Decks = Decks.Select(d => DeckSaveData.FromDeck(d)).ToList(),
+            ActiveDeckIndex = ActiveDeckIndex,
+        };
+
+        _saveManager.Save(data);
+    }
+
+    /// <summary>
+    /// 从磁盘加载存档。
+    /// </summary>
+    public void LoadFromDisk()
+    {
+        var data = _saveManager.Load();
+        if (data == null) return;
+
+        // 恢复语言
+        if (!string.IsNullOrEmpty(data.Language))
+        {
+            _currentLanguage = data.Language;
+            Localization.Localization.SetLanguage(_currentLanguage);
+        }
+
+        // 恢复收藏
+        OwnedCardIds = new HashSet<string>(data.OwnedCardIds);
+
+        // 恢复牌组
+        Decks.Clear();
+        foreach (var deckData in data.Decks)
+        {
+            var deck = deckData.ToDeck(this);
+            if (deck != null)
+                Decks.Add(deck);
+        }
+
+        ActiveDeckIndex = data.ActiveDeckIndex;
+
+        GD.Print($"[GameManager] 存档已加载 — {Decks.Count} 个牌组，" +
+                  $"{OwnedCardIds.Count} 张已解锁");
+    }
+
+    /// <summary>
+    /// 导出当前激活牌组到指定路径。
+    /// </summary>
+    public bool ExportActiveDeck(string path)
+    {
+        var deck = ActiveDeck;
+        if (deck == null) return false;
+        var data = DeckSaveData.FromDeck(deck);
+        return _saveManager.ExportDeck(data, path);
+    }
+
+    /// <summary>
+    /// 从指定路径导入牌组并添加到牌组列表。
+    /// </summary>
+    public bool ImportDeck(string path)
+    {
+        var data = _saveManager.ImportDeck(path);
+        if (data == null) return false;
+
+        var deck = data.ToDeck(this);
+        if (deck == null) return false;
+
+        Decks.Add(deck);
+        ActiveDeckIndex = Decks.Count - 1;
+        OnCollectionChanged?.Invoke();
+        return true;
     }
 }

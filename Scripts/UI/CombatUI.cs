@@ -2375,13 +2375,32 @@ public partial class CombatUI : Control
             GD.Print("[CombatUI] 继续冒险 → 路线选择地图");
             var gm = GameManager.Instance;
             gm?.RunState?.CompleteRoom();
-            GetTree().ChangeSceneToFile("res://Scenes/Map.tscn");
+
+            // 弹出战后奖励界面
+            ShowPostBattleReward();
         }
         else
         {
             GD.Print("[CombatUI] 返回主菜单");
             GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
         }
+    }
+
+    /// <summary>
+    /// 显示战后卡牌奖励界面。
+    /// 奖励选择完成后跳转到路线选择地图。
+    /// </summary>
+    private void ShowPostBattleReward()
+    {
+        var rewardUI = new RewardUI();
+        rewardUI.OnRewardCompleted += () =>
+        {
+            GD.Print("[CombatUI] 奖励已选择 → 路线选择地图");
+            GetTree().ChangeSceneToFile("res://Scenes/Map.tscn");
+        };
+
+        AddChild(rewardUI);
+        rewardUI.ShowRewards();
     }
 
     // ===== 暂停菜单 =====

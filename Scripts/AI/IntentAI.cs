@@ -290,6 +290,41 @@ public abstract class EnemyEncounter
         CurrentPatternIndex = (CurrentPatternIndex + 1) % IntentPattern.Length;
     }
 
+    // ===== 意图执行辅助方法 =====
+
+    /// <summary>
+    /// 执行攻击意图——对目标造成伤害，若目标是随从则触发反击。
+    /// 集中处理攻击流程，避免各敌人类别重复实现，同时确保反击逻辑一致性。
+    /// </summary>
+    /// <param name="combat">战斗管理器</param>
+    protected void ExecuteAttackIntent(CombatManager combat)
+    {
+        var intent = GetCurrentIntent(combat);
+        var target = intent.GetTarget(combat);
+        int effectiveDmg = intent.GetEffectiveDamage(combat);
+
+        if (target is Minion minionTarget)
+        {
+            // 敌方英雄攻击玩家随从 → 先对随从造成伤害
+            minionTarget.TakeDamage(effectiveDmg, null);
+            GD.Print($"[{Name}] 攻击 {minionTarget.CardName}，造成 {effectiveDmg} 伤害");
+
+            // 随从存活时反击敌方英雄（随从攻击力 → 敌方英雄）
+            if (!minionTarget.IsDead)
+            {
+                combat.EnemyHero.SuppressWeaponCounter = true;
+                combat.EnemyHero.TakeDamage(minionTarget.Attack, minionTarget);
+                combat.EnemyHero.SuppressWeaponCounter = false;
+                GD.Print($"[{Name}] {minionTarget.CardName} 反击，对敌人造成 {minionTarget.Attack} 伤害");
+            }
+        }
+        else
+        {
+            // 敌方英雄攻击玩家英雄（或其他非随从目标）
+            target?.TakeDamage(effectiveDmg, null);
+        }
+    }
+
     // ===== 抽象执行方法 =====
 
     /// <summary>
@@ -336,9 +371,7 @@ public class Cultist : EnemyEncounter
         switch (intent.Type)
         {
             case IntentType.Attack:
-                var target = intent.GetTarget(combat);
-                int effectiveDmg = intent.GetEffectiveDamage(combat);
-                target?.TakeDamage(effectiveDmg, null);
+                ExecuteAttackIntent(combat);
                 break;
 
             case IntentType.Defend:
@@ -379,9 +412,7 @@ public class SlimeBoss : EnemyEncounter
         switch (intent.Type)
         {
             case IntentType.Attack:
-                var target = intent.GetTarget(combat);
-                int effectiveDmg = intent.GetEffectiveDamage(combat);
-                target?.TakeDamage(effectiveDmg, null);
+                ExecuteAttackIntent(combat);
                 break;
 
             case IntentType.Summon:
@@ -458,9 +489,7 @@ public class WolfRider : EnemyEncounter
         switch (intent.Type)
         {
             case IntentType.Attack:
-                var target = intent.GetTarget(combat);
-                int effectiveDmg = intent.GetEffectiveDamage(combat);
-                target?.TakeDamage(effectiveDmg, null);
+                ExecuteAttackIntent(combat);
                 break;
         }
     }
@@ -496,9 +525,7 @@ public class GuardianBoss : EnemyEncounter
         switch (intent.Type)
         {
             case IntentType.Attack:
-                var target = intent.GetTarget(combat);
-                int effectiveDmg = intent.GetEffectiveDamage(combat);
-                target?.TakeDamage(effectiveDmg, null);
+                ExecuteAttackIntent(combat);
                 break;
 
             case IntentType.Defend:

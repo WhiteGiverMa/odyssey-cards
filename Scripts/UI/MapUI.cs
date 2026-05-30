@@ -496,7 +496,7 @@ internal partial class RewardPopup : Control
     private EventSelector _eventSelector = null!;
     private AcceptDialog _dialog = null!;
     private VBoxContainer _cardContainer = null!;
-    private System.Collections.Generic.List<CardData> _choices = null!;
+    private System.Collections.Generic.List<(CardData Card, int CopyCount)> _choices = null!;
 
     public override void _Ready()
     {
@@ -508,7 +508,7 @@ internal partial class RewardPopup : Control
     /// </summary>
     public void ShowRewards()
     {
-        _choices = _eventSelector.GenerateRewardChoices(3);
+        _choices = _eventSelector.GenerateRewardBundles(3);
 
         _dialog = new AcceptDialog
         {
@@ -533,7 +533,7 @@ internal partial class RewardPopup : Control
         headerLabel.AddThemeFontSizeOverride("font_size", 18);
         _cardContainer.AddChild(headerLabel);
 
-        foreach (var card in _choices)
+        foreach (var (card, _) in _choices)
         {
             var btn = CreateCardButton(card);
             _cardContainer.AddChild(btn);
@@ -582,12 +582,9 @@ internal partial class RewardPopup : Control
             if (child is Button b) b.Disabled = true;
         }
 
-        // 应用奖励
-        var player = GameManager.Instance?.CurrentPlayer;
-        _eventSelector.ApplyReward(chosen, player!);
-
-        // 同时通过 GameManager 添加到持久化牌堆
-        GameManager.Instance?.AddCardToDeck(chosen);
+        // 通过 GameManager 添加到持久化牌堆（同时解锁卡牌）
+        GameManager.Instance?.AddCardToDeckInCombat(chosen);
+        GameManager.Instance?.SaveToDisk();
 
         GD.Print($"[RewardPopup] 选择了奖励：{chosen.CardName}");
 

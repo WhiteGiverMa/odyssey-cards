@@ -82,6 +82,13 @@ public partial class CardUI : Control
     public event Action<CardUI>? OnCardRightClicked;
 
     /// <summary>
+    /// 纯展示模式：禁用所有战斗交互（拖拽、选中、拾起）。
+    /// 设置为 true 后，卡牌只作为视觉元素显示，不响应任何鼠标输入。
+    /// 外部可通过包裹的按钮或其他控件自行处理点击。
+    /// </summary>
+    public bool DisplayOnly { get; set; }
+
+    /// <summary>
     /// 卡牌在拖拽中左键松开时触发。参数为卡牌 UI 和松开位置的全局坐标。
     /// 接收方根据松开位置判断：有效目标→打出，无效→取消（等效右键）。
     /// </summary>
@@ -154,7 +161,7 @@ public partial class CardUI : Control
 
 		CustomMinimumSize = cardSize;
 		Size = cardSize;
-		MouseFilter = MouseFilterEnum.Stop;
+		MouseFilter = DisplayOnly ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop;
 
 		BuildBackground(s, cardSize);
 		BuildHeader(s, cardSize);
@@ -167,9 +174,12 @@ public partial class CardUI : Control
 		BuildDescriptionArea(s, cardSize);
 		BuildKeywordContainer(s, cardSize);
 
-		MouseEntered += OnMouseEnteredHandler;
-		MouseExited += OnMouseExitedHandler;
-		GuiInput += OnGuiInputHandler;
+		if (!DisplayOnly)
+		{
+			MouseEntered += OnMouseEnteredHandler;
+			MouseExited += OnMouseExitedHandler;
+			GuiInput += OnGuiInputHandler;
+		}
 
 		_built = true;
 
@@ -532,6 +542,8 @@ public partial class CardUI : Control
 	/// </summary>
 	private void OnGuiInputHandler(InputEvent @event)
 	{
+		if (DisplayOnly) return;
+
 		if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
 		{
 			StartDrag();
@@ -588,7 +600,7 @@ public partial class CardUI : Control
     /// </summary>
     public override void _Process(double delta)
     {
-        if (!_isDragging) return;
+        if (DisplayOnly || !_isDragging) return;
 
         // 右键取消（等效：拖拽中松手在无效区域）
         if (Input.IsMouseButtonPressed(MouseButton.Right))

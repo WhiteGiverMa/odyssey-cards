@@ -1,0 +1,784 @@
+using Godot;
+using OdysseyCards.Core;
+using OdysseyCards.Character;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Loc = OdysseyCards.Localization.Localization;
+
+namespace OdysseyCards.UI;
+
+/// <summary>
+/// 卡牌收藏/牌组编辑界面。
+/// 左侧显示当前牌组内卡牌（按 ID 分组，点击移除），
+/// 右侧使用 CardGrid 组件显示收藏中已解锁的卡牌（点击添加）。
+/// 顶栏包含返回按钮、牌组名称编辑、卡牌计数、多牌组管理。
+/// 底部提供导出/导入 JSON 牌组功能。
+/// 每次修改后自动存档。
+/// </summary>
+public partial class CollectionUI : Control
+{
+    // ===== UI 控件 =====
+
+    private Button _backButton = null!;
+    private LineEdit _deckNameEdit = null!;
+    private Label _cardCountLabel = null!;
+    private OptionButton _deckSelector = null!;
+    private Button _newDeckButton = null!;
+    private Button _deleteDeckButton = null!;
+    private VBoxContainer _deckCardList = null!;
+    private Label _emptyDeckLabel = null!;
+    private CardGrid _cardGrid = null!;
+    private FileDialog _fileDialog = null!;
+    private Label _minCardsWarning = null!;
+
+    /// <summary>
+    /// 飞入动画层：用于卡牌从网格飞到牌组列表的临时卡片。
+    /// </summary>
+    private Control _flyLayer = null!;
+
+    /// <summary>
+    /// 左侧牌组面板引用（用于飞入动画目标位置）。
+    /// </summary>
+    private Control _deckPanelRef = null!;
+
+    // ===== 状态 =====
+
+    private bool _isExportMode;
+
+    // ===== 生命周期 =====
+
+    public override void _Ready()
+    {
+        GD.Print("[CollectionUI] _Ready — 初始化牌组编辑界面");
+
+        SetupUI();
+        RefreshAll();
+
+        // 订阅事件
+        GameManager.Instance.LanguageChanged += OnLanguageChanged;
+        GameManager.Instance.OnCollectionChanged += OnCollectionChanged;
+    }
+
+    public override void _ExitTree()
+    {
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.LanguageChanged -= OnLanguageChanged;
+            GameManager.Instance.OnCollectionChanged -= OnCollectionChanged;
+        }
+    }
+
+    // ===== UI 构建 =====
+
+    /// <summary>
+    /// 构建所有 UI 控件。
+    /// </summary>
+    private void SetupUI()
+    {
+        float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+
+        // 全尺寸根
+        SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        MouseFilter = MouseFilterEnum.Pass;
+
+        // 暗色背景
+        var background = new ColorRect
+        {
+            Color = new Color(0.06f, 0.06f, 0.1f, 1),
+        };
+        background.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        background.MouseFilter = MouseFilterEnum.Ignore;
+        AddChild(background);
+
+        // 主容器（垂直布局：顶栏 + 内容区）
+        var mainVBox = new VBoxContainer();
+        mainVBox.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        mainVBox.AddThemeConstantOverride("separation", 0);
+        AddChild(mainVBox);
+
+        // ===== 顶栏 =====
+        var topBar = new HBoxContainer();
+        topBar.CustomMinimumSize = new Vector2(0, 48 * s);
+        topBar.AddThemeConstantOverride("separation", Mathf.RoundToInt(12 * s));
+
+        // 顶栏背景
+        var topBarBg = new StyleBoxFlat
+        {
+            BgColor = new Color(0.1f, 0.1f, 0.15f, 1),
+        };
+        topBar.AddThemeStyleboxOverride("panel", topBarBg);
+
+        // 返回按钮
+        _backButton = new Button
+        {
+            Text = Loc.T("ui.collection.back", "← 返回主菜单"),
+            CustomMinimumSize = new Vector2(120 * s, 36 * s),
+        };
+        _backButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(14 * s));
+        _backButton.Pressed += OnBackPressed;
+        topBar.AddChild(_backButton);
+
+        // 弹性间距
+        var topSpacer = new Control { SizeFlagsHorizontal = SizeFlags.Expand };
+        topBar.AddChild(topSpacer);
+
+        // 牌组标签
+        var deckLabel = new Label
+        {
+            Text = Loc.T("ui.collection.deck_label", "牌组:"),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        deckLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(14 * s));
+        topBar.AddChild(deckLabel);
+
+        // 牌组名称编辑框
+        _deckNameEdit = new LineEdit
+        {
+            CustomMinimumSize = new Vector2(150 * s, 30 * s),
+            PlaceholderText = Loc.T("ui.collection.deck_name_placeholder", "输入牌组名称"),
+        };
+        _deckNameEdit.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(14 * s));
+        _deckNameEdit.TextSubmitted += OnDeckNameSubmitted;
+        _deckNameEdit.FocusExited += OnDeckNameFocusExited;
+        topBar.AddChild(_deckNameEdit);
+
+        // 牌组切换下拉
+        _deckSelector = new OptionButton();
+        _deckSelector.CustomMinimumSize = new Vector2(140 * s, 30 * s);
+        _deckSelector.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
+        _deckSelector.ItemSelected += OnDeckSelectorChanged;
+        topBar.AddChild(_deckSelector);
+
+        // 新建牌组按钮
+        _newDeckButton = new Button
+        {
+            Text = "+",
+            TooltipText = Loc.T("ui.collection.new_deck", "新建牌组"),
+            CustomMinimumSize = new Vector2(32 * s, 30 * s),
+        };
+        _newDeckButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(16 * s));
+        _newDeckButton.Pressed += OnNewDeckPressed;
+        topBar.AddChild(_newDeckButton);
+
+        // 删除牌组按钮
+        _deleteDeckButton = new Button
+        {
+            Text = "✕",
+            TooltipText = Loc.T("ui.collection.delete_deck", "删除当前牌组"),
+            CustomMinimumSize = new Vector2(32 * s, 30 * s),
+        };
+        _deleteDeckButton.AddThemeColorOverride("font_color", new Color(0.9f, 0.3f, 0.3f, 1));
+        _deleteDeckButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(14 * s));
+        _deleteDeckButton.Pressed += OnDeleteDeckPressed;
+        topBar.AddChild(_deleteDeckButton);
+
+        // 卡牌计数
+        _cardCountLabel = new Label
+        {
+            Text = "0/20",
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            CustomMinimumSize = new Vector2(60 * s, 0),
+        };
+        _cardCountLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(16 * s));
+        _cardCountLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.4f, 1));
+        topBar.AddChild(_cardCountLabel);
+
+        mainVBox.AddChild(topBar);
+
+        // 最小卡牌数警告标签
+        _minCardsWarning = new Label
+        {
+            Text = Loc.T("ui.collection.min_cards_warning", "⚠ 牌组不足 10 张卡牌，无法用于战斗"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Visible = false,
+        };
+        _minCardsWarning.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
+        _minCardsWarning.AddThemeColorOverride("font_color", new Color(1, 0.5f, 0.3f, 1));
+        mainVBox.AddChild(_minCardsWarning);
+
+        // ===== 内容区：左右分栏 =====
+        var contentSplit = new HSplitContainer
+        {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+            DraggerVisibility = SplitContainer.DraggerVisibilityEnum.Visible,
+        };
+        contentSplit.SplitOffsets = new int[] { Mathf.RoundToInt(300 * s) };
+        mainVBox.AddChild(contentSplit);
+
+        // ----- 左侧面板：牌组卡片列表 -----
+        var leftPanel = new VBoxContainer();
+        _deckPanelRef = leftPanel;
+        leftPanel.AddThemeConstantOverride("separation", Mathf.RoundToInt(4 * s));
+
+        // 左侧面板标题
+        var leftTitle = new Label
+        {
+            Text = Loc.T("ui.collection.deck_contents", "牌组内容"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        leftTitle.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(16 * s));
+        leftTitle.AddThemeColorOverride("font_color", new Color(1, 1, 1, 0.8f));
+        leftPanel.AddChild(leftTitle);
+
+        // 牌组卡片可滚动列表
+        var deckListScroll = new ScrollContainer
+        {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        _deckCardList = new VBoxContainer();
+        _deckCardList.AddThemeConstantOverride("separation", Mathf.RoundToInt(2 * s));
+        deckListScroll.AddChild(_deckCardList);
+        leftPanel.AddChild(deckListScroll);
+
+        // 空牌组提示
+        _emptyDeckLabel = new Label
+        {
+            Text = Loc.T("ui.collection.empty_deck", "牌组为空\n\n点击右侧卡牌添加到牌组"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Visible = false,
+        };
+        _emptyDeckLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
+        _emptyDeckLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.5f, 0.5f, 1));
+        _emptyDeckLabel.MouseFilter = MouseFilterEnum.Pass;
+        deckListScroll.AddChild(_emptyDeckLabel);
+
+        // 左侧底部：导出/导入按钮
+        var leftBottomBar = new HBoxContainer();
+        leftBottomBar.AddThemeConstantOverride("separation", Mathf.RoundToInt(8 * s));
+        leftBottomBar.Alignment = BoxContainer.AlignmentMode.Center;
+
+        var exportBtn = new Button
+        {
+            Text = Loc.T("ui.collection.export", "导出牌组"),
+            CustomMinimumSize = new Vector2(100 * s, 32 * s),
+        };
+        exportBtn.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
+        exportBtn.Pressed += OnExportPressed;
+        leftBottomBar.AddChild(exportBtn);
+
+        var importBtn = new Button
+        {
+            Text = Loc.T("ui.collection.import", "导入牌组"),
+            CustomMinimumSize = new Vector2(100 * s, 32 * s),
+        };
+        importBtn.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
+        importBtn.Pressed += OnImportPressed;
+        leftBottomBar.AddChild(importBtn);
+
+        leftPanel.AddChild(leftBottomBar);
+
+        contentSplit.AddChild(leftPanel);
+
+        // ----- 右侧面板：CardGrid -----
+        _cardGrid = new CardGrid
+        {
+            Name = "CollectionCardGrid",
+            ShowFilterBar = true,
+            ShowPagination = true,
+            Clickable = true,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        _cardGrid.OnCardClicked += OnCardGridCardClicked;
+        _cardGrid.OnCardDragCompleted += OnCardGridDragCompleted;
+        contentSplit.AddChild(_cardGrid);
+
+        // ===== 飞入动画层（最高 ZIndex） =====
+        _flyLayer = new Control
+        {
+            Name = "FlyLayer",
+            MouseFilter = MouseFilterEnum.Ignore,
+            ZIndex = 200,
+        };
+        _flyLayer.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        AddChild(_flyLayer);
+
+        // ===== 文件对话框（导出/导入共用） =====
+        _fileDialog = new FileDialog
+        {
+            Access = FileDialog.AccessEnum.Filesystem,
+            Title = Loc.T("ui.collection.export_title", "导出牌组"),
+        };
+        _fileDialog.AddFilter("*.json", "JSON 牌组文件");
+        _fileDialog.FileSelected += OnFileDialogFileSelected;
+        _fileDialog.Canceled += OnFileDialogCancelled;
+        AddChild(_fileDialog);
+    }
+
+    // ===== 刷新 =====
+
+    /// <summary>
+    /// 刷新整个界面（顶栏 + 牌组列表 + CardGrid）。
+    /// </summary>
+    private void RefreshAll()
+    {
+        // 确保数据一致性（首次进入或数据异常时修复）
+        GameManager.Instance.VerifyAndRepairCollection();
+
+        RefreshTopBar();
+        RefreshDeckList();
+        RefreshCardGrid();
+    }
+
+    /// <summary>
+    /// 刷新顶栏：牌组名称、计数、牌组选择器。
+    /// </summary>
+    private void RefreshTopBar()
+    {
+        var deck = GameManager.Instance.ActiveDeck;
+
+        _deckNameEdit.Text = deck?.Name ?? "";
+        _cardCountLabel.Text = $"{deck?.CardCount ?? 0}/{Deck.MaxDeckSize}";
+        _deleteDeckButton.Disabled = GameManager.Instance.Decks.Count <= 1;
+
+        // 牌组计数色
+        if (deck != null && deck.CardCount >= Deck.MaxDeckSize)
+            _cardCountLabel.AddThemeColorOverride("font_color", new Color(1, 0.4f, 0.3f, 1));
+        else if (deck != null && !deck.MeetsMinimum())
+            _cardCountLabel.AddThemeColorOverride("font_color", new Color(1, 0.8f, 0.3f, 1));
+        else
+            _cardCountLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.4f, 1));
+
+        // 牌组选择器
+        _deckSelector.Clear();
+        foreach (var d in GameManager.Instance.Decks)
+        {
+            _deckSelector.AddItem($"{d.Name} ({d.CardCount})");
+        }
+
+        int activeIndex = GameManager.Instance.ActiveDeckIndex;
+        if (activeIndex >= 0 && activeIndex < _deckSelector.ItemCount)
+            _deckSelector.Select(activeIndex);
+
+        // 最小卡牌数警告
+        _minCardsWarning.Visible = deck != null && !deck.MeetsMinimum();
+    }
+
+    /// <summary>
+    /// 获取安全的卡牌显示名称。优先使用本地化名称，回调到硬编码名称。
+    /// </summary>
+    private static string GetSafeCardName(CardData cardData)
+    {
+        var localized = cardData.GetLocalizedName();
+        if (!string.IsNullOrEmpty(localized)) return localized;
+
+        // 回调到 .tres 中的硬编码名称
+        var hardcoded = cardData.CardName;
+        if (!string.IsNullOrEmpty(hardcoded)) return hardcoded;
+
+        // 最后回调到 Id
+        return cardData.Id ?? "???";
+    }
+
+    /// <summary>
+    /// 刷新左侧牌组卡片列表（按 ID 分组显示）。
+    /// </summary>
+    private void RefreshDeckList()
+    {
+        float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+
+        // 清除旧条目
+        foreach (var child in _deckCardList.GetChildren())
+        {
+            child.QueueFree();
+        }
+
+        var deck = GameManager.Instance.ActiveDeck;
+        if (deck == null || deck.CardCount == 0)
+        {
+            _emptyDeckLabel.Visible = true;
+            return;
+        }
+
+        _emptyDeckLabel.Visible = false;
+
+        // 按 ID 分组
+        var grouped = new Dictionary<string, (CardData Card, int Count)>();
+        foreach (var card in deck.Cards)
+        {
+            if (grouped.TryGetValue(card.Id, out var entry))
+                grouped[card.Id] = (entry.Card, entry.Count + 1);
+            else
+                grouped[card.Id] = (card, 1);
+        }
+
+        // 按费用排序
+        var sorted = grouped.Values.OrderBy(g => g.Card.Cost).ThenBy(g => g.Card.GetLocalizedName());
+
+        foreach (var (cardData, count) in sorted)
+        {
+            var row = new HBoxContainer();
+            row.AddThemeConstantOverride("separation", Mathf.RoundToInt(4 * s));
+            row.CustomMinimumSize = new Vector2(0, 28 * s);
+
+            // 点击移除
+            var displayName = GetSafeCardName(cardData);
+            var cardBtn = new Button
+            {
+                Text = displayName,
+                Flat = true,
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+            };
+            cardBtn.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
+            cardBtn.AddThemeColorOverride("font_color", new Color(0.95f, 0.92f, 0.85f, 1));
+            cardBtn.AddThemeColorOverride("font_hover_color", new Color(1, 0.4f, 0.3f, 1));
+            cardBtn.AddThemeColorOverride("font_pressed_color", new Color(1, 0.85f, 0.3f, 1));
+            cardBtn.Pressed += () => OnDeckCardRemoveClicked(cardData);
+
+            // 右击移除（更快）
+            cardBtn.GuiInput += (InputEvent @event) =>
+            {
+                if (@event is InputEventMouseButton mb
+                    && mb.Pressed
+                    && mb.ButtonIndex == MouseButton.Right)
+                {
+                    OnDeckCardRemoveClicked(cardData);
+                    cardBtn.AcceptEvent();
+                }
+            };
+
+            row.AddChild(cardBtn);
+
+            // 数量徽章
+            var countLabel = new Label
+            {
+                Text = $"×{count}",
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                CustomMinimumSize = new Vector2(36 * s, 0),
+            };
+            countLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
+            countLabel.AddThemeColorOverride("font_color", count > 1
+                ? new Color(0.9f, 0.85f, 0.3f, 1)
+                : new Color(0.6f, 0.6f, 0.6f, 1));
+            row.AddChild(countLabel);
+
+            _deckCardList.AddChild(row);
+        }
+    }
+
+    /// <summary>
+    /// 刷新右侧 CardGrid：只显示已解锁的卡牌。
+    /// </summary>
+    private void RefreshCardGrid()
+    {
+        var allCards = GameManager.Instance.GetAllCards();
+        var ownedCardIds = GameManager.Instance.OwnedCardIds;
+
+        GD.Print($"[CollectionUI] RefreshCardGrid — allCards: {allCards.Count}, ownedIds: {ownedCardIds.Count}");
+        if (allCards.Count > 0)
+            GD.Print($"[CollectionUI] 首张卡牌 ID: {allCards[0].Id}, Name: {GetSafeCardName(allCards[0])}");
+
+        var ownedCards = allCards
+            .Where(c => GameManager.Instance.OwnedCardIds.Contains(c.Id))
+            .ToList();
+
+        GD.Print($"[CollectionUI] RefreshCardGrid — 过滤后 ownedCards: {ownedCards.Count}");
+        _cardGrid.SetCards(ownedCards);
+    }
+
+    // ===== 事件处理 =====
+
+    private void OnBackPressed()
+    {
+        GD.Print("[CollectionUI] 返回主菜单");
+        GameManager.Instance.SaveToDisk();
+        GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
+    }
+
+    private void OnCardGridCardClicked(CardData cardData)
+    {
+        if (cardData == null) return;
+
+        var deck = GameManager.Instance.ActiveDeck;
+        if (deck == null)
+        {
+            ShowNotification(Loc.T("ui.collection.no_deck_selected", "请先创建或选择一个牌组"));
+            return;
+        }
+        if (deck.CardCount >= Deck.MaxDeckSize)
+        {
+            ShowNotification(Loc.T("ui.collection.deck_full", "牌组已满（上限 20 张）"));
+            return;
+        }
+
+        // 飞入动画：从点击位置飞到牌组面板
+        float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+        var cardSize = new Vector2(60 * s, 90 * s);  // 缩小版
+        var clickPos = GetViewport().GetMousePosition();
+
+        var card = new OdysseyCards.Card.Card(cardData);
+        var flyCard = new CardUI
+        {
+            DisplayOnly = true,
+            Modulate = new Color(1, 1, 1, 0.9f),
+            CustomMinimumSize = cardSize,
+            Size = cardSize,
+            GlobalPosition = clickPos - (cardSize / 2),
+        };
+        flyCard.SetCard(card);
+        _flyLayer.AddChild(flyCard);
+
+        // 目标位置：牌组面板中心
+        Vector2 targetPos = _deckPanelRef.GlobalPosition + (_deckPanelRef.Size / 2) - (cardSize / 2);
+
+        var tween = CreateTween();
+        tween.TweenProperty(flyCard, "global_position", targetPos, 0.25)
+            .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        tween.TweenCallback(Callable.From(() =>
+        {
+            flyCard.QueueFree();
+            // 实际添加卡牌到牌组
+            bool added = GameManager.Instance.AddCardToActiveCollectionDeck(cardData);
+            if (added)
+            {
+                GD.Print($"[CollectionUI] 添加卡牌到牌组: {GetSafeCardName(cardData)}");
+                GameManager.Instance.SaveToDisk();
+                RefreshTopBar();
+                RefreshDeckList();
+            }
+        }));
+    }
+
+    private void OnCardGridDragCompleted(CardData cardData, Vector2 dropScreenPos)
+    {
+        if (cardData == null) return;
+
+        var deck = GameManager.Instance.ActiveDeck;
+        if (deck == null || deck.CardCount >= Deck.MaxDeckSize) return;
+
+        // 检查松手位置是否在牌组面板上方
+        Rect2 deckRect = new(_deckPanelRef.GlobalPosition, _deckPanelRef.Size);
+        if (!deckRect.HasPoint(dropScreenPos)) return;
+
+        // 直接添加到牌组（拖拽不需要飞入动画）
+        bool added = GameManager.Instance.AddCardToActiveCollectionDeck(cardData);
+        if (added)
+        {
+            GD.Print($"[CollectionUI] 拖拽添加卡牌到牌组: {GetSafeCardName(cardData)}");
+            GameManager.Instance.SaveToDisk();
+            RefreshTopBar();
+            RefreshDeckList();
+        }
+    }
+
+    private void OnDeckCardRemoveClicked(CardData cardData)
+    {
+        if (cardData == null) return;
+
+        float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+        var cardSize = new Vector2(60 * s, 90 * s);
+        var startPos = GetViewport().GetMousePosition();
+
+        // 创建飞行动画卡片
+        var card = new OdysseyCards.Card.Card(cardData);
+        var flyCard = new CardUI
+        {
+            DisplayOnly = true,
+            Modulate = new Color(1, 1, 1, 0.85f),
+            CustomMinimumSize = cardSize,
+            Size = cardSize,
+            GlobalPosition = startPos - (cardSize / 2),
+        };
+        flyCard.SetCard(card);
+        _flyLayer.AddChild(flyCard);
+
+        // 目标位置：CardGrid 中心（如果卡牌在网格中不可见，飞向网格中心）
+        Vector2 targetPos = _cardGrid.GlobalPosition + (_cardGrid.Size / 2) - (cardSize / 2);
+
+        var tween = CreateTween();
+        tween.TweenProperty(flyCard, "global_position", targetPos, 0.3)
+            .SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Cubic);
+        tween.TweenCallback(Callable.From(() =>
+        {
+            flyCard.QueueFree();
+            GameManager.Instance.RemoveCardFromActiveCollectionDeck(cardData);
+            GD.Print($"[CollectionUI] 从牌组移除卡牌: {GetSafeCardName(cardData)}");
+            GameManager.Instance.SaveToDisk();
+            RefreshTopBar();
+            RefreshDeckList();
+        }));
+    }
+
+    private void OnDeckNameSubmitted(string newName)
+    {
+        ApplyDeckName(newName);
+    }
+
+    private void OnDeckNameFocusExited()
+    {
+        ApplyDeckName(_deckNameEdit.Text);
+    }
+
+    private void ApplyDeckName(string newName)
+    {
+        var deck = GameManager.Instance.ActiveDeck;
+        if (deck == null || string.IsNullOrWhiteSpace(newName)) return;
+
+        if (deck.Name != newName)
+        {
+            deck.Name = newName.Trim();
+            GameManager.Instance.SaveToDisk();
+            RefreshTopBar();
+            GD.Print($"[CollectionUI] 牌组重命名 → {deck.Name}");
+        }
+    }
+
+    private void OnDeckSelectorChanged(long index)
+    {
+        var newIndex = (int)index;
+        if (newIndex == GameManager.Instance.ActiveDeckIndex) return;
+
+        GameManager.Instance.SetActiveDeck(newIndex);
+        GameManager.Instance.SaveToDisk();
+        RefreshAll();
+        GD.Print($"[CollectionUI] 切换到牌组 {newIndex}");
+    }
+
+    private void OnNewDeckPressed()
+    {
+        string defaultName = Loc.T("ui.collection.default_deck_name", "新牌组");
+        int count = GameManager.Instance.Decks.Count(d => d.Name.StartsWith(defaultName, StringComparison.Ordinal));
+        string name = count > 0 ? $"{defaultName} {count + 1}" : defaultName;
+
+        GameManager.Instance.CreateDeck(name);
+        GameManager.Instance.SaveToDisk();
+        RefreshAll();
+        GD.Print($"[CollectionUI] 创建新牌组: {name}");
+    }
+
+    private void OnDeleteDeckPressed()
+    {
+        var deck = GameManager.Instance.ActiveDeck;
+        if (deck == null) return;
+
+        // 最后一个牌组不能删除
+        if (GameManager.Instance.Decks.Count <= 1)
+        {
+            ShowNotification(Loc.T("ui.collection.cannot_delete_last", "至少需要保留一个牌组"));
+            return;
+        }
+
+        string deckName = deck.Name;
+        GameManager.Instance.DeleteDeck(GameManager.Instance.ActiveDeckIndex);
+        GameManager.Instance.SaveToDisk();
+        RefreshAll();
+        GD.Print($"[CollectionUI] 删除牌组: {deckName}");
+    }
+
+    private void OnExportPressed()
+    {
+        var deck = GameManager.Instance.ActiveDeck;
+        if (deck == null)
+        {
+            ShowNotification(Loc.T("ui.collection.no_deck_to_export", "没有可导出的牌组"));
+            return;
+        }
+
+        _isExportMode = true;
+        _fileDialog.Title = Loc.T("ui.collection.export_title", "导出牌组");
+        _fileDialog.FileMode = FileDialog.FileModeEnum.SaveFile;
+        _fileDialog.CurrentFile = $"{deck.Name}.json";
+        _fileDialog.PopupCentered();
+    }
+
+    private void OnImportPressed()
+    {
+        _isExportMode = false;
+        _fileDialog.Title = Loc.T("ui.collection.import_title", "导入牌组");
+        _fileDialog.FileMode = FileDialog.FileModeEnum.OpenFile;
+        _fileDialog.CurrentFile = "";
+        _fileDialog.PopupCentered();
+    }
+
+    private void OnFileDialogFileSelected(string path)
+    {
+        if (_isExportMode)
+        {
+            if (GameManager.Instance.ExportActiveDeck(path))
+                ShowNotification(Loc.T("ui.collection.export_success", "牌组导出成功"));
+            else
+                ShowNotification(Loc.T("ui.collection.export_failed", "牌组导出失败"));
+        }
+        else
+        {
+            if (GameManager.Instance.ImportDeck(path))
+            {
+                ShowNotification(Loc.T("ui.collection.import_success", "牌组导入成功"));
+                GameManager.Instance.SaveToDisk();
+                RefreshAll();
+            }
+            else
+            {
+                ShowNotification(Loc.T("ui.collection.import_failed", "牌组导入失败（文件格式可能无效）"));
+            }
+        }
+    }
+
+    private void OnFileDialogCancelled()
+    {
+        GD.Print("[CollectionUI] 文件选择已取消");
+    }
+
+    private void OnLanguageChanged(string lang)
+    {
+        RefreshLanguageTexts();
+    }
+
+    private void OnCollectionChanged()
+    {
+        RefreshAll();
+    }
+
+    // ===== 语言刷新 =====
+
+    /// <summary>
+    /// 刷新所有可本地化的文本。
+    /// </summary>
+    private void RefreshLanguageTexts()
+    {
+        _backButton.Text = Loc.T("ui.collection.back", "← 返回主菜单");
+        _deckNameEdit.PlaceholderText = Loc.T("ui.collection.deck_name_placeholder", "输入牌组名称");
+        _newDeckButton.TooltipText = Loc.T("ui.collection.new_deck", "新建牌组");
+        _deleteDeckButton.TooltipText = Loc.T("ui.collection.delete_deck", "删除当前牌组");
+        _minCardsWarning.Text = Loc.T("ui.collection.min_cards_warning", "⚠ 牌组不足 10 张卡牌，无法用于战斗");
+
+        // 刷新 CardGrid（CardGrid 自身有 Refresh 方法处理语言切换）
+        _cardGrid.Refresh();
+
+        // 刷新牌组列表（重新生成卡牌名称文本）
+        RefreshDeckList();
+    }
+
+    // ===== 辅助方法 =====
+
+    /// <summary>
+    /// 显示一个临时通知弹出框。
+    /// </summary>
+    private void ShowNotification(string message)
+    {
+        var popup = new AcceptDialog
+        {
+            Title = Loc.T("ui.collection.notification_title", "提示"),
+            OkButtonText = Loc.T("ui.common.ok", "确定"),
+            Exclusive = true,
+        };
+
+        var label = new Label
+        {
+            Text = message,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        label.AddThemeFontSizeOverride("font_size", 14);
+        popup.AddChild(label);
+
+        popup.Confirmed += () => popup.QueueFree();
+        AddChild(popup);
+        popup.PopupCentered();
+    }
+}

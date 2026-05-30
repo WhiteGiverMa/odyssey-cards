@@ -1,5 +1,6 @@
 using Godot;
 using OdysseyCards.Combat;
+using OdysseyCards.Core;
 using OdysseyCards.UI;
 using System;
 using System.Collections.Generic;
@@ -364,6 +365,7 @@ public partial class DevConsole : Node
                 WriteLine("  /refresh        — 刷新 UI");
                 WriteLine("  /clear          — 清空输出");
                 WriteLine("  /token <id>     — 将指定ID的卡牌加入手牌");
+                WriteLine("  /unlock_all     — 解锁全部卡牌（加入收藏）");
                 WriteLine("  /help           — 显示帮助[/color]");
                 break;
 
@@ -398,6 +400,13 @@ public partial class DevConsole : Node
             case "clear":
             case "cls":
                 _output.Clear();
+                break;
+
+            // ===== 解锁全部卡牌 =====
+            case "unlock_all":
+                GameManager.Instance?.UnlockAllCards();
+                GameManager.Instance?.SaveToDisk();
+                WriteLine("[color=#66ff66]已解锁全部卡牌并保存到磁盘[/color]");
                 break;
 
             default:
@@ -481,6 +490,7 @@ public partial class DevConsole : Node
             new DevCommandDef("refresh",      ["r"],      "/refresh",             "刷新 UI",                   null),
             new DevCommandDef("clear",        ["cls"],    "/clear",               "清空输出",                   null),
             new DevCommandDef("token",        ["t"],      "/token <card_id>",     "将指定ID的卡牌加入手牌",        _cardCache.Keys.ToArray()),
+            new DevCommandDef("unlock_all",   [],         "/unlock_all",          "解锁全部卡牌（加入收藏）",     null),
             new DevCommandDef("help",         ["?"],      "/help",                "显示帮助",                   null),
         });
     }

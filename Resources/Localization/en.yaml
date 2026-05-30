@@ -2,8 +2,12 @@ ui:
   menu:
     title: "Odyssey Cards"
     start_game: "Start Game"
+    collection: "Collection"
     settings: "Settings"
     quit: "Quit"
+    deck_not_ready_title: "Deck Not Ready"
+    deck_not_ready_desc: "Your deck doesn't meet the minimum card requirement (10 cards).\nPlease build your deck in the Collection first."
+    go_to_collection: "Go to Collection"
   settings:
     title: "Settings"
     language: "Language"
@@ -104,9 +108,42 @@ ui:
     settings: "Settings"
     save_and_exit: "Save & Exit"
     quick_sl: "Quick S/L"
+  reward:
+    title: "Card Reward"
+    skip: "Skip"
+    rarity_common: "Common"
+    rarity_good: "Good"
+    rarity_excellent: "Excellent"
+    rarity_master: "Master"
+    copy_format: "×{count} — {rarity}"
   discover:
     title: "Discover"
     skip: "Skip"
+  common:
+    ok: "OK"
+  collection:
+    back: "← Back to Menu"
+    deck_label: "Deck:"
+    deck_name_placeholder: "Enter deck name"
+    new_deck: "New Deck"
+    delete_deck: "Delete Deck"
+    min_cards_warning: "⚠ Deck has less than 10 cards, cannot be used in battle"
+    deck_contents: "Deck Contents"
+    empty_deck: "Deck is empty\n\nClick cards on the right to add them"
+    export: "Export Deck"
+    import: "Import Deck"
+    export_title: "Export Deck"
+    import_title: "Import Deck"
+    no_deck_selected: "Please create or select a deck first"
+    deck_full: "Deck is full (max 20 cards)"
+    default_deck_name: "New Deck"
+    cannot_delete_last: "Must keep at least one deck"
+    no_deck_to_export: "No deck to export"
+    export_success: "Deck exported successfully"
+    export_failed: "Deck export failed"
+    import_success: "Deck imported successfully"
+    import_failed: "Deck import failed (file may be invalid)"
+    notification_title: "Notice"
 
 weapon:
   ion_pistol:
@@ -208,3 +245,35 @@ enemies:
     name: "Cultist"
   jaw_worm:
     name: "Jaw Worm"
+
+collection:
+  title: "Card Collection"
+  back_button: "← Back to Menu"
+  deck_name: "Deck Name"
+  card_count: "{current}/{max}"
+  add_card: "Add to Deck"
+  remove_card: "Remove"
+  export: "Export Deck"
+  import: "Import Deck"
+  delete_deck: "Delete Deck"
+  new_deck: "New Deck"
+  no_active_deck: "No deck selected"
+  deck_not_min: "Deck doesn't meet minimum ({min} cards required)"
+  all: "All"
+  minion: "Minion"
+  spell: "Spell"
+  domain: "Domain"
+
+reward:
+  title: "Choose a Reward"
+  skip: "Skip"
+  copies_format: "×{count}"
+  card_selected: "Selected: {name} ×{count}"
+
+rarity:
+  derivative: "Derivative"
+  master: "Master"
+  excellent: "Excellent"
+  good: "Good"
+  common: "Common"
+  special: "Special"
