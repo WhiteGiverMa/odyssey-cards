@@ -42,6 +42,15 @@ public partial class CollectionUI : Control
     /// </summary>
     private Control _deckPanelRef = null!;
 
+    /// <summary>
+    /// 牌组卡片拖拽状态。
+    /// </summary>
+    private CardUI? _deckDragClone;
+    private CardData? _deckDraggingCardData;
+    private Vector2 _deckDragStartPos;
+    private bool _deckIsDragging;
+    private const float DeckDragThreshold = 8f;
+
     // ===== 状态 =====
 
     private bool _isExportMode;
@@ -415,7 +424,7 @@ public partial class CollectionUI : Control
             row.AddThemeConstantOverride("separation", Mathf.RoundToInt(4 * s));
             row.CustomMinimumSize = new Vector2(0, 28 * s);
 
-            // 点击移除
+            // 点击移除 / 拖拽到网格移除
             var displayName = GetSafeCardName(cardData);
             var cardBtn = new Button
             {
@@ -428,14 +437,62 @@ public partial class CollectionUI : Control
             cardBtn.AddThemeColorOverride("font_color", new Color(0.95f, 0.92f, 0.85f, 1));
             cardBtn.AddThemeColorOverride("font_hover_color", new Color(1, 0.4f, 0.3f, 1));
             cardBtn.AddThemeColorOverride("font_pressed_color", new Color(1, 0.85f, 0.3f, 1));
-            cardBtn.Pressed += () => OnDeckCardRemoveClicked(cardData);
 
-            // 右击移除（更快）
+            // 拖拽/点击逻辑
+            bool btnDragStarted = false;
             cardBtn.GuiInput += (InputEvent @event) =>
             {
-                if (@event is InputEventMouseButton mb
-                    && mb.Pressed
-                    && mb.ButtonIndex == MouseButton.Right)
+                if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left)
+                {
+                    if (mb.Pressed)
+                    {
+                        btnDragStarted = true;
+                        _deckDraggingCardData = cardData;
+                        _deckDragStartPos = cardBtn.GetGlobalMousePosition();
+                        _deckIsDragging = false;
+                        cardBtn.AcceptEvent();
+                    }
+                    else
+                    {
+                        if (!_deckIsDragging && btnDragStarted)
+                        {
+                            // 无位移 → 点击（飞回动画）
+                            OnDeckCardRemoveClicked(cardData);
+                        }
+                        else if (_deckIsDragging)
+                        {
+                            // 拖拽松手 → 检查是否在网格上
+                            var dropPos = GetViewport().GetMousePosition();
+                            Rect2 gridRect = new(_cardGrid.GlobalPosition, _cardGrid.Size);
+                            if (gridRect.HasPoint(dropPos))
+                            {
+                                OnDeckCardRemoveClicked(cardData);
+                            }
+                            CleanupDeckDrag();
+                        }
+                        btnDragStarted = false;
+                        _deckDraggingCardData = null;
+                    }
+                }
+                else if (@event is InputEventMouseMotion
+                    && btnDragStarted
+                    && _deckDraggingCardData != null)
+                {
+                    float dist = cardBtn.GetGlobalMousePosition().DistanceTo(_deckDragStartPos);
+                    if (dist > DeckDragThreshold && !_deckIsDragging)
+                    {
+                        _deckIsDragging = true;
+                        StartDeckDragClone(cardData, _deckDragStartPos);
+                    }
+                    if (_deckIsDragging && _deckDragClone != null)
+                    {
+                        _deckDragClone.GlobalPosition = cardBtn.GetGlobalMousePosition()
+                            - (_deckDragClone.Size / 2);
+                    }
+                }
+                else if (@event is InputEventMouseButton rmb
+                    && rmb.Pressed
+                    && rmb.ButtonIndex == MouseButton.Right)
                 {
                     OnDeckCardRemoveClicked(cardData);
                     cardBtn.AcceptEvent();
@@ -604,6 +661,37 @@ public partial class CollectionUI : Control
             RefreshDeckList();
         }));
     }
+
+    private void StartDeckDragClone(CardData cardData, Vector2 startScreenPos)
+    {
+        float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+        var cardSize = new Vector2(CardGrid_CardWidth * s, CardGrid_CardHeight * s);
+
+        var card = new OdysseyCards.Card.Card(cardData);
+        _deckDragClone = new CardUI
+        {
+            DisplayOnly = true,
+            Modulate = new Color(1, 1, 1, 0.75f),
+            CustomMinimumSize = cardSize,
+            Size = cardSize,
+            GlobalPosition = startScreenPos - (cardSize / 2),
+        };
+        _deckDragClone.SetCard(card);
+        _flyLayer.AddChild(_deckDragClone);
+    }
+
+    private void CleanupDeckDrag()
+    {
+        _deckIsDragging = false;
+        if (_deckDragClone != null)
+        {
+            _deckDragClone.QueueFree();
+            _deckDragClone = null;
+        }
+    }
+
+    private const float CardGrid_CardWidth = 120f;
+    private const float CardGrid_CardHeight = 180f;
 
     private void OnDeckNameSubmitted(string newName)
     {
