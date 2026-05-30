@@ -352,12 +352,14 @@ public class Hero : IDamageTarget, IDamageSource
         if (_activeDomains.TryGetValue(domainId, out var existing))
         {
             existing.StackCount++;
-            GD.Print($"[Hero] 领域「{domainId}」叠加到 {existing.StackCount} 层");
+            GD.Print($"[Hero] 领域「{domainId}」叠加至 {existing.StackCount} 层");
         }
         else
         {
             _activeDomains[domainId] = new ActiveDomain(domainId, effectData);
-            GD.Print($"[Hero] 展开领域「{domainId}」：{effectData.GetDescription()}（每层）");
+            string desc = effectData.GetDescription();
+            string descPart = string.IsNullOrWhiteSpace(desc) ? "" : $"：{desc}";
+            GD.Print($"[Hero] 展开领域「{domainId}」{descPart}");
         }
     }
 

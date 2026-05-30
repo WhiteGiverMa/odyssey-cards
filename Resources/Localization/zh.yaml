@@ -164,11 +164,11 @@ cards:
     name: "联树机器犬 侦察型"
     description: "闪击，轮战\n亡语：抽 1 张牌"
   domain_zhijian:
-    name: "纸剑领域"
-    description: "领域：所有随从获得 +1 攻击力"
+    name: "执锐"
+    description: "领域：友方随从部署时攻击力+1"
   domain_infinite_fire:
-    name: "无尽火域"
-    description: "领域：每回合对所有敌方随从造成 1 点伤害"
+    name: "无限火力"
+    description: "领域：友方回合结束时，将一张「打击」洗入牌库"
   minion_slime:
     name: "软泥怪"
     description: "冲锋"

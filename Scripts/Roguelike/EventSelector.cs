@@ -239,13 +239,13 @@ public sealed class EventSelector : IDisposable
             },
 
             /// <summary>
-            /// 警戒 — 中费抽牌+增益法术。
+            /// 警戒 — 中费抽牌+治疗法术。
             /// </summary>
             new CardData
             {
                 Id = "spell_Alert",
                 CardName = "警戒",
-                Description = "抽1张牌，英雄获得+2生命值",
+                Description = "抽1张牌，回复2点生命值",
                 Cost = 2,
                 Type = CardType.Spell,
                 Effects = new Godot.Collections.Array<CardEffectData>
@@ -257,7 +257,7 @@ public sealed class EventSelector : IDisposable
                     },
                     new CardEffectData
                     {
-                        EffectType = CardEffectType.GainMaxHealth,
+                        EffectType = CardEffectType.Heal,
                         Value = 2
                     }
                 },

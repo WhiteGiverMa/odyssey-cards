@@ -7,113 +7,112 @@ public enum CardEffectType
     /// <summary>
     /// 造成伤害。
     /// </summary>
-    Damage,
+    Damage = 0,
 
     /// <summary>
-    /// 恢复生命值。
+    /// 恢复生命值（上限内）。
     /// </summary>
-    Heal,
+    Heal = 1,
 
     /// <summary>
     /// 抽牌。
     /// </summary>
-    DrawCards,
+    DrawCards = 2,
 
     /// <summary>
     /// 获得法力水晶（仅本回合）。
     /// </summary>
-    GainEnergy,
+    GainEnergy = 3,
 
     /// <summary>
-    /// 获得最大生命值。
+    /// 获得最大生命值（同步回复等量生命值）。
     /// </summary>
-    GainMaxHealth,
+    GainMaxHealth = 4,
 
     /// <summary>
     /// 对目标随从造成伤害。
     /// </summary>
-    DealDamageToTarget,
+    DealDamageToTarget = 5,
 
     /// <summary>
     /// 对所有敌方随从造成伤害。
     /// </summary>
-    DealDamageToAllEnemies,
+    DealDamageToAllEnemies = 6,
 
     /// <summary>
     /// 对敌方英雄造成伤害。
     /// </summary>
-    DealDamageToEnemyHero,
+    DealDamageToEnemyHero = 7,
 
     /// <summary>
     /// 召唤随从。
     /// </summary>
-    SummonMinion,
+    SummonMinion = 8,
 
     /// <summary>
     /// 强化随从（+攻击/+生命）。
     /// </summary>
-    BuffMinion,
+    BuffMinion = 9,
 
     /// <summary>
-    /// 回复生命值。
+    /// [已废弃] 回复生命值。保留以兼容 .tres 数据，新卡牌请使用 Heal。
     /// </summary>
-    RestoreHealth,
+    RestoreHealth = 10,
 
     /// <summary>
     /// 沉默：移除所有关键词和效果。
     /// </summary>
-    Silence,
+    Silence = 11,
 
     /// <summary>
     /// 获得护甲值。
     /// </summary>
-    GainArmor,
+    GainArmor = 12,
 
-    // 保留旧值以兼容现有数据
     /// <summary>
     /// [已废弃] 施加减益。
     /// </summary>
-    ApplyDebuff,
+    ApplyDebuff = 13,
 
     /// <summary>
     /// [已废弃] 施加增益。
     /// </summary>
-    ApplyBuff,
+    ApplyBuff = 14,
 
     /// <summary>
     /// [已废弃] 弃牌。
     /// </summary>
-    Discard,
+    Discard = 15,
 
     /// <summary>
     /// [已废弃] 返回牌库。
     /// </summary>
-    ReturnToDeck,
+    ReturnToDeck = 16,
 
     /// <summary>
     /// 自定义效果。
     /// </summary>
-    Custom,
+    Custom = 17,
 
     /// <summary>
     /// 获得额外的法力水晶槽（永久增加法力上限）。
     /// Value = 增加的槽数。只增加上限，不增加当前法力。
     /// 可突破自然增长上限，但不超过硬上限(30)。
     /// </summary>
-    GainManaSlot,
+    GainManaSlot = 18,
 
     /// <summary>
     /// 解除自然增长的水晶槽上限。
     /// 使每回合开始的自动法力增长不再受自然上限(12)限制，可持续增长至硬上限(30)。
     /// Value 不使用。
     /// </summary>
-    RemoveNaturalManaCap,
+    RemoveNaturalManaCap = 19,
 
     /// <summary>
     /// 发现：从 N 张随机卡牌中选取一张加入手牌。
     /// Value = 选项数量（默认 3），TargetType = 稀有度过滤（可选，"0"=仅衍生卡，"all"=全部）。
     /// </summary>
-    Discover
+    Discover = 20
 }
 
 public partial class CardEffectData : Resource

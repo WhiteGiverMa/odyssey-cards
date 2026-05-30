@@ -10,14 +10,14 @@ Value = 1
 
 [sub_resource type="Resource" id="SubResource_2"]
 script = ExtResource("2_effect")
-EffectType = 4
+EffectType = 1
 Value = 2
 
 [resource]
 script = ExtResource("1_data")
 Id = "spell_Alert"
 CardName = "警戒"
-Description = "抽1张牌，英雄获得+2生命值"
+Description = "抽1张牌，回复2点生命值"
 Rarity = 0
 Cost = 2
 Type = 1

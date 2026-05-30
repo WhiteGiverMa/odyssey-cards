@@ -685,6 +685,10 @@ public partial class CombatManager : Node
                 break;
 
             case CardEffectType.RestoreHealth:
+                _playerCore.Heal(effect.Value);
+                GD.Print($"[CombatManager]   恢复 {effect.Value} 点生命值（当前 {PlayerHero.CurrentHealth}）");
+                break;
+
             case CardEffectType.GainArmor:
                 PlayerHero.GainArmor(effect.Value);
                 GD.Print($"[CombatManager]   获得 {effect.Value} 点护甲（当前 {PlayerHero.CurrentArmor}）");

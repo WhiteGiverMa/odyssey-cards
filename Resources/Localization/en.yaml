@@ -164,11 +164,11 @@ cards:
     name: "Lianshu Mech Hound Scout"
     description: "Ambush, Rotation\nLast Words: Draw 1 card"
   domain_zhijian:
-    name: "Paper Sword Domain"
-    description: "Domain: All minions gain +1 Attack"
+    name: "Blade Sharp"
+    description: "Domain: Friendly minions gain +1 Attack when deployed"
   domain_infinite_fire:
-    name: "Infinite Fire Domain"
-    description: "Domain: Deal 1 damage to all enemy minions each turn"
+    name: "Infinite Firepower"
+    description: "Domain: At end of friendly turn, shuffle a Strike into your deck"
   minion_slime:
     name: "Slime"
     description: "Charge"
