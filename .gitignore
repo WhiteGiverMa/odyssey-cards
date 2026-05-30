@@ -57,6 +57,9 @@ secrets/
 # Agent skills directories
 **/find-skills/
 
+# Deprecated docs (local only)
+docs/deprecated
+
 # local only draft
 docs/draft
 AGENTS_LOCAL.md
