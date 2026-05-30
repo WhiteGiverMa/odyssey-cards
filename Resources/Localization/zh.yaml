@@ -7,6 +7,8 @@ ui:
     quit: "退出"
     deck_not_ready_title: "牌组未就绪"
     deck_not_ready_desc: "当前牌组不满足最小卡牌数要求（至少 10 张）。\n请先前往收藏界面构筑牌组。"
+    deck_too_few_desc: "当前牌组不满足最小卡牌数要求（至少 10 张）。\n请先前往收藏界面构筑牌组。"
+    deck_too_many_desc: "当前牌组超过 20 张上限。\n请先前往收藏界面调整牌组。"
     go_to_collection: "前往收藏"
   settings:
     title: "设置"
@@ -144,6 +146,24 @@ ui:
     import_success: "牌组导入成功"
     import_failed: "牌组导入失败（文件格式可能无效）"
     notification_title: "提示"
+    clear_deck: "一键清空卡组"
+    undo: "撤销"
+    save_changes: "保存"
+    unsaved_title: "未保存的修改"
+    unsaved_message: "当前牌组有未保存的更改。\n是否保存？"
+    unsaved_save: "保存"
+    unsaved_discard: "不保存"
+    unsaved_cancel: "取消"
+    clear_confirm_title: "确认清空"
+    clear_confirm_message: "确定要清空当前牌组中的所有卡牌吗？"
+    import_unsaved_warning: "当前牌组有未保存的更改。\n导入牌组前是否保存当前改动？"
+    import_warn_save: "保存并导入"
+    import_warn_discard: "不保存直接导入"
+    import_warn_cancel: "取消"
+    deck_saved: "牌组已保存"
+    deck_overflow_title: "牌组超过上限"
+    deck_overflow_message: "牌组超过上限（最多 20 张）。\n请减少卡牌后再保存。"
+    changes_undone: "已撤销未保存的更改"
 
 weapon:
   ion_pistol:

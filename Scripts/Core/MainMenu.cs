@@ -50,12 +50,31 @@ public partial class MainMenu : Control
     {
         GD.Print("[MainMenu] OnStartPressed called");
 
-        // 检查牌组是否满足最小要求
+        // 检查牌组是否满足要求
         var gm = GameManager.Instance;
-        if (gm != null && !gm.IsActiveDeckValid())
+        var deck = gm?.ActiveDeck;
+
+        if (deck == null)
         {
-            GD.Print("[MainMenu] 牌组不满足最小卡牌数要求");
-            ShowDeckNotReadyDialog();
+            ShowDeckNotReadyDialog(
+                Localization.Localization.T("ui.menu.deck_too_few_desc",
+                    "当前牌组不满足最小卡牌数要求（至少 10 张）。\n请先前往收藏界面构筑牌组。"));
+            return;
+        }
+
+        if (!deck.MeetsMinimum())
+        {
+            ShowDeckNotReadyDialog(
+                Localization.Localization.T("ui.menu.deck_too_few_desc",
+                    "当前牌组不满足最小卡牌数要求（至少 10 张）。\n请先前往收藏界面构筑牌组。"));
+            return;
+        }
+
+        if (deck.IsOverLimit())
+        {
+            ShowDeckNotReadyDialog(
+                Localization.Localization.T("ui.menu.deck_too_many_desc",
+                    "当前牌组超过 20 张上限。\n请先前往收藏界面调整牌组。"));
             return;
         }
 
@@ -64,7 +83,7 @@ public partial class MainMenu : Control
         GetTree().ChangeSceneToFile("res://Scenes/Map.tscn");
     }
 
-    private void ShowDeckNotReadyDialog()
+    private void ShowDeckNotReadyDialog(string description)
     {
         var dialog = new AcceptDialog
         {
@@ -77,8 +96,7 @@ public partial class MainMenu : Control
 
         var label = new Label
         {
-            Text = Localization.Localization.T("ui.menu.deck_not_ready_desc",
-                "当前牌组不满足最小卡牌数要求（至少 10 张）。\n请先前往收藏界面构筑牌组。"),
+            Text = description,
             HorizontalAlignment = HorizontalAlignment.Center,
             LayoutMode = 2,
         };

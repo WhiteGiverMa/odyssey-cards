@@ -411,7 +411,8 @@ public partial class GameManager : Node
     {
         var deck = ActiveDeck;
         if (deck == null) return false;
-        return deck.AddCardWithCheck(card);
+        deck.AddCard(card);
+        return true;
     }
 
     /// <summary>
@@ -572,7 +573,7 @@ public partial class GameManager : Node
     public bool IsActiveDeckValid()
     {
         var deck = ActiveDeck;
-        return deck != null && deck.MeetsMinimum();
+        return deck != null && deck.MeetsMinimum() && !deck.IsOverLimit();
     }
 
     // ===== 生命值管理 =====

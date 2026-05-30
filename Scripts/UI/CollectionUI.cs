@@ -12,9 +12,10 @@ namespace OdysseyCards.UI;
 /// 卡牌收藏/牌组编辑界面。
 /// 左侧显示当前牌组内卡牌（按 ID 分组，点击移除），
 /// 右侧使用 CardGrid 组件显示收藏中已解锁的卡牌（点击添加）。
-/// 顶栏包含返回按钮、牌组名称编辑、卡牌计数、多牌组管理。
-/// 底部提供导出/导入 JSON 牌组功能。
-/// 每次修改后自动存档。
+/// 顶栏包含返回按钮、牌组名称编辑、多牌组管理。
+/// 左侧底部提供卡牌计数、清空/撤销/保存、导出/导入功能。
+/// 修改不自动保存——仅在用户主动保存或新建/删除牌组时持久化。
+/// 离开界面时若有未保存更改，提示用户确认。
 /// </summary>
 public partial class CollectionUI : Control
 {
@@ -26,6 +27,9 @@ public partial class CollectionUI : Control
     private OptionButton _deckSelector = null!;
     private Button _newDeckButton = null!;
     private Button _deleteDeckButton = null!;
+    private Button _clearDeckButton = null!;
+    private Button _undoButton = null!;
+    private Button _saveButton = null!;
     private VBoxContainer _deckCardList = null!;
     private Label _emptyDeckLabel = null!;
     private CardGrid _cardGrid = null!;
@@ -51,6 +55,23 @@ public partial class CollectionUI : Control
     private bool _deckIsDragging;
     private const float DeckDragThreshold = 8f;
 
+    // ===== 未保存更改追踪 =====
+
+    /// <summary>
+    /// 上次保存时的牌组快照。
+    /// </summary>
+    private Deck? _checkpointDeck;
+
+    /// <summary>
+    /// 当前是否有未保存的更改。
+    /// </summary>
+    private bool _hasUnsavedChanges;
+
+    /// <summary>
+    /// 切换牌组时暂存的目标索引（用于确认后切换）。
+    /// </summary>
+    private int _pendingDeckIndex = -1;
+
     // ===== 状态 =====
 
     private bool _isExportMode;
@@ -62,6 +83,7 @@ public partial class CollectionUI : Control
         GD.Print("[CollectionUI] _Ready — 初始化牌组编辑界面");
 
         SetupUI();
+        CaptureCheckpoint();
         RefreshAll();
 
         // 订阅事件
@@ -76,6 +98,43 @@ public partial class CollectionUI : Control
             GameManager.Instance.LanguageChanged -= OnLanguageChanged;
             GameManager.Instance.OnCollectionChanged -= OnCollectionChanged;
         }
+    }
+
+    // ===== 快照/还原 =====
+
+    /// <summary>
+    /// 捕获当前牌组快照，清除脏标记。
+    /// </summary>
+    private void CaptureCheckpoint()
+    {
+        _checkpointDeck = GameManager.Instance.ActiveDeck?.Clone();
+        _hasUnsavedChanges = false;
+        GD.Print("[CollectionUI] 已捕获牌组快照，清除脏标记");
+    }
+
+    /// <summary>
+    /// 将牌组还原到上次快照状态。
+    /// </summary>
+    private void RestoreCheckpoint()
+    {
+        var activeDeck = GameManager.Instance.ActiveDeck;
+        if (activeDeck == null || _checkpointDeck == null) return;
+
+        activeDeck.Cards.Clear();
+        activeDeck.Cards.AddRange(_checkpointDeck.Cards);
+        activeDeck.Name = _checkpointDeck.Name;
+        _hasUnsavedChanges = false;
+        RefreshAll();
+        GD.Print("[CollectionUI] 已还原牌组到快照状态");
+    }
+
+    /// <summary>
+    /// 标记有未保存更改，刷新按钮和计数标签状态。
+    /// </summary>
+    private void MarkChanged()
+    {
+        _hasUnsavedChanges = true;
+        RefreshBottomBar();
     }
 
     // ===== UI 构建 =====
@@ -182,18 +241,6 @@ public partial class CollectionUI : Control
         _deleteDeckButton.Pressed += OnDeleteDeckPressed;
         topBar.AddChild(_deleteDeckButton);
 
-        // 卡牌计数
-        _cardCountLabel = new Label
-        {
-            Text = "0/20",
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            CustomMinimumSize = new Vector2(60 * s, 0),
-        };
-        _cardCountLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(16 * s));
-        _cardCountLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.4f, 1));
-        topBar.AddChild(_cardCountLabel);
-
         mainVBox.AddChild(topBar);
 
         // 最小卡牌数警告标签
@@ -258,10 +305,62 @@ public partial class CollectionUI : Control
         _emptyDeckLabel.MouseFilter = MouseFilterEnum.Pass;
         deckListScroll.AddChild(_emptyDeckLabel);
 
-        // 左侧底部：导出/导入按钮
-        var leftBottomBar = new HBoxContainer();
-        leftBottomBar.AddThemeConstantOverride("separation", Mathf.RoundToInt(8 * s));
-        leftBottomBar.Alignment = BoxContainer.AlignmentMode.Center;
+        // 左侧底部区域（VBox 三行布局）
+        var leftBottomArea = new VBoxContainer();
+        leftBottomArea.AddThemeConstantOverride("separation", Mathf.RoundToInt(4 * s));
+        leftBottomArea.Alignment = BoxContainer.AlignmentMode.Center;
+
+        // 行 1：卡牌计数
+        _cardCountLabel = new Label
+        {
+            Text = "0/20",
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        _cardCountLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(16 * s));
+        _cardCountLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.4f, 1));
+        leftBottomArea.AddChild(_cardCountLabel);
+
+        // 行 2：清空 / 撤销 / 保存
+        var actionRow = new HBoxContainer();
+        actionRow.AddThemeConstantOverride("separation", Mathf.RoundToInt(6 * s));
+        actionRow.Alignment = BoxContainer.AlignmentMode.Center;
+
+        _clearDeckButton = new Button
+        {
+            Text = Loc.T("ui.collection.clear_deck", "一键清空卡组"),
+            CustomMinimumSize = new Vector2(90 * s, 30 * s),
+        };
+        _clearDeckButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(12 * s));
+        _clearDeckButton.Pressed += OnClearDeckPressed;
+        actionRow.AddChild(_clearDeckButton);
+
+        _undoButton = new Button
+        {
+            Text = Loc.T("ui.collection.undo", "撤销"),
+            CustomMinimumSize = new Vector2(60 * s, 30 * s),
+            Disabled = true,
+        };
+        _undoButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(12 * s));
+        _undoButton.Pressed += OnUndoPressed;
+        actionRow.AddChild(_undoButton);
+
+        _saveButton = new Button
+        {
+            Text = Loc.T("ui.collection.save_changes", "保存"),
+            CustomMinimumSize = new Vector2(60 * s, 30 * s),
+            Disabled = true,
+        };
+        _saveButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(12 * s));
+        _saveButton.Pressed += OnSavePressed;
+        actionRow.AddChild(_saveButton);
+
+        leftBottomArea.AddChild(actionRow);
+
+        // 行 3：导出 / 导入
+        var ioRow = new HBoxContainer();
+        ioRow.AddThemeConstantOverride("separation", Mathf.RoundToInt(8 * s));
+        ioRow.Alignment = BoxContainer.AlignmentMode.Center;
 
         var exportBtn = new Button
         {
@@ -270,7 +369,7 @@ public partial class CollectionUI : Control
         };
         exportBtn.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
         exportBtn.Pressed += OnExportPressed;
-        leftBottomBar.AddChild(exportBtn);
+        ioRow.AddChild(exportBtn);
 
         var importBtn = new Button
         {
@@ -279,9 +378,11 @@ public partial class CollectionUI : Control
         };
         importBtn.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
         importBtn.Pressed += OnImportPressed;
-        leftBottomBar.AddChild(importBtn);
+        ioRow.AddChild(importBtn);
 
-        leftPanel.AddChild(leftBottomBar);
+        leftBottomArea.AddChild(ioRow);
+
+        leftPanel.AddChild(leftBottomArea);
 
         contentSplit.AddChild(leftPanel);
 
@@ -324,7 +425,7 @@ public partial class CollectionUI : Control
     // ===== 刷新 =====
 
     /// <summary>
-    /// 刷新整个界面（顶栏 + 牌组列表 + CardGrid）。
+    /// 刷新整个界面（顶栏 + 牌组列表 + CardGrid + 底部栏）。
     /// </summary>
     private void RefreshAll()
     {
@@ -334,26 +435,18 @@ public partial class CollectionUI : Control
         RefreshTopBar();
         RefreshDeckList();
         RefreshCardGrid();
+        RefreshBottomBar();
     }
 
     /// <summary>
-    /// 刷新顶栏：牌组名称、计数、牌组选择器。
+    /// 刷新顶栏：牌组名称、牌组选择器。
     /// </summary>
     private void RefreshTopBar()
     {
         var deck = GameManager.Instance.ActiveDeck;
 
         _deckNameEdit.Text = deck?.Name ?? "";
-        _cardCountLabel.Text = $"{deck?.CardCount ?? 0}/{Deck.MaxDeckSize}";
         _deleteDeckButton.Disabled = GameManager.Instance.Decks.Count <= 1;
-
-        // 牌组计数色
-        if (deck != null && deck.CardCount >= Deck.MaxDeckSize)
-            _cardCountLabel.AddThemeColorOverride("font_color", new Color(1, 0.4f, 0.3f, 1));
-        else if (deck != null && !deck.MeetsMinimum())
-            _cardCountLabel.AddThemeColorOverride("font_color", new Color(1, 0.8f, 0.3f, 1));
-        else
-            _cardCountLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.4f, 1));
 
         // 牌组选择器
         _deckSelector.Clear();
@@ -368,6 +461,26 @@ public partial class CollectionUI : Control
 
         // 最小卡牌数警告
         _minCardsWarning.Visible = deck != null && !deck.MeetsMinimum();
+    }
+
+    /// <summary>
+    /// 刷新底部栏：卡牌计数颜色、撤销/保存按钮状态。
+    /// </summary>
+    private void RefreshBottomBar()
+    {
+        var deck = GameManager.Instance.ActiveDeck;
+        _cardCountLabel.Text = $"{deck?.CardCount ?? 0}/{Deck.MaxDeckSize}";
+
+        // 牌组计数色
+        if (deck != null && deck.CardCount > Deck.MaxDeckSize)
+            _cardCountLabel.AddThemeColorOverride("font_color", new Color(1, 0.4f, 0.3f, 1));
+        else if (deck != null && !deck.MeetsMinimum())
+            _cardCountLabel.AddThemeColorOverride("font_color", new Color(1, 0.8f, 0.3f, 1));
+        else
+            _cardCountLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.4f, 1));
+
+        _undoButton.Disabled = !_hasUnsavedChanges;
+        _saveButton.Disabled = !_hasUnsavedChanges;
     }
 
     /// <summary>
@@ -556,13 +669,103 @@ public partial class CollectionUI : Control
         _cardGrid.SetCards(ownedCards);
     }
 
+    // ===== 退出拦截 ====
+
+    /// <summary>
+    /// 显示未保存更改确认对话框。
+    /// </summary>
+    private void ShowUnsavedChangesDialog(
+        Action onSave,
+        Action onDiscard,
+        Action? onCancel = null,
+        string? saveLabel = null,
+        string? discardLabel = null,
+        string? cancelLabel = null,
+        string? message = null)
+    {
+        var dialog = new AcceptDialog
+        {
+            Title = Loc.T("ui.collection.unsaved_title", "未保存的修改"),
+            Exclusive = true,
+        };
+
+        // 隐藏默认 OK 按钮
+        dialog.GetOkButton().Visible = false;
+
+        var msgLabel = new Label
+        {
+            Text = message ?? Loc.T("ui.collection.unsaved_message", "当前牌组有未保存的更改。\n是否保存？"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        msgLabel.AddThemeFontSizeOverride("font_size", 14);
+        dialog.AddChild(msgLabel);
+
+        var saveBtn = dialog.AddButton(saveLabel ?? Loc.T("ui.collection.unsaved_save", "保存"), true);
+        var discardBtn = dialog.AddButton(discardLabel ?? Loc.T("ui.collection.unsaved_discard", "不保存"), true);
+        var cancelBtn = dialog.AddButton(cancelLabel ?? Loc.T("ui.collection.unsaved_cancel", "取消"), true);
+
+        saveBtn.Pressed += () =>
+        {
+            dialog.Hide();
+            onSave();
+            dialog.QueueFree();
+        };
+        discardBtn.Pressed += () =>
+        {
+            dialog.Hide();
+            onDiscard();
+            dialog.QueueFree();
+        };
+        cancelBtn.Pressed += () =>
+        {
+            dialog.Hide();
+            (onCancel ?? (() => { }))();
+            dialog.QueueFree();
+        };
+
+        AddChild(dialog);
+        dialog.PopupCentered();
+    }
+
+    private void GoBack()
+    {
+        GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
+    }
+
+    private void SwitchToPendingDeck()
+    {
+        DoSwitchDeck(_pendingDeckIndex);
+        _pendingDeckIndex = -1;
+    }
+
+    private void DoSwitchDeck(int newIndex)
+    {
+        GameManager.Instance.SetActiveDeck(newIndex);
+        CaptureCheckpoint();
+        RefreshAll();
+        GD.Print($"[CollectionUI] 切换到牌组 {newIndex}");
+    }
+
     // ===== 事件处理 =====
 
     private void OnBackPressed()
     {
         GD.Print("[CollectionUI] 返回主菜单");
-        GameManager.Instance.SaveToDisk();
-        GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
+        if (_hasUnsavedChanges)
+        {
+            ShowUnsavedChangesDialog(
+                onSave: () =>
+                {
+                    if (TrySaveDeck())
+                        GoBack();
+                },
+                onDiscard: GoBack
+            );
+        }
+        else
+        {
+            GoBack();
+        }
     }
 
     private void OnCardGridCardClicked(CardData cardData)
@@ -573,11 +776,6 @@ public partial class CollectionUI : Control
         if (deck == null)
         {
             ShowNotification(Loc.T("ui.collection.no_deck_selected", "请先创建或选择一个牌组"));
-            return;
-        }
-        if (deck.CardCount >= Deck.MaxDeckSize)
-        {
-            ShowNotification(Loc.T("ui.collection.deck_full", "牌组已满（上限 20 张）"));
             return;
         }
 
@@ -612,7 +810,7 @@ public partial class CollectionUI : Control
             if (added)
             {
                 GD.Print($"[CollectionUI] 添加卡牌到牌组: {GetSafeCardName(cardData)}");
-                GameManager.Instance.SaveToDisk();
+                MarkChanged();
                 RefreshTopBar();
                 RefreshDeckList();
             }
@@ -624,7 +822,7 @@ public partial class CollectionUI : Control
         if (cardData == null) return;
 
         var deck = GameManager.Instance.ActiveDeck;
-        if (deck == null || deck.CardCount >= Deck.MaxDeckSize) return;
+        if (deck == null) return;
 
         // 检查松手位置是否在牌组面板上方
         Rect2 deckRect = new(_deckPanelRef.GlobalPosition, _deckPanelRef.Size);
@@ -635,7 +833,7 @@ public partial class CollectionUI : Control
         if (added)
         {
             GD.Print($"[CollectionUI] 拖拽添加卡牌到牌组: {GetSafeCardName(cardData)}");
-            GameManager.Instance.SaveToDisk();
+            MarkChanged();
             RefreshTopBar();
             RefreshDeckList();
         }
@@ -673,7 +871,7 @@ public partial class CollectionUI : Control
             flyCard.QueueFree();
             GameManager.Instance.RemoveCardFromActiveCollectionDeck(cardData);
             GD.Print($"[CollectionUI] 从牌组移除卡牌: {GetSafeCardName(cardData)}");
-            GameManager.Instance.SaveToDisk();
+            MarkChanged();
             RefreshTopBar();
             RefreshDeckList();
         }));
@@ -728,7 +926,7 @@ public partial class CollectionUI : Control
         if (deck.Name != newName)
         {
             deck.Name = newName.Trim();
-            GameManager.Instance.SaveToDisk();
+            MarkChanged();
             RefreshTopBar();
             GD.Print($"[CollectionUI] 牌组重命名 → {deck.Name}");
         }
@@ -739,13 +937,54 @@ public partial class CollectionUI : Control
         var newIndex = (int)index;
         if (newIndex == GameManager.Instance.ActiveDeckIndex) return;
 
-        GameManager.Instance.SetActiveDeck(newIndex);
-        GameManager.Instance.SaveToDisk();
-        RefreshAll();
-        GD.Print($"[CollectionUI] 切换到牌组 {newIndex}");
+        if (_hasUnsavedChanges)
+        {
+            _pendingDeckIndex = newIndex;
+            ShowUnsavedChangesDialog(
+                onSave: () =>
+                {
+                    if (TrySaveDeck())
+                        SwitchToPendingDeck();
+                },
+                onDiscard: () =>
+                {
+                    RestoreCheckpoint();
+                    SwitchToPendingDeck();
+                },
+                onCancel: () =>
+                {
+                    // 恢复选择器到原索引
+                    _deckSelector.Select(GameManager.Instance.ActiveDeckIndex);
+                    _pendingDeckIndex = -1;
+                }
+            );
+        }
+        else
+        {
+            DoSwitchDeck(newIndex);
+        }
     }
 
     private void OnNewDeckPressed()
+    {
+        if (_hasUnsavedChanges)
+        {
+            ShowUnsavedChangesDialog(
+                onSave: () =>
+                {
+                    if (TrySaveDeck())
+                        DoCreateNewDeck();
+                },
+                onDiscard: DoCreateNewDeck
+            );
+        }
+        else
+        {
+            DoCreateNewDeck();
+        }
+    }
+
+    private void DoCreateNewDeck()
     {
         string defaultName = Loc.T("ui.collection.default_deck_name", "新牌组");
         int count = GameManager.Instance.Decks.Count(d => d.Name.StartsWith(defaultName, StringComparison.Ordinal));
@@ -753,6 +992,7 @@ public partial class CollectionUI : Control
 
         GameManager.Instance.CreateDeck(name);
         GameManager.Instance.SaveToDisk();
+        CaptureCheckpoint();
         RefreshAll();
         GD.Print($"[CollectionUI] 创建新牌组: {name}");
     }
@@ -769,12 +1009,116 @@ public partial class CollectionUI : Control
             return;
         }
 
-        string deckName = deck.Name;
+        if (_hasUnsavedChanges)
+        {
+            ShowUnsavedChangesDialog(
+                onSave: () =>
+                {
+                    if (TrySaveDeck())
+                        DoDeleteDeck(deck.Name);
+                },
+                onDiscard: () => DoDeleteDeck(deck.Name)
+            );
+        }
+        else
+        {
+            DoDeleteDeck(deck.Name);
+        }
+    }
+
+    private void DoDeleteDeck(string deckName)
+    {
         GameManager.Instance.DeleteDeck(GameManager.Instance.ActiveDeckIndex);
         GameManager.Instance.SaveToDisk();
+        CaptureCheckpoint();
         RefreshAll();
         GD.Print($"[CollectionUI] 删除牌组: {deckName}");
     }
+
+    // ===== 保存/撤销/清空按钮 =====
+
+    /// <summary>
+    /// 尝试保存牌组。如果牌组超过上限则弹出警告并返回 false。
+    /// </summary>
+    private bool TrySaveDeck()
+    {
+        var deck = GameManager.Instance.ActiveDeck;
+        if (deck != null && deck.CardCount > Deck.MaxDeckSize)
+        {
+            ShowDeckOverflowDialog();
+            return false;
+        }
+        CaptureCheckpoint();
+        GameManager.Instance.SaveToDisk();
+        return true;
+    }
+
+    /// <summary>
+    /// 牌组超过上限的警告弹窗。
+    /// </summary>
+    private void ShowDeckOverflowDialog()
+    {
+        var dialog = new AcceptDialog
+        {
+            Title = Loc.T("ui.collection.deck_overflow_title", "牌组超过上限"),
+            OkButtonText = Loc.T("ui.common.ok", "确定"),
+            Exclusive = true,
+        };
+        var label = new Label
+        {
+            Text = Loc.T("ui.collection.deck_overflow_message", "牌组超过上限（最多 20 张）。\n请减少卡牌后再保存。"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        label.AddThemeFontSizeOverride("font_size", 14);
+        dialog.AddChild(label);
+        dialog.Confirmed += () => dialog.QueueFree();
+        AddChild(dialog);
+        dialog.PopupCentered();
+    }
+
+    private void OnSavePressed()
+    {
+        if (TrySaveDeck())
+        {
+            ShowNotification(Loc.T("ui.collection.deck_saved", "牌组已保存"));
+            RefreshBottomBar();
+        }
+        GD.Print("[CollectionUI] 牌组保存尝试");
+    }
+
+    private void OnUndoPressed()
+    {
+        RestoreCheckpoint();
+        ShowNotification(Loc.T("ui.collection.changes_undone", "已撤销未保存的更改"));
+    }
+
+    private void OnClearDeckPressed()
+    {
+        var deck = GameManager.Instance.ActiveDeck;
+        if (deck == null || deck.CardCount == 0) return;
+
+        var confirm = new ConfirmationDialog
+        {
+            Title = Loc.T("ui.collection.clear_confirm_title", "确认清空"),
+            DialogText = Loc.T("ui.collection.clear_confirm_message", "确定要清空当前牌组中的所有卡牌吗？"),
+            Exclusive = true,
+        };
+
+        confirm.Confirmed += () =>
+        {
+            deck.Cards.Clear();
+            MarkChanged();
+            RefreshAll();
+            confirm.QueueFree();
+            GD.Print("[CollectionUI] 牌组已清空");
+        };
+        confirm.Canceled += () => confirm.QueueFree();
+
+        AddChild(confirm);
+        confirm.PopupCentered();
+    }
+
+    // ===== 导出/导入 =====
 
     private void OnExportPressed()
     {
@@ -793,6 +1137,29 @@ public partial class CollectionUI : Control
     }
 
     private void OnImportPressed()
+    {
+        if (_hasUnsavedChanges)
+        {
+            ShowUnsavedChangesDialog(
+                onSave: () =>
+                {
+                    if (TrySaveDeck())
+                        OpenImportDialog();
+                },
+                onDiscard: OpenImportDialog,
+                saveLabel: Loc.T("ui.collection.import_warn_save", "保存并导入"),
+                discardLabel: Loc.T("ui.collection.import_warn_discard", "不保存直接导入"),
+                cancelLabel: Loc.T("ui.collection.import_warn_cancel", "取消"),
+                message: Loc.T("ui.collection.import_unsaved_warning", "当前牌组有未保存的更改。\n导入牌组前是否保存当前改动？")
+            );
+        }
+        else
+        {
+            OpenImportDialog();
+        }
+    }
+
+    private void OpenImportDialog()
     {
         _isExportMode = false;
         _fileDialog.Title = Loc.T("ui.collection.import_title", "导入牌组");
@@ -815,7 +1182,7 @@ public partial class CollectionUI : Control
             if (GameManager.Instance.ImportDeck(path))
             {
                 ShowNotification(Loc.T("ui.collection.import_success", "牌组导入成功"));
-                GameManager.Instance.SaveToDisk();
+                CaptureCheckpoint();
                 RefreshAll();
             }
             else
@@ -852,6 +1219,9 @@ public partial class CollectionUI : Control
         _newDeckButton.TooltipText = Loc.T("ui.collection.new_deck", "新建牌组");
         _deleteDeckButton.TooltipText = Loc.T("ui.collection.delete_deck", "删除当前牌组");
         _minCardsWarning.Text = Loc.T("ui.collection.min_cards_warning", "⚠ 牌组不足 10 张卡牌，无法用于战斗");
+        _clearDeckButton.Text = Loc.T("ui.collection.clear_deck", "一键清空卡组");
+        _undoButton.Text = Loc.T("ui.collection.undo", "撤销");
+        _saveButton.Text = Loc.T("ui.collection.save_changes", "保存");
 
         // 刷新 CardGrid（CardGrid 自身有 Refresh 方法处理语言切换）
         _cardGrid.Refresh();
