@@ -72,7 +72,7 @@ public struct EnemyIntent
     /// <summary>召唤物生命值。</summary>
     public int SummonMinionHealth;
 
-    /// <summary>召唤物是否具有冲锋（入场即可攻击）。</summary>
+        /// <summary>召唤物是否具有闪击（入场即可攻击）。</summary>
     public bool SummonMinionHasCharge;
 
     /// <summary>
@@ -84,7 +84,7 @@ public struct EnemyIntent
     /// <param name="summonName">召唤物名称（仅 Summon 意图）</param>
     /// <param name="summonAttack">召唤物攻击力</param>
     /// <param name="summonHealth">召唤物生命值</param>
-    /// <param name="summonHasCharge">召唤物是否有冲锋</param>
+        /// <param name="summonHasCharge">召唤物是否有闪击</param>
     public EnemyIntent(IntentType type, int value, string description,
         string summonName = "", int summonAttack = 0, int summonHealth = 0, bool summonHasCharge = false)
     {
@@ -158,7 +158,7 @@ public struct EnemyIntent
     private readonly string BuildSummonDescription()
     {
         string format = SummonMinionHasCharge
-            ? Localization.Localization.T("intent.summon_charge_format", "召唤 {name} ({atk}/{hp} 冲锋)")
+                ? Localization.Localization.T("intent.summon_charge_format", "召唤 {name} ({atk}/{hp} 闪击)")
             : Localization.Localization.T("intent.summon_format", "召唤 {name} ({atk}/{hp})");
         return format
             .Replace("{name}", SummonMinionName)
@@ -305,18 +305,27 @@ public abstract class EnemyEncounter
 
         if (target is Minion minionTarget)
         {
-            // 敌方英雄攻击玩家随从 → 先对随从造成伤害
+            // 伏击检查：随从有伏击且本回合未消耗时，先手伤害有击杀取消效果
+            bool ambush = minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
+            if (ambush) minionTarget.AmbushUsedThisTurn = true;
+
+            // 先造成反击伤害（正常反击 或 伏击先手）
+            combat.EnemyHero.SuppressWeaponCounter = true;
+            combat.EnemyHero.TakeDamage(minionTarget.Attack, minionTarget);
+            combat.EnemyHero.SuppressWeaponCounter = false;
+            string label = ambush ? "伏击先手" : "反击";
+            GD.Print($"[{Name}] {minionTarget.CardName} {label}，对敌人造成 {minionTarget.Attack} 伤害");
+
+            // 伏击击杀攻击者 → 攻击被取消
+            if (ambush && combat.EnemyHero.IsDead)
+            {
+                GD.Print($"[{Name}] ☠ 被 {minionTarget.CardName} 伏击击杀，攻击被取消");
+                return;
+            }
+
+            // 敌方英雄对随从造成伤害
             minionTarget.TakeDamage(effectiveDmg, null);
             GD.Print($"[{Name}] 攻击 {minionTarget.CardName}，造成 {effectiveDmg} 伤害");
-
-            // 随从存活时反击敌方英雄（随从攻击力 → 敌方英雄）
-            if (!minionTarget.IsDead)
-            {
-                combat.EnemyHero.SuppressWeaponCounter = true;
-                combat.EnemyHero.TakeDamage(minionTarget.Attack, minionTarget);
-                combat.EnemyHero.SuppressWeaponCounter = false;
-                GD.Print($"[{Name}] {minionTarget.CardName} 反击，对敌人造成 {minionTarget.Attack} 伤害");
-            }
         }
         else
         {
@@ -395,7 +404,7 @@ public class SlimeBoss : EnemyEncounter
         : base("史莱姆首领", 40, new EnemyIntent[]
         {
             new(IntentType.Attack, 8, "造成 8 点伤害"),
-            new(IntentType.Summon, 1, "召唤 软泥怪 (1/1 冲锋)",
+            new(IntentType.Summon, 1, "召唤 软泥怪 (1/1 闪击)",
                 summonName: "软泥怪", summonAttack: 1, summonHealth: 1, summonHasCharge: true),
             new(IntentType.Defend, 4, "获得 4 点护甲")
         })
@@ -426,7 +435,7 @@ public class SlimeBoss : EnemyEncounter
     }
 
     /// <summary>
-    /// 尝试在敌方战场召唤一只 1/1 软泥怪随从（冲锋）。
+        /// 尝试在敌方战场召唤一只 1/1 软泥怪随从（闪击）。
     /// 从 .tres 资源加载，与玩家卡牌同源。
     /// 若战场已满则不执行（最佳尝试策略）。
     /// </summary>
