@@ -272,6 +272,7 @@ public partial class CombatManager : Node
         _playerCore.InitializeHealth(player.MaxHealth, player.CurrentHealth);
         _playerCore.SetMana(0, 0);
         PlayerHero = new Hero(_playerCore);
+        PlayerHero.OnAttacked += HandlePlayerHeroAttacked;
 
         Board = new Board();
         State = new GameState();
@@ -771,6 +772,11 @@ public partial class CombatManager : Node
                         GD.PrintErr("[CombatManager]   无法加载计划卡牌资源");
                     }
                 }
+                else if (effect.CustomEffectName == "FlyingAway")
+                {
+                    PlayerHero.GainArmor(effect.Value);
+                    GD.Print($"[CombatManager]   飞远：获得 {effect.Value} 点格挡（护甲）");
+                }
                 else
                 {
                     GD.Print($"[CombatManager]   未处理的Custom效果：{effect.CustomEffectName}");
@@ -782,6 +788,56 @@ public partial class CombatManager : Node
                 GD.Print($"[CombatManager]   未处理的效果类型：{effect.EffectType}（{effect.GetDescription()}）");
                 break;
         }
+    }
+
+    /// <summary>
+    /// 处理玩家英雄被敌方攻击时触发的领域效果。
+    /// </summary>
+    /// <param name="target">被攻击英雄</param>
+    /// <param name="source">攻击来源</param>
+    /// <param name="finalDamage">护甲结算后的实际生命伤害</param>
+    private void HandlePlayerHeroAttacked(Hero target, IDamageSource source, int finalDamage)
+    {
+        if (!ReferenceEquals(target, PlayerHero)) return;
+        if (State.IsPlayerTurn) return;
+
+        bool isEnemyAttackSource = ReferenceEquals(source, EnemyHero)
+            || source is Minion { IsPlayerSide: false };
+        if (!isEnemyAttackSource) return;
+
+        if (!PlayerHero.ActiveDomains.TryGetValue("flying_away", out var domain)) return;
+        if (domain.LastTriggeredTurn == State.TurnCount) return;
+
+        domain.LastTriggeredTurn = State.TurnCount;
+
+        int drawCount = domain.EffectData.SecondaryValue > 0 ? domain.EffectData.SecondaryValue : 2;
+        PlayerHero.DrawCards(drawCount);
+
+        string tokenPath = string.IsNullOrWhiteSpace(domain.EffectData.TargetType)
+            ? "res://Resources/Cards/Spell_Shoushen.tres"
+            : domain.EffectData.TargetType;
+        var tokenData = GD.Load<CardData>(tokenPath);
+        if (tokenData != null)
+        {
+            _playerCore.AddToHand(new OdysseyCards.Card.Card(tokenData));
+            GD.Print($"[CombatManager] ◆ 「飞远」触发：抽 {drawCount} 张牌，将「{tokenData.GetLocalizedName()}」加入手牌");
+        }
+        else
+        {
+            GD.PrintErr($"[CombatManager] ◆ 「飞远」触发失败：无法加载受身卡牌 {tokenPath}");
+        }
+
+        if (domain.StackCount <= 1)
+        {
+            PlayerHero.RemoveDomain("flying_away");
+        }
+        else
+        {
+            domain.StackCount--;
+            GD.Print($"[CombatManager] ◆ 「飞远」剩余 {domain.StackCount} 层");
+        }
+
+        OnCombatStateChanged?.Invoke();
     }
 
     /// <summary>
