@@ -568,7 +568,8 @@ public partial class CombatManager : Node
             unit.Body._damageModifiers.Add(new DamageCapModifier(3));
             GD.Print($"[CombatManager] {unit.Brain.Name} 固璋(3) — 单次伤害上限 3");
         }
-        // 不破(1) 已由 Hero._hasTakenDamageThisTurn + CombatManager.ResetDamageTakenThisTurn 处理
+        // 不破(1)：需在 ApplyEnemyPassives 中设置 unit.Body.HasUnbreakable = true，
+        // 并由 Hero._hasTakenDamageThisTurn 守卫 + StartPlayerTurn/EndPlayerTurn 的 ResetDamageTakenThisTurn 处理
     }
 
     // ===== 战斗开始 =====
@@ -622,6 +623,11 @@ public partial class CombatManager : Node
         PlayerHero.ResetAmbush();
         foreach (var unit in EnemyUnits)
             unit.Body.ResetAmbush();
+
+        // 重置受伤标记（确保上回合武器反击的标记不会跨回合影响新的攻击）
+        PlayerHero.ResetDamageTakenThisTurn();
+        foreach (var unit in EnemyUnits)
+            unit.Body.ResetDamageTakenThisTurn();
 
         // 重置武器攻击次数 + 冷却衰减
         PlayerHero.ResetWeaponAttacks();

@@ -220,10 +220,17 @@ public class Hero : IDamageTarget, IDamageSource
     public event Action<Hero, IDamageSource, int>? OnAttacked;
 
     /// <summary>
-    /// 本回合是否已经受到过 >0 的生命伤害。用于不破（1）等"每回合只能受伤一次"被动。
-    /// 每个玩家回合开始时由 CombatManager 调用 ResetDamageTakenThisTurn() 重置。
+    /// 本回合是否已经受到过 >0 的生命伤害。仅当 <see cref="HasUnbreakable"/> 为 true 时，
+    /// <see cref="TakeDamage(int, IDamageSource?, DamageKind)"/> 才会检查此标记以阻止后续伤害。
     /// </summary>
     internal bool _hasTakenDamageThisTurn;
+
+    /// <summary>
+    /// 是否拥有「不破」被动——每回合只能受到一次生命伤害。
+    /// 设置为 true 时，<see cref="TakeDamage"/> 会在首次伤害后阻止本回合内所有后续伤害。
+    /// 默认 false（无此被动）。
+    /// </summary>
+    public bool HasUnbreakable { get; set; }
 
     /// <summary>
     /// 重置本回合受伤标记（新回合开始时调用）。
@@ -271,8 +278,8 @@ public class Hero : IDamageTarget, IDamageSource
     /// <param name="kind">伤害结算类型</param>
     public void TakeDamage(int baseDamage, IDamageSource? source, DamageKind kind)
     {
-        // 不破（1）检查：本回合已受伤，后续伤害全部归零
-        if (_hasTakenDamageThisTurn)
+        // 不破（1）检查：仅对拥有此被动的角色生效，阻止本回合后续伤害
+        if (_hasTakenDamageThisTurn && HasUnbreakable)
             return;
 
         // Step 1: ALWAYS go through DamageResolver first (Defense modifier applies here)
