@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+Value = 5
+SecondaryValue = 2
+TargetType = "res://Resources/Cards/Spell_Shoushen.tres"
+CustomEffectName = "FlyingAway"
+
+[resource]
+script = ExtResource("1_data")
+Id = "domain_flying_away"
+DomainId = "flying_away"
+CardName = "飞远"
+Description = "领域：获得5点格挡。下一次被敌方随从或英雄攻击时，抽2张牌，将一张「受身」加入手牌。"
+Rarity = 3
+Cost = 4
+Type = 2
+Effects = [SubResource("SubResource_1")]
