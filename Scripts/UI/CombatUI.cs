@@ -113,6 +113,16 @@ public partial class CombatUI : Control
     private Panel _enemyHeroPanel = null!;
 
     /// <summary>
+    /// 玩家英雄交互面板——有可见色块背景的容器。
+    /// </summary>
+    private Panel _playerHeroPanel = null!;
+
+    /// <summary>
+    /// 对己方英雄施法按钮——法术目标选择模式下可见。
+    /// </summary>
+    private Button _playerHeroSpellButton = null!;
+
+    /// <summary>
     /// 抽牌堆按钮——显示当前抽牌堆牌数。
     /// </summary>
     private Button _drawPileBtn = null!;
@@ -351,6 +361,7 @@ public partial class CombatUI : Control
         CreateArmorLabels();
         CreateEndTurnButton();
         CreateEnemyHeroAttackButton();
+        CreatePlayerHeroPanel();
         CreateEnemyIntentLabel();
         CreateDeckButtons();
         CreateWeaponUI();
@@ -917,6 +928,81 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
+    /// 创建玩家英雄交互面板——置于玩家生命值条上方。
+    /// 蓝色边框色块，包含英雄标签和对己方英雄施法按钮。
+    /// 仅在法术目标选择模式且目标过滤允许己方英雄时显示按钮。
+    /// </summary>
+    private void CreatePlayerHeroPanel()
+    {
+        var playerHealthPlaceholder = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
+        if (playerHealthPlaceholder == null) return;
+
+        // 交互面板容器
+        var panelContainer = new CenterContainer
+        {
+            Name = "PlayerHeroPanelContainer",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+
+        // 可见色块面板（蓝色边框）
+        _playerHeroPanel = new Panel
+        {
+            Name = "PlayerHeroPanel",
+            CustomMinimumSize = new Vector2(140, 56),
+        };
+        var panelStyle = new StyleBoxFlat
+        {
+            BgColor = new Color(0.12f, 0.15f, 0.28f, 0.7f),
+            BorderWidthLeft = 2,
+            BorderWidthRight = 2,
+            BorderWidthTop = 2,
+            BorderWidthBottom = 2,
+            BorderColor = new Color(0.25f, 0.5f, 0.9f),
+            CornerRadiusTopLeft = 6,
+            CornerRadiusTopRight = 6,
+            CornerRadiusBottomLeft = 6,
+            CornerRadiusBottomRight = 6,
+        };
+        _playerHeroPanel.AddThemeStyleboxOverride("panel", panelStyle);
+
+        // 面板内部垂直布局
+        var panelContent = new VBoxContainer
+        {
+            Alignment = BoxContainer.AlignmentMode.Center,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        _playerHeroPanel.AddChild(panelContent);
+
+        // 英雄标签
+        var heroLabel = new Label
+        {
+            Name = "PlayerHeroLabel",
+            Text = Localization.Localization.T("ui.combat.player_hero", "我方英雄"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        heroLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.7f, 1f));
+        heroLabel.AddThemeFontSizeOverride("font_size", 16);
+        panelContent.AddChild(heroLabel);
+
+        // 对己方英雄施法按钮（法术目标模式下可见）
+        _playerHeroSpellButton = new Button
+        {
+            Name = "PlayerHeroSpellButton",
+            Text = Localization.Localization.T("ui.combat.spell_player_hero", "✦ 对己方英雄施法"),
+            CustomMinimumSize = new Vector2(140, 30),
+            Visible = false,
+        };
+        _playerHeroSpellButton.AddThemeColorOverride("font_color", new Color(0.5f, 0.7f, 1f));
+        panelContent.AddChild(_playerHeroSpellButton);
+
+        panelContainer.AddChild(_playerHeroPanel);
+        // 插入到 PlayerHealthPlaceholder 的第一个位置（生命值条之上）
+        playerHealthPlaceholder.AddChild(panelContainer);
+        playerHealthPlaceholder.MoveChild(panelContainer, 0);
+    }
+
+    /// <summary>
     /// 创建敌方意图显示标签——置于敌方英雄面板上方。
     /// </summary>
     private void CreateEnemyIntentLabel()
@@ -1199,6 +1285,9 @@ public partial class CombatUI : Control
 
         // 对敌方英雄施法按钮
         _enemyHeroSpellButton.Pressed += OnEnemyHeroSpellTarget;
+
+        // 对己方英雄施法按钮
+        _playerHeroSpellButton.Pressed += OnPlayerHeroSpellTarget;
 
         // 武器攻击按钮
         _weaponAttackButton.Pressed += OnWeaponAttackPressed;
@@ -1744,6 +1833,14 @@ public partial class CombatUI : Control
             return;
         }
 
+        // 检查是否落在己方英雄面板上
+        if (_playerHeroSpellButton.Visible && _playerHeroPanel.GetGlobalRect().HasPoint(screenPos))
+        {
+            GD.Print("[CombatUI] 法术松手位置：己方英雄");
+            OnPlayerHeroSpellTarget();
+            return;
+        }
+
         var hit = _boardUI.GetSlotAtPosition(screenPos);
         if (hit != null)
         {
@@ -1860,46 +1957,55 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
-    /// 进入法术目标选择模式——高亮敌方随从和英雄作为合法目标。
+    /// 进入法术目标选择模式——根据卡牌的 TargetFilter 过滤合法目标。
+    /// 高亮通过子集匹配的敌方/己方随从，显示对应英雄施法按钮。
     /// </summary>
     private void EnterSpellTargetMode(Card.Card card)
     {
         _selectionMode = SelectionMode.TargetingSpell;
         _selectedCard = card;
 
-        // 高亮敌方有随从的槽位
+        var require = card.Data.TargetFilter;
+        var exclude = card.Data.ExcludeFilter;
+
+        // 高亮敌方随从 —— 仅高亮通过 TargetFilter 的目标
         var enemyTargets = new List<int>();
         for (int i = 0; i < Board.MaxSlotsPerSide; i++)
         {
             var m = _combat.Board.GetMinionAt(i, isPlayerSide: false);
-            if (m != null && !m.IsDead)
+            if (m != null && !m.IsDead && TargetTagsHelper.IsValidTarget(m.GetTargetTags(), require, exclude))
             {
                 enemyTargets.Add(i);
             }
         }
-
         _boardUI.HighlightSlots(enemyTargets, isPlayerSide: false, highlight: true);
 
-        // 同时高亮我方随从（治疗/增益类法术目标）
+        // 高亮己方随从 —— 仅高亮通过 TargetFilter 的目标
         var friendlyTargets = new List<int>();
         for (int i = 0; i < Board.MaxSlotsPerSide; i++)
         {
             var m = _combat.Board.GetMinionAt(i, isPlayerSide: true);
-            if (m != null && !m.IsDead)
+            if (m != null && !m.IsDead && TargetTagsHelper.IsValidTarget(m.GetTargetTags(), require, exclude))
             {
                 friendlyTargets.Add(i);
             }
         }
-
         if (friendlyTargets.Count > 0)
         {
             _boardUI.HighlightSlots(friendlyTargets, isPlayerSide: true, highlight: true);
         }
 
         // 高亮敌方英雄作为法术目标
-        _enemyHeroSpellButton.Visible = true;
+        _enemyHeroSpellButton.Visible = TargetTagsHelper.IsValidTarget(
+            _combat.EnemyHero.GetTargetTags(), require, exclude);
 
-        GD.Print($"[CombatUI] 法术目标模式——{_selectedCard.CardName}（可用目标：{enemyTargets.Count + friendlyTargets.Count} + 英雄）");
+        // 高亮己方英雄作为法术目标
+        _playerHeroSpellButton.Visible = TargetTagsHelper.IsValidTarget(
+            _combat.PlayerHero.GetTargetTags(), require, exclude);
+
+        GD.Print($"[CombatUI] 法术目标模式——{_selectedCard.CardName}（require={require} exclude={exclude}，" +
+                  $"敌方随从 {enemyTargets.Count} + 己方随从 {friendlyTargets.Count} + " +
+                  $"{(enemyTargets.Count > 0 || friendlyTargets.Count > 0 ? " + 英雄" : "")}）");
     }
 
     /// <summary>
@@ -2150,6 +2256,24 @@ public partial class CombatUI : Control
 
         GD.Print($"[CombatUI] 对敌方英雄施放 {_selectedCard.CardName}");
         _combat.PlaySpell(_selectedCard, _combat.EnemyHero);
+        RefreshAll();
+    }
+
+    /// <summary>
+    /// 对己方英雄施法按钮点击——执行法术对己方英雄施放。
+    /// </summary>
+    private void OnPlayerHeroSpellTarget()
+    {
+        if (_combat.State.IsGameOver) return;
+
+        if (_selectedCard == null)
+        {
+            GD.PrintErr("[CombatUI] 无法术牌选中");
+            return;
+        }
+
+        GD.Print($"[CombatUI] 对己方英雄施放 {_selectedCard.CardName}");
+        _combat.PlaySpell(_selectedCard, _combat.PlayerHero);
         RefreshAll();
     }
 
@@ -2522,6 +2646,7 @@ public partial class CombatUI : Control
     {
         _boardUI.ClearHighlights();
         _enemyHeroSpellButton.Visible = false;
+        _playerHeroSpellButton.Visible = false;
         _selectionMode = SelectionMode.Normal;
         RefreshAll();
 
@@ -2563,6 +2688,7 @@ public partial class CombatUI : Control
         _boardUI.ClearHighlights();
         _enemyHeroAttackButton.Visible = false;
         _enemyHeroSpellButton.Visible = false;
+        _playerHeroSpellButton.Visible = false;
         _weaponAttackButton.Visible = false;
         _weaponActiveSkillButton.Visible = false;
         _handUI.DeselectCard();

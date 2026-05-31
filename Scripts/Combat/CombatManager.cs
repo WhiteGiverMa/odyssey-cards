@@ -231,7 +231,7 @@ public partial class CombatManager : Node
         var enemyCore = new CommanderCore();
         enemyCore.InitializeHealth(_currentEnemy.MaxHealth, _currentEnemy.CurrentHealth);
         enemyCore.SetMana(0, 0);
-        var enemyHero = new Hero(enemyCore);
+        var enemyHero = new Hero(enemyCore, false);
         GD.Print($"[CombatManager] 敌方已创建 — {_currentEnemy.Name}，{enemyHero.CurrentHealth}/{enemyHero.MaxHealth}HP");
 
         // 5. 初始化战斗管理器（创建 _playerCore、PlayerHero、Board、GameState）
@@ -271,7 +271,7 @@ public partial class CombatManager : Node
         _playerCore.Deck = player.Deck;
         _playerCore.InitializeHealth(player.MaxHealth, player.CurrentHealth);
         _playerCore.SetMana(0, 0);
-        PlayerHero = new Hero(_playerCore);
+        PlayerHero = new Hero(_playerCore, true);
         PlayerHero.OnAttacked += HandlePlayerHeroAttacked;
 
         Board = new Board();
@@ -488,6 +488,13 @@ public partial class CombatManager : Node
         if (!PlayerHero.CanSpendMana(card.Cost))
         {
             GD.PrintErr($"[CombatManager] PlaySpell 失败 — 法力值不足（需 {card.Cost}，现有 {PlayerHero.CurrentMana}）");
+            return false;
+        }
+
+        // 验证：目标合法性（tag 子集匹配）
+        if (!ValidateTarget(card, target))
+        {
+            GD.PrintErr($"[CombatManager] PlaySpell 失败 — 目标不合法（{card.CardName} 的目标过滤：{card.Data.TargetFilter}）");
             return false;
         }
 
@@ -776,6 +783,19 @@ public partial class CombatManager : Node
                 {
                     PlayerHero.GainArmor(effect.Value);
                     GD.Print($"[CombatManager]   飞远：获得 {effect.Value} 点格挡（护甲）");
+                }
+                else if (effect.CustomEffectName == "StripArmor")
+                {
+                    if (target is Hero heroTarget)
+                    {
+                        int armorLost = heroTarget.CurrentArmor;
+                        heroTarget.RemoveArmor();
+                        GD.Print($"[CombatManager]   移除目标所有护甲（失去 {armorLost} 点）");
+                    }
+                    else
+                    {
+                        GD.Print("[CombatManager]   StripArmor 目标无护甲（非英雄单位），无效果");
+                    }
                 }
                 else
                 {
@@ -1792,5 +1812,35 @@ public partial class CombatManager : Node
             (pool[i], pool[j]) = (pool[j], pool[i]);
         }
         return pool.Take(count).ToList();
+    }
+
+    /// <summary>
+    /// 验证目标是否满足卡牌的目标过滤条件。
+    /// 使用子集匹配规则：card.TargetFilter 必须是 entity.GetTargetTags() 的子集。
+    /// TargetFilter 为 None 时放行所有目标。
+    /// </summary>
+    /// <param name="card">要打出的卡牌</param>
+    /// <param name="target">目标实体（Minion 或 Hero）</param>
+    /// <returns>目标合法返回 true</returns>
+    private static bool ValidateTarget(OdysseyCards.Card.Card card, object target)
+    {
+        var require = card.Data.TargetFilter;
+        var exclude = card.Data.ExcludeFilter;
+
+        if (require == TargetTags.None && exclude == TargetTags.None)
+            return true;
+
+        TargetTags entityTags = target switch
+        {
+            Hero hero => hero.GetTargetTags(),
+            Minion minion => minion.GetTargetTags(),
+            _ => TargetTags.None
+        };
+
+        // 如果目标类型无法识别（entityTags 为 None），仅当无过滤条件时才放行
+        if (entityTags == TargetTags.None)
+            return require == TargetTags.None && exclude == TargetTags.None;
+
+        return TargetTagsHelper.IsValidTarget(entityTags, require, exclude);
     }
 }

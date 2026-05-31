@@ -36,6 +36,8 @@ ui:
     enemy_hero: "Enemy Hero"
     attack_enemy_hero: "⚔ Attack Hero"
     spell_enemy_hero: "✦ Cast on Hero"
+    player_hero: "My Hero"
+    spell_player_hero: "✦ Cast on Friendly Hero"
     game_over: "Game Over"
     victory_title: "★ Victory!"
     defeat_title: "☠ Defeat"
@@ -208,10 +210,10 @@ room:
 cards:
   spell_Strike:
     name: "Strike"
-    description: "Deal 3 damage."
+    description: "Deal 3 damage to a target."
   spell_Assault:
     name: "Assault"
-    description: "Rotation\nDeal 2 damage, draw 1 card"
+    description: "Deal 3 damage to an enemy target. Draw 1 card."
   spell_Alert:
     name: "Alert"
     description: "Rotation\nDraw 1 card, friendly HQ +2 HP"
@@ -260,6 +262,9 @@ cards:
   spell_shoushen:
     name: "Body Roll"
     description: "Gain 3 Block. Draw 1 card."
+  spell_Expose:
+    name: "Expose"
+    description: "Remove all Block from a target. Friendly Hero gains 8 Block."
 
 intent:
   attack_format: "Deal {damage} damage to {target}"

@@ -83,6 +83,23 @@ public partial class CardData : Resource, ICardData, ILocalizable
     /// </summary>
     [Export] public bool RequiresTarget { get; set; } = false;
 
+    /// <summary>
+    /// 目标过滤条件（仅当 RequiresTarget=true 时有效）。
+    /// 子集匹配规则：filter 是实体标签的子集即为合法目标。
+    /// None 表示不限制，可对任意目标释放。
+    /// </summary>
+    [Export(PropertyHint.Flags, "Friendly:1,Enemy:2,Hero:4,Minion:8")]
+    public TargetTags TargetFilter { get; set; } = TargetTags.None;
+
+    /// <summary>
+    /// 目标排除条件（仅当 RequiresTarget=true 时有效）。
+    /// 排除规则：同时拥有所有排除标签的实体不可选。
+    /// None 表示不排除任何目标。
+    /// 例：ExcludeFilter=Friendly|Hero 表示"除己方英雄外均可选"。
+    /// </summary>
+    [Export(PropertyHint.Flags, "Friendly:1,Enemy:2,Hero:4,Minion:8")]
+    public TargetTags ExcludeFilter { get; set; } = TargetTags.None;
+
     // ===== 本地化支持 =====
 
     public string LocalizationPrefix => "cards";

@@ -36,6 +36,8 @@ ui:
     enemy_hero: "敌方英雄"
     attack_enemy_hero: "⚔ 攻击敌方英雄"
     spell_enemy_hero: "✦ 对敌方英雄施法"
+    player_hero: "我方英雄"
+    spell_player_hero: "✦ 对己方英雄施法"
     game_over: "游戏结束"
     victory_title: "★ 胜利！"
     defeat_title: "☠ 失败"
@@ -208,10 +210,10 @@ room:
 cards:
   spell_Strike:
     name: "打击"
-    description: "造成 3 点伤害。"
+    description: "对一个目标造成 3 点伤害。"
   spell_Assault:
     name: "出击"
-    description: "轮战\n造成 2 点伤害，抽 1 张牌"
+    description: "对一个敌方目标造成 3 点伤害，抽 1 张牌。"
   spell_Alert:
     name: "警戒"
     description: "轮战\n抽 1 张牌，友方总部获得 +2 生命值"
@@ -260,6 +262,9 @@ cards:
   spell_shoushen:
     name: "受身"
     description: "获得3点格挡，抽1张牌"
+  spell_Expose:
+    name: "暴露"
+    description: "使一个目标失去所有格挡。友方英雄获得 8 点格挡。"
 
 intent:
   attack_format: "对{target}造成 {damage} 点伤害"

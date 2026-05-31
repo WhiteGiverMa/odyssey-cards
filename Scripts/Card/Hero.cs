@@ -111,9 +111,32 @@ public class Hero : IDamageTarget, IDamageSource
     // ===== 英雄独有属性 =====
 
     /// <summary>
+    /// 是否为玩家方英雄。
+    /// </summary>
+    public bool IsPlayerSide { get; }
+
+    /// <summary>
     /// 当前护甲值。护甲在生命值之前吸收伤害。
     /// </summary>
     public int CurrentArmor { get; private set; }
+
+    /// <summary>
+    /// 移除所有护甲（格挡归零）。
+    /// </summary>
+    public void RemoveArmor()
+    {
+        CurrentArmor = 0;
+        GD.Print($"[Hero] 所有护甲已被移除");
+    }
+
+    /// <summary>
+    /// 计算此英雄的目标标签掩码。
+    /// 用于目标选择系统的合法性验证。
+    /// </summary>
+    public TargetTags GetTargetTags()
+    {
+        return (IsPlayerSide ? TargetTags.Friendly : TargetTags.Enemy) | TargetTags.Hero;
+    }
 
     /// <summary>
     /// 防御力。影响受到伤害的数值：最终伤害 = max(0, 基础伤害 - 防御力)。
@@ -202,10 +225,12 @@ public class Hero : IDamageTarget, IDamageSource
     /// 创建英雄实例，包装指定的指挥官核心。
     /// </summary>
     /// <param name="core">指挥官核心，不可为 null</param>
+    /// <param name="isPlayerSide">是否为玩家方英雄</param>
     /// <exception cref="ArgumentNullException">当 core 为 null 时抛出</exception>
-    public Hero(CommanderCore core)
+    public Hero(CommanderCore core, bool isPlayerSide)
     {
         _core = core ?? throw new ArgumentNullException(nameof(core));
+        IsPlayerSide = isPlayerSide;
 
         // 注册防御力修改器
         _damageModifiers.Add(new DefenseModifier(() => Defense));

@@ -83,6 +83,15 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// </summary>
     public bool IsDead => CurrentHealth <= 0;
 
+    /// <summary>
+    /// 计算此随从的目标标签掩码。
+    /// 用于目标选择系统的合法性验证。
+    /// </summary>
+    public TargetTags GetTargetTags()
+    {
+        return (IsPlayerSide ? TargetTags.Friendly : TargetTags.Enemy) | TargetTags.Minion;
+    }
+
     // ===== 关键词属性 =====
 
     /// <summary>

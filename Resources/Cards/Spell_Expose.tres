@@ -5,22 +5,22 @@
 
 [sub_resource type="Resource" id="SubResource_1"]
 script = ExtResource("2_effect")
-EffectType = 0
-Value = 3
+EffectType = 17
+CustomEffectName = "StripArmor"
 
 [sub_resource type="Resource" id="SubResource_2"]
 script = ExtResource("2_effect")
-EffectType = 2
-Value = 1
+EffectType = 12
+Value = 8
 
 [resource]
 script = ExtResource("1_data")
-Id = "spell_Assault"
-CardName = "出击"
-Description = "对一个敌方目标造成3点伤害，抽1张牌"
+Id = "spell_Expose"
+CardName = "暴露"
+Description = "使一个目标失去所有格挡。友方英雄获得8点格挡。"
 Rarity = 0
 Cost = 2
 Type = 1
 RequiresTarget = true
-TargetFilter = 2
+TargetFilter = 0
 Effects = [SubResource("SubResource_1"), SubResource("SubResource_2")]
