@@ -4,7 +4,6 @@ using System.Linq;
 using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Core;
-using OdysseyCards.Localization;
 using OdysseyCards.Character;
 using OdysseyCards.Combat;
 
@@ -637,7 +636,7 @@ public partial class CombatUI : Control
 
         // 敌方生命值条
         _enemyHealthBar = InstantiateHealthBar("EnemyHealthBar");
-        var enemyHealthContainer = GetNode<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
+        var enemyHealthContainer = GetNodeOrNull<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
         if (enemyHealthContainer != null)
         {
             // 生命值前缀标签
@@ -750,7 +749,7 @@ public partial class CombatUI : Control
         _enemyArmorLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.3f));
         _enemyArmorLabel.AddThemeFontSizeOverride("font_size", 14);
 
-        var enemyHealthContainer = GetNode<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
+        var enemyHealthContainer = GetNodeOrNull<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
         enemyHealthContainer?.AddChild(_enemyArmorLabel);
 
         // 玩家防御
@@ -1154,7 +1153,7 @@ public partial class CombatUI : Control
             Name = "EnemyStatusContainer",
             Alignment = BoxContainer.AlignmentMode.Center,
         };
-        var enemyHealthContainer = GetNode<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
+        var enemyHealthContainer = GetNodeOrNull<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
         enemyHealthContainer?.AddChild(_enemyStatusContainer);
     }
 
@@ -1307,11 +1306,20 @@ public partial class CombatUI : Control
             return;
         }
 
+        if (_combat == null)
+        {
+            return;
+        }
+
         // 清理拖拽中的卡牌 UI（含取消事件订阅）
         CleanupDragCard();
 
         _boardUI.RefreshBoard();
-        _boardUI.UpdateActionCostDimming(_combat.PlayerHero.CurrentMana);
+        var playerHero = _combat.PlayerHero;
+        if (playerHero != null)
+        {
+            _boardUI.UpdateActionCostDimming(playerHero.CurrentMana);
+        }
         _handUI.RefreshHand();
         UpdateHealthBars();
         UpdateManaDisplay();

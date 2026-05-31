@@ -191,21 +191,11 @@ public abstract class EnemyEncounter
     public int MaxHealth { get; }
 
     /// <summary>
-    /// 当前生命值。随战斗进程变化。
-    /// </summary>
-    public int CurrentHealth { get; set; }
-
-    /// <summary>
     /// 敌人的攻击力。影响意图造成的伤害——意图伤害 = 意图基础值 + 攻击力。
     /// 攻击力也可被降低（如离子脉冲），攻击力降低会减少意图伤害。
     /// 最小为 0（攻击力为负会减少意图伤害，但不会让意图变为治疗）。
     /// </summary>
     public int Attack { get; set; }
-
-    /// <summary>
-    /// 是否已死亡。
-    /// </summary>
-    public bool IsDead => CurrentHealth <= 0;
 
     // ===== 意图系统 =====
 
@@ -239,7 +229,6 @@ public abstract class EnemyEncounter
     {
         Name = name;
         MaxHealth = maxHealth;
-        CurrentHealth = maxHealth;
         Attack = 0; // 默认无额外攻击力，子类可覆盖
         IntentPattern = intentPattern;
         CurrentPatternIndex = 0;
