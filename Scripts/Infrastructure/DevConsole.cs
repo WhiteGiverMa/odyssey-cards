@@ -365,6 +365,7 @@ public partial class DevConsole : Node
                 WriteLine("  /refresh        — 刷新 UI");
                 WriteLine("  /clear          — 清空输出");
                 WriteLine("  /token <id>     — 将指定ID的卡牌加入手牌");
+                WriteLine("  /play <id>      — 从手牌打出指定ID卡牌（领域/无目标法术）");
                 WriteLine("  /unlock_all     — 解锁全部卡牌（加入收藏）");
                 WriteLine("  /help           — 显示帮助[/color]");
                 break;
@@ -394,6 +395,35 @@ public partial class DevConsole : Node
                 var tokenCard = new OdysseyCards.Card.Card(cardData);
                 cm!.AddCardToHand(tokenCard);
                 WriteLine($"[color=#66ff66]将「{cardData.CardName}」加入手牌（手牌 {cm.PlayerHero.Hand.Count} 张）[/color]");
+                break;
+
+            // ===== 从手牌打出卡牌 =====
+            case "play":
+            case "p":
+                if (parts.Length < 2)
+                {
+                    WriteLine("[color=#ffaa44]用法: /play <card_id>[/color]");
+                    break;
+                }
+                var playId = parts[1];
+                var cardToPlay = cm!.PlayerHero.Hand.FirstOrDefault(c =>
+                    string.Equals(c.Id, playId, StringComparison.OrdinalIgnoreCase));
+                if (cardToPlay == null)
+                {
+                    WriteLine($"[color=#ffaa44]手牌中没有卡牌: {playId}[/color]");
+                    break;
+                }
+
+                bool played = cardToPlay.Type switch
+                {
+                    CardType.Domain => cm.PlayDomain(cardToPlay),
+                    CardType.Spell when !cardToPlay.Data.RequiresTarget => cm.PlaySpell(cardToPlay, cm.PlayerHero),
+                    _ => false
+                };
+
+                WriteLine(played
+                    ? $"[color=#66ff66]打出「{cardToPlay.GetLocalizedName()}」[/color]"
+                    : $"[color=#ffaa44]无法通过 /play 打出「{cardToPlay.GetLocalizedName()}」[/color]");
                 break;
 
             // ===== 清空输出 =====
@@ -490,6 +520,7 @@ public partial class DevConsole : Node
             new DevCommandDef("refresh",      ["r"],      "/refresh",             "刷新 UI",                   null),
             new DevCommandDef("clear",        ["cls"],    "/clear",               "清空输出",                   null),
             new DevCommandDef("token",        ["t"],      "/token <card_id>",     "将指定ID的卡牌加入手牌",        _cardCache.Keys.ToArray()),
+            new DevCommandDef("play",         ["p"],      "/play <card_id>",      "从手牌打出领域/无目标法术",      _cardCache.Keys.ToArray()),
             new DevCommandDef("unlock_all",   [],         "/unlock_all",          "解锁全部卡牌（加入收藏）",     null),
             new DevCommandDef("help",         ["?"],      "/help",                "显示帮助",                   null),
         });
