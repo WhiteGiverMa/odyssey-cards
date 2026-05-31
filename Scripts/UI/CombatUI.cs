@@ -43,9 +43,21 @@ public partial class CombatUI : Control
     private HealthBar _playerHealthBar = null!;
 
     /// <summary>
-    /// 敌方英雄生命值条——左上角。
+    /// 敌方英雄身份卡列表——每张卡包含名字、HP、护甲、防御、武器、意图。
+    /// 索引与 CombatManager.EnemyUnits 对应。
     /// </summary>
+    private readonly List<EnemyIdentityCard> _enemyCards = new();
+
+    // ===== 旧版敌方 UI（向后兼容，逐步替换为 EnemyIdentityCard） =====
     private HealthBar _enemyHealthBar = null!;
+    private Label _enemyArmorLabel = null!;
+    private Label _enemyDefenseLabel = null!;
+    private Button _enemyHeroAttackButton = null!;
+    private Button _enemyHeroSpellButton = null!;
+    private Label _enemyIntentLabel = null!;
+    private Panel _enemyHeroPanel = null!;
+    private Label _enemyWeaponLabel = null!;
+    private HBoxContainer _enemyStatusContainer = null!;
 
     /// <summary>
     /// 玩家法力值显示——底部中央，格式「3/3」。
@@ -63,44 +75,9 @@ public partial class CombatUI : Control
     private Label _playerArmorLabel = null!;
 
     /// <summary>
-    /// 敌方护甲值显示——敌方生命值条旁。
-    /// </summary>
-    private Label _enemyArmorLabel = null!;
-
-    /// <summary>
     /// 玩家防御力显示——生命值条旁，防御 != 0 时可见。
     /// </summary>
     private Label _playerDefenseLabel = null!;
-
-    /// <summary>
-    /// 敌方防御力显示——敌方生命值条旁。
-    /// </summary>
-    private Label _enemyDefenseLabel = null!;
-
-    /// <summary>
-    /// 攻击敌方英雄按钮——攻击目标选择模式下可见。
-    /// </summary>
-    private Button _enemyHeroAttackButton = null!;
-
-    /// <summary>
-    /// 对敌方英雄施法按钮——法术目标选择模式下可见。
-    /// </summary>
-    private Button _enemyHeroSpellButton = null!;
-
-    /// <summary>
-    /// 敌方意图显示标签（首个敌人）。
-    /// </summary>
-    private Label _enemyIntentLabel = null!;
-
-    /// <summary>
-    /// 额外敌人的意图标签列表（索引 1+）。
-    /// </summary>
-    private readonly List<Label> _extraEnemyIntentLabels = new();
-
-    /// <summary>
-    /// 额外敌人的生命值条列表（索引 1+）。
-    /// </summary>
-    private readonly List<HealthBar> _extraEnemyHealthBars = new();
 
     /// <summary>
     /// 暂停按钮——右上角，点击弹出暂停菜单。
@@ -116,11 +93,6 @@ public partial class CombatUI : Control
     /// 暂停菜单是否正在显示。
     /// </summary>
     private bool _isPaused;
-
-    /// <summary>
-    /// 敌方英雄交互面板——有可见色块背景的容器。
-    /// </summary>
-    private Panel _enemyHeroPanel = null!;
 
     /// <summary>
     /// 玩家英雄交互面板——有可见色块背景的容器。
@@ -249,19 +221,9 @@ public partial class CombatUI : Control
     private Button _weaponActiveSkillButton = null!;
 
     /// <summary>
-    /// 敌方武器信息标签。
-    /// </summary>
-    private Label _enemyWeaponLabel = null!;
-
-    /// <summary>
     /// 玩家状态效果图标容器（HBoxContainer）。
     /// </summary>
     private HBoxContainer _playerStatusContainer = null!;
-
-    /// <summary>
-    /// 敌方状态效果图标容器（HBoxContainer）。
-    /// </summary>
-    private HBoxContainer _enemyStatusContainer = null!;
 
     /// <summary>
     /// 播放区域视觉指示器——拖拽无目标卡牌时在屏幕中央显示。
@@ -370,23 +332,16 @@ public partial class CombatUI : Control
         CreateManaLabels();
         CreateArmorLabels();
         CreateEndTurnButton();
-        CreateEnemyHeroAttackButton();
         CreatePlayerHeroPanel();
-        CreateEnemyIntentLabel();
         CreateDeckButtons();
         CreateWeaponUI();
         CreateStatusEffectUI();
+        CreateEnemyCards();
         CreateGameOverPopup();
         CreatePlayZonePanel();
 
         // 订阅事件
         SubscribeEvents();
-
-        // 额外敌人 UI（多敌人战斗时追加）
-        if (_combat.EnemyUnits.Count > 1)
-        {
-            CreateExtraEnemyRows(_combat.EnemyUnits.Count);
-        }
 
         // 首次刷新
         RefreshAll();
@@ -489,34 +444,8 @@ public partial class CombatUI : Control
             Name = "EnemyArea",
             Alignment = BoxContainer.AlignmentMode.Center,
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            CustomMinimumSize = new Vector2(0, 90),
+            CustomMinimumSize = new Vector2(0, 110),
         };
-
-        // 敌方生命值区域（左侧）
-        var enemyHealthContainer = new VBoxContainer
-        {
-            Name = "EnemyHealthContainer",
-            SizeFlagsHorizontal = SizeFlags.ExpandFill,
-        };
-        container.AddChild(enemyHealthContainer);
-        // 生命值条和护甲标签的占位——会在 Initialize 中创建
-
-        // 敌方意图占位（中间）
-        var intentPlaceholder = new CenterContainer
-        {
-            Name = "EnemyIntentPlaceholder",
-            SizeFlagsHorizontal = SizeFlags.Fill,
-            CustomMinimumSize = new Vector2(120, 24),
-        };
-        container.AddChild(intentPlaceholder);
-
-        // 英雄标签占位（右侧）
-        var heroLabelPlaceholder = new CenterContainer
-        {
-            Name = "EnemyHeroLabelPlaceholder",
-            SizeFlagsHorizontal = SizeFlags.ExpandFill,
-        };
-        container.AddChild(heroLabelPlaceholder);
 
         // 暂停按钮（右上角）
         _pauseButton = new Button
@@ -532,6 +461,33 @@ public partial class CombatUI : Control
         container.AddChild(_pauseButton);
 
         return container;
+    }
+
+    /// <summary>
+    /// 为每个敌方单位创建一张 EnemyIdentityCard 并插入到 EnemyArea。
+    /// 在 Initialize 中 _combat 已设置后调用。
+    /// </summary>
+    private void CreateEnemyCards()
+    {
+        var enemyArea = GetNode<HBoxContainer>("CombatRoot/EnemyArea");
+
+        for (int i = 0; i < _combat.EnemyUnits.Count; i++)
+        {
+            var card = new EnemyIdentityCard(i, _combat);
+            _enemyCards.Add(card);
+
+            // 插入到暂停按钮之前
+            int insertIndex = enemyArea.GetChildCount() - 1; // before pause button
+            enemyArea.AddChild(card);
+            enemyArea.MoveChild(card, insertIndex);
+        }
+
+        // 首个敌人的按钮作为向后兼容引用
+        if (_enemyCards.Count > 0)
+        {
+            _enemyHeroAttackButton = _enemyCards[0].AttackButton;
+            _enemyHeroSpellButton = _enemyCards[0].SpellButton;
+        }
     }
 
     /// <summary>
@@ -1387,18 +1343,13 @@ public partial class CombatUI : Control
         // 冻结检查：敌方回合执行动画期间不刷新，防止数值跳变
         if (_combat.IsEnemyTurnAnimating) return;
 
-        var intent = _combat.GetCurrentEnemyIntent();
-        _enemyIntentLabel.Text = intent.GetDisplayDescription(_combat);
+        // 通过卡片刷新所有敌人意图（包括首个和额外）
+        foreach (var card in _enemyCards)
+            card.Refresh(_combat);
 
-        // 额外敌人的意图
-        for (int i = 1; i < _combat.EnemyUnits.Count; i++)
-        {
-            if (i - 1 < _extraEnemyIntentLabels.Count)
-            {
-                var extraIntent = _combat.GetCurrentEnemyIntent(i);
-                _extraEnemyIntentLabels[i - 1].Text = extraIntent.GetDisplayDescription(_combat);
-            }
-        }
+        // 向后兼容：首个敌人意图标签
+        if (_enemyIntentLabel != null && _enemyCards.Count > 0)
+            _enemyIntentLabel.Text = _combat.GetCurrentEnemyIntent().GetDisplayDescription(_combat);
     }
 
     /// <summary>
@@ -1409,73 +1360,7 @@ public partial class CombatUI : Control
         if (_combat == null) return;
 
         _playerHealthBar.UpdateHealth(_combat.PlayerHero.CurrentHealth, _combat.PlayerHero.MaxHealth);
-        _enemyHealthBar.UpdateHealth(_combat.EnemyHero.CurrentHealth, _combat.EnemyHero.MaxHealth);
-
-        // 额外敌人的生命值
-        for (int i = 1; i < _combat.EnemyUnits.Count; i++)
-        {
-            if (i - 1 < _extraEnemyHealthBars.Count)
-            {
-                var body = _combat.EnemyUnits[i].Body;
-                _extraEnemyHealthBars[i - 1].UpdateHealth(body.CurrentHealth, body.MaxHealth);
-            }
-        }
-    }
-
-    /// <summary>
-    /// 为额外敌人（索引 1+）创建紧凑的 UI 行——名称 + HP 条 + 意图。
-    /// </summary>
-    private void CreateExtraEnemyRows(int totalEnemies)
-    {
-        var combatRoot = GetNode<VBoxContainer>("CombatRoot");
-        var enemyArea = GetNode<HBoxContainer>("CombatRoot/EnemyArea");
-
-        for (int i = 1; i < totalEnemies; i++)
-        {
-            var unit = _combat.EnemyUnits[i];
-
-            // 紧凑行：名称 + HP条 + 意图
-            var row = new HBoxContainer
-            {
-                Name = $"ExtraEnemyRow{i}",
-                CustomMinimumSize = new Vector2(0, 24),
-                SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            };
-
-            var nameLabel = new Label
-            {
-                Text = unit.Brain.Name,
-                CustomMinimumSize = new Vector2(50, 0),
-            };
-            nameLabel.AddThemeColorOverride("font_color", new Color(1f, 0.5f, 0.5f));
-            nameLabel.AddThemeFontSizeOverride("font_size", 12);
-            row.AddChild(nameLabel);
-
-            var hpBar = new HealthBar
-            {
-                Name = $"ExtraEnemyHealthBar{i}",
-                CustomMinimumSize = new Vector2(80, 12),
-            };
-            hpBar.UpdateHealth(unit.Body.CurrentHealth, unit.Body.MaxHealth);
-            _extraEnemyHealthBars.Add(hpBar);
-            row.AddChild(hpBar);
-
-            var intentLabel = new Label
-            {
-                Name = $"ExtraEnemyIntentLabel{i}",
-                Text = unit.GetCurrentIntent(_combat).GetDisplayDescription(_combat),
-                CustomMinimumSize = new Vector2(120, 0),
-            };
-            intentLabel.AddThemeColorOverride("font_color", new Color(1f, 0.4f, 0.4f));
-            intentLabel.AddThemeFontSizeOverride("font_size", 12);
-            _extraEnemyIntentLabels.Add(intentLabel);
-            row.AddChild(intentLabel);
-
-            // 插入到 enemyArea 下方
-            int insertIndex = enemyArea.GetIndex() + 1 + (i - 1);
-            combatRoot.AddChild(row);
-            combatRoot.MoveChild(row, insertIndex);
-        }
+        // 敌方 HP 由 EnemyIdentityCard.Refresh 处理
     }
 
     /// <summary>
@@ -1506,12 +1391,13 @@ public partial class CombatUI : Control
             _playerArmorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", playerArmor.ToString());
         }
 
-        // 敌方护甲
-        int enemyArmor = _combat.EnemyHero.CurrentArmor;
-        _enemyArmorLabel.Visible = enemyArmor > 0;
-        if (enemyArmor > 0)
+        // 敌方护甲（已迁移到 EnemyIdentityCard，旧版 UI 跳过）
+        if (_enemyArmorLabel != null)
         {
-            _enemyArmorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", enemyArmor.ToString());
+            int enemyArmor = _combat.EnemyHero.CurrentArmor;
+            _enemyArmorLabel.Visible = enemyArmor > 0;
+            if (enemyArmor > 0)
+                _enemyArmorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", enemyArmor.ToString());
         }
     }
 
@@ -1533,14 +1419,17 @@ public partial class CombatUI : Control
                 playerDef > 0 ? new Color(0.3f, 0.7f, 1f) : new Color(1f, 0.3f, 0.3f));
         }
 
-        // 敌方防御
-        int enemyDef = _combat.EnemyHero.Defense;
-        _enemyDefenseLabel.Visible = enemyDef != 0;
-        if (enemyDef != 0)
+        // 敌方防御（已迁移到 EnemyIdentityCard，旧版 UI 跳过）
+        if (_enemyDefenseLabel != null)
         {
-            _enemyDefenseLabel.Text = Localization.Localization.T("ui.combat.defense_format", "防御: {value}").Replace("{value}", enemyDef >= 0 ? $"+{enemyDef}" : $"{enemyDef}");
-            _enemyDefenseLabel.AddThemeColorOverride("font_color",
-                enemyDef > 0 ? new Color(0.3f, 0.7f, 1f) : new Color(1f, 0.3f, 0.3f));
+            int enemyDef = _combat.EnemyHero.Defense;
+            _enemyDefenseLabel.Visible = enemyDef != 0;
+            if (enemyDef != 0)
+            {
+                _enemyDefenseLabel.Text = Localization.Localization.T("ui.combat.defense_format", "防御: {value}").Replace("{value}", enemyDef >= 0 ? $"+{enemyDef}" : $"{enemyDef}");
+                _enemyDefenseLabel.AddThemeColorOverride("font_color",
+                    enemyDef > 0 ? new Color(0.3f, 0.7f, 1f) : new Color(1f, 0.3f, 0.3f));
+            }
         }
     }
 
@@ -2243,20 +2132,23 @@ public partial class CombatUI : Control
             _weaponInfoLabel.Text = Localization.Localization.T("ui.combat.weapon_none", "无武器");
         }
 
-        // --- 敌方武器 ---
-        var enemyWeapon = _combat.EnemyHero.Weapon;
-        if (enemyWeapon != null)
+        // --- 敌方武器（已迁移到 EnemyIdentityCard） ---
+        if (_enemyWeaponLabel != null)
         {
-            string disabledText = enemyWeapon.IsDisabled ? Localization.Localization.T("ui.combat.disabled_suffix", " [禁用]") : "";
-            string localEnemyWeaponName = !string.IsNullOrEmpty(enemyWeapon.NameKey)
-                ? Localization.Localization.T(enemyWeapon.NameKey, enemyWeapon.Name)
-                : enemyWeapon.Name;
-            _enemyWeaponLabel.Text = Localization.Localization.T("ui.combat.enemy_weapon_format", "武器: {name} {attack}攻{disabled}")
-                .Replace("{name}", localEnemyWeaponName).Replace("{attack}", enemyWeapon.Attack.ToString()).Replace("{disabled}", disabledText);
-        }
-        else
-        {
-            _enemyWeaponLabel.Text = "";
+            var enemyWeapon = _combat.EnemyHero.Weapon;
+            if (enemyWeapon != null)
+            {
+                string disabledText = enemyWeapon.IsDisabled ? Localization.Localization.T("ui.combat.disabled_suffix", " [禁用]") : "";
+                string localEnemyWeaponName = !string.IsNullOrEmpty(enemyWeapon.NameKey)
+                    ? Localization.Localization.T(enemyWeapon.NameKey, enemyWeapon.Name)
+                    : enemyWeapon.Name;
+                _enemyWeaponLabel.Text = Localization.Localization.T("ui.combat.enemy_weapon_format", "武器: {name} {attack}攻{disabled}")
+                    .Replace("{name}", localEnemyWeaponName).Replace("{attack}", enemyWeapon.Attack.ToString()).Replace("{disabled}", disabledText);
+            }
+            else
+            {
+                _enemyWeaponLabel.Text = "";
+            }
         }
     }
 
@@ -2271,8 +2163,11 @@ public partial class CombatUI : Control
         // 清空现有图标
         foreach (var child in _playerStatusContainer.GetChildren())
             child.QueueFree();
-        foreach (var child in _enemyStatusContainer.GetChildren())
-            child.QueueFree();
+        if (_enemyStatusContainer != null)
+        {
+            foreach (var child in _enemyStatusContainer.GetChildren())
+                child.QueueFree();
+        }
 
         // 玩家状态效果
         foreach (var (id, effect) in _combat.PlayerHero.StatusEffects)
@@ -2281,7 +2176,8 @@ public partial class CombatUI : Control
             _playerStatusContainer.AddChild(label);
         }
 
-        // 敌方状态效果
+        // 敌方状态效果（已迁移到 EnemyIdentityCard，旧版 UI 跳过）
+        if (_enemyStatusContainer != null)
         foreach (var (id, effect) in _combat.EnemyHero.StatusEffects)
         {
             var label = CreateStatusIcon(id, effect.Stacks);

@@ -1567,6 +1567,7 @@ public partial class CombatManager : Node
 
         // 状态效果衰减 — 友方回合结束时
         PlayerHero.TickStatusEffects(TickTiming.PlayerTurnEnd);
+        PlayerHero.ResetDamageTakenThisTurn(); // 玩家每回合重置受伤标记
         foreach (var unit in EnemyUnits)
             unit.Body.TickStatusEffects(TickTiming.PlayerTurnEnd);
         // 重置每回合受伤标记（不破等被动用）
