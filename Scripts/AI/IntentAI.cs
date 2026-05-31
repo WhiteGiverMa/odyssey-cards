@@ -255,7 +255,7 @@ public abstract class EnemyEncounter
     /// </summary>
     /// <param name="combat">战斗管理器，提供战场和目标信息</param>
     /// <returns>包含动态选择器的意图结构体</returns>
-    public EnemyIntent GetCurrentIntent(CombatManager combat)
+    public virtual EnemyIntent GetCurrentIntent(CombatManager combat, Hero self)
     {
         var intent = IntentPattern[CurrentPatternIndex];
         if (intent.Type == IntentType.Attack)
@@ -267,7 +267,7 @@ public abstract class EnemyEncounter
             intent.DamageCalc = (c) =>
             {
                 int baseWithAttack = intent.Value + Attack;
-                return DamageResolver.ResolvePreviewDamage(baseWithAttack, null, cachedTarget);
+                return DamageResolver.ResolvePreviewDamage(baseWithAttack, self, cachedTarget);
             };
         }
         return intent;
@@ -292,7 +292,7 @@ public abstract class EnemyEncounter
     /// 将意图索引推进到序列的下一个位置。
     /// 到达序列末尾时循环回到开头。
     /// </summary>
-    public void AdvanceIntent()
+    public virtual void AdvanceIntent()
     {
         _cachedAttackTarget = null;
         CurrentPatternIndex = (CurrentPatternIndex + 1) % IntentPattern.Length;
@@ -305,9 +305,9 @@ public abstract class EnemyEncounter
     /// 集中处理攻击流程，避免各敌人类别重复实现，同时确保反击逻辑一致性。
     /// </summary>
     /// <param name="combat">战斗管理器</param>
-    protected void ExecuteAttackIntent(CombatManager combat)
+    protected void ExecuteAttackIntent(CombatManager combat, Hero self)
     {
-        var intent = GetCurrentIntent(combat);
+        var intent = GetCurrentIntent(combat, self);
         var target = intent.GetTarget(combat);
         int effectiveDmg = intent.GetEffectiveDamage(combat);
 
@@ -318,14 +318,14 @@ public abstract class EnemyEncounter
             if (ambush) minionTarget.AmbushUsedThisTurn = true;
 
             // 先造成反击伤害（正常反击 或 伏击先手）
-            combat.EnemyHero.SuppressWeaponCounter = true;
-            combat.EnemyHero.TakeDamage(minionTarget.Attack, minionTarget);
-            combat.EnemyHero.SuppressWeaponCounter = false;
+            self.SuppressWeaponCounter = true;
+            self.TakeDamage(minionTarget.Attack, minionTarget);
+            self.SuppressWeaponCounter = false;
             string label = ambush ? "伏击先手" : "反击";
             GD.Print($"[{Name}] {minionTarget.CardName} {label}，对敌人造成 {minionTarget.Attack} 伤害");
 
             // 伏击击杀攻击者 → 攻击被取消
-            if (ambush && combat.EnemyHero.IsDead)
+            if (ambush && self.IsDead)
             {
                 GD.Print($"[{Name}] ☠ 被 {minionTarget.CardName} 伏击击杀，攻击被取消");
                 return;
@@ -338,7 +338,7 @@ public abstract class EnemyEncounter
         else
         {
             // 敌方英雄攻击玩家英雄（或其他非随从目标）
-            target?.TakeDamage(effectiveDmg, combat.EnemyHero);
+            target?.TakeDamage(effectiveDmg, self);
         }
     }
 
@@ -350,8 +350,9 @@ public abstract class EnemyEncounter
     /// 调用者应在调用前使用 <see cref="GetCurrentIntent"/> 获取当前意图，
     /// 调用后使用 <see cref="AdvanceIntent"/> 推进到下一意图。
     /// </summary>
-    /// <param name="combat">战斗管理器，提供 PlayerHero、EnemyHero 和 Board 访问</param>
-    public abstract void ExecuteIntent(CombatManager combat);
+    /// <param name="combat">战斗管理器，提供 Board 和 PlayerHero 访问</param>
+    /// <param name="self">执行本意图的所属英雄身体</param>
+    public abstract void ExecuteIntent(CombatManager combat, Hero self);
 }
 
 // ====================================================================
@@ -379,20 +380,20 @@ public class Cultist : EnemyEncounter
     }
 
     /// <inheritdoc />
-    public override void ExecuteIntent(CombatManager combat)
+    public override void ExecuteIntent(CombatManager combat, Hero self)
     {
-        var intent = GetCurrentIntent(combat);
+        var intent = GetCurrentIntent(combat, self);
 
         GD.Print($"[Cultist] 执行意图：{intent.Description}");
 
         switch (intent.Type)
         {
             case IntentType.Attack:
-                ExecuteAttackIntent(combat);
+                ExecuteAttackIntent(combat, self);
                 break;
 
             case IntentType.Defend:
-                combat.EnemyHero.GainArmor(intent.Value);
+                self.GainArmor(intent.Value);
                 break;
         }
     }
@@ -420,16 +421,16 @@ public class SlimeBoss : EnemyEncounter
     }
 
     /// <inheritdoc />
-    public override void ExecuteIntent(CombatManager combat)
+    public override void ExecuteIntent(CombatManager combat, Hero self)
     {
-        var intent = GetCurrentIntent(combat);
+        var intent = GetCurrentIntent(combat, self);
 
         GD.Print($"[SlimeBoss] 执行意图：{intent.Description}");
 
         switch (intent.Type)
         {
             case IntentType.Attack:
-                ExecuteAttackIntent(combat);
+                ExecuteAttackIntent(combat, self);
                 break;
 
             case IntentType.Summon:
@@ -437,7 +438,7 @@ public class SlimeBoss : EnemyEncounter
                 break;
 
             case IntentType.Defend:
-                combat.EnemyHero.GainArmor(intent.Value);
+                self.GainArmor(intent.Value);
                 break;
         }
     }
@@ -497,16 +498,16 @@ public class WolfRider : EnemyEncounter
     }
 
     /// <inheritdoc />
-    public override void ExecuteIntent(CombatManager combat)
+    public override void ExecuteIntent(CombatManager combat, Hero self)
     {
-        var intent = GetCurrentIntent(combat);
+        var intent = GetCurrentIntent(combat, self);
 
         GD.Print($"[WolfRider] 执行意图：{intent.Description}");
 
         switch (intent.Type)
         {
             case IntentType.Attack:
-                ExecuteAttackIntent(combat);
+                ExecuteAttackIntent(combat, self);
                 break;
         }
     }
@@ -533,20 +534,20 @@ public class GuardianBoss : EnemyEncounter
     }
 
     /// <inheritdoc />
-    public override void ExecuteIntent(CombatManager combat)
+    public override void ExecuteIntent(CombatManager combat, Hero self)
     {
-        var intent = GetCurrentIntent(combat);
+        var intent = GetCurrentIntent(combat, self);
 
         GD.Print($"[GuardianBoss] 执行意图：{intent.Description}");
 
         switch (intent.Type)
         {
             case IntentType.Attack:
-                ExecuteAttackIntent(combat);
+                ExecuteAttackIntent(combat, self);
                 break;
 
             case IntentType.Defend:
-                combat.EnemyHero.GainArmor(intent.Value);
+                self.GainArmor(intent.Value);
                 break;
         }
     }

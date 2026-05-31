@@ -51,9 +51,14 @@ public partial class CombatManager : Node
     public Hero PlayerHero { get; private set; }
 
     /// <summary>
-    /// 敌方英雄。
+    /// 敌方英雄（向后兼容单一敌人）。多敌人时返回 EnemyUnits[0].Body。
     /// </summary>
-    public Hero EnemyHero { get; private set; }
+    public Hero EnemyHero => EnemyUnits[0].Body;
+
+    /// <summary>
+    /// 所有敌方战斗单位列表。每个 EnemyUnit 包含一个 Hero 身体和一个 EnemyEncounter 大脑。
+    /// </summary>
+    public IReadOnlyList<EnemyUnit> EnemyUnits { get; private set; } = new List<EnemyUnit>();
 
     /// <summary>
     /// 武器主动技能的目标。IonPulse 等需要选择目标的主动技能在 Execute 时读取此属性。
@@ -67,9 +72,9 @@ public partial class CombatManager : Node
     public Player Player { get; private set; }
 
     /// <summary>
-    /// 当前敌方 AI 遭遇实例。
+    /// 当前敌方 AI 遭遇实例（向后兼容单一敌人）。
     /// </summary>
-    private EnemyEncounter _currentEnemy = null!;
+    private EnemyEncounter _currentEnemy => EnemyUnits[0].Brain;
 
     /// <summary>
     /// 敌方意图变化事件（参数为意图描述文本）。
@@ -93,9 +98,12 @@ public partial class CombatManager : Node
     /// UI 在 <see cref="OnCombatStateChanged"/> 触发时调用此方法刷新显示。
     /// </summary>
     /// <returns>包含动态 TargetSelector 和 DamageCalc 的意图结构体</returns>
-    public EnemyIntent GetCurrentEnemyIntent()
+    /// <summary>
+    /// 获取指定敌方单位的当前意图。
+    /// </summary>
+    public EnemyIntent GetCurrentEnemyIntent(int enemyIndex = 0)
     {
-        return _currentEnemy.GetCurrentIntent(this);
+        return EnemyUnits[enemyIndex].GetCurrentIntent(this);
     }
 
     // ===== 随从攻击追踪 =====
@@ -213,29 +221,37 @@ public partial class CombatManager : Node
         }
         GD.Print($"[CombatManager] 牌堆有 {player.Deck.CardCount} 张牌");
 
-        // 4. 创建敌方英雄和 AI 遭遇（从 GameRunState 读取遭遇类型）
+        // 4. 创建敌方英雄和 AI 遭遇（从 GameRunState 读取遭遇列表）
         var runState = gm.RunState;
+        IReadOnlyList<EnemyEncounter> encounters;
         if (runState != null && runState.SelectedRoom != null &&
             runState.SelectedRoom.Type is RoomType.Monster or RoomType.Elite or RoomType.Boss)
         {
-            _currentEnemy = runState.CreateEncounter();
-            GD.Print($"[CombatManager] 从 RunState 读取敌人 — {_currentEnemy.Name}（{runState.SelectedRoom.Type}）");
+            encounters = runState.CreateEncounters();
+            GD.Print($"[CombatManager] 从 RunState 读取 {encounters.Count} 个敌人 — {string.Join(", ", encounters.Select(e => e.Name))}" +
+                      $"（{runState.SelectedRoom.Type}）");
         }
         else
         {
             // 回退：如果没有运行状态（例如直接从 Combat.tscn 启动），使用默认邪教徒
-            _currentEnemy = new Cultist();
-            GD.Print($"[CombatManager] 回退使用默认敌人 — {_currentEnemy.Name}");
+            encounters = new[] { new Cultist() };
+            GD.Print("[CombatManager] 回退使用默认敌人 — 邪教徒");
         }
 
-        var enemyCore = new CommanderCore();
-        enemyCore.InitializeHealth(_currentEnemy.MaxHealth, _currentEnemy.CurrentHealth);
-        enemyCore.SetMana(0, 0);
-        var enemyHero = new Hero(enemyCore, false);
-        GD.Print($"[CombatManager] 敌方已创建 — {_currentEnemy.Name}，{enemyHero.CurrentHealth}/{enemyHero.MaxHealth}HP");
+        // 为每个 EnemyEncounter 创建对应的 Hero + EnemyUnit
+        var enemyUnits = new List<EnemyUnit>();
+        foreach (var enc in encounters)
+        {
+            var enemyCore = new CommanderCore();
+            enemyCore.InitializeHealth(enc.MaxHealth, enc.CurrentHealth);
+            enemyCore.SetMana(0, 0);
+            var enemyHero = new Hero(enemyCore, false);
+            enemyUnits.Add(new EnemyUnit(enemyHero, enc));
+            GD.Print($"[CombatManager] 敌方已创建 — {enc.Name}，{enemyHero.CurrentHealth}/{enemyHero.MaxHealth}HP");
+        }
 
         // 5. 初始化战斗管理器（创建 _playerCore、PlayerHero、Board、GameState）
-        Initialize(player, enemyHero);
+        Initialize(player, enemyUnits);
 
         // 6. 获取 CombatUI 并初始化
         var combatUI = GetNode<CombatUI>("CanvasLayer/CombatUI");
@@ -256,15 +272,17 @@ public partial class CombatManager : Node
 
     /// <summary>
     /// 初始化战斗管理器。
-    /// 创建战场和游戏状态，构建玩家英雄包装，存储敌方英雄引用。
+    /// 创建战场和游戏状态，构建玩家英雄包装，存储敌方战斗单位引用。
     /// </summary>
     /// <param name="player">玩家角色（Godot Node）</param>
-    /// <param name="enemyHero">敌方英雄实例</param>
-    /// <exception cref="ArgumentNullException">当 player 或 enemyHero 为 null 时抛出</exception>
-    public void Initialize(Player player, Hero enemyHero)
+    /// <param name="enemyUnits">敌方战斗单位列表（1..N 个）</param>
+    /// <exception cref="ArgumentNullException">当 player 或 enemyUnits 为 null/空时抛出</exception>
+    public void Initialize(Player player, IReadOnlyList<EnemyUnit> enemyUnits)
     {
         Player = player ?? throw new ArgumentNullException(nameof(player));
-        EnemyHero = enemyHero ?? throw new ArgumentNullException(nameof(enemyHero));
+        if (enemyUnits == null || enemyUnits.Count == 0)
+            throw new ArgumentNullException(nameof(enemyUnits));
+        EnemyUnits = enemyUnits;
 
         // 创建玩家英雄专用的 CommanderCore，共享牌堆定义
         _playerCore = new CommanderCore();
@@ -286,15 +304,19 @@ public partial class CombatManager : Node
 
         // 装配默认武器
         PlayerHero.Weapon = new IonPistol();
-        EnemyHero.Weapon = new RollingLog();
-        GD.Print($"[CombatManager] 玩家武器：{PlayerHero.Weapon.Name}（{PlayerHero.Weapon.Attack}攻/{PlayerHero.Weapon.AttackCost}费），" +
-                  $"敌方武器：{EnemyHero.Weapon.Name}（{EnemyHero.Weapon.Attack}攻）");
+        foreach (var unit in EnemyUnits)
+        {
+            unit.Body.Weapon = new RollingLog();
+            GD.Print($"[CombatManager] {unit.Brain.Name} 武器：{unit.Body.Weapon.Name}" +
+                      $"（{unit.Body.Weapon.Attack}攻）");
 
-        // 同步敌人攻击力到意图系统
-        _currentEnemy.Attack = EnemyHero.Weapon?.Attack ?? 0;
+            // 同步敌人攻击力到意图系统
+            unit.Brain.Attack = unit.Body.Weapon?.Attack ?? 0;
+        }
 
         GD.Print($"[CombatManager] 初始化完成 — 玩家 {PlayerHero.CurrentHealth}/{PlayerHero.MaxHealth}，" +
-                  $"敌方 {EnemyHero.CurrentHealth}/{EnemyHero.MaxHealth}");
+                  $"敌方 {EnemyUnits.Count} 个单位：" +
+                  string.Join(", ", EnemyUnits.Select(u => $"{u.Brain.Name} {u.Body.CurrentHealth}/{u.Body.MaxHealth}")));
     }
 
     // ===== 战斗开始 =====
@@ -346,7 +368,8 @@ public partial class CombatManager : Node
         foreach (var minion in Board.GetEnemyMinions())
             minion.ResetAmbush();
         PlayerHero.ResetAmbush();
-        EnemyHero.ResetAmbush();
+        foreach (var unit in EnemyUnits)
+            unit.Body.ResetAmbush();
 
         // 重置武器攻击次数 + 冷却衰减
         PlayerHero.ResetWeaponAttacks();
@@ -1455,7 +1478,7 @@ public partial class CombatManager : Node
 
     /// <summary>
     /// 检查是否达成胜利或失败条件。
-    /// 敌方英雄死亡 → 胜利；玩家英雄死亡 → 失败。
+    /// 所有敌方英雄死亡 → 胜利；玩家英雄死亡 → 失败。
     /// </summary>
     /// <returns>游戏结束返回 true</returns>
     internal bool CheckVictoryOrDefeat()
@@ -1463,9 +1486,10 @@ public partial class CombatManager : Node
         if (State.IsGameOver)
             return true;
 
-        if (EnemyHero.IsDead)
+        // 胜利 = 所有敌方英雄均已死亡
+        if (EnemyUnits.All(u => u.Body.IsDead))
         {
-            GD.Print("[CombatManager] ★★★ 敌方英雄被击败 — 玩家胜利！★★★");
+            GD.Print("[CombatManager] ★★★ 敌方全部被击败 — 玩家胜利！★★★");
 
             // 跨战斗保存玩家生命值（持久化到 GameManager）
             var gm = GameManager.Instance;
@@ -1520,7 +1544,11 @@ public partial class CombatManager : Node
 
         // 状态效果衰减 — 友方回合结束时
         PlayerHero.TickStatusEffects(TickTiming.PlayerTurnEnd);
-        EnemyHero.TickStatusEffects(TickTiming.PlayerTurnEnd);
+        foreach (var unit in EnemyUnits)
+            unit.Body.TickStatusEffects(TickTiming.PlayerTurnEnd);
+        // 重置每回合受伤标记（不破等被动用）
+        foreach (var unit in EnemyUnits)
+            unit.Body.ResetDamageTakenThisTurn();
 
         // Minion 状态效果衰减 — 友方回合结束时
         foreach (var minion in Board.GetPlayerMinions())
@@ -1530,7 +1558,7 @@ public partial class CombatManager : Node
 
         // 切换到敌方回合
         State.EndPlayerTurn();
-        GD.Print($"[CombatManager] ---------- 敌方回合开始（{_currentEnemy.Name}）----------");
+        GD.Print($"[CombatManager] ---------- 敌方回合开始（{EnemyUnits.Count} 个敌人）----------");
 
         // 执行敌方回合
         ExecuteEnemyTurn();
@@ -1546,7 +1574,7 @@ public partial class CombatManager : Node
     }
 
     /// <summary>
-    /// 执行敌方 AI 回合：执行当前意图 → 推进意图轮转 → 敌方随从攻击 → 死亡检查 → 胜负判定。
+    /// 执行敌方 AI 回合：依次执行每个敌人的意图 → 推进意图轮转 → 敌方随从攻击 → 死亡检查 → 胜负判定。
     /// 执行期间冻结意图 UI 刷新（_isEnemyTurnAnimating），防止动画中数值跳变。
     /// </summary>
     private void ExecuteEnemyTurn()
@@ -1561,14 +1589,28 @@ public partial class CombatManager : Node
             if (!m.IsDead) _enemyMinionsCanAttack.Add(m);
         }
 
-        // 1. 执行敌方当前意图（攻击/防御/召唤等）——使用动态目标选择
-        // 同步敌方攻击力到意图系统（考虑武器禁用等状态）
-        _currentEnemy.Attack = EnemyHero.Weapon is { IsDisabled: false } ? EnemyHero.Weapon.Attack : 0;
-        _currentEnemy.ExecuteIntent(this);
+        // 1. 依次执行每个敌人的当前意图（攻击/防御/召唤等）——使用动态目标选择
+        foreach (var unit in EnemyUnits)
+        {
+            // 跳过已死亡的敌人
+            if (unit.Body.IsDead) continue;
 
-        // 2. 推进到下一意图
-        _currentEnemy.AdvanceIntent();
-        GD.Print($"[CombatManager] 敌方下回合意图：{_currentEnemy.GetCurrentIntent(this).Description}");
+            // 同步敌方攻击力到意图系统（考虑武器禁用等状态）
+            unit.Brain.Attack = unit.Body.Weapon is { IsDisabled: false } ? unit.Body.Weapon.Attack : 0;
+            unit.Brain.ExecuteIntent(this, unit.Body);
+
+            // 2. 推进到下一意图
+            unit.Brain.AdvanceIntent();
+            GD.Print($"[CombatManager] {unit.Brain.Name} 下回合意图：{unit.Brain.GetCurrentIntent(this, unit.Body).Description}");
+
+            // 每次执行后检查死亡（攻击意图可能杀死敌人自身或玩家）
+            CheckDeaths();
+            if (CheckVictoryOrDefeat())
+            {
+                _isEnemyTurnAnimating = false;
+                return;
+            }
+        }
 
         // 3. 敌方随从攻击
         EnemyMinionsAttack();
@@ -1584,7 +1626,8 @@ public partial class CombatManager : Node
 
         // 7. 状态效果衰减 — 敌方回合结束时（武器禁用等 debuff 在此触发）
         PlayerHero.TickStatusEffects(TickTiming.EnemyTurnEnd);
-        EnemyHero.TickStatusEffects(TickTiming.EnemyTurnEnd);
+        foreach (var unit in EnemyUnits)
+            unit.Body.TickStatusEffects(TickTiming.EnemyTurnEnd);
 
         // Minion 状态效果衰减 — 敌方回合结束时
         foreach (var minion in Board.GetPlayerMinions())

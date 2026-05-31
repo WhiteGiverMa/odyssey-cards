@@ -219,6 +219,20 @@ public class Hero : IDamageTarget, IDamageSource
     /// </summary>
     public event Action<Hero, IDamageSource, int>? OnAttacked;
 
+    /// <summary>
+    /// 本回合是否已经受到过 >0 的生命伤害。用于不破（1）等"每回合只能受伤一次"被动。
+    /// 每个玩家回合开始时由 CombatManager 调用 ResetDamageTakenThisTurn() 重置。
+    /// </summary>
+    internal bool _hasTakenDamageThisTurn;
+
+    /// <summary>
+    /// 重置本回合受伤标记（新回合开始时调用）。
+    /// </summary>
+    internal void ResetDamageTakenThisTurn()
+    {
+        _hasTakenDamageThisTurn = false;
+    }
+
     // ===== 构造函数 =====
 
     /// <summary>
@@ -257,6 +271,10 @@ public class Hero : IDamageTarget, IDamageSource
     /// <param name="kind">伤害结算类型</param>
     public void TakeDamage(int baseDamage, IDamageSource? source, DamageKind kind)
     {
+        // 不破（1）检查：本回合已受伤，后续伤害全部归零
+        if (_hasTakenDamageThisTurn)
+            return;
+
         // Step 1: ALWAYS go through DamageResolver first (Defense modifier applies here)
         int resolvedDamage = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
 
@@ -277,6 +295,9 @@ public class Hero : IDamageTarget, IDamageSource
         }
 
         ApplyDamage(resolvedDamage, source);
+
+        // 不破（1）：生命伤害 > 0 时，标记本回合已受伤
+        _hasTakenDamageThisTurn = true;
 
         // Step 3: Attack-only side effects after damage is settled.
         ResolveAttackSideEffects(source, kind, resolvedDamage);

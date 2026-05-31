@@ -1,6 +1,7 @@
 using Godot;
 using OdysseyCards.AI;
 using System;
+using System.Collections.Generic;
 
 namespace OdysseyCards.Roguelike;
 
@@ -197,25 +198,30 @@ public class GameRunState
     // ===== 遭遇路由 =====
 
     /// <summary>
-    /// 根据当前选中的房间类型，确定应该使用哪个敌人 AI。
-    /// 纯逻辑方法，不创建实例——返回类型信息供 CombatManager 使用。
+    /// 根据当前选中的房间类型，确定应该使用哪些敌人 AI。
+    /// 返回列表以支持多敌人战斗（精英房间可返回 2 个敌人）。
     /// </summary>
-    /// <returns>敌人遭遇实例。</returns>
+    /// <returns>敌人遭遇实例列表。</returns>
     /// <exception cref="InvalidOperationException">当房间类型不是战斗房间时抛出。</exception>
-    public EnemyEncounter CreateEncounter()
+    public IReadOnlyList<EnemyEncounter> CreateEncounters()
     {
         if (SelectedRoom == null)
             throw new InvalidOperationException("没有选中的房间，无法确定敌人");
 
         return SelectedRoom.Type switch
         {
-            RoomType.Monster => CreateMonsterEncounter(),
-            RoomType.Elite => CreateEliteEncounter(),
-            RoomType.Boss => CreateBossEncounter(),
+            RoomType.Monster => new EnemyEncounter[] { CreateMonsterEncounter() },
+            RoomType.Elite => CreateEliteEncounters(),
+            RoomType.Boss => new EnemyEncounter[] { CreateBossEncounter() },
             _ => throw new InvalidOperationException(
                 $"房间类型 {SelectedRoom.Type} 不是战斗房间，无法创建敌人")
         };
     }
+
+    /// <summary>
+    /// 创建单个敌人遭遇（向后兼容）。
+    /// </summary>
+    public EnemyEncounter CreateEncounter() => CreateEncounters()[0];
 
     /// <summary>
     /// 创建普通怪物遭遇。
@@ -233,11 +239,11 @@ public class GameRunState
     }
 
     /// <summary>
-    /// 创建精英怪物遭遇。
+    /// 创建精英怪物遭遇列表——张郎 & 珊胡双敌人战。
     /// </summary>
-    private static EnemyEncounter CreateEliteEncounter()
+    private static IReadOnlyList<EnemyEncounter> CreateEliteEncounters()
     {
-        return new SlimeBoss();
+        return new EnemyEncounter[] { new ZhangLang(), new ShanHu() };
     }
 
     /// <summary>

@@ -22,7 +22,7 @@ public class Weapon
     /// <summary>
     /// 基础攻击力。使用武器攻击时造成的基础伤害值。
     /// </summary>
-    public int Attack { get; }
+    public int Attack { get; internal set; }
 
     /// <summary>
     /// 使用武器攻击消耗的法力水晶数量。

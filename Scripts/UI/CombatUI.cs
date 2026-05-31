@@ -88,9 +88,19 @@ public partial class CombatUI : Control
     private Button _enemyHeroSpellButton = null!;
 
     /// <summary>
-    /// 敌方意图显示标签。
+    /// 敌方意图显示标签（首个敌人）。
     /// </summary>
     private Label _enemyIntentLabel = null!;
+
+    /// <summary>
+    /// 额外敌人的意图标签列表（索引 1+）。
+    /// </summary>
+    private readonly List<Label> _extraEnemyIntentLabels = new();
+
+    /// <summary>
+    /// 额外敌人的生命值条列表（索引 1+）。
+    /// </summary>
+    private readonly List<HealthBar> _extraEnemyHealthBars = new();
 
     /// <summary>
     /// 暂停按钮——右上角，点击弹出暂停菜单。
@@ -371,6 +381,12 @@ public partial class CombatUI : Control
 
         // 订阅事件
         SubscribeEvents();
+
+        // 额外敌人 UI（多敌人战斗时追加）
+        if (_combat.EnemyUnits.Count > 1)
+        {
+            CreateExtraEnemyRows(_combat.EnemyUnits.Count);
+        }
 
         // 首次刷新
         RefreshAll();
@@ -1373,6 +1389,16 @@ public partial class CombatUI : Control
 
         var intent = _combat.GetCurrentEnemyIntent();
         _enemyIntentLabel.Text = intent.GetDisplayDescription(_combat);
+
+        // 额外敌人的意图
+        for (int i = 1; i < _combat.EnemyUnits.Count; i++)
+        {
+            if (i - 1 < _extraEnemyIntentLabels.Count)
+            {
+                var extraIntent = _combat.GetCurrentEnemyIntent(i);
+                _extraEnemyIntentLabels[i - 1].Text = extraIntent.GetDisplayDescription(_combat);
+            }
+        }
     }
 
     /// <summary>
@@ -1384,6 +1410,72 @@ public partial class CombatUI : Control
 
         _playerHealthBar.UpdateHealth(_combat.PlayerHero.CurrentHealth, _combat.PlayerHero.MaxHealth);
         _enemyHealthBar.UpdateHealth(_combat.EnemyHero.CurrentHealth, _combat.EnemyHero.MaxHealth);
+
+        // 额外敌人的生命值
+        for (int i = 1; i < _combat.EnemyUnits.Count; i++)
+        {
+            if (i - 1 < _extraEnemyHealthBars.Count)
+            {
+                var body = _combat.EnemyUnits[i].Body;
+                _extraEnemyHealthBars[i - 1].UpdateHealth(body.CurrentHealth, body.MaxHealth);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 为额外敌人（索引 1+）创建紧凑的 UI 行——名称 + HP 条 + 意图。
+    /// </summary>
+    private void CreateExtraEnemyRows(int totalEnemies)
+    {
+        var combatRoot = GetNode<VBoxContainer>("CombatRoot");
+        var enemyArea = GetNode<HBoxContainer>("CombatRoot/EnemyArea");
+
+        for (int i = 1; i < totalEnemies; i++)
+        {
+            var unit = _combat.EnemyUnits[i];
+
+            // 紧凑行：名称 + HP条 + 意图
+            var row = new HBoxContainer
+            {
+                Name = $"ExtraEnemyRow{i}",
+                CustomMinimumSize = new Vector2(0, 24),
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            };
+
+            var nameLabel = new Label
+            {
+                Text = unit.Brain.Name,
+                CustomMinimumSize = new Vector2(50, 0),
+            };
+            nameLabel.AddThemeColorOverride("font_color", new Color(1f, 0.5f, 0.5f));
+            nameLabel.AddThemeFontSizeOverride("font_size", 12);
+            row.AddChild(nameLabel);
+
+            var hpBar = new HealthBar
+            {
+                Name = $"ExtraEnemyHealthBar{i}",
+                CustomMinimumSize = new Vector2(80, 12),
+            };
+            hpBar.UpdateHealth(unit.Body.CurrentHealth, unit.Body.MaxHealth);
+            _extraEnemyHealthBars.Add(hpBar);
+            row.AddChild(hpBar);
+
+            var intentLabel = new Label
+            {
+                Name = $"ExtraEnemyIntentLabel{i}",
+                Text = unit.GetCurrentIntent(_combat).GetDisplayDescription(_combat),
+                CustomMinimumSize = new Vector2(120, 0),
+            };
+            intentLabel.AddThemeColorOverride("font_color", new Color(1f, 0.4f, 0.4f));
+            intentLabel.AddThemeFontSizeOverride("font_size", 12);
+            _extraEnemyIntentLabels.Add(intentLabel);
+            row.AddChild(intentLabel);
+
+            // 插入到 enemyArea 下方
+            int insertIndex = enemyArea.GetIndex() + 1 + (i - 1);
+            combatRoot.AddChild(row);
+            combatRoot.MoveChild(row, insertIndex);
+        }
     }
 
     /// <summary>
