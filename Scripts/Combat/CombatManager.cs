@@ -166,6 +166,13 @@ public partial class CombatManager : Node
     /// </summary>
     private Card.Card? _pendingDiscoverSpellCard;
 
+    // ===== 效果处理器 =====
+
+    /// <summary>
+    /// 效果类型到处理器的映射字典。在 <see cref="InitializeEffectHandlers"/> 中填充。
+    /// </summary>
+    private Dictionary<CardEffectType, Action<CardEffectData, object, IDamageSource?>> _effectHandlers = null!;
+
     // ===== Godot 生命周期 =====
 
     /// <summary>
@@ -248,7 +255,7 @@ public partial class CombatManager : Node
         foreach (var enc in encounters)
         {
             var enemyCore = new CommanderCore();
-            enemyCore.InitializeHealth(enc.MaxHealth, enc.CurrentHealth);
+            enemyCore.InitializeHealth(enc.MaxHealth, enc.MaxHealth);
             enemyCore.SetMana(0, 0);
             var enemyHero = new Hero(enemyCore, false);
             var unit = new EnemyUnit(enemyHero, enc);
@@ -261,6 +268,9 @@ public partial class CombatManager : Node
 
         // 5. 初始化战斗管理器（创建 _playerCore、PlayerHero、Board、GameState）
         Initialize(player, enemyUnits);
+
+        // 5.5. 初始化效果处理器字典
+        InitializeEffectHandlers();
 
         // 6. 获取 CombatUI 并初始化
         var combatUI = GetNode<CombatUI>("CanvasLayer/CombatUI");
@@ -326,6 +336,225 @@ public partial class CombatManager : Node
         GD.Print($"[CombatManager] 初始化完成 — 玩家 {PlayerHero.CurrentHealth}/{PlayerHero.MaxHealth}，" +
                   $"敌方 {EnemyUnits.Count} 个单位：" +
                   string.Join(", ", EnemyUnits.Select(u => $"{u.Brain.Name} {u.Body.CurrentHealth}/{u.Body.MaxHealth}")));
+    }
+
+    /// <summary>
+    /// 初始化效果处理器字典。在各 Wave 迁移中逐步填充。
+    /// </summary>
+    private void InitializeEffectHandlers()
+    {
+        _effectHandlers = new Dictionary<CardEffectType, Action<CardEffectData, object, IDamageSource?>>();
+
+        // Wave 2: 伤害类型
+        _effectHandlers[CardEffectType.Damage] = HandleDamage;
+        _effectHandlers[CardEffectType.DealDamageToTarget] = HandleDamage;
+        _effectHandlers[CardEffectType.DealDamageToEnemyHero] = HandleDealDamageToEnemyHero;
+        _effectHandlers[CardEffectType.DealDamageToFriendlyHero] = HandleDealDamageToFriendlyHero;
+        _effectHandlers[CardEffectType.DealDamageToAllEnemies] = HandleDealDamageToAllEnemies;
+        _effectHandlers[CardEffectType.DrawCards] = HandleDrawCards;
+        _effectHandlers[CardEffectType.Heal] = HandleHeal;
+        _effectHandlers[CardEffectType.RestoreHealth] = HandleHeal;
+        _effectHandlers[CardEffectType.GainArmor] = HandleGainArmor;
+        _effectHandlers[CardEffectType.GainMaxHealth] = HandleGainMaxHealth;
+        _effectHandlers[CardEffectType.SummonMinion] = HandleSummonMinion;
+        _effectHandlers[CardEffectType.BuffMinion] = HandleBuffMinion;
+        _effectHandlers[CardEffectType.GainManaSlot] = HandleGainManaSlot;
+        _effectHandlers[CardEffectType.RemoveNaturalManaCap] = HandleRemoveNaturalManaCap;
+        _effectHandlers[CardEffectType.Discover] = HandleDiscoverEffectDispatch;
+        _effectHandlers[CardEffectType.Custom] = HandleCustomEffect;
+    }
+
+    // ===== 效果处理器 (Effect Handlers) =====
+
+    /// <summary>
+    /// 对目标（随从或英雄）造成效果伤害。
+    /// </summary>
+    private void HandleDamage(CardEffectData effect, object target, IDamageSource? source)
+    {
+        if (target is Minion minionTarget)
+        {
+            minionTarget.TakeDamage(effect.Value, source, DamageKind.Effect);
+            GD.Print($"[CombatManager]   对 {minionTarget.CardName} 造成 {effect.Value} 点伤害");
+        }
+        else if (target is Hero heroTarget)
+        {
+            heroTarget.TakeDamage(effect.Value, source, DamageKind.Effect);
+            GD.Print($"[CombatManager]   对英雄造成 {effect.Value} 点伤害");
+        }
+        else
+        {
+            GD.PrintErr("[CombatManager]   目标类型不支持伤害");
+        }
+    }
+
+    /// <summary>
+    /// 对敌方英雄造成效果伤害。
+    /// </summary>
+    private void HandleDealDamageToEnemyHero(CardEffectData effect, object target, IDamageSource? source)
+    {
+        EnemyHero.TakeDamage(effect.Value, source, DamageKind.Effect);
+        GD.Print($"[CombatManager]   对敌方英雄造成 {effect.Value} 点伤害（剩余 {EnemyHero.CurrentHealth}）");
+    }
+
+    /// <summary>
+    /// 对友方英雄造成效果伤害。
+    /// </summary>
+    private void HandleDealDamageToFriendlyHero(CardEffectData effect, object target, IDamageSource? source)
+    {
+        PlayerHero.TakeDamage(effect.Value, source, DamageKind.Effect);
+        GD.Print($"[CombatManager]   对友方英雄造成 {effect.Value} 点伤害（剩余 {PlayerHero.CurrentHealth}）");
+    }
+
+    /// <summary>
+    /// 对所有敌方随从造成效果伤害。
+    /// </summary>
+    private void HandleDealDamageToAllEnemies(CardEffectData effect, object target, IDamageSource? source)
+    {
+        int hitCount = 0;
+        foreach (var enemyMinion in Board.GetEnemyMinions())
+        {
+            enemyMinion.TakeDamage(effect.Value, source, DamageKind.Effect);
+            hitCount++;
+        }
+        GD.Print($"[CombatManager]   对所有敌方随从造成 {effect.Value} 点伤害（命中 {hitCount} 个目标）");
+    }
+
+    /// <summary>
+    /// 抽牌。
+    /// </summary>
+    private void HandleDrawCards(CardEffectData effect, object target, IDamageSource? source)
+    {
+        PlayerHero.DrawCards(effect.Value);
+        GD.Print($"[CombatManager]   抽 {effect.Value} 张牌");
+    }
+
+    /// <summary>
+    /// 恢复生命值（上限内）。
+    /// </summary>
+    private void HandleHeal(CardEffectData effect, object target, IDamageSource? source)
+    {
+        _playerCore.Heal(effect.Value);
+        GD.Print($"[CombatManager]   恢复 {effect.Value} 点生命值（当前 {PlayerHero.CurrentHealth}）");
+    }
+
+    /// <summary>
+    /// 获得护甲值。
+    /// </summary>
+    private void HandleGainArmor(CardEffectData effect, object target, IDamageSource? source)
+    {
+        PlayerHero.GainArmor(effect.Value);
+        GD.Print($"[CombatManager]   获得 {effect.Value} 点护甲（当前 {PlayerHero.CurrentArmor}）");
+    }
+
+    /// <summary>
+    /// 获得最大生命值（同步回复等量生命值）。
+    /// </summary>
+    private void HandleGainMaxHealth(CardEffectData effect, object target, IDamageSource? source)
+    {
+        _playerCore.InitializeHealth(
+            _playerCore.MaxHealth + effect.Value,
+            _playerCore.CurrentHealth + effect.Value);
+        GD.Print($"[CombatManager]   最大生命值 +{effect.Value} 并恢复等量生命值（当前 {PlayerHero.CurrentHealth}/{PlayerHero.MaxHealth}）");
+    }
+
+    /// <summary>
+    /// 召唤随从（原型：仅记录日志）。
+    /// </summary>
+    private void HandleSummonMinion(CardEffectData effect, object target, IDamageSource? source)
+    {
+        int emptySlot = Board.GetEmptySlotIndex(isPlayerSide: true);
+        if (emptySlot >= 0)
+        {
+            GD.Print($"[CombatManager]   召唤随从效果：{effect.GetDescription()}（原型：仅记录日志）");
+        }
+        else
+        {
+            GD.Print($"[CombatManager]   召唤随从失败 — 战场已满");
+        }
+    }
+
+    /// <summary>
+    /// 强化随从（原型：暂未实现属性修改）。
+    /// </summary>
+    private void HandleBuffMinion(CardEffectData effect, object target, IDamageSource? source)
+    {
+        if (target is Minion buffTarget)
+        {
+            GD.Print($"[CombatManager]   BuffMinion：{effect.GetDescription()} → {buffTarget.CardName}（原型：暂未实现属性修改）");
+        }
+        else
+        {
+            GD.Print($"[CombatManager]   BuffMinion 需要有效的随从目标");
+        }
+    }
+
+    /// <summary>
+    /// 获得额外的法力水晶槽。
+    /// </summary>
+    private void HandleGainManaSlot(CardEffectData effect, object target, IDamageSource? source)
+    {
+        State.GainManaSlot(effect.Value);
+        _playerCore.SetMana(_playerCore.CurrentMana, State.PlayerMaxMana);
+        GD.Print($"[CombatManager]   获得 {effect.Value} 个法力水晶槽（总上限 {State.PlayerMaxMana}）");
+    }
+
+    /// <summary>
+    /// 解除自然增长的法力水晶上限。
+    /// </summary>
+    private void HandleRemoveNaturalManaCap(CardEffectData effect, object target, IDamageSource? source)
+    {
+        GD.Print("[CombatManager]   无限潜能领域已展开，自然增长上限提升至 30");
+    }
+
+    /// <summary>
+    /// 发现选牌——委托给现有的 HandleDiscoverEffect 方法。
+    /// </summary>
+    private void HandleDiscoverEffectDispatch(CardEffectData effect, object target, IDamageSource? source)
+    {
+        HandleDiscoverEffect(effect);
+    }
+
+    /// <summary>
+    /// 自定义效果——根据 CustomEffectName 分发到子逻辑。
+    /// </summary>
+    private void HandleCustomEffect(CardEffectData effect, object target, IDamageSource? source)
+    {
+        if (effect.CustomEffectName == "AddPlanToHand")
+        {
+            var planData = GD.Load<CardData>("res://Resources/Cards/Spell_Plan.tres");
+            if (planData != null)
+            {
+                var planCard = new OdysseyCards.Card.Card(planData);
+                _playerCore.AddToHand(planCard);
+                GD.Print("[CombatManager]   将「计划」加入手牌");
+            }
+            else
+            {
+                GD.PrintErr("[CombatManager]   无法加载计划卡牌资源");
+            }
+        }
+        else if (effect.CustomEffectName == "FlyingAway")
+        {
+            PlayerHero.GainArmor(effect.Value);
+            GD.Print($"[CombatManager]   飞远：获得 {effect.Value} 点格挡（护甲）");
+        }
+        else if (effect.CustomEffectName == "StripArmor")
+        {
+            if (target is Hero heroTarget)
+            {
+                int armorLost = heroTarget.CurrentArmor;
+                heroTarget.RemoveArmor();
+                GD.Print($"[CombatManager]   移除目标所有护甲（失去 {armorLost} 点）");
+            }
+            else
+            {
+                GD.Print("[CombatManager]   StripArmor 目标无护甲（非英雄单位），无效果");
+            }
+        }
+        else
+        {
+            GD.Print($"[CombatManager]   未处理的Custom效果：{effect.CustomEffectName}");
+        }
     }
 
     /// <summary>
@@ -696,169 +925,15 @@ public partial class CombatManager : Node
     /// <param name="target">效果目标对象（Minion 或 Hero，可为 null）</param>
     private void ExecuteEffect(CardEffectData effect, object target, IDamageSource? source = null)
     {
-        switch (effect.EffectType)
+        // 字典优先分发：已注册的效果类型直接调用对应 handler
+        if (_effectHandlers.TryGetValue(effect.EffectType, out var handler))
         {
-            // ----- 伤害类 -----
-            case CardEffectType.Damage:
-            case CardEffectType.DealDamageToTarget:
-                if (target is Minion minionTarget)
-                {
-                    minionTarget.TakeDamage(effect.Value, source, DamageKind.Effect);
-                    GD.Print($"[CombatManager]   对 {minionTarget.CardName} 造成 {effect.Value} 点伤害");
-                }
-                else if (target is Hero heroTarget)
-                {
-                    heroTarget.TakeDamage(effect.Value, source, DamageKind.Effect);
-                    GD.Print($"[CombatManager]   对英雄造成 {effect.Value} 点伤害");
-                }
-                else
-                {
-                    GD.PrintErr($"[CombatManager]   目标类型不支持伤害");
-                }
-                break;
-
-            case CardEffectType.DealDamageToEnemyHero:
-                EnemyHero.TakeDamage(effect.Value, source, DamageKind.Effect);
-                GD.Print($"[CombatManager]   对敌方英雄造成 {effect.Value} 点伤害（剩余 {EnemyHero.CurrentHealth}）");
-                break;
-
-            case CardEffectType.DealDamageToFriendlyHero:
-                PlayerHero.TakeDamage(effect.Value, source, DamageKind.Effect);
-                GD.Print($"[CombatManager]   对友方英雄造成 {effect.Value} 点伤害（剩余 {PlayerHero.CurrentHealth}）");
-                break;
-
-            case CardEffectType.DealDamageToAllEnemies:
-                {
-                    int hitCount = 0;
-                    foreach (var enemyMinion in Board.GetEnemyMinions())
-                    {
-                        enemyMinion.TakeDamage(effect.Value, source, DamageKind.Effect);
-                        hitCount++;
-                    }
-                    GD.Print($"[CombatManager]   对所有敌方随从造成 {effect.Value} 点伤害（命中 {hitCount} 个目标）");
-                }
-                break;
-
-            // ----- 抽牌 -----
-            case CardEffectType.DrawCards:
-                PlayerHero.DrawCards(effect.Value);
-                GD.Print($"[CombatManager]   抽 {effect.Value} 张牌");
-                break;
-
-            // ----- 治疗与护甲 -----
-            case CardEffectType.Heal:
-                _playerCore.Heal(effect.Value);
-                GD.Print($"[CombatManager]   恢复 {effect.Value} 点生命值（当前 {PlayerHero.CurrentHealth}）");
-                break;
-
-            case CardEffectType.RestoreHealth:
-                _playerCore.Heal(effect.Value);
-                GD.Print($"[CombatManager]   恢复 {effect.Value} 点生命值（当前 {PlayerHero.CurrentHealth}）");
-                break;
-
-            case CardEffectType.GainArmor:
-                PlayerHero.GainArmor(effect.Value);
-                GD.Print($"[CombatManager]   获得 {effect.Value} 点护甲（当前 {PlayerHero.CurrentArmor}）");
-                break;
-
-            case CardEffectType.GainMaxHealth:
-                _playerCore.InitializeHealth(
-                    _playerCore.MaxHealth + effect.Value,
-                    _playerCore.CurrentHealth + effect.Value);
-                GD.Print($"[CombatManager]   最大生命值 +{effect.Value} 并恢复等量生命值（当前 {PlayerHero.CurrentHealth}/{PlayerHero.MaxHealth}）");
-                break;
-
-            // ----- 召唤随从 -----
-            case CardEffectType.SummonMinion:
-                {
-                    int emptySlot = Board.GetEmptySlotIndex(isPlayerSide: true);
-                    if (emptySlot >= 0)
-                    {
-                        GD.Print($"[CombatManager]   召唤随从效果：{effect.GetDescription()}（原型：仅记录日志）");
-                    }
-                    else
-                    {
-                        GD.Print($"[CombatManager]   召唤随从失败 — 战场已满");
-                    }
-                }
-                break;
-
-            // ----- 强化随从 -----
-            case CardEffectType.BuffMinion:
-                if (target is Minion buffTarget)
-                {
-                    GD.Print($"[CombatManager]   BuffMinion：{effect.GetDescription()} → {buffTarget.CardName}（原型：暂未实现属性修改）");
-                }
-                else
-                {
-                    GD.Print($"[CombatManager]   BuffMinion 需要有效的随从目标");
-                }
-                break;
-
-            // ----- 法力水晶槽 -----
-            case CardEffectType.GainManaSlot:
-                State.GainManaSlot(effect.Value);
-                // 同步 CommanderCore 的 MaxMana，但不增加 CurrentMana
-                _playerCore.SetMana(_playerCore.CurrentMana, State.PlayerMaxMana);
-                GD.Print($"[CombatManager]   获得 {effect.Value} 个法力水晶槽（总上限 {State.PlayerMaxMana}）");
-                break;
-
-            case CardEffectType.RemoveNaturalManaCap:
-                // 领域效果由 Hero 领域系统持久管理，
-                // 自然增长上限在 StartPlayerTurn 中根据领域存在与否动态判定。
-                GD.Print("[CombatManager]   无限潜能领域已展开，自然增长上限提升至 30");
-                break;
-
-            // ----- 发现选牌 -----
-            case CardEffectType.Discover:
-                HandleDiscoverEffect(effect);
-                break;
-
-            // ----- 自定义效果 -----
-            case CardEffectType.Custom:
-                if (effect.CustomEffectName == "AddPlanToHand")
-                {
-                    var planData = GD.Load<CardData>("res://Resources/Cards/Spell_Plan.tres");
-                    if (planData != null)
-                    {
-                        var planCard = new OdysseyCards.Card.Card(planData);
-                        _playerCore.AddToHand(planCard);
-                        GD.Print("[CombatManager]   将「计划」加入手牌");
-                    }
-                    else
-                    {
-                        GD.PrintErr("[CombatManager]   无法加载计划卡牌资源");
-                    }
-                }
-                else if (effect.CustomEffectName == "FlyingAway")
-                {
-                    PlayerHero.GainArmor(effect.Value);
-                    GD.Print($"[CombatManager]   飞远：获得 {effect.Value} 点格挡（护甲）");
-                }
-                else if (effect.CustomEffectName == "StripArmor")
-                {
-                    if (target is Hero heroTarget)
-                    {
-                        int armorLost = heroTarget.CurrentArmor;
-                        heroTarget.RemoveArmor();
-                        GD.Print($"[CombatManager]   移除目标所有护甲（失去 {armorLost} 点）");
-                    }
-                    else
-                    {
-                        GD.Print("[CombatManager]   StripArmor 目标无护甲（非英雄单位），无效果");
-                    }
-                }
-                else
-                {
-                    GD.Print($"[CombatManager]   未处理的Custom效果：{effect.CustomEffectName}");
-                }
-                break;
-
-            // ----- 未处理类型 -----
-            default:
-                GD.Print($"[CombatManager]   未处理的效果类型：{effect.EffectType}（{effect.GetDescription()}）");
-                break;
+            handler(effect, target, source);
+            return;
         }
+
+        // 未注册的效果类型 — 输出日志
+        GD.Print($"[CombatManager]   未处理的效果类型：{effect.EffectType}（{effect.GetDescription()}）");
     }
 
     /// <summary>
