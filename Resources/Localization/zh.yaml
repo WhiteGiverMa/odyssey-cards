@@ -254,6 +254,12 @@ cards:
   spell_Discover:
     name: "发现"
     description: "从3张随机卡牌中选取一张加入手牌"
+  domain_flying_away:
+    name: "飞远"
+    description: "领域：获得5点格挡。下一次被敌方随从或英雄攻击时，抽2张牌，将一张「受身」加入手牌。"
+  spell_shoushen:
+    name: "受身"
+    description: "获得3点格挡，抽1张牌"
 
 intent:
   attack_format: "对{target}造成 {damage} 点伤害"

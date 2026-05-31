@@ -254,6 +254,12 @@ cards:
   minion_centipede_siege:
     name: "Mech Centipede - Siege"
     description: "Ambush"
+  domain_flying_away:
+    name: "Fly Away"
+    description: "Domain: Gain 5 Block. The next time an enemy minion or hero attacks you, draw 2 cards and add a Body Roll to your hand."
+  spell_shoushen:
+    name: "Body Roll"
+    description: "Gain 3 Block. Draw 1 card."
 
 intent:
   attack_format: "Deal {damage} damage to {target}"
