@@ -8,11 +8,11 @@
 
 ### 🎮 游玩 & 测试（最大的贡献！）
 
-帮我们多玩游戏、多测试，是目前最有价值的贡献方式。遇到任何问题、产生任何想法，都欢迎到 [Issues](../../issues) 聊聊。
+帮我们多玩游戏、多测试，是目前最有价值的贡献方式。遇到任何问题、产生任何想法，都欢迎到 [Issues](https://github.com/WhiteGiverMa/odyssey-cards/issues) 聊聊。
 
 ### 💬 发表观点与建议
 
-如果你对游戏玩法、平衡性、UI/UX 或者任何方面有自己的想法，请在 [Issues](../../issues) 自由开帖。哪怕只是即兴的感受，我们也乐意听到。
+如果你对游戏玩法、平衡性、UI/UX 或者任何方面有自己的想法，请在 [Issues](https://github.com/WhiteGiverMa/odyssey-cards/issues) 自由开帖。哪怕只是即兴的感受，我们也乐意听到。
 
 ### 🛠 代码与设计贡献（暂时不开放 PR）
 
