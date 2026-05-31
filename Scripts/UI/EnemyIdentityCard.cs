@@ -157,13 +157,10 @@ public partial class EnemyIdentityCard : Panel
         _nameLabel.Text = brain.Name;
 
         // HP
-        _healthBar.UpdateHealth(body.CurrentHealth, body.MaxHealth);
+        RefreshHealth(body.CurrentHealth, body.MaxHealth);
 
         // Armor
-        int armor = body.CurrentArmor;
-        _armorLabel.Visible = armor > 0;
-        if (armor > 0)
-            _armorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", armor.ToString());
+        RefreshArmor(body.CurrentArmor);
 
         // Defense
         int def = body.Defense;
@@ -206,5 +203,19 @@ public partial class EnemyIdentityCard : Panel
             badge.AddThemeFontSizeOverride("font_size", 9);
             _statusContainer.AddChild(badge);
         }
+    }
+
+    /// <summary>仅刷新血量条和标签（轻量版，不重新计算意图）。</summary>
+    public void RefreshHealth(int current, int max)
+    {
+        _healthBar.UpdateHealth(current, max);
+    }
+
+    /// <summary>仅刷新护甲显示（轻量版）。</summary>
+    public void RefreshArmor(int armor)
+    {
+        _armorLabel.Visible = armor > 0;
+        if (armor > 0)
+            _armorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", armor.ToString());
     }
 }

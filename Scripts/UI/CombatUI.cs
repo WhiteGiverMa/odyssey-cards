@@ -1368,7 +1368,15 @@ public partial class CombatUI : Control
         if (_combat == null) return;
 
         _playerHealthBar.UpdateHealth(_combat.PlayerHero.CurrentHealth, _combat.PlayerHero.MaxHealth);
-        // 敌方 HP 由 EnemyIdentityCard.Refresh 处理
+
+        // 敌方 HP 也在此处刷新——攻击/法术施放后 RefreshAll 不会触发
+        // OnCombatStateChanged（只有放置/移除随从才触发），因此需要显式更新。
+        foreach (var card in _enemyCards)
+        {
+            var unit = _combat.EnemyUnits[card.EnemyIndex];
+            card.RefreshHealth(unit.Body.CurrentHealth, unit.Body.MaxHealth);
+            card.RefreshArmor(unit.Body.CurrentArmor);
+        }
     }
 
     /// <summary>

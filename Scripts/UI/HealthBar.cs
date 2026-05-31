@@ -17,6 +17,27 @@ public partial class HealthBar : ProgressBar
     public override void _Ready()
     {
         _healthLabel = GetNodeOrNull<Label>("HealthLabel");
+
+        // 如果场景中没有预设 HealthLabel 子节点，程序化创建一个
+        if (_healthLabel == null)
+        {
+            _healthLabel = new Label
+            {
+                Name = "HealthLabel",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                AnchorRight = 1.0f,
+                AnchorBottom = 1.0f,
+                OffsetLeft = 0,
+                OffsetTop = 0,
+                OffsetRight = 0,
+                OffsetBottom = 0,
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            _healthLabel.AddThemeColorOverride("font_color", new Color(1f, 1f, 1f));
+            _healthLabel.AddThemeFontSizeOverride("font_size", 11);
+            AddChild(_healthLabel);
+        }
     }
 
     public void UpdateHealth(int current, int max)
@@ -24,10 +45,28 @@ public partial class HealthBar : ProgressBar
         MaxValue = max;
         Value = current;
 
-        if (_healthLabel != null)
+        // 程序化创建时可能还没有进入场景树，_Ready 尚未执行，兜底创建标签
+        if (_healthLabel == null)
         {
-            _healthLabel.Text = $"{current}/{max}";
+            _healthLabel = new Label
+            {
+                Name = "HealthLabel",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                AnchorRight = 1.0f,
+                AnchorBottom = 1.0f,
+                OffsetLeft = 0,
+                OffsetTop = 0,
+                OffsetRight = 0,
+                OffsetBottom = 0,
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            _healthLabel.AddThemeColorOverride("font_color", new Color(1f, 1f, 1f));
+            _healthLabel.AddThemeFontSizeOverride("font_size", 11);
+            AddChild(_healthLabel);
         }
+
+        _healthLabel.Text = $"{current}/{max}";
     }
 
     public void SetTarget(ICommander target)
