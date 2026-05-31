@@ -221,10 +221,15 @@ public partial class CombatManager : Node
         }
         GD.Print($"[CombatManager] 牌堆有 {player.Deck.CardCount} 张牌");
 
-        // 4. 创建敌方英雄和 AI 遭遇（从 GameRunState 读取遭遇列表）
-        var runState = gm.RunState;
+        // 4. 创建敌方英雄和 AI 遭遇（FightOverride 优先 → RunState → 回退）
         IReadOnlyList<EnemyEncounter> encounters;
-        if (runState != null && runState.SelectedRoom != null &&
+        if (gm.FightOverride is { Count: > 0 })
+        {
+            encounters = gm.FightOverride;
+            gm.FightOverride = null; // 消费后清空
+            GD.Print($"[CombatManager] 从 FightOverride 读取 {encounters.Count} 个敌人 — {string.Join(", ", encounters.Select(e => e.Name))}");
+        }
+        else if (gm.RunState is { SelectedRoom: not null } runState &&
             runState.SelectedRoom.Type is RoomType.Monster or RoomType.Elite or RoomType.Boss)
         {
             encounters = runState.CreateEncounters();
@@ -234,7 +239,7 @@ public partial class CombatManager : Node
         else
         {
             // 回退：如果没有运行状态（例如直接从 Combat.tscn 启动），使用默认邪教徒
-            encounters = new[] { new Cultist() };
+            encounters = new EnemyEncounter[] { new Cultist() };
             GD.Print("[CombatManager] 回退使用默认敌人 — 邪教徒");
         }
 
@@ -246,7 +251,11 @@ public partial class CombatManager : Node
             enemyCore.InitializeHealth(enc.MaxHealth, enc.CurrentHealth);
             enemyCore.SetMana(0, 0);
             var enemyHero = new Hero(enemyCore, false);
-            enemyUnits.Add(new EnemyUnit(enemyHero, enc));
+            var unit = new EnemyUnit(enemyHero, enc);
+            enemyUnits.Add(unit);
+
+            // 注入敌方被动技能
+            ApplyEnemyPassives(unit);
             GD.Print($"[CombatManager] 敌方已创建 — {enc.Name}，{enemyHero.CurrentHealth}/{enemyHero.MaxHealth}HP");
         }
 
@@ -317,6 +326,20 @@ public partial class CombatManager : Node
         GD.Print($"[CombatManager] 初始化完成 — 玩家 {PlayerHero.CurrentHealth}/{PlayerHero.MaxHealth}，" +
                   $"敌方 {EnemyUnits.Count} 个单位：" +
                   string.Join(", ", EnemyUnits.Select(u => $"{u.Brain.Name} {u.Body.CurrentHealth}/{u.Body.MaxHealth}")));
+    }
+
+    /// <summary>
+    /// 注入敌人被动技能 modifier 到对应的 Hero。
+    /// 固璋(3) → DamageCapModifier；不破(1) 由 Hero._hasTakenDamageThisTurn 门控处理。
+    /// </summary>
+    private static void ApplyEnemyPassives(EnemyUnit unit)
+    {
+        if (unit.Brain is ZhangLang)
+        {
+            unit.Body._damageModifiers.Add(new DamageCapModifier(3));
+            GD.Print($"[CombatManager] {unit.Brain.Name} 固璋(3) — 单次伤害上限 3");
+        }
+        // 不破(1) 已由 Hero._hasTakenDamageThisTurn + CombatManager.ResetDamageTakenThisTurn 处理
     }
 
     // ===== 战斗开始 =====
@@ -1657,6 +1680,15 @@ public partial class CombatManager : Node
         {
             if (attacker.IsDead) continue;
 
+            // 自定义随从大脑？优先使用
+            if (attacker.IntentBrain != null)
+            {
+                attacker.IntentBrain.ExecuteIntent(this);
+                attacker.IntentBrain.AdvanceIntent();
+                continue;
+            }
+
+            // 默认行为：嘲讽随从优先攻击嘲讽，否则攻击英雄
             if (hasPlayerTaunt)
             {
                 // 攻击随机嘲讽随从

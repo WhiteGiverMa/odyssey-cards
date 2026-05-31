@@ -16,7 +16,7 @@ public class Hero : IDamageTarget, IDamageSource
     /// <summary>
     /// 伤害修改器列表。动态列表，支持武器技能和状态效果注入修改器。
     /// </summary>
-    private readonly List<IDamageModifier> _damageModifiers = new();
+    internal readonly List<IDamageModifier> _damageModifiers = new();
 
     /// <summary>
     /// 被包装的指挥官核心。

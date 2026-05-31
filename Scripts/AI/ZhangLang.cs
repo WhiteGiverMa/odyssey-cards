@@ -133,14 +133,19 @@ public class ZhangLang : EnemyEncounter
     private void ExecuteSummon(CombatManager combat)
     {
         if (!combat.Board.CanPlaceMinion(isPlayerSide: false)) return;
-        const string path = "res://Resources/Cards/Minion_Slime.tres";
-        if (!ResourceLoader.Exists(path)) return;
+        const string path = "res://Resources/Cards/Minion_Roach.tres";
+        if (!ResourceLoader.Exists(path))
+        {
+            GD.PrintErr($"[张郎] 未找到机械小蠊卡牌资源：{path}");
+            return;
+        }
         var data = GD.Load<CardData>(path);
         if (data == null) return;
         var roach = new Minion(data, isPlayerSide: false);
+        roach.IntentBrain = new MechanicalRoachBrain(roach);
         int slot = combat.Board.GetEmptySlotIndex(isPlayerSide: false);
         combat.Board.PlaceMinion(roach, slot);
-        GD.Print($"[张郎] 槽位{slot} 召唤机械小蠊 ({roach.Attack}/{roach.CurrentHealth})");
+        GD.Print($"[张郎] 槽位{slot} 召唤机械小蠊 ({roach.Attack}/{roach.CurrentHealth})，已挂载意图大脑");
     }
 
     public override void AdvanceIntent()

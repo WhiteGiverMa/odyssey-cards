@@ -23,6 +23,21 @@
 | 邪教徒 (Cultist) | 20 | 棍木 (ATK 1) | Attack(6) → Attack(6) → Defend(5) |
 | 史莱姆首领 (SlimeBoss) | 40 | 棍木 (ATK 1) | Attack(8) → Summon(1) → Defend(4)，召唤 1/1 软泥怪 |
 | 狼骑兵 (WolfRider) | 12 | 棍木 (ATK 1) | Attack(5)，每回合稳定输出 |
+| 守护者 (GuardianBoss) | 60 | 棍木 (ATK 1) | Attack(12) → Defend(8) → Attack(12) → 循环 |
+
+## /fight 命令
+
+`DevConsole` 支持 `/fight <enemy>` 直接开启战斗（绕过 Roguelike 地图）。
+
+| ID | 战斗内容 |
+|----|---------|
+| `cultist` | 邪教徒（单） |
+| `slimy` | 史莱姆首领（单） |
+| `wolf` | 狼骑兵（单） |
+| `guardian` | 守护者 Boss（单） |
+| `zhanglang` | 张郎（单） |
+| `shanhu` | 珊胡（单） |
+| `zhangshan` | 张郎 + 珊胡（双敌人精英战） |
 
 ## ⬜ 待实现：双敌人系统
 

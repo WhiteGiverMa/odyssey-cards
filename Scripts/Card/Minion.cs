@@ -163,6 +163,12 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// </summary>
     public IReadOnlyList<IDamageModifier> DamageModifiers => _damageModifiers;
 
+    /// <summary>
+    /// 随从的意图大脑。非 null 时，EnemyMinionsAttack 优先用此执行意图，
+    /// 而不是默认攻击逻辑。机械小蠊等有自定义意图的随从设置此字段。
+    /// </summary>
+    public AI.IIntentActor? IntentBrain { get; set; }
+
     // ===== 状态效果系统 =====
 
     private readonly Dictionary<string, StatusEffect> _statusEffects = new();

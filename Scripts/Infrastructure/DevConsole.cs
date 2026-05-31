@@ -1,4 +1,5 @@
 using Godot;
+using OdysseyCards.AI;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
 using OdysseyCards.UI;
@@ -366,6 +367,7 @@ public partial class DevConsole : Node
                 WriteLine("  /clear          — 清空输出");
                 WriteLine("  /token <id>     — 将指定ID的卡牌加入手牌");
                 WriteLine("  /play <id>      — 从手牌打出指定ID卡牌（领域/无目标法术）");
+                WriteLine("  /fight <enemy>  — 直接与指定敌人战斗（跳过地图）");
                 WriteLine("  /qa_tombstone   — 验证墓碑伤害结算");
                 WriteLine("  /unlock_all     — 解锁全部卡牌（加入收藏）");
                 WriteLine("  /help           — 显示帮助[/color]");
@@ -438,6 +440,25 @@ public partial class DevConsole : Node
                 GameManager.Instance?.UnlockAllCards();
                 GameManager.Instance?.SaveToDisk();
                 WriteLine("[color=#66ff66]已解锁全部卡牌并保存到磁盘[/color]");
+                break;
+
+            // ===== 直接战斗（跳过地图） =====
+            case "fight":
+                if (parts.Length < 2)
+                {
+                    WriteLine($"[color=#ffaa44]用法: /fight <enemy>  可用: {string.Join(", ", EnemyRegistry.AllIds)}[/color]");
+                    break;
+                }
+                var fightId = parts[1].ToLowerInvariant();
+                var fightEnemies = EnemyRegistry.Create(fightId);
+                if (fightEnemies.Count == 0)
+                {
+                    WriteLine($"[color=#ff6644]未知敌人: {fightId}，可用: {string.Join(", ", EnemyRegistry.AllIds)}[/color]");
+                    break;
+                }
+                GameManager.Instance!.FightOverride = fightEnemies;
+                WriteLine($"[color=#66ff66]即将与 {string.Join(", ", fightEnemies.Select(e => e.Name))} 战斗…[/color]");
+                GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
                 break;
 
             // ===== QA：墓碑伤害结算 =====
@@ -588,6 +609,7 @@ public partial class DevConsole : Node
             new DevCommandDef("token",        ["t"],      "/token <card_id>",     "将指定ID的卡牌加入手牌",        _cardCache.Keys.ToArray()),
             new DevCommandDef("play",         ["p"],      "/play <card_id>",      "从手牌打出领域/无目标法术",      _cardCache.Keys.ToArray()),
             new DevCommandDef("unlock_all",   [],         "/unlock_all",          "解锁全部卡牌（加入收藏）",     null),
+            new DevCommandDef("fight",        [],         "/fight <enemy>",       "直接与指定敌人战斗（跳过地图）",  EnemyRegistry.AllIds.ToArray()),
             new DevCommandDef("help",         ["?"],      "/help",                "显示帮助",                   null),
         });
     }

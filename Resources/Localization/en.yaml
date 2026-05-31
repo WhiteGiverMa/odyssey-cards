@@ -235,6 +235,9 @@ cards:
   minion_slime:
     name: "Slime"
     description: "Charge"
+  minion_roach:
+    name: "Mechanical Roach"
+    description: "Sleeps on deploy. Attacks random enemy. Copies itself if friendly slot available."
   spell_plan:
     name: "Plan"
     description: "Gain an additional Mana Crystal slot"

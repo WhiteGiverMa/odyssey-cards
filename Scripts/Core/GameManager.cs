@@ -61,6 +61,13 @@ public partial class GameManager : Node
     /// </summary>
     public GameRunState? RunState { get; private set; }
 
+    /// <summary>
+    /// 战斗覆盖——由 /fight 命令设置，允许跳过 Roguelike 地图直接开战。
+    /// BootstrapCombat 优先读取此值，其次读取 RunState。
+    /// 进入战斗后自动清空。
+    /// </summary>
+    public IReadOnlyList<AI.EnemyEncounter>? FightOverride { get; set; }
+
     // ===== 收藏与持久化 =====
 
     /// <summary>
