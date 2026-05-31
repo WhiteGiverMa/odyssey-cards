@@ -190,6 +190,12 @@ public class Hero : IDamageTarget, IDamageSource
         remove => _core.OnManaChanged -= value;
     }
 
+    /// <summary>
+    /// 英雄被带有明确伤害来源的攻击命中时触发。
+    /// 参数为（被攻击英雄、攻击来源、护甲结算后的实际生命伤害）。
+    /// </summary>
+    public event Action<Hero, IDamageSource, int>? OnAttacked;
+
     // ===== 构造函数 =====
 
     /// <summary>
@@ -231,6 +237,8 @@ public class Hero : IDamageTarget, IDamageSource
 
             if (resolvedDamage <= 0)
             {
+                NotifyAttacked(source, 0);
+
                 // 防御+护甲完全吸收，仍然触发武器反击
                 CounterAttack(source);
                 return;
@@ -239,8 +247,22 @@ public class Hero : IDamageTarget, IDamageSource
 
         ApplyDamage(resolvedDamage, source);
 
+        NotifyAttacked(source, resolvedDamage);
+
         // Step 3: Weapon counter-attack after damage is settled
         CounterAttack(source);
+    }
+
+    /// <summary>
+    /// 在一次有明确来源的攻击结算后广播被攻击事件。
+    /// </summary>
+    /// <param name="source">攻击来源</param>
+    /// <param name="finalDamage">护甲结算后的实际生命伤害</param>
+    private void NotifyAttacked(IDamageSource? source, int finalDamage)
+    {
+        if (source == null) return;
+
+        OnAttacked?.Invoke(this, source, finalDamage);
     }
 
     /// <summary>
@@ -386,6 +408,18 @@ public class Hero : IDamageTarget, IDamageSource
             string desc = effectData.GetDescription();
             string descPart = string.IsNullOrWhiteSpace(desc) ? "" : $"：{desc}";
             GD.Print($"[Hero] 展开领域「{domainId}」{descPart}");
+        }
+    }
+
+    /// <summary>
+    /// 移除指定领域。
+    /// </summary>
+    /// <param name="domainId">领域标识</param>
+    public void RemoveDomain(string domainId)
+    {
+        if (_activeDomains.Remove(domainId))
+        {
+            GD.Print($"[Hero] 领域「{domainId}」已移除");
         }
     }
 

@@ -24,6 +24,12 @@ public class ActiveDomain
     public int StackCount { get; set; }
 
     /// <summary>
+    /// 最近一次触发所在的战斗回合。
+    /// 用于“每个敌方回合首次被攻击”这类领域，避免同一回合多段攻击消耗多层。
+    /// </summary>
+    public int LastTriggeredTurn { get; set; } = -1;
+
+    /// <summary>
     /// 创建领域运行时实例。
     /// </summary>
     /// <param name="domainId">领域标识</param>
