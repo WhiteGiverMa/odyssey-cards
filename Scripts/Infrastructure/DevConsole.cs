@@ -472,9 +472,10 @@ public partial class DevConsole : Node
     }
 
     /// <summary>
-    /// 验证墓碑的两个关键伤害规则：
+    /// 验证墓碑的关键伤害规则：
     /// 1. 效果伤害无视防御力，但仍计算来源侧造成伤害加成；
     /// 2. 攻击伤害先计算造成伤害加成，再受目标防御力减免。
+    /// 3. 效果伤害不触发英雄武器反击；武器反击伤害必须正常吃墓碑防御力。
     /// </summary>
     private void RunTombstoneDamageQa()
     {
@@ -498,11 +499,36 @@ public partial class DevConsole : Node
 
         int battlecryDamage = DamageResolver.ResolveDamage(1, tombstone, defendedTarget, DamageKind.Effect);
         int attackDamage = DamageResolver.ResolveDamage(tombstone.Attack, tombstone, defendedTarget, DamageKind.Attack);
-        bool passed = battlecryDamage == 3 && attackDamage == 8;
+
+        var friendlyHeroCore = new OdysseyCards.Character.CommanderCore();
+        friendlyHeroCore.InitializeHealth(30);
+        var friendlyHero = new OdysseyCards.Card.Hero(friendlyHeroCore, isPlayerSide: true)
+        {
+            Weapon = new OdysseyCards.Card.IonPistol(),
+        };
+        friendlyHero.ModifyDefense(1);
+        friendlyHero.TakeDamage(1, tombstone, DamageKind.Effect);
+        bool effectDidNotCounter = tombstone.CurrentHealth == tombstone.MaxHealth;
+        bool effectDamageResolved = friendlyHero.CurrentHealth == 27;
+
+        var counterHeroCore = new OdysseyCards.Character.CommanderCore();
+        counterHeroCore.InitializeHealth(30);
+        var counterHero = new OdysseyCards.Card.Hero(counterHeroCore, isPlayerSide: false)
+        {
+            Weapon = new OdysseyCards.Card.RollingLog(),
+        };
+        counterHero.TakeDamage(tombstone.Attack, tombstone, DamageKind.Attack);
+        bool counterDamageUsedDefense = tombstone.CurrentHealth == tombstone.MaxHealth;
+
+        bool passed = battlecryDamage == 3
+            && attackDamage == 8
+            && effectDamageResolved
+            && effectDidNotCounter
+            && counterDamageUsedDefense;
 
         WriteLine(passed
-            ? $"[color=#66ff66]墓碑QA通过：战吼效果={battlecryDamage}，攻击={attackDamage}[/color]"
-            : $"[color=#ff6644]墓碑QA失败：战吼效果={battlecryDamage}（期望3），攻击={attackDamage}（期望8）[/color]");
+            ? $"[color=#66ff66]墓碑QA通过：战吼效果={battlecryDamage}，攻击={attackDamage}，Effect不反击={effectDidNotCounter}，反击吃防={counterDamageUsedDefense}[/color]"
+            : $"[color=#ff6644]墓碑QA失败：战吼效果={battlecryDamage}（期望3），攻击={attackDamage}（期望8），Effect后墓碑血={tombstone.CurrentHealth}（期望{tombstone.MaxHealth}），友方英雄血={friendlyHero.CurrentHealth}（期望27）[/color]");
     }
 
     /// <summary>

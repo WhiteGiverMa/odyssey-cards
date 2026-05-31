@@ -239,10 +239,8 @@ public class Hero : IDamageTarget, IDamageSource
     // ===== 伤害处理 =====
 
     /// <summary>
-    /// 受到来自某个伤害来源的基础伤害。
-    /// 护甲优先吸收伤害：护甲 > 0 时先消耗护甲，剩余伤害直接应用；
-    /// 无护甲时通过 <see cref="DamageResolver"/> 计算最终伤害后应用。
-    /// 伤害结算完成后，若英雄持有未被禁用的武器，对攻击者发动反击。
+    /// 受到来自某个伤害来源的基础攻击伤害。
+    /// 攻击伤害会触发被攻击事件和武器反击；效果伤害请调用带 <see cref="DamageKind"/> 的重载。
     /// </summary>
     /// <param name="baseDamage">基础伤害值</param>
     /// <param name="source">伤害来源</param>
@@ -273,19 +271,29 @@ public class Hero : IDamageTarget, IDamageSource
 
             if (resolvedDamage <= 0)
             {
-                NotifyAttacked(source, 0);
-
-                // 防御+护甲完全吸收，仍然触发武器反击
-                CounterAttack(source);
+                ResolveAttackSideEffects(source, kind, 0);
                 return;
             }
         }
 
         ApplyDamage(resolvedDamage, source);
 
-        NotifyAttacked(source, resolvedDamage);
+        // Step 3: Attack-only side effects after damage is settled.
+        ResolveAttackSideEffects(source, kind, resolvedDamage);
+    }
 
-        // Step 3: Weapon counter-attack after damage is settled
+    /// <summary>
+    /// 解析攻击伤害附带的副作用。
+    /// Effect 伤害只造成伤害，不算“被攻击”，也不触发武器反击。
+    /// </summary>
+    /// <param name="source">伤害来源</param>
+    /// <param name="kind">伤害结算类型</param>
+    /// <param name="finalDamage">护甲结算后的实际生命伤害</param>
+    private void ResolveAttackSideEffects(IDamageSource? source, DamageKind kind, int finalDamage)
+    {
+        if (kind != DamageKind.Attack || source == null) return;
+
+        NotifyAttacked(source, finalDamage);
         CounterAttack(source);
     }
 
@@ -320,7 +328,17 @@ public class Hero : IDamageTarget, IDamageSource
         if (counterDamage <= 0) return;
 
         GD.Print($"[Hero] ⚔ 武器反击！{Weapon.Name} 对攻击者造成 {counterDamage} 点伤害");
-        target.ApplyDamage(counterDamage, this);
+
+        if (target is Hero targetHero)
+        {
+            bool wasSuppressed = targetHero.SuppressWeaponCounter;
+            targetHero.SuppressWeaponCounter = true;
+            targetHero.TakeDamage(counterDamage, this, DamageKind.Attack);
+            targetHero.SuppressWeaponCounter = wasSuppressed;
+            return;
+        }
+
+        target.TakeDamage(counterDamage, this, DamageKind.Attack);
     }
 
     /// <summary>
