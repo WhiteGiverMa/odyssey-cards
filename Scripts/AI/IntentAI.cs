@@ -296,6 +296,8 @@ public abstract class EnemyEncounter
     /// <param name="combat">战斗管理器</param>
     protected void ExecuteAttackIntent(CombatManager combat, Hero self)
     {
+        // 清除缓存的目标——基于当前战场状态重新选择（确保嘲讽随从的召唤生效）
+        _cachedAttackTarget = null;
         var intent = GetCurrentIntent(combat, self);
         var target = intent.GetTarget(combat);
         int effectiveDmg = intent.GetEffectiveDamage(combat);

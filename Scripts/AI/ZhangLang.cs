@@ -53,28 +53,30 @@ public class ZhangLang : EnemyEncounter
         {
             int dmg = Random.Shared.Next(3, 5);
             var intent = new EnemyIntent(IntentType.Attack, dmg, $"造成 {dmg} 点伤害");
-            InjectLambda(combat, self, intent);
-            return intent;
+            return InjectLambda(combat, self, intent);
         }
         else
         {
             var intent = new EnemyIntent(IntentType.Attack, 3, "造成 1 点伤害 ×3");
-            InjectLambda(combat, self, intent);
-            return intent;
+            return InjectLambda(combat, self, intent);
         }
     }
 
-    private void InjectLambda(CombatManager combat, Hero self, EnemyIntent intent)
+    /// <summary>注入目标选择器和伤害计算器到意图中（返回修改后的结构体以避免 struct 值拷贝问题）。</summary>
+    private EnemyIntent InjectLambda(CombatManager combat, Hero self, EnemyIntent intent)
     {
-        _cachedAttackTarget ??= ResolveAttackTarget(combat);
-        var t = _cachedAttackTarget;
+        // 始终基于当前战场状态重新解析目标（不缓存，确保嘲讽等动态变化生效）
+        var t = ResolveAttackTarget(combat);
         intent.TargetSelector = _ => t;
         intent.DamageCalc = (c) =>
             DamageResolver.ResolvePreviewDamage(intent.Value + Attack, self, t);
+        return intent;
     }
 
     public override void ExecuteIntent(CombatManager combat, Hero self)
     {
+        _cachedAttackTarget = null; // 基于当前战场状态重新解析目标
+
         if (_dTurnsRemaining <= 0)
         {
             ExecuteSummon(combat);
