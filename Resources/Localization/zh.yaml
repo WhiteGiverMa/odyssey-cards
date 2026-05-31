@@ -241,6 +241,9 @@ cards:
   minion_centipede_siege:
     name: "机械蜈蚣-攻城型"
     description: "伏击"
+  minion_tombstone:
+    name: "墓碑"
+    description: "嘲讽。战吼：对友方英雄造成 1 点伤害。\n对防御力不低于 1 的目标造成的伤害 +2。"
   spell_plan:
     name: "计划"
     description: "获得1个额外的法力水晶槽"

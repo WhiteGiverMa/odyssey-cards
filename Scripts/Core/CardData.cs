@@ -1,5 +1,4 @@
 using Godot;
-using OdysseyCards.Core;
 using OdysseyCards.Localization;
 using System.Collections.Generic;
 using Loc = OdysseyCards.Localization.Localization;
@@ -55,6 +54,12 @@ public partial class CardData : Resource, ICardData, ILocalizable
     /// 防御力（仅随从）。影响受到的伤害：伤害 = max(0, 伤害 - 防御力)。可为负值。
     /// </summary>
     [Export] public int Defense { get; set; } = 0;
+
+    /// <summary>
+    /// 对防御力不低于 1 的目标造成的额外伤害。
+    /// 这是来源侧“造成的伤害”修改器，攻击、战吼和其他带来源的效果都会计算。
+    /// </summary>
+    [Export] public int BonusDamageToDefendedTargets { get; set; } = 0;
 
     /// <summary>
     /// 关键词列表（仅随从）。

@@ -25,8 +25,22 @@ namespace OdysseyCards.Core
         /// <returns>The final resolved damage value.</returns>
         public static int ResolveDamage(int baseDamage, IDamageSource source, IDamageTarget target)
         {
+            return ResolveDamage(baseDamage, source, target, DamageKind.Attack);
+        }
+
+        /// <summary>
+        /// Resolves the final damage value after applying all modifiers.
+        /// 解析应用所有修改器后的最终伤害值。
+        /// </summary>
+        /// <param name="baseDamage">The base damage value.</param>
+        /// <param name="source">The damage source.</param>
+        /// <param name="target">The damage target.</param>
+        /// <param name="kind">The damage settlement kind.</param>
+        /// <returns>The final resolved damage value.</returns>
+        public static int ResolveDamage(int baseDamage, IDamageSource source, IDamageTarget target, DamageKind kind)
+        {
             int damage = baseDamage;
-            var context = new DamageContext(source, target);
+            var context = new DamageContext(source, target, kind);
 
             // Phase 1: ADDITIVE (加算)
             // Apply source's additive modifiers (e.g., Strength +3)
@@ -94,7 +108,16 @@ namespace OdysseyCards.Core
         /// <returns>预览伤害值</returns>
         public static int ResolvePreviewDamage(int baseDamage, IDamageSource? source, IDamageTarget? target)
         {
-            return ResolveDamage(baseDamage, source, target);
+            return ResolveDamage(baseDamage, source, target, DamageKind.Attack);
+        }
+
+        /// <summary>
+        /// Resolves preview damage with an explicit damage kind.
+        /// 解析指定伤害类型的预览伤害值。
+        /// </summary>
+        public static int ResolvePreviewDamage(int baseDamage, IDamageSource? source, IDamageTarget? target, DamageKind kind)
+        {
+            return ResolveDamage(baseDamage, source, target, kind);
         }
 
         private static int ApplyModifiers(int damage, DamageContext context, IReadOnlyList<IDamageModifier> modifiers, DamagePhase phase, bool isDealt)

@@ -26,6 +26,11 @@ public class DefenseModifier : IDamageModifier
 
     public int ModifyDamageTaken(int currentDamage, DamageContext context)
     {
+        if (context.IgnoresDefense)
+        {
+            return currentDamage;
+        }
+
         int defense = _getDefense();
         return currentDamage - defense;
     }

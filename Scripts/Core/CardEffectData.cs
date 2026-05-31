@@ -112,7 +112,12 @@ public enum CardEffectType
     /// 发现：从 N 张随机卡牌中选取一张加入手牌。
     /// Value = 选项数量（默认 3），TargetType = 稀有度过滤（可选，"0"=仅衍生卡，"all"=全部）。
     /// </summary>
-    Discover = 20
+    Discover = 20,
+
+    /// <summary>
+    /// 对友方英雄造成伤害。
+    /// </summary>
+    DealDamageToFriendlyHero = 21
 }
 
 public partial class CardEffectData : Resource
@@ -135,6 +140,7 @@ public partial class CardEffectData : Resource
             CardEffectType.DealDamageToTarget => $"对一个随从造成{Value}点伤害",
             CardEffectType.DealDamageToAllEnemies => $"对所有敌方随从造成{Value}点伤害",
             CardEffectType.DealDamageToEnemyHero => $"对敌方英雄造成{Value}点伤害",
+            CardEffectType.DealDamageToFriendlyHero => $"对友方英雄造成{Value}点伤害",
             CardEffectType.SummonMinion => $"召唤{TargetType}",
             CardEffectType.BuffMinion => $"使一个随从获得+{Value}/+{SecondaryValue}",
             CardEffectType.RestoreHealth => $"恢复{Value}点生命值",

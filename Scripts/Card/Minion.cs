@@ -270,6 +270,11 @@ public class Minion : Card, IDamageSource, IDamageTarget
         // 注册防御力修改器到 DamageModifiers
         _damageModifiers.Add(new OdysseyCards.Core.DefenseModifier(() => Defense));
 
+        if (data.BonusDamageToDefendedTargets != 0)
+        {
+            _damageModifiers.Add(new DefendedTargetDamageBonusModifier(data.BonusDamageToDefendedTargets));
+        }
+
         // 解析关键词
         HasCharge = data.HasKeyword(Keyword.Charge);
         HasTaunt = data.HasKeyword(Keyword.Taunt);
@@ -290,7 +295,18 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// <param name="source">伤害来源</param>
     public void TakeDamage(int baseDamage, IDamageSource? source)
     {
-        int result = DamageResolver.ResolveDamage(baseDamage, source, this);
+        TakeDamage(baseDamage, source, DamageKind.Attack);
+    }
+
+    /// <summary>
+    /// 受到指定类型的基础伤害。
+    /// </summary>
+    /// <param name="baseDamage">基础伤害值</param>
+    /// <param name="source">伤害来源</param>
+    /// <param name="kind">伤害结算类型</param>
+    public void TakeDamage(int baseDamage, IDamageSource? source, DamageKind kind)
+    {
+        int result = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
         ApplyDamage(result, source);
     }
 

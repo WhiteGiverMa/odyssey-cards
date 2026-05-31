@@ -448,7 +448,7 @@ public partial class CombatManager : Node
     private void ResolveBattlecryEffect(CardEffectData effect, Minion source)
     {
         GD.Print($"[CombatManager]     战吼效果：{effect.GetDescription()}（来源：{source.CardName}）");
-        ExecuteEffect(effect, source);
+        ExecuteEffect(effect, source, source);
     }
 
     // ===== 法术施放 =====
@@ -648,7 +648,7 @@ public partial class CombatManager : Node
     /// </summary>
     /// <param name="effect">效果数据</param>
     /// <param name="target">效果目标对象（Minion 或 Hero，可为 null）</param>
-    private void ExecuteEffect(CardEffectData effect, object target)
+    private void ExecuteEffect(CardEffectData effect, object target, IDamageSource? source = null)
     {
         switch (effect.EffectType)
         {
@@ -657,12 +657,12 @@ public partial class CombatManager : Node
             case CardEffectType.DealDamageToTarget:
                 if (target is Minion minionTarget)
                 {
-                    minionTarget.TakeDamage(effect.Value, null);
+                    minionTarget.TakeDamage(effect.Value, source, DamageKind.Effect);
                     GD.Print($"[CombatManager]   对 {minionTarget.CardName} 造成 {effect.Value} 点伤害");
                 }
                 else if (target is Hero heroTarget)
                 {
-                    heroTarget.TakeDamage(effect.Value, null);
+                    heroTarget.TakeDamage(effect.Value, source, DamageKind.Effect);
                     GD.Print($"[CombatManager]   对英雄造成 {effect.Value} 点伤害");
                 }
                 else
@@ -672,8 +672,13 @@ public partial class CombatManager : Node
                 break;
 
             case CardEffectType.DealDamageToEnemyHero:
-                EnemyHero.TakeDamage(effect.Value, null);
+                EnemyHero.TakeDamage(effect.Value, source, DamageKind.Effect);
                 GD.Print($"[CombatManager]   对敌方英雄造成 {effect.Value} 点伤害（剩余 {EnemyHero.CurrentHealth}）");
+                break;
+
+            case CardEffectType.DealDamageToFriendlyHero:
+                PlayerHero.TakeDamage(effect.Value, source, DamageKind.Effect);
+                GD.Print($"[CombatManager]   对友方英雄造成 {effect.Value} 点伤害（剩余 {PlayerHero.CurrentHealth}）");
                 break;
 
             case CardEffectType.DealDamageToAllEnemies:
@@ -681,7 +686,7 @@ public partial class CombatManager : Node
                     int hitCount = 0;
                     foreach (var enemyMinion in Board.GetEnemyMinions())
                     {
-                        enemyMinion.TakeDamage(effect.Value, null);
+                        enemyMinion.TakeDamage(effect.Value, source, DamageKind.Effect);
                         hitCount++;
                     }
                     GD.Print($"[CombatManager]   对所有敌方随从造成 {effect.Value} 点伤害（命中 {hitCount} 个目标）");
@@ -1442,7 +1447,7 @@ public partial class CombatManager : Node
         foreach (var effect in minion.DeathrattleEffects)
         {
             GD.Print($"[CombatManager]     亡语效果：{effect.GetDescription()}");
-            ExecuteEffect(effect, minion);
+            ExecuteEffect(effect, minion, minion);
         }
     }
 

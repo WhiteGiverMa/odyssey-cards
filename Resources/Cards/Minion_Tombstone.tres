@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 21
+Value = 1
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_tombstone"
+CardName = "墓碑"
+Description = "嘲讽。战吼：对友方英雄造成1点伤害。\n对防御力不低于1的目标造成的伤害+2。"
+Rarity = 2
+Cost = 6
+ActionCost = 2
+Type = 0
+Attack = 7
+Health = 7
+Defense = 2
+BonusDamageToDefendedTargets = 2
+Keywords = [2, 3]
+BattlecryEffects = [SubResource("SubResource_1")]

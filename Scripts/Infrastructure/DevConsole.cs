@@ -366,6 +366,7 @@ public partial class DevConsole : Node
                 WriteLine("  /clear          — 清空输出");
                 WriteLine("  /token <id>     — 将指定ID的卡牌加入手牌");
                 WriteLine("  /play <id>      — 从手牌打出指定ID卡牌（领域/无目标法术）");
+                WriteLine("  /qa_tombstone   — 验证墓碑伤害结算");
                 WriteLine("  /unlock_all     — 解锁全部卡牌（加入收藏）");
                 WriteLine("  /help           — 显示帮助[/color]");
                 break;
@@ -439,6 +440,11 @@ public partial class DevConsole : Node
                 WriteLine("[color=#66ff66]已解锁全部卡牌并保存到磁盘[/color]");
                 break;
 
+            // ===== QA：墓碑伤害结算 =====
+            case "qa_tombstone":
+                RunTombstoneDamageQa();
+                break;
+
             default:
                 WriteLine($"[color=#ff6644]未知命令: /{action}，输入 /help 查看帮助[/color]");
                 break;
@@ -463,6 +469,40 @@ public partial class DevConsole : Node
             var m = ui.GetType().GetMethod("RefreshAll");
             m?.Invoke(ui, null);
         }
+    }
+
+    /// <summary>
+    /// 验证墓碑的两个关键伤害规则：
+    /// 1. 效果伤害无视防御力，但仍计算来源侧造成伤害加成；
+    /// 2. 攻击伤害先计算造成伤害加成，再受目标防御力减免。
+    /// </summary>
+    private void RunTombstoneDamageQa()
+    {
+        var tombstoneData = GD.Load<CardData>("res://Resources/Cards/Minion_Tombstone.tres");
+        if (tombstoneData == null)
+        {
+            WriteLine("[color=#ff6644]QA失败：无法加载墓碑资源[/color]");
+            return;
+        }
+
+        var tombstone = new OdysseyCards.Card.Minion(tombstoneData, isPlayerSide: true);
+        var defendedTargetData = new CardData
+        {
+            Id = "qa_defended_target",
+            CardName = "QA防御目标",
+            Attack = 1,
+            Health = 20,
+            Defense = 1,
+        };
+        var defendedTarget = new OdysseyCards.Card.Minion(defendedTargetData, isPlayerSide: false);
+
+        int battlecryDamage = DamageResolver.ResolveDamage(1, tombstone, defendedTarget, DamageKind.Effect);
+        int attackDamage = DamageResolver.ResolveDamage(tombstone.Attack, tombstone, defendedTarget, DamageKind.Attack);
+        bool passed = battlecryDamage == 3 && attackDamage == 8;
+
+        WriteLine(passed
+            ? $"[color=#66ff66]墓碑QA通过：战吼效果={battlecryDamage}，攻击={attackDamage}[/color]"
+            : $"[color=#ff6644]墓碑QA失败：战吼效果={battlecryDamage}（期望3），攻击={attackDamage}（期望8）[/color]");
     }
 
     /// <summary>

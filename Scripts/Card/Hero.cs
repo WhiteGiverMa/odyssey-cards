@@ -248,8 +248,19 @@ public class Hero : IDamageTarget, IDamageSource
     /// <param name="source">伤害来源</param>
     public void TakeDamage(int baseDamage, IDamageSource? source)
     {
+        TakeDamage(baseDamage, source, DamageKind.Attack);
+    }
+
+    /// <summary>
+    /// 受到指定类型的基础伤害。
+    /// </summary>
+    /// <param name="baseDamage">基础伤害值</param>
+    /// <param name="source">伤害来源</param>
+    /// <param name="kind">伤害结算类型</param>
+    public void TakeDamage(int baseDamage, IDamageSource? source, DamageKind kind)
+    {
         // Step 1: ALWAYS go through DamageResolver first (Defense modifier applies here)
-        int resolvedDamage = DamageResolver.ResolveDamage(baseDamage, source, this);
+        int resolvedDamage = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
 
         // Step 2: Armor absorbs remaining damage AFTER defense
         if (CurrentArmor > 0)

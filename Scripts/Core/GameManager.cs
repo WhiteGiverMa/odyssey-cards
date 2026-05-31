@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using OdysseyCards.Character;
-using OdysseyCards.Localization;
 using OdysseyCards.Roguelike;
 
 namespace OdysseyCards.Core;
@@ -475,6 +474,7 @@ public partial class GameManager : Node
             "res://Resources/Cards/Spell_Discover.tres",
             "res://Resources/Cards/Minion_KnightType1.tres",
             "res://Resources/Cards/Minion_CentipedeSiege.tres",
+            "res://Resources/Cards/Minion_Tombstone.tres",
         };
 
         foreach (var path in cardPaths)
