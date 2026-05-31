@@ -219,6 +219,14 @@ public abstract class EnemyEncounter
     /// </summary>
     public int CurrentPatternIndex { get; private set; }
 
+    /// <summary>
+    /// 当前 Attack 意图已解析的的目标缓存。
+    /// 在 <see cref="GetCurrentIntent"/> 首次解析时锁定，
+    /// <see cref="AdvanceIntent"/> 推进意图时清空。
+    /// 保证意图显示和执行阶段攻击同一目标。
+    /// </summary>
+    protected IDamageTarget? _cachedAttackTarget;
+
     // ===== 构造函数 =====
 
     /// <summary>
@@ -252,14 +260,14 @@ public abstract class EnemyEncounter
         var intent = IntentPattern[CurrentPatternIndex];
         if (intent.Type == IntentType.Attack)
         {
-            intent.TargetSelector = ResolveAttackTarget;
+            // 首次解析时锁定目标 — 保证意图显示和执行阶段攻击同一随从。
+            _cachedAttackTarget ??= ResolveAttackTarget(combat);
+            var cachedTarget = _cachedAttackTarget;
+            intent.TargetSelector = _ => cachedTarget;
             intent.DamageCalc = (c) =>
             {
-                // 先解析目标（用于获取目标的防御力）
-                var resolvedTarget = intent.TargetSelector?.Invoke(c);
-                // 意图伤害 = 意图基础值 + 敌人攻击力，再经过目标防御力修正
                 int baseWithAttack = intent.Value + Attack;
-                return DamageResolver.ResolvePreviewDamage(baseWithAttack, null, resolvedTarget);
+                return DamageResolver.ResolvePreviewDamage(baseWithAttack, null, cachedTarget);
             };
         }
         return intent;
@@ -286,6 +294,7 @@ public abstract class EnemyEncounter
     /// </summary>
     public void AdvanceIntent()
     {
+        _cachedAttackTarget = null;
         CurrentPatternIndex = (CurrentPatternIndex + 1) % IntentPattern.Length;
     }
 
