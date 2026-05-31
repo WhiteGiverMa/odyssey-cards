@@ -3,7 +3,6 @@ using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
-using OdysseyCards.Localization;
 
 namespace OdysseyCards.AI;
 
@@ -330,7 +329,7 @@ public abstract class EnemyEncounter
         else
         {
             // 敌方英雄攻击玩家英雄（或其他非随从目标）
-            target?.TakeDamage(effectiveDmg, null);
+            target?.TakeDamage(effectiveDmg, combat.EnemyHero);
         }
     }
 
