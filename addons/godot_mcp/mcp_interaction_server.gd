@@ -20,6 +20,7 @@ var _key_map: Dictionary
 var _held_keys: Dictionary = {}
 var _listen_host: String = DEFAULT_HOST
 var _listen_port: int = DEFAULT_PORT
+var _poll_timer: Timer
 
 func _ready() -> void:
 	# Ensure MCP server keeps processing even when game is paused
@@ -33,6 +34,63 @@ func _ready() -> void:
 		return
 	_write_runtime_metadata(true)
 	print("McpInteractionServer: Listening on %s:%d" % [_listen_host, _listen_port])
+
+	# Fast TCP polling timer — decouples command dispatch from game frame rate
+	_poll_timer = Timer.new()
+	_poll_timer.name = "McpPollTimer"
+	_poll_timer.wait_time = 0.01
+	_poll_timer.process_mode = PROCESS_MODE_ALWAYS
+	_poll_timer.timeout.connect(_poll_connection)
+	add_child(_poll_timer)
+	_poll_timer.start()
+
+
+# --- TCP connection poll (decoupled from frame rate by Timer) ---
+func _poll_connection() -> void:
+	if _server == null:
+		return
+
+	# Accept new connections
+	if _server.is_connection_available():
+		var new_client: StreamPeerTCP = _server.take_connection()
+		if new_client != null:
+			if _client != null:
+				_client.disconnect_from_host()
+			_client = new_client
+			_buffer = ""
+			print("McpInteractionServer: Client connected")
+
+	# Read data from client
+	if _client == null:
+		return
+
+	_client.poll()
+	var status: int = _client.get_status()
+	if status == StreamPeerTCP.STATUS_ERROR or status == StreamPeerTCP.STATUS_NONE:
+		print("McpInteractionServer: Client disconnected")
+		_client = null
+		_buffer = ""
+		_busy = false
+		_busy_since = 0.0
+		return
+
+	if status != StreamPeerTCP.STATUS_CONNECTED:
+		return
+
+	var available: int = _client.get_available_bytes()
+	if available > 0:
+		var data: Array = _client.get_data(available)
+		if data[0] == OK:
+			var bytes: PackedByteArray = data[1]
+			_buffer += bytes.get_string_from_utf8()
+
+			# Process complete lines (newline-delimited JSON)
+			while _buffer.find("\n") >= 0:
+				var newline_pos: int = _buffer.find("\n")
+				var line: String = _buffer.substr(0, newline_pos).strip_edges()
+				_buffer = _buffer.substr(newline_pos + 1)
+				if line.length() > 0:
+					_handle_command(line)
 
 
 func _load_server_config() -> Dictionary:
@@ -122,9 +180,6 @@ func _write_runtime_metadata(listening: bool, err: int = OK) -> void:
 
 
 func _process(_delta: float) -> void:
-	if _server == null:
-		return
-
 	# Safety timeout: force-reset _busy if it's been stuck too long
 	if _busy and _busy_since > 0.0:
 		var elapsed: float = Time.get_ticks_msec() / 1000.0 - _busy_since
@@ -133,52 +188,12 @@ func _process(_delta: float) -> void:
 			_busy = false
 			_busy_since = 0.0
 
-	# Accept new connections
-	if _server.is_connection_available():
-		var new_client: StreamPeerTCP = _server.take_connection()
-		if new_client != null:
-			if _client != null:
-				_client.disconnect_from_host()
-			_client = new_client
-			_buffer = ""
-			print("McpInteractionServer: Client connected")
-
-	# Read data from client
-	if _client == null:
-		return
-
-	_client.poll()
-	var status: int = _client.get_status()
-	if status == StreamPeerTCP.STATUS_ERROR or status == StreamPeerTCP.STATUS_NONE:
-		print("McpInteractionServer: Client disconnected")
-		_client = null
-		_buffer = ""
-		_busy = false
-		_busy_since = 0.0
-		return
-
-	if status != StreamPeerTCP.STATUS_CONNECTED:
-		return
-
-	var available: int = _client.get_available_bytes()
-	if available > 0:
-		var data: Array = _client.get_data(available)
-		if data[0] == OK:
-			var bytes: PackedByteArray = data[1]
-			_buffer += bytes.get_string_from_utf8()
-
-			# Process complete lines (newline-delimited JSON)
-			while _buffer.find("\n") >= 0:
-				var newline_pos: int = _buffer.find("\n")
-				var line: String = _buffer.substr(0, newline_pos).strip_edges()
-				_buffer = _buffer.substr(newline_pos + 1)
-				if line.length() > 0:
-					_handle_command(line)
-
 
 func _handle_command(json_str: String) -> void:
 	if _busy:
-		_send_response_raw({"error": "Server busy processing another command. Try again."})
+		var elapsed: float = Time.get_ticks_msec() / 1000.0 - _busy_since
+		_send_response_raw({"error": "Server busy processing another command. Try again.", "busy_elapsed": elapsed, "busy_timeout": BUSY_TIMEOUT})
+		push_warning("McpInteractionServer: Rejected command, _busy for %.1fs" % elapsed)
 		return
 	_busy = true
 	_busy_since = Time.get_ticks_msec() / 1000.0
@@ -435,6 +450,7 @@ func _send_response_raw(data: Dictionary) -> void:
 	var json_str: String = JSON.stringify(data) + "\n"
 	var bytes: PackedByteArray = json_str.to_utf8_buffer()
 	_client.put_data(bytes)
+	_client.poll()  # flush response immediately, no need to wait for next poll cycle
 
 
 # --- Screenshot ---
