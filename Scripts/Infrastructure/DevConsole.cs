@@ -37,6 +37,7 @@ namespace OdysseyCards.Infrastructure;
 /// <item><term>/summon_player &lt;card_id&gt; &lt;slot&gt;</term><description>在己方槽位召唤随从（QA）。别名 /sp。</description></item>
 /// <item><term>/unlock_all</term><description>解锁全部卡牌加入收藏。</description></item>
 /// <item><term>/intent_debug</term><description>显示当前敌方意图目标（QA）。</description></item>
+/// <item><term>/qa_tombstone</term><description>验证墓碑伤害结算（QA）。</description></item>
 /// <item><term>/qa_bait_tactics</term><description>验证诱饵战术双阵营触发（QA）。</description></item>
 /// <item><term>/fight &lt;enemy&gt;</term><description>直接与指定敌人战斗，跳过地图。enemy 为敌人 ID。</description></item>
 /// <item><term>/help</term><description>显示帮助。别名 /?。</description></item>

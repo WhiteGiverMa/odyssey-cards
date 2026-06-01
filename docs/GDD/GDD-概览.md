@@ -68,19 +68,25 @@ CombatManager 对所有卡牌使用 Card 基类，Spell 类从未实例化，待
 
 | 命令 | 功能 |
 |------|------|
-| `/damage N` | 对敌方英雄造成 N 点伤害 |
+| `/damage N` | 对敌方英雄造成 N 点伤害。加 `-c` 进入点击模式。 |
 | `/damage_enemy N` | 同上（显式） |
 | `/damage_self N` | 对己方英雄造成 N 点伤害 |
-| `/damage_eslot X N` | 对敌方槽位 X 随从造成 N 点伤害 |
-| `/damage_pslot X N` | 对己方槽位 X 随从造成 N 点伤害 |
+| `/damage_eslot X N` | 对敌方槽位 X(0-4) 随从造成 N 点伤害 |
+| `/damage_pslot X N` | 对己方槽位 X(0-4) 随从造成 N 点伤害 |
 | `/damage_all N` | 对所有敌方随从造成 N 点伤害 |
-| `/damage -c N` | 点击模式：控制台隐藏→点击目标造成 N 点伤害→右键取消 |
 | `/draw N` | 抽 N 张牌 |
 | `/mana N` | 获得 N 点法力 |
 | `/heal N` | 恢复 N 点生命值 |
 | `/armor N` | 获得 N 点护甲 |
 | `/end` | 强制结束回合 |
 | `/refresh` | 刷新战斗 UI |
-| `/token {card_id}` | 将指定卡牌加入手牌 |
+| `/clear` | 清空控制台输出 |
+| `/token <card_id>` | 将指定 ID 的卡牌加入手牌 |
+| `/play <card_id>` | 从手牌打出领域/无目标法术 |
+| `/summon_player <card_id> <slot>` | 在己方槽位直接召唤随从（QA） |
+| `/unlock_all` | 解锁全部卡牌加入收藏 |
+| `/intent_debug` | 显示当前敌方意图目标（QA） |
+| `/qa_tombstone` | 验证墓碑伤害结算（QA） |
+| `/qa_bait_tactics` | 验证诱饵战术双阵营触发（QA） |
+| `/fight <enemy>` | 直接与指定敌人战斗（跳过地图） |
 | `/help` | 显示帮助 |
-| `/clear` | 清空输出 |
