@@ -506,12 +506,28 @@ public class Hero : IDamageTarget, IDamageSource
     }
 
     /// <summary>
-    /// 将一张卡牌插入抽牌堆的随机位置。
+    /// 将一张卡牌插入抽牌堆底部。
     /// </summary>
     /// <param name="card">要插入的卡牌实例</param>
     public void InsertCardToDrawPile(Card card)
     {
         _core.InsertCardToDrawPile(card);
+    }
+
+    /// <summary>
+    /// 直接将卡牌加入抽牌堆底部（不从手牌移除）。
+    /// </summary>
+    public void AddToDrawPileBottom(Card card)
+    {
+        _core.AddToDrawPileBottom(card);
+    }
+
+    /// <summary>
+    /// 直接将卡牌加入弃牌堆（不从手牌移除）。
+    /// </summary>
+    public void AddToDiscardPile(Card card)
+    {
+        _core.AddToDiscardPile(card);
     }
 
     // ===== 状态效果管理 =====

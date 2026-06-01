@@ -80,16 +80,6 @@ public enum CardEffectType
     ApplyBuff = 14,
 
     /// <summary>
-    /// [已废弃] 弃牌。
-    /// </summary>
-    Discard = 15,
-
-    /// <summary>
-    /// [已废弃] 返回牌库。
-    /// </summary>
-    ReturnToDeck = 16,
-
-    /// <summary>
     /// 自定义效果。
     /// </summary>
     Custom = 17,
@@ -148,8 +138,6 @@ public partial class CardEffectData : Resource
             CardEffectType.GainArmor => $"获得{Value}点护甲",
             CardEffectType.ApplyDebuff => $"施加{TargetType}{Value}层",
             CardEffectType.ApplyBuff => $"获得{TargetType}{Value}层",
-            CardEffectType.Discard => $"弃掉{Value}张牌",
-            CardEffectType.ReturnToDeck => "返回抽牌堆",
             CardEffectType.GainManaSlot => $"获得{Value}个额外的法力水晶槽",
             CardEffectType.RemoveNaturalManaCap => "解除自然增长的水晶槽上限",
             CardEffectType.Discover => $"发现：从{Value}张卡牌中选1张",

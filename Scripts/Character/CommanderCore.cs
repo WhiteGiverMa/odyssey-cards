@@ -210,11 +210,27 @@ public class CommanderCore
     }
 
     /// <summary>
-    /// 将卡牌插入抽牌堆随机位置。
+    /// 将卡牌插入抽牌堆底部。
     /// </summary>
     public void InsertCardToDrawPile(OdysseyCards.Card.Card card)
     {
         CombatDeckState.InsertCardToDrawPile(card);
+    }
+
+    /// <summary>
+    /// 直接将卡牌加入抽牌堆底部（不从手牌移除）。
+    /// </summary>
+    public void AddToDrawPileBottom(OdysseyCards.Card.Card card)
+    {
+        CombatDeckState.AddToDrawPileBottom(card);
+    }
+
+    /// <summary>
+    /// 直接将卡牌加入弃牌堆（不从手牌移除）。
+    /// </summary>
+    public void AddToDiscardPile(OdysseyCards.Card.Card card)
+    {
+        CombatDeckState.AddToDiscardPile(card);
     }
 
     // ===== 回合管理 =====

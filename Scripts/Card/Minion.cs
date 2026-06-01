@@ -326,7 +326,13 @@ public class Minion : Card, IDamageSource, IDamageTarget
         HasWindfury = data.HasKeyword(Keyword.Windfury);
         HasAmbush = data.HasKeyword(Keyword.Ambush);
         HasImpact = data.HasKeyword(Keyword.Impact);
+        HasRecycle = data.HasKeyword(Keyword.Recycle);
     }
+
+    /// <summary>
+    /// 轮战：随从被击败后返回抽牌堆底部，不进入弃牌堆。
+    /// </summary>
+    public new bool HasRecycle { get; }
 
     // ===== 伤害与治疗 =====
 

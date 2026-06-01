@@ -90,6 +90,10 @@ public class CombatDeckState
         GD.Print($"[CombatDeckState] 将「{card.CardName}」加入手牌（共 {Hand.Count} 张）");
     }
 
+    /// <summary>
+    /// 将手牌中的卡牌放回抽牌堆底部。用于轮战等机制。
+    /// </summary>
+    /// <param name="card">要放回的卡牌实例</param>
     public void ReturnToDrawPile(OdysseyCards.Card.Card card)
     {
         if (!Hand.Contains(card))
@@ -97,13 +101,35 @@ public class CombatDeckState
 
         Hand.Remove(card);
 
-        var random = new RandomNumberGenerator();
-        random.Randomize();
-        int insertIndex = random.RandiRange(0, DrawPile.Count);
-        DrawPile.Insert(insertIndex, card);
+        DrawPile.Add(card); // 底部插入（末尾）
 
+        GD.Print($"[CombatDeckState] 将「{card.CardName}」放回抽牌堆底部（共 {DrawPile.Count} 张）");
         OnHandChanged?.Invoke();
         OnDrawPileChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 直接将一张卡牌加入抽牌堆底部（不从手牌移除，用于随从死亡等外部来源）。
+    /// </summary>
+    /// <param name="card">要加入的卡牌实例</param>
+    public void AddToDrawPileBottom(OdysseyCards.Card.Card card)
+    {
+        DrawPile.Add(card);
+
+        GD.Print($"[CombatDeckState] 将「{card.CardName}」加入抽牌堆底部（共 {DrawPile.Count} 张）");
+        OnDrawPileChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 直接将一张卡牌加入弃牌堆（不从手牌移除，用于随从死亡等外部来源）。
+    /// </summary>
+    /// <param name="card">要加入的卡牌实例</param>
+    public void AddToDiscardPile(OdysseyCards.Card.Card card)
+    {
+        DiscardPile.Add(card);
+
+        GD.Print($"[CombatDeckState] 将「{card.CardName}」加入弃牌堆（共 {DiscardPile.Count} 张）");
+        OnDiscardPileChanged?.Invoke();
     }
 
     public void ShuffleDrawPile()
@@ -121,18 +147,15 @@ public class CombatDeckState
     }
 
     /// <summary>
-    /// 将一张卡牌插入抽牌堆的随机位置。
+    /// 将一张卡牌插入抽牌堆底部。
     /// 用于领域效果等外部来源向牌库添加卡牌。
     /// </summary>
     /// <param name="card">要插入的卡牌实例</param>
     public void InsertCardToDrawPile(OdysseyCards.Card.Card card)
     {
-        var random = new RandomNumberGenerator();
-        random.Randomize();
-        int insertIndex = random.RandiRange(0, DrawPile.Count);
-        DrawPile.Insert(insertIndex, card);
+        DrawPile.Add(card); // 底部插入（末尾）
 
-        GD.Print($"[CombatDeckState] 将「{card.CardName}」插入抽牌堆位置 {insertIndex}（共 {DrawPile.Count} 张）");
+        GD.Print($"[CombatDeckState] 将「{card.CardName}」插入抽牌堆底部（共 {DrawPile.Count} 张）");
         OnDrawPileChanged?.Invoke();
     }
 

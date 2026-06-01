@@ -15,5 +15,5 @@ CardName = "联树侦察犬"
 Description = "冲锋，亡语：抽1张牌"
 Rarity = 0
 Cost = 0
-Keywords = Array[int]([1, 4])
+Keywords = Array[int]([1, 4, 8])
 DeathrattleEffects = Array[ExtResource("2_effect")]([SubResource("SubResource_1")])

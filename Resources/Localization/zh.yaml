@@ -216,16 +216,16 @@ cards:
     description: "对一个敌方目标造成 3 点伤害，抽 1 张牌。"
   spell_Alert:
     name: "警戒"
-    description: "轮战\n抽 1 张牌，友方总部获得 +2 生命值"
+    description: "轮战\n抽 1 张牌，回复 2 点生命值"
   minion_18thRegiment:
     name: "第 18 团"
-    description: "守护，轮战"
+    description: "嘲讽，轮战"
   minion_DetectiveSquad:
     name: "武侦小组"
-    description: "闪击，机动"
+    description: "闪击"
   minion_LianshuScout:
     name: "联树机器犬 侦察型"
-    description: "闪击，轮战\n亡语：抽 1 张牌"
+    description: "冲锋，轮战\n亡语：抽 1 张牌"
   domain_zhijian:
     name: "执锐"
     description: "领域：友方随从部署时攻击力+1"

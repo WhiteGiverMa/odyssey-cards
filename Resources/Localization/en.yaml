@@ -216,16 +216,16 @@ cards:
     description: "Deal 3 damage to an enemy target. Draw 1 card."
   spell_Alert:
     name: "Alert"
-    description: "Rotation\nDraw 1 card, friendly HQ +2 HP"
+    description: "Recycle\nDraw 1 card, restore 2 HP"
   minion_18thRegiment:
     name: "18th Regiment"
-    description: "Guard, Rotation"
+    description: "Taunt, Recycle"
   minion_DetectiveSquad:
     name: "Detective Squad"
-    description: "Charge, Mobile"
+    description: "Charge"
   minion_LianshuScout:
     name: "Lianshu Mech Hound Scout"
-    description: "Charge, Rotation\nLast Words: Draw 1 card"
+    description: "Charge, Recycle\nLast Words: Draw 1 card"
   domain_zhijian:
     name: "Blade Sharp"
     description: "Domain: Friendly minions gain +1 Attack when deployed"

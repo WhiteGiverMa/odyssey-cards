@@ -1065,7 +1065,7 @@ public partial class CombatUI : Control
             if (_combat != null)
             {
                 var cards = _combat.PlayerHero.DeckState.DrawPile;
-                ShowPileViewer(Localization.Localization.T("ui.combat.draw_pile", "抽牌堆"), cards);
+                ShowPileViewer(Localization.Localization.T("ui.combat.draw_pile", "抽牌堆"), cards, showOrderNumbers: true);
             }
         };
         btnContainer.AddChild(_drawPileBtn);
@@ -1200,7 +1200,8 @@ public partial class CombatUI : Control
     /// </summary>
     /// <param name="title">弹窗标题（如"抽牌堆""弃牌堆"）</param>
     /// <param name="cards">要展示的卡牌列表</param>
-    private void ShowPileViewer(string title, List<OdysseyCards.Card.Card> cards)
+    /// <param name="showOrderNumbers">是否在每张牌前显示序号（抽牌堆用，表示第几张被抽到）</param>
+    private void ShowPileViewer(string title, List<OdysseyCards.Card.Card> cards, bool showOrderNumbers = false)
     {
         // 关闭之前的弹窗
         _pileViewPopup?.QueueFree();
@@ -1208,7 +1209,7 @@ public partial class CombatUI : Control
         _pileViewPopup = new AcceptDialog
         {
             Title = title,
-            Size = new Vector2I(280, 320),
+            Size = new Vector2I(300, 320),
             OkButtonText = Localization.Localization.T("ui.combat.close", "关闭"),
         };
 
@@ -1236,11 +1237,13 @@ public partial class CombatUI : Control
         }
         else
         {
-            foreach (var card in cards)
+            for (int i = 0; i < cards.Count; i++)
             {
+                var card = cards[i];
+                string prefix = showOrderNumbers ? $"#{i + 1} " : "";
                 var cardLabel = new Label
                 {
-                    Text = Localization.Localization.T("ui.combat.card_pile_item", "[{cost}费] {name}")
+                    Text = prefix + Localization.Localization.T("ui.combat.card_pile_item", "[{cost}费] {name}")
                         .Replace("{cost}", card.Cost.ToString())
                         .Replace("{name}", card.GetLocalizedName()),
                 };

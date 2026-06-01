@@ -330,6 +330,9 @@ public partial class CombatManager : Node
         // 亡语驱动：随从从棋盘移除时自动触发亡语，无需在各处手动调用
         Board.OnMinionRemoved += TriggerDeathrattle;
 
+        // 牌堆回收驱动：随从死亡时自动进入弃牌堆或返回抽牌堆（轮战），无需在各处手动调用
+        Board.OnMinionRemoved += HandleMinionDeathPile;
+
         // 状态变更事件：随从部署/移除时触发，驱动意图 UI 实时刷新
         Board.OnMinionPlaced += (_, _) => NotifyCombatStateChanged();
         Board.OnMinionRemoved += (_) => NotifyCombatStateChanged();
@@ -815,8 +818,17 @@ public partial class CombatManager : Node
             return true;
         }
 
-        // 从手牌中弃掉
-        PlayerHero.RemoveFromHand(card);
+        // 轮战法术：回到抽牌堆底部；普通法术：进入弃牌堆
+        if (card.HasRecycle)
+        {
+            PlayerHero.ReturnToDrawPile(card);
+            GD.Print($"[CombatManager]   ♻ {card.CardName}（轮战）回到抽牌堆底部");
+        }
+        else
+        {
+            PlayerHero.DiscardCard(card);
+            GD.Print($"[CombatManager]   🗑 {card.CardName} 进入弃牌堆");
+        }
 
         // 法术可能造成随从死亡
         CheckDeaths();
@@ -833,6 +845,7 @@ public partial class CombatManager : Node
     /// 玩家打出一张领域牌，将持久效果附加到玩家英雄上。
     /// 领域不需要选择目标，自动挂在己方英雄上。
     /// 同名领域叠加层数，不同领域独立存在。
+    /// 领域不进入弃牌堆。
     /// </summary>
     /// <param name="card">要打出的领域牌</param>
     /// <returns>成功返回 true</returns>
@@ -1553,18 +1566,27 @@ public partial class CombatManager : Node
     /// <summary>
     /// 遍历战场双方所有随从，移除已死亡随从并触发亡语效果。
     /// 先收集再处理以避免迭代中修改集合。
+    /// 死亡随从从槽位直接收集（GetPlayerMinions 会过滤死亡随从，不能用）。
     /// </summary>
     internal void CheckDeaths()
     {
-        var deadMinions = Board.GetPlayerMinions()
-            .Where(m => m.IsDead)
-            .Concat(Board.GetEnemyMinions().Where(m => m.IsDead))
-            .ToList();
+        var deadMinions = new List<Minion>();
+        for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+        {
+            if (Board.PlayerSlots[i] is Minion m && m.IsDead)
+                deadMinions.Add(m);
+            if (Board.EnemySlots[i] is Minion em && em.IsDead)
+                deadMinions.Add(em);
+        }
 
         foreach (var minion in deadMinions)
         {
             GD.Print($"[CombatManager] ☠ {minion.CardName}（{minion.IsPlayerSide switch { true => "玩家方", false => "敌方" }}）死亡");
 
+            // Board.RemoveMinion 自动触发：
+            //   - TriggerDeathrattle（亡语）
+            //   - HandleMinionDeathPile（轮战回收 / 进入弃牌堆）
+            //   - NotifyCombatStateChanged（UI 刷新）
             Board.RemoveMinion(minion);
 
             // 清理攻击追踪
@@ -1588,6 +1610,30 @@ public partial class CombatManager : Node
         {
             GD.Print($"[CombatManager]     亡语效果：{effect.GetDescription()}");
             ExecuteEffect(effect, minion, minion);
+        }
+    }
+
+    /// <summary>
+    /// 处理随从死亡后的牌堆流转（订阅 <see cref="Board.OnMinionRemoved"/> 事件自动触发）。
+    /// 玩家方随从：轮战→返回抽牌堆底部，否则→进入弃牌堆。
+    /// 敌方随从不参与牌堆流转。
+    /// </summary>
+    /// <param name="minion">已从棋盘移除的随从</param>
+    private void HandleMinionDeathPile(Minion minion)
+    {
+        if (!minion.IsPlayerSide)
+            return;
+
+        var cardFromMinion = new Card.Card(minion.Data);
+        if (minion.HasRecycle)
+        {
+            PlayerHero.AddToDrawPileBottom(cardFromMinion);
+            GD.Print($"[CombatManager]   ♻ {minion.CardName}（轮战）返回抽牌堆底部");
+        }
+        else
+        {
+            PlayerHero.AddToDiscardPile(cardFromMinion);
+            GD.Print($"[CombatManager]   🗑 {minion.CardName} 进入弃牌堆");
         }
     }
 

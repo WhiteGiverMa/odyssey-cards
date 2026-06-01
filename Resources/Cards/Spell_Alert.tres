@@ -21,4 +21,5 @@ Description = "抽1张牌，回复2点生命值"
 Rarity = 0
 Cost = 2
 Type = 1
+Keywords = Array[int]([8])
 Effects = [SubResource("SubResource_1"), SubResource("SubResource_2")]

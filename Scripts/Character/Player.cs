@@ -102,6 +102,8 @@ public partial class Player : Node, ICommander
     public void DiscardCard(OdysseyCards.Card.Card card) => _core.DiscardCard(card);
     public void RemoveFromHand(OdysseyCards.Card.Card card) => _core.RemoveFromHand(card);
     public void ReturnToDrawPile(OdysseyCards.Card.Card card) => _core.ReturnToDrawPile(card);
+    public void AddToDrawPileBottom(OdysseyCards.Card.Card card) => _core.AddToDrawPileBottom(card);
+    public void AddToDiscardPile(OdysseyCards.Card.Card card) => _core.AddToDiscardPile(card);
     public void ShuffleDrawPile() => _core.ShuffleDrawPile();
     public void DiscardHand() => _core.DiscardHand();
     public void StartTurn() => _core.StartTurn();

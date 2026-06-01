@@ -42,6 +42,11 @@ public class Card
     public CardType Type => Data.Type;
 
     /// <summary>
+    /// 轮战：法术打出后/随从被击败后返回抽牌堆底部，不进入弃牌堆。
+    /// </summary>
+    public bool HasRecycle => Data.HasKeyword(Keyword.Recycle);
+
+    /// <summary>
     /// 创建卡牌运行时实例。
     /// </summary>
     /// <param name="data">卡牌数据资源</param>

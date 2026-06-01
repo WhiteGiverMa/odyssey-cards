@@ -13,4 +13,4 @@ ActionCost = 1
 Type = 0
 Attack = 1
 Health = 4
-Keywords = [2]
+Keywords = Array[int]([2, 8])

@@ -40,6 +40,8 @@ public interface ICommander
     void DiscardCard(OdysseyCards.Card.Card card);
     void RemoveFromHand(OdysseyCards.Card.Card card);
     void ReturnToDrawPile(OdysseyCards.Card.Card card);
+    void AddToDrawPileBottom(OdysseyCards.Card.Card card);
+    void AddToDiscardPile(OdysseyCards.Card.Card card);
     void ShuffleDrawPile();
     void DiscardHand();
     bool CanSpendMana(int amount);
