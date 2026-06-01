@@ -42,6 +42,40 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// </summary>
     public int Defense { get; private set; }
 
+    // ===== 护甲系统 =====
+
+    private int _currentArmor;
+    private int _maxArmor;
+
+    /// <summary>
+    /// 当前护甲值。护甲在生命值之前吸收伤害。
+    /// </summary>
+    public int CurrentArmor => _currentArmor;
+
+    /// <summary>
+    /// 最大护甲值（记录通过 GainArmor 获得的最大护甲量）。
+    /// </summary>
+    public int MaxArmor => _maxArmor;
+
+    /// <summary>
+    /// 是否拥有护甲。
+    /// </summary>
+    public bool HasArmor => CurrentArmor > 0;
+
+    /// <summary>
+    /// 为随从增加护甲值。
+    /// </summary>
+    /// <param name="amount">护甲增加量</param>
+    public void GainArmor(int amount)
+    {
+        _currentArmor += amount;
+        if (_currentArmor > _maxArmor)
+        {
+            _maxArmor = _currentArmor;
+        }
+        GD.Print($"[Minion:{CardName}] 获得 {amount} 点护甲，当前护甲：{CurrentArmor}");
+    }
+
     /// <summary>
     /// 修改防御力（正数为增加，负数为减少）。
     /// 最大值不设上限，最小值不设下限（允许负防御表示脆弱状态）。
@@ -102,7 +136,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// <summary>
     /// 嘲讽：敌方随从必须优先攻击此随从。
     /// </summary>
-    public bool HasTaunt { get; }
+    public bool HasTaunt { get; internal set; }
 
     /// <summary>
     /// 战吼：从手牌中打出时触发效果。
@@ -276,6 +310,9 @@ public class Minion : Card, IDamageSource, IDamageTarget
         // 注册防御力修改器到 DamageModifiers
         _damageModifiers.Add(new OdysseyCards.Core.DefenseModifier(() => Defense));
 
+        // 注册护甲攻击加成修改器
+        _damageModifiers.Add(new ArmorAttackBonusModifier(this));
+
         if (data.BonusDamageToDefendedTargets != 0)
         {
             _damageModifiers.Add(new DefendedTargetDamageBonusModifier(data.BonusDamageToDefendedTargets));
@@ -312,6 +349,24 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// <param name="kind">伤害结算类型</param>
     public void TakeDamage(int baseDamage, IDamageSource? source, DamageKind kind)
     {
+        // Step 1: Armor absorbs damage first (before DamageResolver)
+        if (_currentArmor > 0)
+        {
+            if (baseDamage >= _currentArmor)
+            {
+                int remaining = baseDamage - _currentArmor;
+                _currentArmor = 0;
+                baseDamage = remaining;
+            }
+            else
+            {
+                _currentArmor -= baseDamage;
+                baseDamage = 0;
+            }
+            GD.Print($"[Minion:{CardName}] 护甲吸收后剩余护甲：{_currentArmor}，剩余伤害：{baseDamage}");
+        }
+
+        // Step 2: Existing DamageResolver pipeline for HP damage
         int result = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
         ApplyDamage(result, source);
     }

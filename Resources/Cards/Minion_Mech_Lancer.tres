@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_Mech_Lancer"
+CardName = "机械静螳"
+Description = "伏击\n拥有格挡时，攻击力+2"
+Rarity = 4
+Cost = 3
+ActionCost = 1
+Type = 0
+Attack = 4
+Health = 3
+Defense = 0
+Keywords = [6]
