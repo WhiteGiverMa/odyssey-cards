@@ -106,6 +106,19 @@ public partial class CombatManager : Node
         return EnemyUnits[enemyIndex].GetCurrentIntent(this);
     }
 
+    /// <summary>
+    /// 通知战斗状态变化，并在 UI 重新查询意图前失效攻击目标缓存。
+    /// 玩家部署/移除嘲讽随从后，敌人意图应重新锁定到最新合法目标，
+    /// 但同一次状态刷新内显示与执行仍共用同一个缓存目标。
+    /// </summary>
+    private void NotifyCombatStateChanged()
+    {
+        foreach (var unit in EnemyUnits)
+            unit.Brain.ResetCachedAttackTarget();
+
+        OnCombatStateChanged?.Invoke();
+    }
+
     // ===== 随从攻击追踪 =====
 
     /// <summary>
@@ -282,7 +295,7 @@ public partial class CombatManager : Node
         combatUI.RefreshAll(); // StartCombat 中法力变化后刷新 UI
 
         // 触发初始意图事件（使用动态意图）
-        OnCombatStateChanged?.Invoke();
+        NotifyCombatStateChanged();
 
         GD.Print("[CombatManager] BootstrapCombat 完成");
     }
@@ -318,8 +331,8 @@ public partial class CombatManager : Node
         Board.OnMinionRemoved += TriggerDeathrattle;
 
         // 状态变更事件：随从部署/移除时触发，驱动意图 UI 实时刷新
-        Board.OnMinionPlaced += (_, _) => OnCombatStateChanged?.Invoke();
-        Board.OnMinionRemoved += (_) => OnCombatStateChanged?.Invoke();
+        Board.OnMinionPlaced += (_, _) => NotifyCombatStateChanged();
+        Board.OnMinionRemoved += (_) => NotifyCombatStateChanged();
 
         // 装配默认武器
         PlayerHero.Weapon = new IonPistol();
@@ -989,7 +1002,7 @@ public partial class CombatManager : Node
             GD.Print($"[CombatManager] ◆ 「飞远」剩余 {domain.StackCount} 层");
         }
 
-        OnCombatStateChanged?.Invoke();
+        NotifyCombatStateChanged();
     }
 
     /// <summary>
@@ -1741,7 +1754,7 @@ public partial class CombatManager : Node
             minion.TickStatusEffects(TickTiming.EnemyTurnEnd);
 
         // 8. 通知 UI 刷新意图显示（解冻后触发）
-        OnCombatStateChanged?.Invoke();
+        NotifyCombatStateChanged();
     }
 
     /// <summary>
@@ -1861,7 +1874,7 @@ public partial class CombatManager : Node
         foreach (var c in pool)
             GD.Print($"[CombatManager]     {c.GetLocalizedName()} — {c.Description}");
 
-        OnCombatStateChanged?.Invoke();
+        NotifyCombatStateChanged();
     }
 
     /// <summary>
@@ -1912,7 +1925,7 @@ public partial class CombatManager : Node
         CheckDeaths();
         CheckVictoryOrDefeat();
 
-        OnCombatStateChanged?.Invoke();
+        NotifyCombatStateChanged();
         GD.Print("[CombatManager] 发现选牌完成，恢复玩家回合");
     }
 

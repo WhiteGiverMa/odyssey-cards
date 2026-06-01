@@ -367,6 +367,8 @@ public partial class DevConsole : Node
                 WriteLine("  /clear          — 清空输出");
                 WriteLine("  /token <id>     — 将指定ID的卡牌加入手牌");
                 WriteLine("  /play <id>      — 从手牌打出指定ID卡牌（领域/无目标法术）");
+                WriteLine("  /summon_player <id> <slot> — 在己方槽位直接召唤随从（QA）");
+                WriteLine("  /intent_debug   — 显示当前敌方意图目标与箭头坐标（QA）");
                 WriteLine("  /fight <enemy>  — 直接与指定敌人战斗（跳过地图）");
                 WriteLine("  /qa_tombstone   — 验证墓碑伤害结算");
                 WriteLine("  /unlock_all     — 解锁全部卡牌（加入收藏）");
@@ -429,6 +431,17 @@ public partial class DevConsole : Node
                     : $"[color=#ffaa44]无法通过 /play 打出「{cardToPlay.GetLocalizedName()}」[/color]");
                 break;
 
+            // ===== QA：直接召唤玩家随从 =====
+            case "summon_player":
+            case "sp":
+                SummonPlayerMinion(parts, cm!);
+                break;
+
+            // ===== QA：显示当前敌方意图目标 =====
+            case "intent_debug":
+                WriteIntentDebug(cm!);
+                break;
+
             // ===== 清空输出 =====
             case "clear":
             case "cls":
@@ -470,6 +483,82 @@ public partial class DevConsole : Node
                 WriteLine($"[color=#ff6644]未知命令: /{action}，输入 /help 查看帮助[/color]");
                 break;
         }
+    }
+
+    /// <summary>
+    /// QA 命令：直接在玩家槽位召唤指定随从，用于构造自动化验证场景。
+    /// </summary>
+    private void SummonPlayerMinion(string[] parts, CombatManager cm)
+    {
+        if (parts.Length < 3)
+        {
+            WriteLine("[color=#ffaa44]用法: /summon_player <card_id> <slot0-4>[/color]");
+            return;
+        }
+
+        if (!TryGetCardData(parts[1], out var cardData) || cardData == null)
+        {
+            WriteLine($"[color=#ffaa44]未找到卡牌: {parts[1]}  可用ID见补全提示[/color]");
+            return;
+        }
+
+        if (!cardData.IsMinion)
+        {
+            WriteLine($"[color=#ffaa44]「{cardData.CardName}」不是随从牌[/color]");
+            return;
+        }
+
+        if (!int.TryParse(parts[2], out var slot) || slot < 0 || slot >= Board.MaxSlotsPerSide)
+        {
+            WriteLine("[color=#ffaa44]槽位需为 0-4[/color]");
+            return;
+        }
+
+        var minion = new OdysseyCards.Card.Minion(cardData, isPlayerSide: true);
+        cm.Board.PlaceMinion(minion, slot);
+        RefreshCombatUI(cm);
+        WriteLine($"[color=#66ff66]已在己方槽位 {slot} 召唤「{minion.GetLocalizedName()}」[/color]");
+    }
+
+    /// <summary>
+    /// QA 命令：输出敌方意图目标与箭头坐标快照。
+    /// </summary>
+    private void WriteIntentDebug(CombatManager cm)
+    {
+        for (int i = 0; i < cm.EnemyUnits.Count; i++)
+        {
+            var unit = cm.EnemyUnits[i];
+            var intent = unit.GetCurrentIntent(cm);
+            var target = intent.GetTarget(cm);
+            WriteLine($"[color=#66ff66]Enemy[{i}] {unit.Brain.Name}: {intent.Type} -> {DescribeTarget(target)}, damage={intent.GetEffectiveDamage(cm)}[/color]");
+        }
+
+        var combatUI = cm.GetNodeOrNull<CombatUI>("CanvasLayer/CombatUI");
+        var arrows = combatUI?.GetIntentArrowDebugInfo();
+        WriteLine(string.IsNullOrEmpty(arrows)
+            ? "[color=#aaaaaa]Arrows: <none>[/color]"
+            : $"[color=#aaaaaa]Arrows:\n{arrows}[/color]");
+    }
+
+    private bool TryGetCardData(string cardId, out CardData? cardData)
+    {
+        if (_cardCache.TryGetValue(cardId, out cardData))
+            return true;
+
+        var match = _cardCache.Keys.FirstOrDefault(k =>
+            string.Equals(k, cardId, StringComparison.OrdinalIgnoreCase));
+        return match != null && _cardCache.TryGetValue(match, out cardData);
+    }
+
+    private static string DescribeTarget(IDamageTarget? target)
+    {
+        return target switch
+        {
+            OdysseyCards.Card.Hero h => h.IsPlayerSide ? "Hero:Player" : "Hero:Enemy",
+            OdysseyCards.Card.Minion m => $"Minion:{m.GetLocalizedName()}@{m.BoardSlotIndex}",
+            null => "<none>",
+            _ => target.GetType().Name,
+        };
     }
 
     // ===== 输出 =====
@@ -608,6 +697,8 @@ public partial class DevConsole : Node
             new DevCommandDef("clear",        ["cls"],    "/clear",               "清空输出",                   null),
             new DevCommandDef("token",        ["t"],      "/token <card_id>",     "将指定ID的卡牌加入手牌",        _cardCache.Keys.ToArray()),
             new DevCommandDef("play",         ["p"],      "/play <card_id>",      "从手牌打出领域/无目标法术",      _cardCache.Keys.ToArray()),
+            new DevCommandDef("summon_player",["sp"],     "/summon_player <card_id> <slot>", "在己方槽位直接召唤随从（QA）", _cardCache.Keys.ToArray()),
+            new DevCommandDef("intent_debug", [],          "/intent_debug",        "显示当前敌方意图目标（QA）",     null),
             new DevCommandDef("unlock_all",   [],         "/unlock_all",          "解锁全部卡牌（加入收藏）",     null),
             new DevCommandDef("fight",        [],         "/fight <enemy>",       "直接与指定敌人战斗（跳过地图）",  EnemyRegistry.AllIds.ToArray()),
             new DevCommandDef("help",         ["?"],      "/help",                "显示帮助",                   null),

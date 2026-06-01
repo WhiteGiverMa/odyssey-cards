@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using Godot;
 
 namespace OdysseyCards.UI;
@@ -122,6 +123,31 @@ public partial class ArrowRenderer : Control
     /// 获取当前箭头数量。
     /// </summary>
     public int ArrowCount => _arrows.Count;
+
+    /// <summary>
+    /// 获取当前箭头坐标快照，供自动化/开发者控制台验证使用。
+    /// </summary>
+    public string GetDebugSnapshot()
+    {
+        var builder = new StringBuilder();
+        foreach (var arrow in _arrows.Values)
+        {
+            if (builder.Length > 0)
+                builder.Append('\n');
+
+            builder.Append(arrow.Key)
+                .Append(':')
+                .Append(arrow.From.X.ToString("F1"))
+                .Append(',')
+                .Append(arrow.From.Y.ToString("F1"))
+                .Append("->")
+                .Append(arrow.To.X.ToString("F1"))
+                .Append(',')
+                .Append(arrow.To.Y.ToString("F1"));
+        }
+
+        return builder.ToString();
+    }
 
     // ===== 渲染 =====
 

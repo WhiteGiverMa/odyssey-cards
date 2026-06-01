@@ -1423,10 +1423,6 @@ public partial class CombatUI : Control
         {
             var unit = _combat.EnemyUnits[i];
             var intent = unit.GetCurrentIntent(_combat);
-            var source = GetEnemyIdentityCardCenter(i);
-
-            if (source == Vector2.Zero) continue;
-
             switch (intent.Type)
             {
                 case IntentType.Attack:
@@ -1450,6 +1446,8 @@ public partial class CombatUI : Control
 
                     if (targetPos != Vector2.Zero)
                     {
+                        var source = GetEnemyIdentityCardAnchor(i, targetPos);
+                        if (source == Vector2.Zero) break;
                         _arrowRenderer.AddArrow($"intent_attack_{i}", source, targetPos, ArrowRenderer.EnemyAttackColor);
                     }
                     break;
@@ -1470,9 +1468,11 @@ public partial class CombatUI : Control
                     }
 
                     // 若无友方随从，指向敌人自身身份卡（自增益）
-                    buffTarget ??= source;
+                    buffTarget ??= GetEnemyIdentityCardCenter(i);
 
-                    _arrowRenderer.AddArrow($"intent_buff_{i}", source, buffTarget.Value, ArrowRenderer.BuffColor);
+                    var source = GetEnemyIdentityCardAnchor(i, buffTarget.Value);
+                    if (source != Vector2.Zero)
+                        _arrowRenderer.AddArrow($"intent_buff_{i}", source, buffTarget.Value, ArrowRenderer.BuffColor);
                     break;
                 }
             }
@@ -2879,6 +2879,36 @@ public partial class CombatUI : Control
             return rect.Position + rect.Size / 2;
         }
         return Vector2.Zero;
+    }
+
+    /// <summary>
+    /// 获取敌方身份卡朝向目标一侧的边缘锚点。
+    /// 意图箭头应从攻击者卡片边缘伸出，而不是从卡片中心穿出来。
+    /// </summary>
+    private Vector2 GetEnemyIdentityCardAnchor(int enemyIndex, Vector2 targetPos)
+    {
+        if (enemyIndex < 0 || enemyIndex >= _enemyCards.Count)
+            return Vector2.Zero;
+
+        var rect = _enemyCards[enemyIndex].GetGlobalRect();
+        var center = rect.Position + rect.Size / 2;
+        var direction = targetPos - center;
+        if (direction.LengthSquared() < 0.01f)
+            return center;
+
+        var half = rect.Size / 2;
+        float tx = direction.X == 0 ? float.PositiveInfinity : half.X / MathF.Abs(direction.X);
+        float ty = direction.Y == 0 ? float.PositiveInfinity : half.Y / MathF.Abs(direction.Y);
+        float t = MathF.Min(tx, ty);
+        return center + direction * t;
+    }
+
+    /// <summary>
+    /// 返回当前意图箭头调试信息，供 godot-mcp 手动验证使用。
+    /// </summary>
+    public string GetIntentArrowDebugInfo()
+    {
+        return _arrowRenderer?.GetDebugSnapshot() ?? "";
     }
 
     /// <summary>
