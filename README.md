@@ -1,4 +1,6 @@
-# OdysseyCards
+> **中文** | [English](README_EN.md) | [日本語](README_JA.md)
+
+# 少女星途卡牌（星途卡牌）<br><small>Shoujo Odyssey Cards</small>
 
 类炉石传说的回合制卡牌对战 Roguelite 游戏 — Godot 4.6 + C#
 
