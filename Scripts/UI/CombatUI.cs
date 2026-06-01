@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using OdysseyCards.AI;
 using OdysseyCards.Card;
 using OdysseyCards.Core;
 using OdysseyCards.Character;
@@ -132,6 +133,12 @@ public partial class CombatUI : Control
     /// 拖拽层——卡牌拖拽时重parent到此，使其脱离 HandUI 的 HBoxContainer 布局约束。
     /// </summary>
     private Control _dragLayer = null!;
+
+    /// <summary>
+    /// 箭头渲染器——攻击选择（橙色）和敌方意图（红/蓝）箭头的 Control 层绘制组件。
+    /// 作为 _dragLayer 子节点，Z 层级最高，不拦截鼠标事件。
+    /// </summary>
+    private ArrowRenderer _arrowRenderer = null!;
 
     /// <summary>
     /// 当前正在拖拽的卡牌 UI。
@@ -308,6 +315,24 @@ public partial class CombatUI : Control
         RefreshAll();
     }
 
+    /// <summary>
+    /// 每帧更新攻击选择箭头——从攻击方随从槽位指向鼠标光标。
+    /// 仅在 SelectingAttackTarget 模式下有效。
+    /// </summary>
+    public override void _Process(double delta)
+    {
+        if (_selectionMode == SelectionMode.SelectingAttackTarget && _selectedAttacker != null && _arrowRenderer != null)
+        {
+            var sourcePos = GetMinionScreenCenter(_selectedAttacker);
+            var mousePos = GetGlobalMousePosition();
+            _arrowRenderer.AddArrow("attack_select", sourcePos, mousePos, ArrowRenderer.AttackSelectColor);
+        }
+        else if (_arrowRenderer != null && _arrowRenderer.HasArrow("attack_select"))
+        {
+            _arrowRenderer.RemoveArrow("attack_select");
+        }
+    }
+
     // ===== 初始化 =====
 
     /// <summary>
@@ -430,6 +455,18 @@ public partial class CombatUI : Control
             AnchorBottom = 1,
         };
         AddChild(_dragLayer);
+
+        // 箭头渲染器——攻击选择和敌方意图可视化的 Control 层
+        _arrowRenderer = new ArrowRenderer
+        {
+            Name = "ArrowRenderer",
+            MouseFilter = MouseFilterEnum.Ignore,
+            AnchorLeft = 0,
+            AnchorTop = 0,
+            AnchorRight = 1,
+            AnchorBottom = 1,
+        };
+        _dragLayer.AddChild(_arrowRenderer);
     }
 
     /// <summary>
@@ -1274,8 +1311,12 @@ public partial class CombatUI : Control
         // 法力值变化 → 自动更新显示
         _combat.PlayerHero.OnManaChanged += (_, _) => UpdateManaDisplay();
 
-        // 敌方意图变化 → 更新意图显示
-        _combat.OnCombatStateChanged += RefreshIntentDisplay;
+        // 敌方意图变化 → 更新意图显示和箭头
+        _combat.OnCombatStateChanged += () =>
+        {
+            RefreshIntentDisplay();
+            RefreshIntentArrows();
+        };
 
         // 发现选牌阶段切换
         _combat.OnCombatStateChanged += OnCombatStateChangedForDiscover;
@@ -1358,6 +1399,138 @@ public partial class CombatUI : Control
         // 向后兼容：首个敌人意图标签
         if (_enemyIntentLabel != null && _enemyCards.Count > 0)
             _enemyIntentLabel.Text = _combat.GetCurrentEnemyIntent().GetDisplayDescription(_combat);
+    }
+
+    /// <summary>
+    /// 刷新敌方意图箭头——根据当前战场状态绘制红色攻击箭头和蓝色增益箭头。
+    /// 每次 OnCombatStateChanged 触发时调用。
+    /// </summary>
+    private void RefreshIntentArrows()
+    {
+        if (_combat == null || _arrowRenderer == null) return;
+
+        // 冻结检查：敌方回合执行动画期间不刷新
+        if (_combat.IsEnemyTurnAnimating) return;
+
+        // 清除旧的意图箭头（前缀 "intent_"）
+        _arrowRenderer.ClearArrows();
+
+        // 清除敌方槽位的旧意图文字（由下面的循环重新设置）
+        for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+            _boardUI.SetSlotIntentText(i, isPlayerSide: false, null);
+
+        for (int i = 0; i < _combat.EnemyUnits.Count; i++)
+        {
+            var unit = _combat.EnemyUnits[i];
+            var intent = unit.GetCurrentIntent(_combat);
+            var source = GetEnemyIdentityCardCenter(i);
+
+            if (source == Vector2.Zero) continue;
+
+            switch (intent.Type)
+            {
+                case IntentType.Attack:
+                {
+                    var target = intent.GetTarget(_combat);
+                    Vector2 targetPos;
+                    if (target is Minion minionTarget)
+                    {
+                        targetPos = GetMinionScreenCenter(minionTarget);
+                    }
+                    else if (target is Hero)
+                    {
+                        // 敌人攻击玩家英雄
+                        targetPos = GetPlayerHeroScreenCenter();
+                    }
+                    else
+                    {
+                        // 未能解析目标，默认指向玩家英雄
+                        targetPos = GetPlayerHeroScreenCenter();
+                    }
+
+                    if (targetPos != Vector2.Zero)
+                    {
+                        _arrowRenderer.AddArrow($"intent_attack_{i}", source, targetPos, ArrowRenderer.EnemyAttackColor);
+                    }
+                    break;
+                }
+
+                case IntentType.Buff:
+                {
+                    // 增益意图：指向敌方战场上的首个友方随从
+                    Vector2? buffTarget = null;
+                    for (int slot = 0; slot < Board.MaxSlotsPerSide; slot++)
+                    {
+                        var friendly = _combat.Board.GetMinionAt(slot, isPlayerSide: false);
+                        if (friendly != null && !friendly.IsDead)
+                        {
+                            buffTarget = GetMinionScreenCenter(friendly);
+                            break;
+                        }
+                    }
+
+                    // 若无友方随从，指向敌人自身身份卡（自增益）
+                    buffTarget ??= source;
+
+                    _arrowRenderer.AddArrow($"intent_buff_{i}", source, buffTarget.Value, ArrowRenderer.BuffColor);
+                    break;
+                }
+            }
+        }
+
+        // === 敌方随从意图箭头 ===
+        var enemyMinions = _combat.Board.GetEnemyMinions();
+        foreach (var minion in enemyMinions)
+        {
+            if (minion.IsDead) continue;
+            int slotIndex = minion.BoardSlotIndex;
+            if (slotIndex < 0) continue;
+
+            Vector2 sourcePos = _boardUI.GetSlotScreenCenter(slotIndex, isPlayerSide: false);
+
+            // 获取意图：优先使用 IntentBrain，否则默认攻击英雄（遵守嘲讽）
+            EnemyIntent intent;
+            if (minion.IntentBrain != null)
+            {
+                intent = minion.IntentBrain.GetCurrentIntent(_combat);
+            }
+            else
+            {
+                var playerTaunts = _combat.Board.GetTaunts(isEnemy: false);
+                IDamageTarget? target;
+                if (playerTaunts.Count > 0)
+                    target = playerTaunts[0];
+                else
+                    target = _combat.PlayerHero;
+
+                int dmg = DamageResolver.ResolvePreviewDamage(minion.Attack, minion, target);
+                intent = new EnemyIntent(IntentType.Attack, dmg, $"攻击造成 {dmg} 点伤害");
+                intent.TargetSelector = _ => target;
+            }
+
+            string key = $"intent_minion_{slotIndex}";
+
+            if (intent.Type == IntentType.Attack)
+            {
+                var target = intent.TargetSelector?.Invoke(_combat);
+                Vector2 targetPos = ResolveTargetScreenPos(target);
+                _arrowRenderer.AddArrow(key, sourcePos, targetPos, ArrowRenderer.EnemyAttackColor);
+            }
+            else if (intent.Type == IntentType.Buff)
+            {
+                // 增益意图：指向敌方战场首个友方随从
+                var friendlies = _combat.Board.GetEnemyMinions()
+                    .Where(m => !m.IsDead && m != minion).ToList();
+                Vector2 targetPos = friendlies.Count > 0
+                    ? _boardUI.GetSlotScreenCenter(friendlies[0].BoardSlotIndex, isPlayerSide: false)
+                    : sourcePos;
+                _arrowRenderer.AddArrow(key, sourcePos, targetPos, ArrowRenderer.BuffColor);
+            }
+
+            // 设置槽位意图文字
+            string desc = intent.GetDisplayDescription(_combat);
+            _boardUI.SetSlotIntentText(slotIndex, isPlayerSide: false, desc);
+        }
     }
 
     /// <summary>
@@ -2679,6 +2852,68 @@ public partial class CombatUI : Control
         ExitDevDamageMode();
     }
 
+    // ===== 箭头位置辅助方法 =====
+
+    /// <summary>
+    /// 获取随从所在槽位的屏幕中心坐标。
+    /// </summary>
+    /// <param name="minion">战场上的随从</param>
+    /// <returns>槽位屏幕中心坐标；随从无有效槽位时返回 Vector2.Zero</returns>
+    private Vector2 GetMinionScreenCenter(Minion minion)
+    {
+        int slotIndex = minion.BoardSlotIndex;
+        if (slotIndex < 0 || slotIndex >= Board.MaxSlotsPerSide) return Vector2.Zero;
+        return _boardUI.GetSlotScreenCenter(slotIndex, minion.IsPlayerSide);
+    }
+
+    /// <summary>
+    /// 获取敌方身份卡（EnemyIdentityCard）的屏幕中心坐标。
+    /// </summary>
+    /// <param name="enemyIndex">敌人索引（对应 EnemyUnits 列表）</param>
+    /// <returns>身份卡屏幕中心坐标；索引越界返回 Vector2.Zero</returns>
+    private Vector2 GetEnemyIdentityCardCenter(int enemyIndex)
+    {
+        if (enemyIndex >= 0 && enemyIndex < _enemyCards.Count)
+        {
+            var rect = _enemyCards[enemyIndex].GetGlobalRect();
+            return rect.Position + rect.Size / 2;
+        }
+        return Vector2.Zero;
+    }
+
+    /// <summary>
+    /// 获取玩家英雄生命值条的屏幕中心坐标。
+    /// 用于敌方意图箭头指向玩家英雄的场景。
+    /// </summary>
+    /// <returns>生命值条屏幕中心坐标；未初始化返回 Vector2.Zero</returns>
+    private Vector2 GetPlayerHeroScreenCenter()
+    {
+        if (_playerHealthBar != null)
+        {
+            var rect = _playerHealthBar.GetGlobalRect();
+            return new Vector2(rect.Position.X + rect.Size.X / 2, rect.Position.Y + rect.Size.Y / 2);
+        }
+        return Vector2.Zero;
+    }
+
+    /// <summary>
+    /// 根据目标类型解析其屏幕中心坐标。
+    /// 用于意图箭头从敌方随从指向其攻击目标的终点计算。
+    /// </summary>
+    /// <param name="target">伤害目标（Minion/Hero/null）</param>
+    /// <returns>目标屏幕中心坐标；无法解析时返回 Vector2.Zero</returns>
+    private Vector2 ResolveTargetScreenPos(IDamageTarget? target)
+    {
+        return target switch
+        {
+            Minion m => m.BoardSlotIndex >= 0
+                ? _boardUI.GetSlotScreenCenter(m.BoardSlotIndex, m.IsPlayerSide)
+                : Vector2.Zero,
+            Hero h => h.IsPlayerSide ? GetPlayerHeroScreenCenter() : GetEnemyIdentityCardCenter(0),
+            _ => Vector2.Zero
+        };
+    }
+
     // ===== 选择状态管理 =====
 
     /// <summary>
@@ -2686,6 +2921,7 @@ public partial class CombatUI : Control
     /// </summary>
     private void ResetSelection()
     {
+        _arrowRenderer?.RemoveArrow("attack_select");
         _selectionMode = SelectionMode.Normal;
         _selectedCard = null;
         _selectedAttacker = null;

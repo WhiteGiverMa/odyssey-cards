@@ -223,6 +223,34 @@ public partial class BoardUI : Control
         return null;
     }
 
+    /// <summary>
+    /// 获取指定槽位的屏幕中心坐标。
+    /// 用于 ArrowRenderer 箭头起始/终止位置计算。
+    /// </summary>
+    /// <param name="slotIndex">槽位索引（0-4）</param>
+    /// <param name="isPlayerSide">是否玩家方</param>
+    /// <returns>槽位屏幕中心坐标；索引越界返回 Vector2.Zero</returns>
+    public Vector2 GetSlotScreenCenter(int slotIndex, bool isPlayerSide)
+    {
+        var slots = isPlayerSide ? _playerSlots : _enemySlots;
+        if (slotIndex < 0 || slotIndex >= slots.Length) return Vector2.Zero;
+        var rect = slots[slotIndex].GetGlobalRect();
+        return rect.Position + rect.Size / 2;
+    }
+
+    /// <summary>
+    /// 设置指定槽位的意图文字——仅敌方槽位需要意图显示。
+    /// </summary>
+    /// <param name="slotIndex">槽位索引（0-4）</param>
+    /// <param name="isPlayerSide">是否玩家方</param>
+    /// <param name="text">意图描述文本，null 或空则隐藏</param>
+    public void SetSlotIntentText(int slotIndex, bool isPlayerSide, string? text)
+    {
+        var slots = isPlayerSide ? _playerSlots : _enemySlots;
+        if (slotIndex >= 0 && slotIndex < slots.Length)
+            slots[slotIndex].SetIntentText(text);
+    }
+
     // ===== 内部方法 =====
 
     /// <summary>
@@ -293,6 +321,7 @@ public partial class BoardUI : Control
         private readonly Label _costLabel;
         private readonly ColorRect _actionCostBg;
         private readonly Label _actionCostLabel;
+        private readonly Label _intentLabel;
         private bool _isHovered;
 
         // ===== 构造函数 =====
@@ -403,6 +432,20 @@ public partial class BoardUI : Control
             _contentLabel.MouseFilter = MouseFilterEnum.Ignore;
             AddChild(_contentLabel);
 
+            // 意图文字标签（底部，仅敌方槽位可见）
+            _intentLabel = new Label
+            {
+                Position = new Vector2(2, SlotHeight - 20),
+                Size = new Vector2(SlotWidth - 4, 18),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Visible = false,
+            };
+            _intentLabel.AddThemeColorOverride("font_color", new Color(1f, 0.65f, 0.2f));
+            _intentLabel.AddThemeFontSizeOverride("font_size", 10);
+            _intentLabel.MouseFilter = MouseFilterEnum.Ignore;
+            AddChild(_intentLabel);
+
             // 确保子控件不拦截鼠标事件，所有交互由 BoardSlot 本身处理
             _borderRect.MouseFilter = MouseFilterEnum.Ignore;
             _background.MouseFilter = MouseFilterEnum.Ignore;
@@ -414,6 +457,25 @@ public partial class BoardUI : Control
         }
 
         // ===== 公开方法 =====
+
+        /// <summary>
+        /// 设置槽位底部意图文字（用于敌方随从意图显示）。
+        /// 传入 null 或空字符串时隐藏标签。
+        /// </summary>
+        /// <param name="text">意图描述文本，null 或空则隐藏</param>
+        public void SetIntentText(string? text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                _intentLabel.Visible = false;
+                _intentLabel.Text = "";
+            }
+            else
+            {
+                _intentLabel.Text = text;
+                _intentLabel.Visible = true;
+            }
+        }
 
         /// <summary>
         /// 更新槽位显示内容。
@@ -434,6 +496,7 @@ public partial class BoardUI : Control
                 _costLabel.Visible = false;
                 _actionCostBg.Visible = false;
                 _actionCostLabel.Visible = false;
+                SetIntentText(null);
 
                 // 仅在非高亮状态恢复背景色——若槽位正被合法目标高亮则不覆盖
                 if (!IsHighlighted)
