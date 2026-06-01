@@ -14,34 +14,32 @@ namespace OdysseyCards.Infrastructure;
 /// 按反引号键 (`) 呼出/隐藏。支持文本命令和 AI 远程调用。
 /// </summary>
 /// <remarks>
-/// <b>AI 调用方式</b>（godot-mcp）：
-/// <code>game_call_method(nodePath="/root/DevConsole", method="DevCommand", args=["/damage 10"])</code>
+/// AI 调用方式（godot-mcp）：
+///   game_call_method(nodePath="/root/DevConsole", method="DevCommand", args=["/damage 10"])
 ///
-/// <b>命令列表</b>：
-/// <list type="table">
-/// <item><term>/damage N</term><description>对敌方英雄造成 N 点伤害。加 -c 进入点击选择模式。</description></item>
-/// <item><term>/damage_enemy N</term><description>对敌方英雄造成 N 点伤害（显式，同 /damage）。</description></item>
-/// <item><term>/damage_self N</term><description>对己方英雄造成 N 点伤害。</description></item>
-/// <item><term>/damage_eslot X N</term><description>对敌方槽位 X(0-4) 随从造成 N 点伤害。</description></item>
-/// <item><term>/damage_pslot X N</term><description>对己方槽位 X(0-4) 随从造成 N 点伤害。</description></item>
-/// <item><term>/damage_all N</term><description>对所有敌方随从造成 N 点伤害。</description></item>
-/// <item><term>/draw N</term><description>抽 N 张牌。别名 /d。</description></item>
-/// <item><term>/mana N</term><description>获得 N 点法力。别名 /m。</description></item>
-/// <item><term>/heal N</term><description>恢复 N 点生命值。别名 /h。</description></item>
-/// <item><term>/armor N</term><description>获得 N 点护甲。别名 /a。</description></item>
-/// <item><term>/end</term><description>强制结束回合。</description></item>
-/// <item><term>/refresh</term><description>刷新 UI。别名 /r。</description></item>
-/// <item><term>/clear</term><description>清空控制台输出。别名 /cls。</description></item>
-/// <item><term>/token &lt;card_id&gt;</term><description>将指定 ID 的卡牌加入手牌。别名 /t。</description></item>
-/// <item><term>/play &lt;card_id&gt;</term><description>从手牌打出领域/无目标法术。别名 /p。</description></item>
-/// <item><term>/summon_player &lt;card_id&gt; &lt;slot&gt;</term><description>在己方槽位召唤随从（QA）。别名 /sp。</description></item>
-/// <item><term>/unlock_all</term><description>解锁全部卡牌加入收藏。</description></item>
-/// <item><term>/intent_debug</term><description>显示当前敌方意图目标（QA）。</description></item>
-/// <item><term>/qa_tombstone</term><description>验证墓碑伤害结算（QA）。</description></item>
-/// <item><term>/qa_bait_tactics</term><description>验证诱饵战术双阵营触发（QA）。</description></item>
-/// <item><term>/fight &lt;enemy&gt;</term><description>直接与指定敌人战斗，跳过地图。enemy 为敌人 ID。</description></item>
-/// <item><term>/help</term><description>显示帮助。别名 /?。</description></item>
-/// </list>
+/// 命令列表：
+///   /damage N              对敌方英雄造成 N 点伤害。加 -c 进入点击模式。
+///   /damage_enemy N         同上（显式）。
+///   /damage_self N          对己方英雄造成 N 点伤害。
+///   /damage_eslot X N       对敌方槽位 X(0-4) 随从造成 N 点伤害。
+///   /damage_pslot X N       对己方槽位 X(0-4) 随从造成 N 点伤害。
+///   /damage_all N           对所有敌方随从造成 N 点伤害。
+///   /draw N                 抽 N 张牌。别名 /d。
+///   /mana N                 获得 N 点法力。别名 /m。
+///   /heal N                 恢复 N 点生命值。别名 /h。
+///   /armor N                获得 N 点护甲。别名 /a。
+///   /end                    强制结束回合。
+///   /refresh                刷新 UI。别名 /r。
+///   /clear                  清空控制台输出。别名 /cls。
+///   /token &lt;card_id&gt;       将指定 ID 的卡牌加入手牌。别名 /t。
+///   /play &lt;card_id&gt;        从手牌打出领域/无目标法术。别名 /p。
+///   /summon_player &lt;id&gt; &lt;slot&gt;  在己方槽位召唤随从（QA）。别名 /sp。
+///   /unlock_all             解锁全部卡牌加入收藏。
+///   /intent_debug            显示当前敌方意图目标（QA）。
+///   /qa_tombstone            验证墓碑伤害结算（QA）。
+///   /qa_bait_tactics         验证诱饵战术双阵营触发（QA）。
+///   /fight &lt;enemy&gt;          直接与指定敌人战斗，跳过地图。
+///   /help                    显示帮助。别名 /?。
 /// </remarks>
 public partial class DevConsole : Node
 {
