@@ -247,6 +247,9 @@ cards:
   minion_tombstone:
     name: "墓碑"
     description: "嘲讽。战吼：对友方英雄造成 1 点伤害。\n对防御力不低于 1 的目标造成的伤害 +2。"
+  minion_Mech_Lancer:
+    name: "机械静螳"
+    description: "伏击\n拥有格挡时，攻击力+2"
   spell_plan:
     name: "计划"
     description: "获得1个额外的法力水晶槽"
@@ -277,6 +280,7 @@ intent:
   defend_format: "获得 {amount} 点护甲"
   summon_format: "召唤 {name} ({atk}/{hp})"
   summon_charge_format: "召唤 {name} ({atk}/{hp} 闪击)"
+  buff_armor_format: "对{target}施加 {amount} 点护甲"
   target_hero: "英雄"
   target_unknown: "目标"
 
@@ -290,6 +294,8 @@ combat:
 enemies:
   cultist:
     name: "邪教徒"
+  apprentice_mechanic:
+    name: "实习机械师"
   jaw_worm:
     name: "大颚虫"
 

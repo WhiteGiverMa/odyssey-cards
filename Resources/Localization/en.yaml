@@ -262,6 +262,9 @@ cards:
   minion_tombstone:
     name: "Tombstone"
     description: "Taunt. Battlecry: Deal 1 damage to your hero.\nDamage this deals to targets with 1 or more Defense is increased by 2."
+  minion_Mech_Lancer:
+    name: "Mech Lancer"
+    description: "Ambush\n+2 Attack while you have Armor"
   domain_flying_away:
     name: "Fly Away"
     description: "Domain: Gain 5 Block. The next time an enemy minion or hero attacks you, draw 2 cards and add a Body Roll to your hand."
@@ -277,6 +280,7 @@ intent:
   defend_format: "Gain {amount} Armor"
   summon_format: "Summon {name} ({atk}/{hp})"
   summon_charge_format: "Summon {name} ({atk}/{hp} Charge)"
+  buff_armor_format: "Give {amount} Armor to {target}"
   target_hero: "Hero"
   target_unknown: "Target"
 
@@ -290,6 +294,8 @@ combat:
 enemies:
   cultist:
     name: "Cultist"
+  apprentice_mechanic:
+    name: "Apprentice Mechanic"
   jaw_worm:
     name: "Jaw Worm"
 
