@@ -24,8 +24,28 @@ public class DefaultAttackMinionBrain : IIntentActor
 
     public EnemyIntent GetCurrentIntent(CombatManager combat)
     {
-        int dmg = DamageResolver.ResolvePreviewDamage(_body.Attack, _body, combat.PlayerHero);
-        return new EnemyIntent(IntentType.Attack, dmg, $"攻击造成 {dmg} 点伤害");
+        // 解析目标：有玩家嘲讽→攻击嘲讽随从，否则→攻击玩家英雄
+        var playerTaunts = combat.Board.GetTaunts(isEnemy: false);
+        IDamageTarget target;
+        if (playerTaunts.Count > 0)
+            target = playerTaunts[0];
+        else
+            target = combat.PlayerHero;
+
+        int dmg = DamageResolver.ResolvePreviewDamage(_body.Attack, _body, target);
+        string targetName = target switch
+        {
+            Hero => Localization.Localization.T("intent.target_hero", "英雄"),
+            Minion m => m.GetLocalizedName(),
+            _ => "目标"
+        };
+
+        var intent = new EnemyIntent(IntentType.Attack, dmg,
+            Localization.Localization.T("intent.attack_format", "对{target}造成 {damage} 点伤害")
+                .Replace("{target}", targetName)
+                .Replace("{damage}", dmg.ToString()));
+        intent.TargetSelector = _ => target;
+        return intent;
     }
 
     public void ExecuteIntent(CombatManager combat)

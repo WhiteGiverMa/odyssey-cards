@@ -1762,6 +1762,9 @@ public partial class CombatManager : Node
         {
             if (attacker.IsDead) continue;
 
+            // 确保所有敌方随从有意图大脑（供 UI 意图显示使用）
+            attacker.IntentBrain ??= new DefaultAttackMinionBrain(attacker);
+
             // 自定义随从大脑？优先使用
             if (attacker.IntentBrain != null)
             {
