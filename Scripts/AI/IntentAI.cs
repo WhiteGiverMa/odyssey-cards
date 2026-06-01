@@ -505,6 +505,153 @@ public class WolfRider : EnemyEncounter
 }
 
 /// <summary>
+/// 实习机械师 — 召唤型敌人，会召唤机械静螳并为其提供护甲。
+/// 意图模式：召唤(1)→增益(5)→增益(5)→增益(5)→...（若机械静螳死亡则重新召唤）。
+/// 生命值 20，武器为棍木（攻击力 1）。
+/// </summary>
+public class ApprenticeMechanic : EnemyEncounter
+{
+    private const string MechLancerPath = "res://Resources/Cards/Minion_Mech_Lancer.tres";
+
+    /// <summary>自上次召唤以来已执行的增益次数。</summary>
+    private int _buffCountSinceLastSummon;
+
+    /// <summary>当前意图是否为增益（用于 AdvanceIntent 计数追踪）。</summary>
+    private bool _currentIntentIsBuff;
+
+    /// <summary>
+    /// 创建实习机械师遭遇实例。
+    /// </summary>
+    public ApprenticeMechanic()
+        : base("实习机械师", 20, new EnemyIntent[]
+        {
+            new(IntentType.Summon, 1, "召唤 机械静螳 (4/3 嘲讽 伏击)",
+                summonName: "机械静螳", summonAttack: 4, summonHealth: 3)
+        })
+    {
+        Attack = 1; // 棍木武器
+    }
+
+    /// <inheritdoc />
+    public override EnemyIntent GetCurrentIntent(CombatManager combat, Hero self)
+    {
+        if (HasFriendlyMechLancer(combat))
+        {
+            // 意图 B：增益 — 为机械静螳增加 5 点护甲
+            _currentIntentIsBuff = true;
+            return new EnemyIntent(IntentType.Buff, 5, "使机械静螳获得5点护甲");
+        }
+
+        // 意图 A：召唤 — 机械静螳死亡后重新召唤
+        _currentIntentIsBuff = false;
+        _buffCountSinceLastSummon = 0;
+        return IntentPattern[0];
+    }
+
+    /// <inheritdoc />
+    public override void ExecuteIntent(CombatManager combat, Hero self)
+    {
+        var intent = GetCurrentIntent(combat, self);
+
+        GD.Print($"[ApprenticeMechanic] 执行意图：{intent.Description} （已增益 {_buffCountSinceLastSummon} 次）");
+
+        switch (intent.Type)
+        {
+            case IntentType.Summon:
+                TrySummonMechLancer(combat);
+                break;
+
+            case IntentType.Buff:
+                BuffMechLancer(combat);
+                break;
+        }
+    }
+
+    /// <inheritdoc />
+    public override void AdvanceIntent()
+    {
+        _cachedAttackTarget = null;
+        if (_currentIntentIsBuff)
+        {
+            _buffCountSinceLastSummon++;
+        }
+    }
+
+    /// <summary>
+    /// 检查敌方战场上是否存在存活的我方机械静螳。
+    /// </summary>
+    /// <param name="combat">战斗管理器</param>
+    /// <returns>存在机械静螳返回 true</returns>
+    private static bool HasFriendlyMechLancer(CombatManager combat)
+    {
+        foreach (var minion in combat.Board.GetEnemyMinions())
+        {
+            if (minion.Id == "minion_Mech_Lancer")
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 尝试在敌方战场召唤机械静螳（4/3 嘲讽 伏击）。
+    /// 若战场已满则跳过（最佳尝试策略）。
+    /// 召唤的随从在当前敌方回合不可攻击（由 _enemyMinionsCanAttack 快照机制保证）。
+    /// </summary>
+    /// <param name="combat">战斗管理器</param>
+    private static void TrySummonMechLancer(CombatManager combat)
+    {
+        if (!combat.Board.CanPlaceMinion(isPlayerSide: false))
+        {
+            GD.Print("[ApprenticeMechanic] 敌方战场已满，机械静螳无法召唤");
+            return;
+        }
+
+        if (!ResourceLoader.Exists(MechLancerPath))
+        {
+            GD.PrintErr($"[ApprenticeMechanic] 未找到机械静螳卡牌资源：{MechLancerPath}");
+            return;
+        }
+
+        var data = GD.Load<CardData>(MechLancerPath);
+        if (data == null)
+        {
+            GD.PrintErr("[ApprenticeMechanic] 机械静螳卡牌资源加载失败");
+            return;
+        }
+
+        var mechLancer = new Minion(data, isPlayerSide: false);
+        mechLancer.HasTaunt = true; // 召唤时赋予嘲讽（基础卡牌仅有伏击）
+        int slot = combat.Board.GetEmptySlotIndex(isPlayerSide: false);
+        combat.Board.PlaceMinion(mechLancer, slot);
+
+        GD.Print($"[ApprenticeMechanic] 在敌方槽位 {slot} 召唤了机械静螳（{mechLancer.Attack}/{mechLancer.CurrentHealth} 嘲讽 伏击）");
+    }
+
+    /// <summary>
+    /// 为战场上所有存活的机械静螳增加 5 点护甲。
+    /// </summary>
+    /// <param name="combat">战斗管理器</param>
+    private static void BuffMechLancer(CombatManager combat)
+    {
+        bool found = false;
+        foreach (var minion in combat.Board.GetEnemyMinions())
+        {
+            if (minion.Id == "minion_Mech_Lancer" && !minion.IsDead)
+            {
+                minion.GainArmor(5);
+                GD.Print($"[ApprenticeMechanic] 机械静螳获得 5 点护甲，当前护甲：{minion.CurrentArmor}");
+                found = true;
+            }
+        }
+
+        if (!found)
+        {
+            GD.Print("[ApprenticeMechanic] 战场上没有机械静螳可增益");
+        }
+    }
+}
+
+/// <summary>
 /// 守护者 — 第一位面 Boss。
 /// 意图模式：攻击(12) → 防御(8) → 攻击(12) → 循环。
 /// 生命值 60，高伤害高耐久，考验玩家的资源管理和爆发能力。

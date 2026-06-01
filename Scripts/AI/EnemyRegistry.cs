@@ -17,6 +17,7 @@ public static class EnemyRegistry
         ["zhanglang"] = () => new EnemyEncounter[] { new ZhangLang() },
         ["shanhu"] = () => new EnemyEncounter[] { new ShanHu() },
         ["zhangshan"] = () => new EnemyEncounter[] { new ZhangLang(), new ShanHu() },
+        ["apprentice"] = () => new EnemyEncounter[] { new ApprenticeMechanic() },
     };
 
     /// <summary>
