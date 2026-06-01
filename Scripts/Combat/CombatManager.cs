@@ -567,6 +567,18 @@ public partial class CombatManager : Node
                 GD.Print("[CombatManager]   StripArmor 目标无护甲（非英雄单位），无效果");
             }
         }
+        else if (effect.CustomEffectName == "BaitTactics")
+        {
+            if (target is Minion minionTarget)
+            {
+                minionTarget.GrantBaitTactics();
+                GD.Print($"[CombatManager]   诱饵战术：{minionTarget.CardName} 获得伏击、冲击与被攻击触发");
+            }
+            else
+            {
+                GD.Print("[CombatManager]   诱饵战术需要有效的随从目标");
+            }
+        }
         else
         {
             GD.Print($"[CombatManager]   未处理的Custom效果：{effect.CustomEffectName}");
@@ -1053,6 +1065,8 @@ public partial class CombatManager : Node
     /// </summary>
     internal bool ResolveMinionCombat(Minion attacker, Minion defender)
     {
+        TriggerBaitTacticsOnAttacked(defender);
+
         bool ambushTriggers = defender.HasAmbush && !defender.AmbushUsedThisTurn;
         bool impactActive = attacker.HasImpact;
 
@@ -1114,6 +1128,70 @@ public partial class CombatManager : Node
                   $"{defender.CardName}：{defender.CurrentHealth}血");
 
         return true;
+    }
+
+    /// <summary>
+    /// 处理随从成为攻击目标时的触发效果。
+    /// 「诱饵战术」总是降低玩家敌方英雄的防御力，不根据被攻击随从阵营改向。
+    /// </summary>
+    /// <param name="target">被攻击的随从</param>
+    internal void TriggerBaitTacticsOnAttacked(Minion target)
+    {
+        if (!target.HasBaitTacticsOnAttacked) return;
+
+        EnemyHero.ModifyDefense(-1);
+        GD.Print($"[CombatManager] ◆ 诱饵战术触发：{target.CardName} 受到攻击，敌方英雄防御力-1（当前 {EnemyHero.Defense}）");
+    }
+
+    /// <summary>
+    /// MCP QA 入口：验证「诱饵战术」在友方/敌方随从目标上都降低玩家敌方的英雄防御力。
+    /// </summary>
+    public string RunBaitTacticsQa()
+    {
+        var baitData = GD.Load<CardData>("res://Resources/Cards/Spell_BaitTactics.tres");
+        var playerMinionData = GD.Load<CardData>("res://Resources/Cards/Minion_18thRegiment.tres");
+        var enemyMinionData = GD.Load<CardData>("res://Resources/Cards/Minion_Slime.tres");
+
+        if (baitData == null || playerMinionData == null || enemyMinionData == null)
+        {
+            return "诱饵战术QA失败：无法加载所需卡牌资源";
+        }
+
+        PlayerHero.GainMana(20);
+        int initialDefense = EnemyHero.Defense;
+
+        var friendlyTarget = new Minion(playerMinionData, isPlayerSide: true);
+        var enemyAttacker = new Minion(enemyMinionData, isPlayerSide: false);
+        var friendlySpell = new OdysseyCards.Card.Card(baitData);
+        AddCardToHand(friendlySpell);
+        bool friendlySpellPlayed = PlaySpell(friendlySpell, friendlyTarget);
+        bool friendlyBuffApplied = friendlyTarget.HasAmbush && friendlyTarget.HasImpact && friendlyTarget.HasBaitTacticsOnAttacked;
+        ResolveMinionCombat(enemyAttacker, friendlyTarget);
+        bool friendlyTriggerWorked = EnemyHero.Defense == initialDefense - 1;
+
+        var enemyTarget = new Minion(enemyMinionData, isPlayerSide: false);
+        var playerAttacker = new Minion(playerMinionData, isPlayerSide: true);
+        var enemySpell = new OdysseyCards.Card.Card(baitData);
+        AddCardToHand(enemySpell);
+        bool enemySpellPlayed = PlaySpell(enemySpell, enemyTarget);
+        bool enemyBuffApplied = enemyTarget.HasAmbush && enemyTarget.HasImpact && enemyTarget.HasBaitTacticsOnAttacked;
+        ResolveMinionCombat(playerAttacker, enemyTarget);
+        bool enemyTriggerWorked = EnemyHero.Defense == initialDefense - 2;
+
+        NotifyCombatStateChanged();
+
+        bool passed = friendlySpellPlayed
+            && friendlyBuffApplied
+            && friendlyTriggerWorked
+            && enemySpellPlayed
+            && enemyBuffApplied
+            && enemyTriggerWorked;
+
+        string result = passed
+            ? $"诱饵战术QA通过：友方目标触发、敌方目标触发，玩家敌方的英雄防御 {initialDefense}->{EnemyHero.Defense}"
+            : $"诱饵战术QA失败：friendlySpell={friendlySpellPlayed}, friendlyBuff={friendlyBuffApplied}, friendlyTrigger={friendlyTriggerWorked}, enemySpell={enemySpellPlayed}, enemyBuff={enemyBuffApplied}, enemyTrigger={enemyTriggerWorked}, defense={EnemyHero.Defense}";
+        GD.Print($"[CombatManager] {result}");
+        return result;
     }
 
     /// <summary>
@@ -1392,6 +1470,8 @@ public partial class CombatManager : Node
         int weaponDamage = PlayerHero.Weapon.GetModifiedDamage(PlayerHero.Weapon.Attack);
 
         GD.Print($"[CombatManager] ⚔ 玩家英雄使用 {PlayerHero.Weapon.Name} 攻击 {target.CardName}，造成 {weaponDamage} 点伤害");
+
+        TriggerBaitTacticsOnAttacked(target);
 
         // 伏击检查：目标有伏击且本回合未消耗时，目标先手攻击英雄
         bool targetAmbush = target.HasAmbush && !target.AmbushUsedThisTurn;

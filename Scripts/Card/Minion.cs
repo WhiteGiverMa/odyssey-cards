@@ -157,13 +157,30 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// 伏击：每回合第一次被攻击时，先于攻击者造成反击伤害。
     /// 若攻击者被伏击伤害消灭，则攻击被取消。
     /// </summary>
-    public bool HasAmbush { get; }
+    public bool HasAmbush { get; internal set; }
 
     /// <summary>
     /// 冲击：攻击时抵消所有反击伤害（一次性消耗，类似圣盾）。
     /// 冲击随从攻击伏击随从时，伏击的先手伤害也被免疫。
     /// </summary>
     public bool HasImpact { get; internal set; }
+
+    /// <summary>
+    /// 诱饵战术：此随从受到攻击时，玩家的敌方英雄防御力-1。
+    /// 注意触发目标是绝对阵营的敌方英雄，不随此随从阵营变化。
+    /// </summary>
+    public bool HasBaitTacticsOnAttacked { get; private set; }
+
+    /// <summary>
+    /// 获得「诱饵战术」授予的关键词与被攻击触发效果。
+    /// </summary>
+    public void GrantBaitTactics()
+    {
+        HasAmbush = true;
+        HasImpact = true;
+        HasBaitTacticsOnAttacked = true;
+        GD.Print($"[Minion:{CardName}] 获得诱饵战术：伏击、冲击、被攻击时敌方英雄防御力-1");
+    }
 
     /// <summary>
     /// 本回合伏击是否已被消耗。回合开始时重置。

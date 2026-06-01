@@ -274,6 +274,9 @@ cards:
   spell_Expose:
     name: "Expose"
     description: "Remove all Block from a target. Friendly Hero gains 8 Block."
+  spell_BaitTactics:
+    name: "Bait Tactics"
+    description: "Give a minion Ambush and Impact. When it is attacked, the player's enemy hero loses 1 Defense."
 
 intent:
   attack_format: "Deal {damage} damage to {target}"

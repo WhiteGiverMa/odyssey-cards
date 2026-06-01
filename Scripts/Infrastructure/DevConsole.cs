@@ -479,6 +479,11 @@ public partial class DevConsole : Node
                 RunTombstoneDamageQa();
                 break;
 
+            // ===== QA：诱饵战术 =====
+            case "qa_bait_tactics":
+                RunBaitTacticsQa(cm!);
+                break;
+
             default:
                 WriteLine($"[color=#ff6644]未知命令: /{action}，输入 /help 查看帮助[/color]");
                 break;
@@ -642,6 +647,54 @@ public partial class DevConsole : Node
     }
 
     /// <summary>
+    /// 验证「诱饵战术」：法术可指定任意随从，且不论目标阵营，被攻击时都降低玩家敌方的英雄防御力。
+    /// </summary>
+    private void RunBaitTacticsQa(CombatManager cm)
+    {
+        var baitData = GD.Load<CardData>("res://Resources/Cards/Spell_BaitTactics.tres");
+        var playerMinionData = GD.Load<CardData>("res://Resources/Cards/Minion_18thRegiment.tres");
+        var enemyMinionData = GD.Load<CardData>("res://Resources/Cards/Minion_Slime.tres");
+
+        if (baitData == null || playerMinionData == null || enemyMinionData == null)
+        {
+            WriteLine("[color=#ff6644]诱饵战术QA失败：无法加载所需卡牌资源[/color]");
+            return;
+        }
+
+        cm.PlayerHero.GainMana(20);
+        int initialDefense = cm.EnemyHero.Defense;
+
+        var friendlyTarget = new OdysseyCards.Card.Minion(playerMinionData, isPlayerSide: true);
+        var enemyAttacker = new OdysseyCards.Card.Minion(enemyMinionData, isPlayerSide: false);
+        var friendlySpell = new OdysseyCards.Card.Card(baitData);
+        cm.AddCardToHand(friendlySpell);
+        bool friendlySpellPlayed = cm.PlaySpell(friendlySpell, friendlyTarget);
+        bool friendlyBuffApplied = friendlyTarget.HasAmbush && friendlyTarget.HasImpact && friendlyTarget.HasBaitTacticsOnAttacked;
+        cm.ResolveMinionCombat(enemyAttacker, friendlyTarget);
+        bool friendlyTriggerWorked = cm.EnemyHero.Defense == initialDefense - 1;
+
+        var enemyTarget = new OdysseyCards.Card.Minion(enemyMinionData, isPlayerSide: false);
+        var playerAttacker = new OdysseyCards.Card.Minion(playerMinionData, isPlayerSide: true);
+        var enemySpell = new OdysseyCards.Card.Card(baitData);
+        cm.AddCardToHand(enemySpell);
+        bool enemySpellPlayed = cm.PlaySpell(enemySpell, enemyTarget);
+        bool enemyBuffApplied = enemyTarget.HasAmbush && enemyTarget.HasImpact && enemyTarget.HasBaitTacticsOnAttacked;
+        cm.ResolveMinionCombat(playerAttacker, enemyTarget);
+        bool enemyTriggerWorked = cm.EnemyHero.Defense == initialDefense - 2;
+
+        RefreshCombatUI(cm);
+
+        WriteLine(friendlySpellPlayed
+            && friendlyBuffApplied
+            && friendlyTriggerWorked
+            && enemySpellPlayed
+            && enemyBuffApplied
+            && enemyTriggerWorked
+            ? $"[color=#66ff66]诱饵战术QA通过：友方目标触发、敌方目标触发，玩家敌方的英雄防御 {initialDefense}→{cm.EnemyHero.Defense}[/color]"
+            : $"[color=#ff6644]诱饵战术QA失败：friendlySpell={friendlySpellPlayed}, friendlyBuff={friendlyBuffApplied}, friendlyTrigger={friendlyTriggerWorked}, enemySpell={enemySpellPlayed}, enemyBuff={enemyBuffApplied}, enemyTrigger={enemyTriggerWorked}, defense={cm.EnemyHero.Defense}[/color]");
+    }
+
+    /// <summary>
     /// 进入点击伤害模式：隐藏控制台，通过 CombatUI 进入交互模式。
     /// </summary>
     private void EnterClickDamageMode(int damageAmount)
@@ -699,6 +752,7 @@ public partial class DevConsole : Node
             new DevCommandDef("play",         ["p"],      "/play <card_id>",      "从手牌打出领域/无目标法术",      _cardCache.Keys.ToArray()),
             new DevCommandDef("summon_player",["sp"],     "/summon_player <card_id> <slot>", "在己方槽位直接召唤随从（QA）", _cardCache.Keys.ToArray()),
             new DevCommandDef("intent_debug", [],          "/intent_debug",        "显示当前敌方意图目标（QA）",     null),
+            new DevCommandDef("qa_bait_tactics", [],       "/qa_bait_tactics",     "验证诱饵战术双阵营触发（QA）",     null),
             new DevCommandDef("unlock_all",   [],         "/unlock_all",          "解锁全部卡牌（加入收藏）",     null),
             new DevCommandDef("fight",        [],         "/fight <enemy>",       "直接与指定敌人战斗（跳过地图）",  EnemyRegistry.AllIds.ToArray()),
             new DevCommandDef("help",         ["?"],      "/help",                "显示帮助",                   null),

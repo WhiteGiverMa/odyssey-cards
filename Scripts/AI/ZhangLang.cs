@@ -117,6 +117,8 @@ public class ZhangLang : EnemyEncounter
             if (self.IsDead) break;
             if (target is Minion m)
             {
+                combat.TriggerBaitTacticsOnAttacked(m);
+
                 bool ambush = m.HasAmbush && !m.AmbushUsedThisTurn;
                 if (ambush) m.AmbushUsedThisTurn = true;
                 self.SuppressWeaponCounter = true;

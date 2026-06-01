@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+CustomEffectName = "BaitTactics"
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_BaitTactics"
+CardName = "诱饵战术"
+Description = "使一个随从获得伏击和冲击。它受到攻击时，玩家敌方的英雄防御力-1。"
+Rarity = 1
+Cost = 3
+Type = 1
+RequiresTarget = true
+TargetFilter = 8
+Effects = [SubResource("SubResource_1")]

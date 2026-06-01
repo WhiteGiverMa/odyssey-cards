@@ -274,6 +274,9 @@ cards:
   spell_Expose:
     name: "暴露"
     description: "使一个目标失去所有格挡。友方英雄获得 8 点格挡。"
+  spell_BaitTactics:
+    name: "诱饵战术"
+    description: "使一个随从获得伏击和冲击。它受到攻击时，玩家敌方的英雄防御力-1。"
 
 intent:
   attack_format: "对{target}造成 {damage} 点伤害"

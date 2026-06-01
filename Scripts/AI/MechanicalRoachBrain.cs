@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
@@ -82,6 +81,8 @@ public class MechanicalRoachBrain : IIntentActor
                 hero.TakeDamage(_body.Attack, _body);
             else if (target is Minion minionTarget)
             {
+                combat.TriggerBaitTacticsOnAttacked(minionTarget);
+
                 bool ambush = minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
                 if (ambush) minionTarget.AmbushUsedThisTurn = true;
 
