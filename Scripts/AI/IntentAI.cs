@@ -271,7 +271,7 @@ public abstract class EnemyEncounter
     /// <returns>攻击目标</returns>
     protected virtual IDamageTarget ResolveAttackTarget(CombatManager combat)
     {
-        var taunts = combat.Board.GetTaunts(isEnemy: false);
+        var taunts = combat.Board.GetTaunts(ofEnemy: false);
         if (taunts.Count > 0)
             return taunts[Random.Shared.Next(taunts.Count)];
         return combat.PlayerHero;

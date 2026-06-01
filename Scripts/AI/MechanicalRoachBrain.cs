@@ -106,7 +106,7 @@ public class MechanicalRoachBrain : IIntentActor
     private IDamageTarget ResolveRoachTarget(CombatManager combat)
     {
         // 尊重嘲讽：玩家方有嘲讽随从则优先从嘲讽中随机选
-        var playerTaunts = combat.Board.GetTaunts(isEnemy: false);
+        var playerTaunts = combat.Board.GetTaunts(ofEnemy: false);
         if (playerTaunts.Count > 0)
             return playerTaunts[Random.Shared.Next(playerTaunts.Count)];
 

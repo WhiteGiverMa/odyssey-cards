@@ -1499,7 +1499,7 @@ public partial class CombatUI : Control
             }
             else
             {
-                var playerTaunts = _combat.Board.GetTaunts(isEnemy: false);
+                var playerTaunts = _combat.Board.GetTaunts(ofEnemy: false);
                 IDamageTarget? target;
                 if (playerTaunts.Count > 0)
                     target = playerTaunts[0];
@@ -2209,7 +2209,7 @@ public partial class CombatUI : Control
     {
         _boardUI.ClearHighlights();
 
-        var enemyTaunts = _combat.Board.GetTaunts(isEnemy: true);
+        var enemyTaunts = _combat.Board.GetTaunts(ofEnemy: true);
         if (enemyTaunts.Count > 0)
         {
             // 有嘲讽——仅高亮嘲讽随从
@@ -2565,7 +2565,7 @@ public partial class CombatUI : Control
     {
         _boardUI.ClearHighlights();
 
-        var enemyTaunts = _combat.Board.GetTaunts(isEnemy: true);
+        var enemyTaunts = _combat.Board.GetTaunts(ofEnemy: true);
         if (enemyTaunts.Count > 0)
         {
             // 有嘲讽——仅高亮嘲讽随从

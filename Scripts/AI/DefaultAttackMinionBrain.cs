@@ -25,7 +25,7 @@ public class DefaultAttackMinionBrain : IIntentActor
     public EnemyIntent GetCurrentIntent(CombatManager combat)
     {
         // 解析目标：有玩家嘲讽→攻击嘲讽随从，否则→攻击玩家英雄
-        var playerTaunts = combat.Board.GetTaunts(isEnemy: false);
+        var playerTaunts = combat.Board.GetTaunts(ofEnemy: false);
         IDamageTarget target;
         if (playerTaunts.Count > 0)
             target = playerTaunts[0];
@@ -50,22 +50,27 @@ public class DefaultAttackMinionBrain : IIntentActor
 
     public void ExecuteIntent(CombatManager combat)
     {
-        // 现有逻辑：有嘲讽→随机嘲讽，无嘲讽→玩家英雄
-        var playerTaunts = combat.Board.GetTaunts(isEnemy: false);
+        // 解析目标：有嘲讽→攻击嘲讽随从，无嘲讽→攻击玩家英雄
+        var playerTaunts = combat.Board.GetTaunts(ofEnemy: false);
         if (playerTaunts.Count > 0)
         {
+            // 攻击随机嘲讽随从——走统一战斗序列（自动处理伏击/冲击/反击）
             var tauntTargets = playerTaunts.Where(t => !t.IsDead).ToList();
             if (tauntTargets.Count > 0)
             {
                 var defender = tauntTargets[Random.Shared.Next(tauntTargets.Count)];
-                defender.TakeDamage(_body.Attack, _body);
-                // 反击
-                if (!_body.IsDead && !defender.IsDead)
-                    _body.TakeDamage(defender.Attack, defender);
+                combat.ResolveMinionCombat(_body, defender);
+
+                // 清理死亡随从（Board.RemoveMinion 自动触发亡语和牌堆回收事件）
+                if (defender.IsDead)
+                    combat.Board.RemoveMinion(defender);
+                if (_body.IsDead)
+                    combat.Board.RemoveMinion(_body);
             }
         }
         else
         {
+            // 攻击玩家英雄——英雄攻击不支持统一战斗序列，直接造成伤害
             combat.PlayerHero.TakeDamage(_body.Attack, _body);
         }
     }

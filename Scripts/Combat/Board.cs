@@ -177,11 +177,11 @@ public class Board
     /// 获取指定一方所有具有「嘲讽」的存活随从。
     /// 用于攻击时的嘲讽检测——若对方有嘲讽随从，攻击者必须优先攻击嘲讽目标。
     /// </summary>
-    /// <param name="isEnemy">true 为敌方随从，false 为玩家方随从</param>
+    /// <param name="ofEnemy">true = 获取敌方的嘲讽随从；false = 获取玩家方的嘲讽随从</param>
     /// <returns>具有嘲讽的存活随从列表</returns>
-    public List<Minion> GetTaunts(bool isEnemy)
+    public List<Minion> GetTaunts(bool ofEnemy)
     {
-        var slots = isEnemy ? EnemySlots : PlayerSlots;
+        var slots = ofEnemy ? EnemySlots : PlayerSlots;
         var result = new List<Minion>(MaxSlotsPerSide);
         for (int i = 0; i < MaxSlotsPerSide; i++)
         {

@@ -1047,7 +1047,11 @@ public partial class CombatManager : Node
     /// <param name="attacker">攻击方随从</param>
     /// <param name="defender">防御方随从</param>
     /// <returns>向调用方返回是否应继续后续处理（若伏击击杀攻击方则为 false）</returns>
-    private bool ResolveMinionCombat(Minion attacker, Minion defender)
+    /// <summary>
+    /// 执行随从与随从之间的统一战斗序列（伏击 → 攻击 → 反击 → 消耗冲击）。
+    /// 内部方法，供 CombatManager 的 MinionAttack 和 AI 系统的 DefaultAttackMinionBrain 调用。
+    /// </summary>
+    internal bool ResolveMinionCombat(Minion attacker, Minion defender)
     {
         bool ambushTriggers = defender.HasAmbush && !defender.AmbushUsedThisTurn;
         bool impactActive = attacker.HasImpact;
@@ -1154,7 +1158,7 @@ public partial class CombatManager : Node
         }
 
         // 嘲讽检测：敌方有嘲讽随从时，只能攻击嘲讽目标
-        var enemyTaunts = Board.GetTaunts(isEnemy: true);
+        var enemyTaunts = Board.GetTaunts(ofEnemy: true);
         if (enemyTaunts.Count > 0 && !enemyTaunts.Contains(defender))
         {
             GD.PrintErr($"[CombatManager] MinionAttack 失败 — 敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡，必须先攻击嘲讽目标");
@@ -1218,7 +1222,7 @@ public partial class CombatManager : Node
         }
 
         // 嘲讽检测（攻击英雄）
-        var enemyTaunts = Board.GetTaunts(isEnemy: true);
+        var enemyTaunts = Board.GetTaunts(ofEnemy: true);
         if (enemyTaunts.Count > 0)
         {
             GD.PrintErr($"[CombatManager] MinionAttackHero 失败 — 敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
@@ -1374,7 +1378,7 @@ public partial class CombatManager : Node
         }
 
         // 嘲讽检测：武器攻击也受嘲讽限制
-        var enemyTaunts = Board.GetTaunts(isEnemy: true);
+        var enemyTaunts = Board.GetTaunts(ofEnemy: true);
         if (enemyTaunts.Count > 0 && !enemyTaunts.Contains(target))
         {
             GD.PrintErr($"[CombatManager] HeroWeaponAttackMinion 失败 — 敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
@@ -1814,7 +1818,7 @@ public partial class CombatManager : Node
             .ToList();
         if (enemies.Count == 0) return;
 
-        var playerTaunts = Board.GetTaunts(isEnemy: false);
+        var playerTaunts = Board.GetTaunts(ofEnemy: false);
         bool hasPlayerTaunt = playerTaunts.Count > 0;
 
         foreach (var attacker in enemies)
@@ -2054,10 +2058,14 @@ public partial class CombatManager : Node
         if (require == TargetTags.None && exclude == TargetTags.None)
             return true;
 
+        // 已死亡的随从不可选为目标
+        if (target is Minion minion && minion.IsDead)
+            return false;
+
         TargetTags entityTags = target switch
         {
             Hero hero => hero.GetTargetTags(),
-            Minion minion => minion.GetTargetTags(),
+            Minion m => m.GetTargetTags(),
             _ => TargetTags.None
         };
 
