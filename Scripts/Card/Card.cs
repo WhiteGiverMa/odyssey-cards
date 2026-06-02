@@ -42,6 +42,11 @@ public class Card
     public CardType Type => Data.Type;
 
     /// <summary>
+    /// 卡牌标签（多标签 [Flags] 系统）。
+    /// </summary>
+    public CardTag Tags => Data.Tags;
+
+    /// <summary>
     /// 轮战：法术打出后/随从被击败后返回抽牌堆底部，不进入弃牌堆。
     /// </summary>
     public bool HasRecycle => Data.HasKeyword(Keyword.Recycle);

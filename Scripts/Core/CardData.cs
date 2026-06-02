@@ -62,6 +62,12 @@ public partial class CardData : Resource, ICardData, ILocalizable
     [Export] public int BonusDamageToDefendedTargets { get; set; } = 0;
 
     /// <summary>
+    /// 卡牌标签（多标签 [Flags] 系统）。用于种族、阵营、机制等语义标签。
+    /// </summary>
+    [Export(PropertyHint.Flags, "Mechanics:1")]
+    public CardTag Tags { get; set; } = CardTag.None;
+
+    /// <summary>
     /// 关键词列表（仅随从）。
     /// </summary>
     [Export] public Godot.Collections.Array<Keyword> Keywords { get; set; } = new();
@@ -139,6 +145,14 @@ public partial class CardData : Resource, ICardData, ILocalizable
     public bool HasKeyword(Keyword keyword)
     {
         return Keywords.Contains(keyword);
+    }
+
+    /// <summary>
+    /// 检查是否拥有指定标签。
+    /// </summary>
+    public bool HasTag(CardTag tag)
+    {
+        return Tags.HasFlag(tag);
     }
 
     /// <summary>
