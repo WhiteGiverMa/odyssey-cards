@@ -360,6 +360,9 @@ public partial class CombatManager : Node
         Board.OnMinionPlaced += (_, _) => NotifyCombatStateChanged();
         Board.OnMinionRemoved += (_) => NotifyCombatStateChanged();
 
+        // 机械蜈蚣-防空型自动拦截：敌方部署低费随从时自动触发战斗
+        Board.OnMinionPlaced += OnMinionPlacedForCentipede;
+
         // 装配默认武器
         PlayerHero.Weapon = new IonPistol();
         foreach (var unit in EnemyUnits)
@@ -681,6 +684,28 @@ public partial class CombatManager : Node
             else
             {
                 GD.Print("[CombatManager]   诱饵战术需要有效的随从目标");
+            }
+        }
+        else if (effect.CustomEffectName == "Animosity")
+        {
+            if (target is Minion minionTarget)
+            {
+                // 1. 授予嘲讽
+                minionTarget.HasTaunt = true;
+                // 2. 注册敌意伤害翻倍修改器（受到来自玩家阵营的伤害翻倍）
+                minionTarget._damageModifiers.Add(new AnimosityDamageModifier());
+                // 3. 追加亡语：玩家抽一张牌
+                var drawEffect = new CardEffectData
+                {
+                    EffectType = CardEffectType.DrawCards,
+                    Value = 1,
+                };
+                minionTarget.AddDeathrattleEffect(drawEffect);
+                GD.Print($"[CombatManager]   敌意：{minionTarget.CardName} 获得嘲讽、伤害翻倍（玩家阵营）和亡语抽牌");
+            }
+            else
+            {
+                GD.Print("[CombatManager]   敌意需要有效的随从目标");
             }
         }
         else
@@ -1234,6 +1259,32 @@ public partial class CombatManager : Node
                   $"{defender.CardName}：{defender.CurrentHealth}血");
 
         return true;
+    }
+
+    /// <summary>
+    /// 执行两个随从之间的简化「战斗」——纯相互伤害，不走伏击/冲击/武器反击等复杂逻辑。
+    /// 双方各自对对方造成等同于攻击力的伤害，伤害经过完整的 DamageResolver 管线
+    /// （防御力、伤害翻倍等 modifier 正常生效）。遵循炉石同时伤害规则：即使一方在
+    /// 伤害结算中死亡，仍能造成反击伤害。
+    /// 用于机械蜈蚣-防空型等卡牌的自动拦截效果。
+    /// </summary>
+    /// <param name="a">战斗方 A（先手造成伤害）</param>
+    /// <param name="b">战斗方 B（后手造成伤害，遵循同时伤害规则）</param>
+    internal void ResolveCombat(Minion a, Minion b)
+    {
+        if (a.IsDead || b.IsDead) return;
+
+        GD.Print($"[CombatManager] ⚔ 战斗：{a.CardName}（{a.Attack}攻/{a.CurrentHealth}血）vs " +
+                  $"{b.CardName}（{b.Attack}攻/{b.CurrentHealth}血）");
+
+        // A 对 B 造成伤害（完整 DamageResolver 管线）
+        b.TakeDamage(a.Attack, a);
+
+        // B 对 A 造成伤害（即使 B 已被击杀，仍遵循同时伤害规则）
+        a.TakeDamage(b.Attack, b);
+
+        GD.Print($"[CombatManager]   战斗后 — {a.CardName}：{a.CurrentHealth}血，" +
+                  $"{b.CardName}：{b.CurrentHealth}血");
     }
 
     /// <summary>
@@ -2383,6 +2434,66 @@ public partial class CombatManager : Node
             (pool[i], pool[j]) = (pool[j], pool[i]);
         }
         return pool.Take(count).ToList();
+    }
+
+    /// <summary>
+    /// 机械蜈蚣-防空型自动拦截触发器。
+    /// 订阅 <see cref="Board.OnMinionPlaced"/> 事件，当敌方部署费用 ≤2 的随从时，
+    /// 玩家方的每只机械蜈蚣-防空型自动与该随从战斗。
+    /// 战斗后清理死亡随从并触发死亡检查。
+    /// </summary>
+    /// <param name="placedMinion">刚被部署的随从</param>
+    /// <param name="slotIndex">部署槽位</param>
+    private void OnMinionPlacedForCentipede(Minion placedMinion, int slotIndex)
+    {
+        // 仅敌方部署时触发
+        if (placedMinion.IsPlayerSide)
+            return;
+
+        // 仅拦截费用 ≤2 的低费随从
+        if (placedMinion.Cost > 2)
+            return;
+
+        // 收集玩家方所有存活的机械蜈蚣-防空型（战斗前快照，防止迭代中修改集合）
+        var centipedes = new List<Minion>();
+        for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+        {
+            if (Board.PlayerSlots[i] is Minion m
+                && !m.IsDead
+                && m.Id == "minion_centipede_aa")
+            {
+                centipedes.Add(m);
+            }
+        }
+
+        if (centipedes.Count == 0)
+            return;
+
+        foreach (var centipede in centipedes)
+        {
+            if (centipede.IsDead) continue;
+            if (placedMinion.IsDead) break;
+
+            GD.Print($"[CombatManager] ◆ 机械蜈蚣-防空型拦截 {placedMinion.CardName}（{placedMinion.Cost}费）！");
+            ResolveCombat(centipede, placedMinion);
+        }
+
+        // 清理战斗产生的死亡随从
+        if (placedMinion.IsDead)
+            Board.RemoveMinion(placedMinion);
+
+        var deadPlayerMinions = new List<Minion>();
+        for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+        {
+            if (Board.PlayerSlots[i] is Minion m && m.IsDead)
+                deadPlayerMinions.Add(m);
+        }
+        foreach (var m in deadPlayerMinions)
+            Board.RemoveMinion(m);
+
+        // 全局清理：蜈蚣战斗可能连锁触发其他死亡
+        CheckDeaths();
+        CheckVictoryOrDefeat();
     }
 
     /// <summary>
