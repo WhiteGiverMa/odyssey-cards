@@ -17,13 +17,19 @@ public class Minion : Card, IDamageSource, IDamageTarget
 {
     /// <summary>
     /// 伤害修改器列表（防御力修改器等）。
+    /// internal 访问允许 CombatManager 注入战斗触发的修饰器（如敌意伤害翻倍）。
     /// </summary>
-    private readonly List<IDamageModifier> _damageModifiers = new();
+    internal readonly List<IDamageModifier> _damageModifiers = new();
 
     /// <summary>
     /// 运行时替换后的亡语效果。null 表示使用 CardData 原始亡语。
     /// </summary>
     private List<CardEffectData>? _runtimeDeathrattleEffects;
+
+    /// <summary>
+    /// 亡语是否被显式替换过（vs 仅追加）。用于效果显示区分。
+    /// </summary>
+    private bool _deathrattleReplaced;
 
     // ===== 随从基础属性 =====
 
@@ -227,11 +233,28 @@ public class Minion : Card, IDamageSource, IDamageTarget
         : Data.DeathrattleEffects;
 
     /// <summary>
+    /// 向此随从追加一条亡语效果。保留原有亡语（包括 CardData 原始亡语和运行时替换的亡语），
+    /// 在末尾追加新效果。与 <see cref="ReplaceDeathrattleEffects"/> 的「覆盖」语义不同。
+    /// </summary>
+    public void AddDeathrattleEffect(CardEffectData effect)
+    {
+        if (_runtimeDeathrattleEffects == null)
+        {
+            // 首次追加：先复制 CardData 原始亡语为运行时列表，再追加
+            _runtimeDeathrattleEffects = Data.DeathrattleEffects.ToList();
+        }
+        _runtimeDeathrattleEffects.Add(effect);
+        HasDeathrattle = true;
+        GD.Print($"[Minion:{CardName}] 追加亡语效果：{effect.GetDescription()}（共{_runtimeDeathrattleEffects.Count}个）");
+    }
+
+    /// <summary>
     /// 替换此随从当前的亡语效果。
     /// </summary>
     public void ReplaceDeathrattleEffects(IEnumerable<CardEffectData> effects)
     {
         _runtimeDeathrattleEffects = effects.ToList();
+        _deathrattleReplaced = true;
         HasDeathrattle = _runtimeDeathrattleEffects.Count > 0;
         GD.Print($"[Minion:{CardName}] 亡语已被替换（{_runtimeDeathrattleEffects.Count} 个效果）");
     }
@@ -569,7 +592,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
             }
         }
 
-        if (_runtimeDeathrattleEffects != null)
+        if (_deathrattleReplaced)
         {
             effects.Add(new DisplayableEffect
             {
@@ -580,6 +603,17 @@ public class Minion : Card, IDamageSource, IDamageTarget
                 IsBuff = true,
                 Category = EffectCategory.Modifier,
             });
+        }
+
+        // 敌意：受到来自玩家阵营的伤害翻倍
+        if (_damageModifiers.Any(m => m is OdysseyCards.Core.AnimosityDamageModifier))
+        {
+            var data = EffectIconTable.GetModifier("animosity");
+            if (data != null)
+            {
+                effects.Add(EffectIconTable.ToDisplayable(
+                    data.Value, EffectCategory.Modifier));
+            }
         }
 
         return effects;

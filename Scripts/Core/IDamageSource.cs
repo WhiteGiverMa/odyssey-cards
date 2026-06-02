@@ -19,5 +19,11 @@ namespace OdysseyCards.Core
         /// 获取基础攻击伤害值。
         /// </summary>
         int BaseAttack { get; }
+
+        /// <summary>
+        /// Whether this source belongs to the player side.
+        /// 该来源是否属于玩家阵营。
+        /// </summary>
+        bool IsPlayerSide { get; }
     }
 }

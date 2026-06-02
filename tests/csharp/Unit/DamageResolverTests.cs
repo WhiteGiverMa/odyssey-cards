@@ -189,6 +189,8 @@ public class DamageResolverTests
         public IReadOnlyList<IDamageModifier> DamageModifiers { get; }
 
         public int BaseAttack => 0;
+
+        public bool IsPlayerSide => false;
     }
 
     private sealed class TestDamageTarget : IDamageTarget
