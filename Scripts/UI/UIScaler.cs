@@ -20,6 +20,7 @@ namespace OdysseyCards.UI
             (3840, 2160),
             (2560, 1440),
             (1920, 1080),
+            (1600, 900),
             (1280, 720),
             (1152, 648),
         };
@@ -251,8 +252,8 @@ namespace OdysseyCards.UI
                 return;
             }
 
-            int width = (int)config.GetValue("display", "window_width", 1280).AsInt32();
-            int height = (int)config.GetValue("display", "window_height", 720).AsInt32();
+            int width = (int)config.GetValue("display", "window_width", 1600).AsInt32();
+            int height = (int)config.GetValue("display", "window_height", 900).AsInt32();
             int windowMode = (int)config.GetValue("display", "window_mode", 0).AsInt32();
 
             GD.Print($"[UIScaler] 加载设置: {width}x{height}, 模式={windowMode}");
