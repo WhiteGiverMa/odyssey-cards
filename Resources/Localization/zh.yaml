@@ -125,6 +125,8 @@ ui:
   discover:
     title: "发现"
     skip: "跳过"
+    confirm: "确认"
+    pick_count: "选择 {count} 张"
   common:
     ok: "确定"
   collection:
@@ -277,6 +279,15 @@ cards:
   spell_BaitTactics:
     name: "诱饵战术"
     description: "使一个随从获得伏击和冲击。它受到攻击时，玩家敌方的英雄防御力-1。"
+  spell_NanoCorpseArt:
+    name: "纳米散尸术"
+    description: "使一个随从失去亡语，获得「亡语：玩家英雄抽1张牌」。抽1张牌。"
+  domain_idol_twilight:
+    name: "偶像的黄昏"
+    description: "领域：手中、场上和卡组中的所有随从获得：被攻击后，获得+1/+1。"
+  spell_MoonFishing:
+    name: "捞月"
+    description: "从弃牌堆中的5张牌中选择2张加入手牌。"
 
 intent:
   attack_format: "对{target}造成 {damage} 点伤害"

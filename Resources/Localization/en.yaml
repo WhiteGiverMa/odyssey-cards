@@ -125,6 +125,8 @@ ui:
   discover:
     title: "Discover"
     skip: "Skip"
+    confirm: "Confirm"
+    pick_count: "Choose {count} cards"
   common:
     ok: "OK"
   collection:
@@ -277,6 +279,15 @@ cards:
   spell_BaitTactics:
     name: "Bait Tactics"
     description: "Give a minion Ambush and Impact. When it is attacked, the player's enemy hero loses 1 Defense."
+  spell_NanoCorpseArt:
+    name: "Nano Corpse Art"
+    description: "Make a minion lose Last Words and gain 'Last Words: your hero draws 1 card.' Draw 1 card."
+  domain_idol_twilight:
+    name: "Idol's Twilight"
+    description: "Domain: All minions in your hand, board, and deck gain: after being attacked, gain +1/+1."
+  spell_MoonFishing:
+    name: "Moon Fishing"
+    description: "Choose 2 of 5 cards from your discard pile and add them to your hand."
 
 intent:
   attack_format: "Deal {damage} damage to {target}"

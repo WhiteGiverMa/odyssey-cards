@@ -482,6 +482,9 @@ public partial class GameManager : Node
             "res://Resources/Cards/Minion_KnightType1.tres",
             "res://Resources/Cards/Minion_CentipedeSiege.tres",
             "res://Resources/Cards/Minion_Tombstone.tres",
+            "res://Resources/Cards/Spell_NanoCorpseArt.tres",
+            "res://Resources/Cards/Domain_IdolTwilight.tres",
+            "res://Resources/Cards/Spell_MoonFishing.tres",
         };
 
         foreach (var path in cardPaths)

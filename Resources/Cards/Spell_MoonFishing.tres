@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 24
+Value = 5
+SecondaryValue = 2
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_MoonFishing"
+CardName = "捞月"
+Description = "从弃牌堆中的5张牌中选择2张加入手牌。"
+Rarity = 2
+Cost = 4
+Type = 1
+RequiresTarget = false
+Effects = [SubResource("SubResource_1")]

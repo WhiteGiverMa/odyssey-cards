@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 23
+Value = 1
+
+[resource]
+script = ExtResource("1_data")
+Id = "domain_idol_twilight"
+DomainId = "idol_twilight"
+CardName = "偶像的黄昏"
+Description = "领域：手中、场上和卡组中的所有随从获得：被攻击后，获得+1/+1。"
+Rarity = 1
+Cost = 2
+Type = 2
+Effects = [SubResource("SubResource_1")]

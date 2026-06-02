@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 22
+Value = 1
+
+[sub_resource type="Resource" id="SubResource_2"]
+script = ExtResource("2_effect")
+EffectType = 2
+Value = 1
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_NanoCorpseArt"
+CardName = "纳米散尸术"
+Description = "使一个随从失去亡语，获得「亡语：玩家英雄抽1张牌」。抽1张牌。"
+Rarity = 2
+Cost = 1
+Type = 1
+RequiresTarget = true
+TargetFilter = 8
+Effects = [SubResource("SubResource_1"), SubResource("SubResource_2")]
