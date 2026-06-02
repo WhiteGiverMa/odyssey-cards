@@ -194,13 +194,20 @@ public partial class CombatManager : Node
     /// </summary>
     private Card.Card? _pendingDiscoverSpellCard;
 
-    private enum PendingSelectionMode
+    public enum PendingSelectionMode
     {
         Discover,
-        Discard
+        Discard,
+        ChooseDiscard,
+        BladeCrisis
     }
 
     private PendingSelectionMode _pendingSelectionMode = PendingSelectionMode.Discover;
+
+    /// <summary>
+    /// 当前选牌模式，供 UI 读取以自定义标题/行为。
+    /// </summary>
+    public PendingSelectionMode CurrentSelectionMode => _pendingSelectionMode;
 
     // ===== 效果处理器 =====
 
@@ -406,6 +413,9 @@ public partial class CombatManager : Node
         _effectHandlers[CardEffectType.ReplaceDeathrattleWithDraw] = HandleReplaceDeathrattleWithDraw;
         _effectHandlers[CardEffectType.GrantIdolTwilight] = HandleGrantIdolTwilight;
         _effectHandlers[CardEffectType.ChooseFromDiscard] = HandleChooseFromDiscard;
+        _effectHandlers[CardEffectType.DiscardRandom] = HandleDiscardRandom;
+        _effectHandlers[CardEffectType.DiscardChoose] = HandleDiscardChoose;
+        _effectHandlers[CardEffectType.ShuffleTribeCards] = HandleShuffleTribeCards;
         _effectHandlers[CardEffectType.Custom] = HandleCustomEffect;
     }
 
@@ -638,6 +648,131 @@ public partial class CombatManager : Node
     }
 
     /// <summary>
+    /// 随机弃牌：从手牌中随机弃掉 N 张牌。
+    /// </summary>
+    private void HandleDiscardRandom(CardEffectData effect, object target, IDamageSource? source)
+    {
+        int discardCount = effect.Value;
+        var hand = PlayerHero.Hand.ToList();
+
+        if (hand.Count == 0)
+        {
+            GD.Print("[CombatManager] 随机弃牌：手牌为空，无法弃牌");
+            return;
+        }
+
+        int actualDiscard = Math.Min(discardCount, hand.Count);
+        using var rng = new RandomNumberGenerator();
+        rng.Randomize();
+
+        for (int i = 0; i < actualDiscard; i++)
+        {
+            int randomIndex = rng.RandiRange(0, hand.Count - 1);
+            var card = hand[randomIndex];
+            GD.Print($"[CombatManager]   随机弃掉: {card.GetLocalizedName()}");
+            PlayerHero.DiscardCard(card);
+            hand.RemoveAt(randomIndex);
+        }
+
+        GD.Print($"[CombatManager] ◆ 随机弃牌完成：弃掉 {actualDiscard}/{discardCount} 张牌");
+        NotifyCombatStateChanged();
+    }
+
+    /// <summary>
+    /// 主动弃牌：从手牌中选择 N 张牌弃掉（异步，等待玩家选择）。
+    /// 遵循与捞月相同的异步选牌模式。
+    /// </summary>
+    private void HandleDiscardChoose(CardEffectData effect, object target, IDamageSource? source)
+    {
+        int mustDiscard = effect.Value;
+        var handCopy = PlayerHero.Hand.ToList();
+
+        if (handCopy.Count == 0)
+        {
+            GD.Print("[CombatManager] 主动弃牌：手牌为空，无法弃牌");
+            return;
+        }
+
+        if (handCopy.Count < mustDiscard)
+        {
+            GD.Print($"[CombatManager] 主动弃牌：手牌数量({handCopy.Count})不足，需要弃{mustDiscard}张");
+            return;
+        }
+
+        _pendingDiscoverRuntimeOptions = handCopy;
+        _pendingDiscoverOptions = handCopy.Select(c => c.Data).ToList();
+        DiscoverPickCount = mustDiscard;
+        _pendingSelectionMode = PendingSelectionMode.ChooseDiscard;
+        State.SetDiscovering();
+
+        GD.Print($"[CombatManager] ◆ 主动弃牌：从手牌 {handCopy.Count} 张中选择弃掉 {mustDiscard} 张");
+        NotifyCombatStateChanged();
+    }
+
+    /// <summary>
+    /// 种族洗牌：将 N 张随机指定种族的随从卡牌洗入抽牌堆。
+    /// 从全卡牌池中加载指定标签的随从，可重复选取（with replacement）。
+    /// </summary>
+    private void HandleShuffleTribeCards(CardEffectData effect, object target, IDamageSource? source)
+    {
+        int insertCount = effect.Value;
+
+        // 解析目标种族标签
+        if (!Enum.TryParse<CardTag>(effect.TargetType, out var targetTag) || targetTag == CardTag.None)
+        {
+            GD.PrintErr($"[CombatManager] 种族洗牌：无法识别的种族标签 '{effect.TargetType}'");
+            return;
+        }
+
+        // 加载全卡牌池并过滤
+        var pool = new List<CardData>();
+        using var dir = DirAccess.Open("res://Resources/Cards/");
+        if (dir != null)
+        {
+            dir.ListDirBegin();
+            string fileName = dir.GetNext();
+            while (!string.IsNullOrEmpty(fileName))
+            {
+                if (!dir.CurrentIsDir() && fileName.EndsWith(".tres", StringComparison.OrdinalIgnoreCase))
+                {
+                    var cardData = GD.Load<CardData>($"res://Resources/Cards/{fileName}");
+                    if (cardData != null && !string.IsNullOrEmpty(cardData.Id)
+                        && cardData.Tags.HasFlag(targetTag)
+                        && cardData.Type == CardType.Minion)
+                    {
+                        pool.Add(cardData);
+                    }
+                }
+                fileName = dir.GetNext();
+            }
+            dir.ListDirEnd();
+        }
+
+        if (pool.Count == 0)
+        {
+            GD.Print($"[CombatManager] 种族洗牌：没有符合条件的 {effect.TargetType} 随从卡牌");
+            return;
+        }
+
+        // 有放回随机选取
+        using var rng = new RandomNumberGenerator();
+        rng.Randomize();
+
+        for (int i = 0; i < insertCount; i++)
+        {
+            int randomIndex = rng.RandiRange(0, pool.Count - 1);
+            var cardData = pool[randomIndex];
+            var card = new OdysseyCards.Card.Card(cardData);
+            PlayerHero.InsertCardToDrawPile(card);
+            GD.Print($"[CombatManager]   洗入抽牌堆: {card.GetLocalizedName()}");
+        }
+
+        PlayerHero.ShuffleDrawPile();
+        GD.Print($"[CombatManager] ◆ 种族洗牌完成：将 {insertCount} 张随机 {effect.TargetType} 随从洗入抽牌堆");
+        NotifyCombatStateChanged();
+    }
+
+    /// <summary>
     /// 自定义效果——根据 CustomEffectName 分发到子逻辑。
     /// </summary>
     private void HandleCustomEffect(CardEffectData effect, object target, IDamageSource? source)
@@ -707,6 +842,20 @@ public partial class CombatManager : Node
             {
                 GD.Print("[CombatManager]   敌意需要有效的随从目标");
             }
+        }
+        else if (effect.CustomEffectName == "BladeCrisis")
+        {
+            int maxDiscard = effect.Value > 0 ? effect.Value : 5;
+            var hand = PlayerHero.Hand.ToList();
+            if (hand.Count == 0) { GD.Print("[CombatManager] 刀盾危机：手牌为空"); return; }
+
+            _pendingDiscoverRuntimeOptions = hand.Select(c => (Card.Card)c).ToList();
+            _pendingDiscoverOptions = hand.Select(c => c.Data).ToList();
+            DiscoverPickCount = Math.Min(maxDiscard, hand.Count);
+            _pendingSelectionMode = PendingSelectionMode.BladeCrisis;
+            State.SetDiscovering();
+            GD.Print($"[CombatManager] ◆ 刀盾危机：可选最多{DiscoverPickCount}张手牌弃掉");
+            NotifyCombatStateChanged();
         }
         else
         {
@@ -859,6 +1008,12 @@ public partial class CombatManager : Node
         // 放置随从到战场
         Board.PlaceMinion(minion, slotIndex);
 
+        // 我的刀盾：战吼复制到相邻槽位
+        if (minion.HasBattlecry && minion.BattlecryEffects.Any(e => e.CustomEffectName == "CopyToAdjacentSlot"))
+        {
+            CopyMinionToAdjacentSlot(minion, slotIndex);
+        }
+
         // 闪击关键词：召唤的回合即可攻击
         if (minion.HasCharge)
         {
@@ -887,6 +1042,38 @@ public partial class CombatManager : Node
     {
         GD.Print($"[CombatManager]     战吼效果：{effect.GetDescription()}（来源：{source.CardName}）");
         ExecuteEffect(effect, source, source);
+    }
+
+    /// <summary>
+    /// 我的刀盾战吼：复制Token随从到相邻槽位。
+    /// 优先尝试左侧（slot-1），再尝试右侧（slot+1），最后回退任意空位。
+    /// </summary>
+    /// <param name="sourceMinion">触发战吼的源随从</param>
+    /// <param name="sourceSlotIndex">源随从所在槽位</param>
+    private void CopyMinionToAdjacentSlot(Minion sourceMinion, int sourceSlotIndex)
+    {
+        var tokenData = GD.Load<CardData>("res://Resources/Cards/Minion_WhatTheDogDoing_Token.tres");
+        if (tokenData == null) { GD.PrintErr("[CombatManager] CopyToAdjacentSlot: 无法加载Token卡牌"); return; }
+
+        // 优先相邻槽位（先左后右）
+        int? targetSlot = null;
+        if (sourceSlotIndex > 0 && Board.PlayerSlots[sourceSlotIndex - 1] == null)
+            targetSlot = sourceSlotIndex - 1;
+        else if (sourceSlotIndex < 4 && Board.PlayerSlots[sourceSlotIndex + 1] == null)
+            targetSlot = sourceSlotIndex + 1;
+
+        // 回退：任意空位
+        if (!targetSlot.HasValue)
+            targetSlot = Board.GetEmptySlotIndex(isPlayerSide: true);
+
+        if (targetSlot.HasValue)
+        {
+            var copy = new Minion(tokenData, isPlayerSide: true);
+            Board.PlaceMinion(copy, targetSlot.Value);
+            GD.Print($"[CombatManager] 🐕 我的刀盾复制到槽位{targetSlot.Value}");
+        }
+        else
+            GD.Print("[CombatManager] 🐕 我的刀盾：棋盘已满，无法复制");
     }
 
     // ===== 法术施放 =====
@@ -2348,6 +2535,51 @@ public partial class CombatManager : Node
                     moved++;
             }
             GD.Print($"[CombatManager] ◆ 捞月完成：加入 {moved} 张牌");
+        }
+        else if (_pendingSelectionMode == PendingSelectionMode.ChooseDiscard)
+        {
+            int discarded = 0;
+            foreach (var card in chosenCards)
+            {
+                if (discarded >= DiscoverPickCount) break;
+                PlayerHero.DiscardCard(card);
+                discarded++;
+            }
+            GD.Print($"[CombatManager] ◆ 弃牌完成：弃掉 {discarded} 张牌");
+        }
+        else if (_pendingSelectionMode == PendingSelectionMode.BladeCrisis)
+        {
+            int discarded = 0;
+            foreach (var card in chosenCards)
+            {
+                PlayerHero.DiscardCard(card);
+                discarded++;
+            }
+            GD.Print($"[CombatManager]   刀盾危机弃牌：弃掉{discarded}张");
+
+            var tokenData = GD.Load<CardData>("res://Resources/Cards/Minion_WhatTheDogDoing_Token.tres");
+            if (tokenData != null)
+            {
+                for (int i = 0; i < discarded; i++)
+                {
+                    int? emptySlot = Board.GetEmptySlotIndex(isPlayerSide: true);
+                    if (emptySlot.HasValue)
+                    {
+                        var tokenMinion = new Minion(tokenData, isPlayerSide: true);
+                        Board.PlaceMinion(tokenMinion, emptySlot.Value);
+                        GD.Print($"[CombatManager]   刀盾危机：在槽位{emptySlot.Value}放置我的刀盾");
+                    }
+                    else
+                    {
+                        GD.Print($"[CombatManager]   刀盾危机：棋盘已满，停止放置（已放{i}个）");
+                        break;
+                    }
+                }
+            }
+            else GD.PrintErr("[CombatManager] 刀盾危机：无法加载我的刀盾Token卡牌");
+
+            PlayerHero.DrawCards(discarded);
+            GD.Print($"[CombatManager] ◆ 刀盾危机完成：弃{discarded}张，抽{discarded}张");
         }
 
         _pendingDiscoverOptions = null;
