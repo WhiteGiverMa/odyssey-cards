@@ -305,9 +305,7 @@ cards:
   minion_WhatTheDogDoing:
     name: "What The Dog Doing"
     description: "Taunt\nBattlecry: Add a copy to an adjacent board slot."
-  minion_WhatTheDogDoing_Token:
-    name: "What The Dog Doing"
-    description: "Taunt"
+
   spell_BladeCrisis:
     name: "Blade Crisis"
     description: "Choose and discard up to 5 cards, add that many What The Dog Doing to friendly board slots, and draw that many cards."

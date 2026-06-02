@@ -1052,7 +1052,7 @@ public partial class CombatManager : Node
     /// <param name="sourceSlotIndex">源随从所在槽位</param>
     private void CopyMinionToAdjacentSlot(Minion sourceMinion, int sourceSlotIndex)
     {
-        var tokenData = GD.Load<CardData>("res://Resources/Cards/Minion_WhatTheDogDoing_Token.tres");
+        var tokenData = GD.Load<CardData>("res://Resources/Cards/Minion_WhatTheDogDoing.tres");
         if (tokenData == null) { GD.PrintErr("[CombatManager] CopyToAdjacentSlot: 无法加载Token卡牌"); return; }
 
         // 优先相邻槽位（先左后右）
@@ -2557,7 +2557,7 @@ public partial class CombatManager : Node
             }
             GD.Print($"[CombatManager]   刀盾危机弃牌：弃掉{discarded}张");
 
-            var tokenData = GD.Load<CardData>("res://Resources/Cards/Minion_WhatTheDogDoing_Token.tres");
+            var tokenData = GD.Load<CardData>("res://Resources/Cards/Minion_WhatTheDogDoing.tres");
             if (tokenData != null)
             {
                 for (int i = 0; i < discarded; i++)

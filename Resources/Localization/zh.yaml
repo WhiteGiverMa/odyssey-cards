@@ -305,9 +305,7 @@ cards:
   minion_WhatTheDogDoing:
     name: "我的刀盾"
     description: "嘲讽\n战吼：将一张复制加入相邻棋盘槽处。"
-  minion_WhatTheDogDoing_Token:
-    name: "我的刀盾"
-    description: "嘲讽"
+
   spell_BladeCrisis:
     name: "刀盾危机"
     description: "选择并弃掉不大于5张牌，将等量个「我的刀盾」添加到友方棋盘槽处，并抽取等量张牌。"
