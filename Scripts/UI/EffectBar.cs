@@ -1,6 +1,7 @@
 using Godot;
 using OdysseyCards.Core;
 using OdysseyCards.Localization;
+using System;
 using System.Collections.Generic;
 
 namespace OdysseyCards.UI;
@@ -25,8 +26,11 @@ public partial class EffectBar : HBoxContainer
     private static readonly Color DebuffBorderColor = new(0.7f, 0.2f, 0.2f, 0.8f);
     private static readonly Color StackTextColor = new(1f, 1f, 1f, 0.95f);
 
-    private IReadOnlyList<DisplayableEffect> _effects = System.Array.Empty<DisplayableEffect>();
+    private IReadOnlyList<DisplayableEffect> _effects = Array.Empty<DisplayableEffect>();
+    private DisplayableEffect[] _pendingEffects = Array.Empty<DisplayableEffect>();
     private EffectTooltip? _activeTooltip;
+    private string _effectSignature = string.Empty;
+    private bool _rebuildQueued;
 
     public EffectBar()
     {
@@ -35,20 +39,27 @@ public partial class EffectBar : HBoxContainer
     }
 
     /// <summary>
-    /// 填充效果列表，重建所有图标。
+    /// 填充效果列表，安全重建所有图标。
     /// </summary>
     public void Populate(IReadOnlyList<DisplayableEffect> effects)
     {
-        _effects = effects;
+        var sorted = new List<DisplayableEffect>(effects);
+        sorted.Sort((a, b) => a.SortOrder.CompareTo(b.SortOrder));
 
-        // 清除旧图标
-        foreach (var child in GetChildren())
+        string signature = BuildSignature(sorted);
+        if (signature == _effectSignature && !_rebuildQueued)
         {
-            if (child is EffectIcon icon)
-                icon.QueueFree();
+            return;
         }
 
-        if (effects.Count == 0)
+        _effects = sorted;
+        _pendingEffects = sorted.ToArray();
+        _effectSignature = signature;
+
+        HideTooltip();
+        RemoveExistingIcons();
+
+        if (_pendingEffects.Length == 0)
         {
             Visible = false;
             return;
@@ -56,15 +67,13 @@ public partial class EffectBar : HBoxContainer
 
         Visible = true;
 
-        // 按 SortOrder 排序后创建图标
-        var sorted = new List<DisplayableEffect>(effects);
-        sorted.Sort((a, b) => a.SortOrder.CompareTo(b.SortOrder));
-
-        foreach (var effect in sorted)
+        if (_rebuildQueued)
         {
-            var icon = new EffectIcon(effect, this);
-            AddChild(icon);
+            return;
         }
+
+        _rebuildQueued = true;
+        CallDeferred(nameof(RebuildIconsDeferred));
     }
 
     /// <summary>
@@ -72,12 +81,11 @@ public partial class EffectBar : HBoxContainer
     /// </summary>
     public void Clear()
     {
-        foreach (var child in GetChildren())
-        {
-            if (child is EffectIcon icon)
-                icon.QueueFree();
-        }
-        _effects = System.Array.Empty<DisplayableEffect>();
+        _effects = Array.Empty<DisplayableEffect>();
+        _pendingEffects = Array.Empty<DisplayableEffect>();
+        _effectSignature = string.Empty;
+        HideTooltip();
+        RemoveExistingIcons();
         Visible = false;
     }
 
@@ -86,17 +94,20 @@ public partial class EffectBar : HBoxContainer
     /// </summary>
     internal void ShowTooltip(DisplayableEffect effect, Vector2 screenPos)
     {
+        if (!CanMutateTooltip())
+        {
+            return;
+        }
+
         HideTooltip();
 
         _activeTooltip = new EffectTooltip(effect);
         var root = GetTree().Root;
         root.AddChild(_activeTooltip);
 
-        // 手动计算 tooltip 尺寸：标题行约22px + 描述行约40px（含边距）
         int estimatedW = 200;
         int estimatedH = string.IsNullOrEmpty(effect.Description) ? 40 : 70;
 
-        // 确保不超出屏幕边界
         int posX = (int)Mathf.Clamp(screenPos.X + 8, 4, root.Size.X - estimatedW - 8);
         int posY = (int)Mathf.Clamp(screenPos.Y - estimatedH - 8, 4, root.Size.Y - estimatedH - 8);
 
@@ -108,9 +119,66 @@ public partial class EffectBar : HBoxContainer
     /// </summary>
     internal void HideTooltip()
     {
-        _activeTooltip?.Hide();
-        _activeTooltip?.QueueFree();
+        if (_activeTooltip != null && GodotObject.IsInstanceValid(_activeTooltip))
+        {
+            _activeTooltip.Hide();
+            _activeTooltip.QueueFree();
+        }
+
         _activeTooltip = null;
+    }
+
+    private bool CanMutateTooltip()
+    {
+        return IsInsideTree() && !IsQueuedForDeletion() && GetTree() != null;
+    }
+
+    private static string BuildSignature(IReadOnlyList<DisplayableEffect> effects)
+    {
+        if (effects.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var parts = new string[effects.Count];
+        for (int i = 0; i < effects.Count; i++)
+        {
+            var effect = effects[i];
+            parts[i] = $"{effect.SortOrder}:{effect.Category}:{effect.SourceId}:{effect.Name}:{effect.Icon}:{effect.Stacks}:{effect.IsBuff}:{effect.Description}";
+        }
+
+        return string.Join("|", parts);
+    }
+
+    private void RemoveExistingIcons()
+    {
+        foreach (var child in GetChildren())
+        {
+            if (child is not EffectIcon icon)
+            {
+                continue;
+            }
+
+            icon.Disable();
+            icon.Visible = false;
+            RemoveChild(icon);
+            icon.QueueFree();
+        }
+    }
+
+    private void RebuildIconsDeferred()
+    {
+        _rebuildQueued = false;
+
+        if (!IsInsideTree() || IsQueuedForDeletion())
+        {
+            return;
+        }
+
+        foreach (var effect in _pendingEffects)
+        {
+            AddChild(new EffectIcon(effect, this));
+        }
     }
 
     // ==================================================================
@@ -123,8 +191,9 @@ public partial class EffectBar : HBoxContainer
         private readonly EffectBar _parent;
         private readonly ColorRect _background;
         private readonly Label _iconLabel;
-        private readonly Label _stackLabel;
+        private readonly Label? _stackLabel;
         private bool _isHovered;
+        private bool _disabled;
 
         public EffectIcon(DisplayableEffect effect, EffectBar parent)
         {
@@ -136,7 +205,6 @@ public partial class EffectBar : HBoxContainer
 
             bool isBuff = effect.IsBuff;
 
-            // 边框背景
             var borderStyle = new StyleBoxFlat
             {
                 BgColor = isBuff ? BuffBorderColor : DebuffBorderColor,
@@ -153,7 +221,6 @@ public partial class EffectBar : HBoxContainer
             borderRect.AddThemeStyleboxOverride("panel", borderStyle);
             AddChild(borderRect);
 
-            // 内容背景（内缩 1px）
             _background = new ColorRect
             {
                 Position = new Vector2(1, 1),
@@ -171,7 +238,6 @@ public partial class EffectBar : HBoxContainer
             _background.MouseFilter = MouseFilterEnum.Ignore;
             AddChild(_background);
 
-            // Emoji 图标
             _iconLabel = new Label
             {
                 Text = effect.Icon,
@@ -184,7 +250,6 @@ public partial class EffectBar : HBoxContainer
             _iconLabel.MouseFilter = MouseFilterEnum.Ignore;
             AddChild(_iconLabel);
 
-            // 右下角层数标签
             if (effect.Stacks > 0)
             {
                 _stackLabel = new Label
@@ -200,10 +265,6 @@ public partial class EffectBar : HBoxContainer
                 _stackLabel.MouseFilter = MouseFilterEnum.Ignore;
                 AddChild(_stackLabel);
             }
-
-            // 使用 Connect 而非 += 确保 Godot Mono 嵌套类中信号可靠投递
-            Connect(Control.SignalName.MouseEntered, Callable.From(() => OnMouseEnter()));
-            Connect(Control.SignalName.MouseExited, Callable.From(() => OnMouseExit()));
         }
 
         public override void _GuiInput(InputEvent @event)
@@ -216,6 +277,11 @@ public partial class EffectBar : HBoxContainer
 
         public override void _Notification(int what)
         {
+            if (_disabled || !IsInsideTree() || IsQueuedForDeletion())
+            {
+                return;
+            }
+
             if (what == NotificationMouseEnter)
             {
                 OnMouseEnter();
@@ -226,18 +292,49 @@ public partial class EffectBar : HBoxContainer
             }
         }
 
+        public void Disable()
+        {
+            _disabled = true;
+            MouseFilter = MouseFilterEnum.Ignore;
+            Scale = Vector2.One;
+
+            if (GodotObject.IsInstanceValid(_parent) && _parent.IsInsideTree() && !_parent.IsQueuedForDeletion())
+            {
+                _parent.HideTooltip();
+            }
+        }
+
+        private bool CanHandleHover()
+        {
+            return !_disabled
+                && IsInsideTree()
+                && !IsQueuedForDeletion()
+                && GodotObject.IsInstanceValid(_parent)
+                && _parent.IsInsideTree()
+                && !_parent.IsQueuedForDeletion();
+        }
+
         private void OnMouseEnter()
         {
+            if (!CanHandleHover())
+            {
+                return;
+            }
+
             _isHovered = true;
             Scale = new Vector2(1.15f, 1.15f);
-            var globalPos = GetGlobalMousePosition();
-            _parent.ShowTooltip(_effect, globalPos);
+            _parent.ShowTooltip(_effect, GetGlobalMousePosition());
         }
 
         private void OnMouseExit()
         {
+            if (!CanHandleHover())
+            {
+                return;
+            }
+
             _isHovered = false;
-            Scale = new Vector2(1f, 1f);
+            Scale = Vector2.One;
             _parent.HideTooltip();
         }
     }
@@ -250,7 +347,6 @@ public partial class EffectBar : HBoxContainer
     {
         public EffectTooltip(DisplayableEffect effect)
         {
-            // PopupPanel 自动渲染在最顶层，无需 MouseFilter 或 ZIndex
             var style = new StyleBoxFlat
             {
                 BgColor = new Color(0.08f, 0.08f, 0.1f, 0.92f),
@@ -269,7 +365,6 @@ public partial class EffectBar : HBoxContainer
             var vbox = new VBoxContainer { Name = "TooltipContent" };
             AddChild(vbox);
 
-            // 标题行：图标 + 名称 + 层数
             var titleRow = new HBoxContainer();
             var iconLabel = new Label
             {
@@ -291,7 +386,6 @@ public partial class EffectBar : HBoxContainer
             titleRow.AddChild(nameLabel);
             vbox.AddChild(titleRow);
 
-            // 描述
             if (!string.IsNullOrEmpty(effect.Description))
             {
                 var descLabel = new Label
