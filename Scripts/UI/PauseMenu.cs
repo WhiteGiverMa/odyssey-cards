@@ -386,6 +386,8 @@ public partial class PauseMenu : Control
     /// </summary>
     public override void _Input(InputEvent @event)
     {
+        if (!IsInsideTree()) return;
+
         if (@event is InputEventKey key && key.Pressed && key.Keycode == Key.Escape)
         {
             if (_settingsContainer.Visible)
