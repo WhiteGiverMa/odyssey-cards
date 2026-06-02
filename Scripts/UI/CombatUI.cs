@@ -39,6 +39,12 @@ public partial class CombatUI : Control
     private HandUI _handUI = null!;
 
     /// <summary>
+    /// 手牌区域容器——高度由 COLLAPSED_VISIBLE * UIScaler.Scale 决定，
+    /// 确保各分辨率下卡牌折叠态露出比例一致。
+    /// </summary>
+    private Control _handArea = null!;
+
+    /// <summary>
     /// 玩家英雄生命值条——左下角。
     /// </summary>
     private HealthBar _playerHealthBar = null!;
@@ -347,11 +353,19 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
-    /// 分辨率变化时刷新所有 UI 尺寸和布局。
+    /// 分辨率变化时刷新所有 UI 尺寸和布局，包括手牌区域高度。
     /// </summary>
     private void OnResolutionChanged()
     {
-        GD.Print($"[CombatUI] 分辨率变化 — 缩放因子 {UIScaler.Instance?.GetScaleFactor() ?? 1f:F2}");
+        float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+        GD.Print($"[CombatUI] 分辨率变化 — 缩放因子 {s:F2}");
+
+        // 更新手牌区域高度以保持折叠态露出比例一致
+        if (_handArea != null)
+        {
+            _handArea.CustomMinimumSize = new Vector2(0, HandUI.COLLAPSED_VISIBLE * s);
+        }
+
         RefreshAll();
     }
 
@@ -648,13 +662,18 @@ public partial class CombatUI : Control
 
     /// <summary>
     /// 创建手牌区域——HandUI 全宽居中。
+    /// 高度 = HandUI.COLLAPSED_VISIBLE * UIScaler.CurrentScale，
+    /// 确保各分辨率下卡牌折叠态露出比例一致（约 30% 卡牌高度）。
     /// </summary>
     private Control CreateHandArea()
     {
-        var container = new Control
+        float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+        float handHeight = HandUI.COLLAPSED_VISIBLE * s;
+
+        _handArea = new Control
         {
             Name = "HandArea",
-            CustomMinimumSize = new Vector2(0, 170),
+            CustomMinimumSize = new Vector2(0, handHeight),
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
         };
 
@@ -665,9 +684,9 @@ public partial class CombatUI : Control
             AnchorRight = 1,
             AnchorBottom = 1,
         };
-        container.AddChild(_handUI);
+        _handArea.AddChild(_handUI);
 
-        return container;
+        return _handArea;
     }
 
     // ===== 子组件创建 =====
@@ -1905,29 +1924,44 @@ public partial class CombatUI : Control
         // 取消之前的攻击选择
         _selectedAttacker = null;
 
-        // 清理上一个拖拽中的卡牌（防止快速点击产生幽灵浮动卡）
-        if (_dragCardUI != null)
-        {
-            _dragCardUI.OnCardDropped -= OnCardDroppedHandler;
-            _dragCardUI.CancelDragSilent();
-            _dragCardUI.Visible = false;
-            _dragCardUI.QueueFree();
-            _dragCardUI = null;
-        }
+		// 清理上一个拖拽中的卡牌（防止快速点击产生幽灵浮动卡）
+		// 但先记住旧卡数据，以便后面归还手牌
+		Card.Card? previousCardData = _dragCardUI?.Card;
+		CleanupDragCard();
 
         // 将卡牌 UI 从 HandUI 移到 DragLayer，脱离 HBoxContainer 布局约束
-        var cardUI = _handUI.GetCardUIFor(card);
-        if (cardUI != null)
-        {
-            cardUI.GetParent()?.RemoveChild(cardUI);
-            _dragLayer.AddChild(cardUI);
-            _dragCardUI = cardUI;
+		var cardUI = _handUI.GetCardUIFor(card);
+		if (cardUI != null)
+		{
+			_handUI.StopLayoutControl(cardUI);
+
+			// 清除 HandUI 布局遗留的 OffsetTop（Select() 设的）。
+			// 必须在设 Position 之前清零，否则非锚定 Control 的布局重算会抹掉手动 Position。
+			cardUI.OffsetTop = 0;
+			cardUI.OffsetBottom = 0;
+			cardUI.OffsetLeft = 0;
+			cardUI.OffsetRight = 0;
+
+			Vector2 mousePosition = cardUI.LastClickGlobalPosition;
+			Vector2 preSize = cardUI.Size;
+			Vector2 preScale = cardUI.Scale;
+			Vector2 halfSize = preSize * preScale * 0.5f;
+			cardUI.GetParent()?.RemoveChild(cardUI);
+			_dragLayer.AddChild(cardUI);
+			cardUI.Position = mousePosition - halfSize - _dragLayer.GetGlobalRect().Position;
+			_dragCardUI = cardUI;
 
             // 从 HandUI 内部列表脱钩，防止 RefreshHand 误销毁拖拽中的卡片
             _handUI.DetachCardFromList(cardUI);
 
             // 订阅拖拽松手事件——用于拖拽→松手打出 / 松手取消
             cardUI.OnCardDropped += OnCardDroppedHandler;
+
+			// 旧卡数据归还手牌——创建新的 CardUI 让它回到手牌可重新选中
+			if (previousCardData != null)
+			{
+				_handUI.AddCardBack(previousCardData);
+			}
         }
 
         switch (card.Type)

@@ -1,6 +1,5 @@
 using System;
 using Godot;
-using OdysseyCards.Card;
 using OdysseyCards.Core;
 
 namespace OdysseyCards.UI;
@@ -15,8 +14,8 @@ public partial class CardUI : Control
 	// ============================================================
 	// 尺寸常量（设计基准 120×180，运行时通过 UIScaler 缩放）
 	// ============================================================
-	private const float DESIGN_WIDTH = 120f;
-	private const float DESIGN_HEIGHT = 180f;
+	public const float DESIGN_WIDTH = 120f;
+	public const float DESIGN_HEIGHT = 180f;
 	private const float MANA_DIAMETER = 24f;
 	private const float HEADER_H = 28f;
 	private const float ARTWORK_H = 80f;
@@ -97,6 +96,17 @@ public partial class CardUI : Control
     public bool PreventDrag { get; set; }
 
     /// <summary>
+    /// 当前是否处于拖拽状态。HandUI 通过此属性在拖拽期间抑制悬停效果。
+    /// </summary>
+    public bool IsDragging => _isDragging;
+
+    /// <summary>
+    /// 最后一次左键点击的全局坐标（来自 InputEventMouseButton）。
+    /// 拖拽流程使用此坐标而非 GetGlobalMousePosition()，确保合成点击和帧时序边界下的位置一致性。
+    /// </summary>
+    public Vector2 LastClickGlobalPosition { get; private set; }
+
+    /// <summary>
     /// 卡牌在拖拽中左键松开时触发。参数为卡牌 UI 和松开位置的全局坐标。
     /// 接收方根据松开位置判断：有效目标→打出，无效→取消（等效右键）。
     /// </summary>
@@ -148,10 +158,8 @@ public partial class CardUI : Control
     /// <summary>点击选中模式：用户快速点击（松手无拖拽位移）后进入，卡片跟随鼠标但不响应松手掉落。</summary>
     private bool _clickSelectMode;
     private const float DragThreshold = 10f;
-    /// <summary>屏幕坐标跳变阈值（像素）。超过此距离视为重 parent 导致的坐标跳变，非用户拖拽。</summary>
-    private const float ScreenJumpThreshold = 50f;
     private Tween? _hoverTween;
-	private bool _hovering;
+	private bool _isHoverEffectActive;
 	private bool _built;
 
 	// ============================================================
@@ -184,8 +192,6 @@ public partial class CardUI : Control
 
 		if (!DisplayOnly)
 		{
-			MouseEntered += OnMouseEnteredHandler;
-			MouseExited += OnMouseExitedHandler;
 			GuiInput += OnGuiInputHandler;
 		}
 
@@ -562,23 +568,32 @@ public partial class CardUI : Control
 				AcceptEvent();
 				return;
 			}
-			StartDrag();
+
+			LastClickGlobalPosition = mb.GlobalPosition;
+
+			// 先通知 HandUI 完成选中/取消选中（此时 _isDragging 未设，Select 正常执行），
+			// 再进入拖拽状态接管位置控制。
+			OnCardClicked?.Invoke(this);
+			StartDragState();
 			AcceptEvent();
 		}
 	}
 
     /// <summary>
-    /// 进入拖拽状态：计算偏移量、设为鼠标穿透、清除旧偏移、通知 HandUI。
+    /// 进入拖拽状态：计算偏移量、设为鼠标穿透、清除旧偏移。
+    /// 不再调用 OnCardClicked——点击已在 OnGuiInputHandler 中先行处理。
     /// </summary>
-    private void StartDrag()
+    private void StartDragState()
     {
         _isDragging = true;
         _hasDragged = false;
-        _dragOffset = GetLocalMousePosition();
-        _dragStartScreenPos = GetScreenPosition();
+        _dragOffset = LastClickGlobalPosition - GlobalPosition;
+        _dragStartScreenPos = LastClickGlobalPosition;
         MouseFilter = MouseFilterEnum.Ignore;
-        OffsetTop = 0; // 清除之前的选中/悬停偏移
-        OnCardClicked?.Invoke(this);
+        _isHoverEffectActive = false;
+        KillHoverTween();
+        // 不要在此设 OffsetTop：DragLayer 是手动布局，OffsetTop 会触发
+        // Godot 非锚定控件的布局重算，导致 Position.Y 清零（瞬移到屏幕最上方）。
         FlashHighlight();
     }
 
@@ -591,6 +606,8 @@ public partial class CardUI : Control
         _isDragging = false;
         _hasDragged = false;
         _clickSelectMode = false;
+        _isHoverEffectActive = false;
+        KillHoverTween();
         MouseFilter = MouseFilterEnum.Stop;
         OffsetTop = 0;
     }
@@ -605,18 +622,18 @@ public partial class CardUI : Control
         OnCardRightClicked?.Invoke(this);
     }
 
-    /// <summary>
-    /// 拖拽时每帧跟随鼠标移动，并轮询右键取消和左键松开。
-    /// 由于拖拽中 MouseFilter=Ignore，GuiInput 不会收到事件，故在此轮询。
-    ///
-    /// 交互等效性（参考杀戮尖塔2 NMouseCardPlay 的区域+按键状态模型）：
-    ///   快速点击选中 → 移动 → 点击有效目标打出（clickSelectMode）
-    ///   按住拖拽 → 松手在有效目标打出 / 无效区域取消（drag-drop）
-    ///   右键取消 ≡ 拖拽中松开在无效区域
-    /// </summary>
-    public override void _Process(double delta)
-    {
-        if (DisplayOnly || !_isDragging) return;
+	/// <summary>
+	/// 拖拽时每帧跟随鼠标移动，并轮询右键取消和左键松开。
+	/// 由于拖拽中 MouseFilter=Ignore，GuiInput 不会收到事件，故在此轮询。
+	///
+	/// 交互等效性（参考杀戮尖塔2 NMouseCardPlay 的区域+按键状态模型）：
+	///   快速点击选中 → 卡片保持原位 → 点击有效目标打出（clickSelectMode）
+	///   按住并移动超过阈值 → 卡片跟随鼠标 → 松手打出/取消（drag-drop）
+	///   右键取消 ≡ 拖拽中松开在无效区域
+	/// </summary>
+	public override void _Process(double delta)
+	{
+		if (DisplayOnly || !_isDragging) return;
 
         // 右键取消（等效：拖拽中松手在无效区域）
         if (Input.IsMouseButtonPressed(MouseButton.Right))
@@ -625,52 +642,50 @@ public partial class CardUI : Control
             return;
         }
 
-        // 跟随鼠标
-        var parent = GetParent();
-        if (parent is Control parentCtrl)
-        {
-            Position = parentCtrl.GetLocalMousePosition() - _dragOffset;
-        }
+		bool leftDown = Input.IsMouseButtonPressed(MouseButton.Left);
+		Vector2 mousePosition = GetGlobalMousePosition();
 
-        // 逐帧通知拖拽位置（用于播放区域判定等）
-        OnDragMove?.Invoke(this, GetGlobalMousePosition());
+		// 跟踪拖拽距离：只有左键仍按住时才允许从点击态升级为拖拽。
+		// 合成点击/低帧率下可能在下一帧已松手，此时 GetGlobalMousePosition() 不再是本次点击的权威坐标，
+		// 不能用它把一次快速点击误判成拖拽并立即触发 drop。
+		if (leftDown && !_clickSelectMode && !_hasDragged)
+		{
+			float dist = mousePosition.DistanceTo(_dragStartScreenPos);
+			if (dist > DragThreshold)
+				_hasDragged = true;
+		}
 
-        bool leftDown = Input.IsMouseButtonPressed(MouseButton.Left);
+		if (_hasDragged)
+		{
+			// 拖拽模式：卡牌跟随鼠标移动，逐帧通知位置。
+			GlobalPosition = mousePosition - _dragOffset;
+			OnDragMove?.Invoke(this, mousePosition);
+		}
+		else if (_clickSelectMode)
+		{
+			// 点击选中模式：卡牌跟随鼠标，但不发送 OnDragMove（无拖拽）。
+			GlobalPosition = mousePosition - _dragOffset;
+		}
 
-        // 跟踪拖拽距离：仅在非点击选中模式下检测
-        // 重 parent（从 HandUI 移到 _dragLayer）会导致屏幕坐标大幅跳变，
-        // 若跳变超过阈值，重置起点为当前位置，避免误判。
-        if (!_clickSelectMode && !_hasDragged)
-        {
-            float dist = GetScreenPosition().DistanceTo(_dragStartScreenPos);
-            if (dist > ScreenJumpThreshold)
-            {
-                // 重 parent 导致的坐标跳变——重置拖拽起点
-                _dragStartScreenPos = GetScreenPosition();
-            }
-            else if (dist > DragThreshold)
-                _hasDragged = true;
-        }
-
-        // 左键松开处理
-        if (!leftDown)
-        {
-            if (_hasDragged)
-            {
-                // 拖拽后松手 → 触发 OnCardDropped（由 CombatUI 根据落点决定打出/取消）
-                Vector2 dropScreenPos = GetGlobalMousePosition();
-                _isDragging = false;
-                _hasDragged = false;
-                _clickSelectMode = false;
-                MouseFilter = MouseFilterEnum.Stop;
+		// 左键松开处理
+		if (!leftDown)
+		{
+			if (_hasDragged)
+			{
+				// 拖拽后松手 → 触发 OnCardDropped（由 CombatUI 根据落点决定打出/取消）
+				Vector2 dropScreenPos = mousePosition;
+				_isDragging = false;
+				_hasDragged = false;
+				_clickSelectMode = false;
+				MouseFilter = MouseFilterEnum.Stop;
                 OnCardDropped?.Invoke(this, dropScreenPos);
             }
             else if (!_clickSelectMode)
             {
-                // 快速点击（松手时无拖拽位移）→ 进入点击选中模式
-                // 卡片继续跟随鼠标，等待目标点击打出；RightClick 取消
-                _clickSelectMode = true;
-            }
+				// 快速点击（松手时无拖拽位移）→ 进入点击选中模式。
+				// 选中卡保持原位，等待目标点击打出；RightClick 取消。
+				_clickSelectMode = true;
+			}
             // 已在点击选中模式：等待目标点击，不做任何操作
         }
         // leftDown=true 时：
@@ -688,6 +703,8 @@ public partial class CardUI : Control
 	{
 		if (_isDragging) return;
 		IsSelected = true;
+		_isHoverEffectActive = false;
+		KillHoverTween();
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
 		OffsetTop = -HOVER_LIFT * s;
 		ZIndex = 1;
@@ -713,6 +730,8 @@ public partial class CardUI : Control
     {
         if (selected)
         {
+            _isHoverEffectActive = false;
+            KillHoverTween();
             Modulate = new Color(1f, 0.85f, 0.3f, 1f); // golden
             OffsetTop = -15f; // slight lift
             ZIndex = 1;
@@ -863,36 +882,25 @@ public partial class CardUI : Control
 	// ============================================================
 
 	/// <summary>
-	/// 鼠标进入卡牌区域：放大并轻微上浮。使用 OffsetTop 保持容器布局安全。
+	/// 悬停入效果：仅设置 ZIndex。上浮和缩放由 HandUI.RefreshLayout 统一控制。
 	/// </summary>
-	private void OnMouseEnteredHandler()
+	public void ApplyHoverEffect()
 	{
-		if (IsSelected) return; // 选中状态下不响应悬停
-
-		_hovering = true;
-
+		if (_isDragging || IsSelected || _isHoverEffectActive) return;
+		_isHoverEffectActive = true;
 		KillHoverTween();
-
-		// 仅缩放，不移动。移动会改变卡牌与鼠标的相对位置，
-		// 导致 mouse_exited 和 mouse_entered 交替触发，产生闪烁。
-		_hoverTween = CreateTween().SetParallel(true);
-		_hoverTween.TweenProperty(this, "scale", new Vector2(1.05f, 1.05f), 0.15f);
-		ZIndex = 1;
+		ZIndex = 2;
 	}
 
 	/// <summary>
-	/// 鼠标离开卡牌区域：恢复原始大小和层级。
+	/// 悬停出效果：仅恢复 ZIndex。位置恢复由 RefreshLayout 处理。
 	/// </summary>
-	private void OnMouseExitedHandler()
+	public void RemoveHoverEffect()
 	{
-		if (IsSelected) return; // 选中状态下不响应悬停
-
-		_hovering = false;
-
+		if (!_isHoverEffectActive) return;
+		_isHoverEffectActive = false;
 		KillHoverTween();
-
-		_hoverTween = CreateTween().SetParallel(true);
-		_hoverTween.TweenProperty(this, "scale", Vector2.One, 0.15f);
+		OffsetTop = 0f;
 		ZIndex = 0;
 	}
 
