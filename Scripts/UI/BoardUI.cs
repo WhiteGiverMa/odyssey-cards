@@ -1,6 +1,7 @@
 using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
+using OdysseyCards.Core;
 using OdysseyCards.Localization;
 using System;
 using System.Collections.Generic;
@@ -73,6 +74,16 @@ public partial class BoardUI : Control
     /// </summary>
     private readonly BoardSlot[] _enemySlots = new BoardSlot[Board.MaxSlotsPerSide];
 
+    /// <summary>
+    /// 玩家方效果图标栏（每个槽位下方）。
+    /// </summary>
+    private readonly EffectBar[] _playerEffectBars = new EffectBar[Board.MaxSlotsPerSide];
+
+    /// <summary>
+    /// 敌方效果图标栏（每个槽位下方）。
+    /// </summary>
+    private readonly EffectBar[] _enemyEffectBars = new EffectBar[Board.MaxSlotsPerSide];
+
     // ===== 容器引用 =====
 
     private VBoxContainer _mainContainer = null!;
@@ -118,18 +129,30 @@ public partial class BoardUI : Control
         var bottomSpacer = new Control { CustomMinimumSize = new Vector2(0, RowSpacing) };
         _mainContainer.AddChild(bottomSpacer);
 
-        // 创建槽位
+        // 效果图层（CanvasLayer 渲染在最顶层，不受布局约束）
+        var effectLayer = new CanvasLayer { Name = "EffectLayer", Layer = 10 };
+        AddChild(effectLayer);
+
+        // 创建槽位，EffectBar 挂到 CanvasLayer 上
         for (int i = 0; i < Board.MaxSlotsPerSide; i++)
         {
-            // 敌方槽位（isPlayerSide = false）
+            // 敌方槽位
             var enemySlot = new BoardSlot(i, false, this);
             _enemySlots[i] = enemySlot;
             _enemyRow.AddChild(enemySlot);
 
-            // 玩家槽位（isPlayerSide = true）
+            var enemyEffectBar = new EffectBar { Name = $"EnemyEffectBar_{i}" };
+            _enemyEffectBars[i] = enemyEffectBar;
+            effectLayer.AddChild(enemyEffectBar);
+
+            // 玩家槽位
             var playerSlot = new BoardSlot(i, true, this);
             _playerSlots[i] = playerSlot;
             _playerRow.AddChild(playerSlot);
+
+            var playerEffectBar = new EffectBar { Name = $"PlayerEffectBar_{i}" };
+            _playerEffectBars[i] = playerEffectBar;
+            effectLayer.AddChild(playerEffectBar);
         }
     }
 
@@ -146,8 +169,8 @@ public partial class BoardUI : Control
     }
 
     /// <summary>
-    /// 遍历所有槽位，根据战场数据更新每个槽位的显示内容。
-    /// 对于每个槽位，调用 Board.GetMinionAt 获取随从并传递给对应 BoardSlot。
+    /// 遍历所有槽位，更新显示内容和效果图标栏位置。
+    /// EffectBar 通过 CanvasLayer 渲染，使用全局坐标定位在槽位下方。
     /// </summary>
     public void RefreshBoard()
     {
@@ -155,8 +178,33 @@ public partial class BoardUI : Control
 
         for (int i = 0; i < Board.MaxSlotsPerSide; i++)
         {
-            _playerSlots[i].UpdateDisplay(_board.GetMinionAt(i, true));
-            _enemySlots[i].UpdateDisplay(_board.GetMinionAt(i, false));
+            var playerMinion = _board.GetMinionAt(i, true);
+            _playerSlots[i].UpdateDisplay(playerMinion);
+            PositionEffectBar(_playerSlots[i], _playerEffectBars[i], playerMinion);
+
+            var enemyMinion = _board.GetMinionAt(i, false);
+            _enemySlots[i].UpdateDisplay(enemyMinion);
+            PositionEffectBar(_enemySlots[i], _enemyEffectBars[i], enemyMinion);
+        }
+    }
+
+    /// <summary>
+    /// 将 EffectBar 定位在 BoardSlot 正下方，并填充效果数据。
+    /// </summary>
+    private static void PositionEffectBar(BoardSlot slot, EffectBar bar, Minion? minion)
+    {
+        var effects = minion?.GetDisplayableEffects()
+            ?? (IReadOnlyList<DisplayableEffect>)Array.Empty<DisplayableEffect>();
+        bar.Populate(effects);
+
+        if (bar.Visible)
+        {
+            var slotRect = slot.GetGlobalRect();
+            // 定位在槽位正下方，水平居中，留 2px 间距
+            bar.GlobalPosition = new Vector2(
+                slotRect.Position.X + (slotRect.Size.X - bar.Size.X) / 2,
+                slotRect.Position.Y + slotRect.Size.Y + 2
+            );
         }
     }
 

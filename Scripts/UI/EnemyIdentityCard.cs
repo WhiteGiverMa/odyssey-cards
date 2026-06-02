@@ -1,6 +1,7 @@
 using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
+using OdysseyCards.Core;
 
 namespace OdysseyCards.UI;
 
@@ -22,6 +23,7 @@ public partial class EnemyIdentityCard : Panel
     private readonly Button _attackButton;
     private readonly Button _spellButton;
     private readonly HBoxContainer _statusContainer;
+    private readonly EffectBar _effectBar;
 
     // Colors
     private static readonly Color _nameColor = new(1f, 0.5f, 0.5f);
@@ -112,6 +114,8 @@ public partial class EnemyIdentityCard : Panel
         // Row 5: Status effects
         _statusContainer = new HBoxContainer();
         content.AddChild(_statusContainer);
+        _effectBar = new EffectBar();
+        content.AddChild(_effectBar);
 
         // Row 6: Target buttons (attack/spell)
         var btnRow = new HBoxContainer();
@@ -189,7 +193,7 @@ public partial class EnemyIdentityCard : Panel
         var intent = brain.GetCurrentIntent(combat, body);
         _intentLabel.Text = intent.GetDisplayDescription(combat);
 
-        // Status effects
+        // Status effects — old text display kept for backward compat
         foreach (var child in _statusContainer.GetChildren())
             child.QueueFree();
         foreach (var (id, effect) in body.StatusEffects)
@@ -203,6 +207,9 @@ public partial class EnemyIdentityCard : Panel
             badge.AddThemeFontSizeOverride("font_size", 9);
             _statusContainer.AddChild(badge);
         }
+
+        // EffectBar — unified display for all effect types
+        _effectBar.Populate(body.GetDisplayableEffects());
     }
 
     /// <summary>仅刷新血量条和标签（轻量版，不重新计算意图）。</summary>

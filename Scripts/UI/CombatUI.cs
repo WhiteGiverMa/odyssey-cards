@@ -57,7 +57,15 @@ public partial class CombatUI : Control
     private Label _enemyIntentLabel = null!;
     private Panel _enemyHeroPanel = null!;
     private Label _enemyWeaponLabel = null!;
-    private HBoxContainer _enemyStatusContainer = null!;
+    /// <summary>
+    /// 玩家效果图标栏——生命值条下方，显示 buff/debuff 图标。
+    /// </summary>
+    private EffectBar _playerEffectBar = null!;
+
+    /// <summary>
+    /// 敌方效果图标栏（单敌人旧版兼容层）——生命值条下方。
+    /// </summary>
+    private EffectBar _enemyEffectBar = null!;
 
     /// <summary>
     /// 玩家法力值显示——底部中央，格式「3/3」。
@@ -225,11 +233,6 @@ public partial class CombatUI : Control
     /// 武器主动技能按钮——点击后使用武器主动技能。
     /// </summary>
     private Button _weaponActiveSkillButton = null!;
-
-    /// <summary>
-    /// 玩家状态效果图标容器（HBoxContainer）。
-    /// </summary>
-    private HBoxContainer _playerStatusContainer = null!;
 
     /// <summary>
     /// 播放区域视觉指示器——拖拽无目标卡牌时在屏幕中央显示。
@@ -1175,23 +1178,15 @@ public partial class CombatUI : Control
     /// </summary>
     private void CreateStatusEffectUI()
     {
-        // 玩家状态效果容器
-        _playerStatusContainer = new HBoxContainer
-        {
-            Name = "PlayerStatusContainer",
-            Alignment = BoxContainer.AlignmentMode.Center,
-        };
+        // 玩家效果图标栏
+        _playerEffectBar = new EffectBar { Name = "PlayerEffectBar" };
         var playerHealthContainer = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
-        playerHealthContainer?.AddChild(_playerStatusContainer);
+        playerHealthContainer?.AddChild(_playerEffectBar);
 
-        // 敌方状态效果容器
-        _enemyStatusContainer = new HBoxContainer
-        {
-            Name = "EnemyStatusContainer",
-            Alignment = BoxContainer.AlignmentMode.Center,
-        };
+        // 敌方效果图标栏（旧版单敌人兼容层）
+        _enemyEffectBar = new EffectBar { Name = "EnemyEffectBar" };
         var enemyHealthContainer = GetNodeOrNull<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
-        enemyHealthContainer?.AddChild(_enemyStatusContainer);
+        enemyHealthContainer?.AddChild(_enemyEffectBar);
     }
 
     /// <summary>
@@ -2345,52 +2340,21 @@ public partial class CombatUI : Control
     }
 
     /// <summary>
-    /// 更新双方英雄的状态效果图标显示。
-    /// 每个状态效果显示为一个小标签（层数 + ID 缩写）。
+    /// 更新双方英雄的效果图标显示。
+    /// 通过 Hero.GetDisplayableEffects() 聚合所有效果，传入 EffectBar。
     /// </summary>
     private void UpdateStatusEffectDisplay()
     {
         if (_combat == null) return;
 
-        // 清空现有图标
-        foreach (var child in _playerStatusContainer.GetChildren())
-            child.QueueFree();
-        if (_enemyStatusContainer != null)
-        {
-            foreach (var child in _enemyStatusContainer.GetChildren())
-                child.QueueFree();
-        }
+        // 玩家英雄效果
+        _playerEffectBar.Populate(_combat.PlayerHero.GetDisplayableEffects());
 
-        // 玩家状态效果
-        foreach (var (id, effect) in _combat.PlayerHero.StatusEffects)
+        // 敌方英雄效果（旧版单敌人兼容层——多敌人时使用 EnemyIdentityCard 内的 EffectBar）
+        if (_enemyEffectBar != null)
         {
-            var label = CreateStatusIcon(id, effect.Stacks);
-            _playerStatusContainer.AddChild(label);
+            _enemyEffectBar.Populate(_combat.EnemyHero.GetDisplayableEffects());
         }
-
-        // 敌方状态效果（已迁移到 EnemyIdentityCard，旧版 UI 跳过）
-        if (_enemyStatusContainer != null)
-        foreach (var (id, effect) in _combat.EnemyHero.StatusEffects)
-        {
-            var label = CreateStatusIcon(id, effect.Stacks);
-            _enemyStatusContainer.AddChild(label);
-        }
-    }
-
-    /// <summary>
-    /// 创建单个状态效果图标标签。
-    /// </summary>
-    private static Label CreateStatusIcon(string id, int stacks)
-    {
-        var label = new Label
-        {
-            Text = $"{id}({stacks})",
-            CustomMinimumSize = new Vector2(60, 18),
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        label.AddThemeColorOverride("font_color", new Color(1f, 0.3f, 0.3f));
-        label.AddThemeFontSizeOverride("font_size", 10);
-        return label;
     }
 
     // ===== 事件处理——敌方英雄攻击 =====
