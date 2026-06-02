@@ -691,6 +691,28 @@ public partial class CardUI : Control
     }
 
     /// <summary>
+    /// 设置手牌选择模式的选中/取消高亮。
+    /// 选中时：金色调色 + 上移抬起效果。
+    /// 取消时：恢复原始颜色和位置。
+    /// </summary>
+    /// <param name="selected">true=选中高亮，false=取消</param>
+    public void SetHandSelectionHighlight(bool selected)
+    {
+        if (selected)
+        {
+            Modulate = new Color(1f, 0.85f, 0.3f, 1f); // golden
+            OffsetTop = -15f; // slight lift
+            ZIndex = 1;
+        }
+        else
+        {
+            Modulate = _canPlay ? Colors.White : ClrCannotPlay;
+            OffsetTop = 0f;
+            ZIndex = 0;
+        }
+    }
+
+    /// <summary>
     /// 设置播放区域高亮状态——卡牌拖入播放区域时显示绿色边框反馈。
     /// </summary>
     /// <param name="active">true=在播放区域内，false=离开</param>

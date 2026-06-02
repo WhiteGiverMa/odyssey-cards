@@ -50,6 +50,7 @@ ui:
     free_cost: "免费"
     discard_select_title: "选择弃牌"
     discard_select_format: "选择 {count} 张手牌弃掉"
+    discard_select_format_blade: "选择最多 {count} 张手牌弃掉"
     disabled_suffix: " [禁用]"
     weapon_attack_cost: "⚔ 武器攻击 ({cost}费)"
     weapon_disabled: "⚔ 武器攻击 [禁用]"
@@ -129,6 +130,9 @@ ui:
     skip: "跳过"
     confirm: "确认"
     pick_count: "选择 {count} 张"
+  hand_select:
+    confirm: "确认"
+    cancel: "取消"
   common:
     ok: "确定"
   collection:

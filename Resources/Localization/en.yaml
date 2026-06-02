@@ -50,6 +50,7 @@ ui:
     free_cost: "Free"
     discard_select_title: "Choose to Discard"
     discard_select_format: "Choose {count} card(s) to discard"
+    discard_select_format_blade: "Choose up to {count} card(s) to discard"
     disabled_suffix: " [Disabled]"
     weapon_attack_cost: "⚔ Weapon Attack ({cost} MP)"
     weapon_disabled: "⚔ Weapon Attack [Disabled]"
@@ -129,6 +130,9 @@ ui:
     skip: "Skip"
     confirm: "Confirm"
     pick_count: "Choose {count} cards"
+  hand_select:
+    confirm: "Confirm"
+    cancel: "Cancel"
   common:
     ok: "OK"
   collection:

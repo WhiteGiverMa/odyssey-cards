@@ -155,9 +155,9 @@ public partial class CombatManager : Node
     // ===== 发现选牌状态 =====
 
     /// <summary>
-    /// 当前正在等待玩家进行发现选牌。
+    /// 当前正在等待玩家进行发现选牌或手牌选择。
     /// </summary>
-    public bool IsDiscovering => _pendingDiscoverOptions != null;
+    public bool IsDiscovering => _pendingDiscoverOptions != null || _pendingHandDiscardSelection != null;
 
     /// <summary>
     /// 当前发现选牌的 N 个候选卡牌（只读）。
@@ -208,6 +208,48 @@ public partial class CombatManager : Node
     /// 当前选牌模式，供 UI 读取以自定义标题/行为。
     /// </summary>
     public PendingSelectionMode CurrentSelectionMode => _pendingSelectionMode;
+
+    // ===== 手牌选择状态（STS2 风格） =====
+
+    /// <summary>
+    /// 当前待选的手牌列表。null 表示不在手牌选择模式。
+    /// </summary>
+    private List<Card.Card>? _pendingHandDiscardSelection;
+
+    /// <summary>
+    /// 手牌选择需选的最小张数。
+    /// </summary>
+    private int _pendingDiscardMin;
+
+    /// <summary>
+    /// 手牌选择可选的最大张数。
+    /// </summary>
+    private int _pendingDiscardMax;
+
+    /// <summary>
+    /// 是否为刀盾危机模式（完成后需要放置 Token + 抽牌）。
+    /// </summary>
+    private bool _pendingDiscardIsBladeCrisis;
+
+    /// <summary>
+    /// 是否处于手牌选择模式（STS2 风格）。
+    /// </summary>
+    public bool IsHandSelecting => _pendingHandDiscardSelection != null;
+
+    /// <summary>
+    /// 手牌选择模式的待选卡牌列表（只读）。
+    /// </summary>
+    public IReadOnlyList<Card.Card>? HandSelectOptions => _pendingHandDiscardSelection?.AsReadOnly();
+
+    /// <summary>
+    /// 手牌选择最少需选张数。
+    /// </summary>
+    public int HandSelectMin => _pendingDiscardMin;
+
+    /// <summary>
+    /// 手牌选择最多可选张数。
+    /// </summary>
+    public int HandSelectMax => _pendingDiscardMax;
 
     // ===== 效果处理器 =====
 
@@ -679,8 +721,7 @@ public partial class CombatManager : Node
     }
 
     /// <summary>
-    /// 主动弃牌：从手牌中选择 N 张牌弃掉（异步，等待玩家选择）。
-    /// 遵循与捞月相同的异步选牌模式。
+    /// 主动弃牌：从手牌中选择 N 张牌弃掉（STS2 风格手牌选择模式）。
     /// </summary>
     private void HandleDiscardChoose(CardEffectData effect, object target, IDamageSource? source)
     {
@@ -699,14 +740,13 @@ public partial class CombatManager : Node
             return;
         }
 
-        _pendingDiscoverRuntimeOptions = handCopy;
-        _pendingDiscoverOptions = handCopy.Select(c => c.Data).ToList();
-        DiscoverPickCount = mustDiscard;
-        _pendingSelectionMode = PendingSelectionMode.ChooseDiscard;
-        State.SetDiscovering();
+        _pendingHandDiscardSelection = handCopy;
+        _pendingDiscardMin = mustDiscard;
+        _pendingDiscardMax = mustDiscard;
+        _pendingDiscardIsBladeCrisis = false;
+        SetHandSelectingState();
 
         GD.Print($"[CombatManager] ◆ 主动弃牌：从手牌 {handCopy.Count} 张中选择弃掉 {mustDiscard} 张");
-        NotifyCombatStateChanged();
     }
 
     /// <summary>
@@ -849,13 +889,12 @@ public partial class CombatManager : Node
             var hand = PlayerHero.Hand.ToList();
             if (hand.Count == 0) { GD.Print("[CombatManager] 刀盾危机：手牌为空"); return; }
 
-            _pendingDiscoverRuntimeOptions = hand.Select(c => (Card.Card)c).ToList();
-            _pendingDiscoverOptions = hand.Select(c => c.Data).ToList();
-            DiscoverPickCount = Math.Min(maxDiscard, hand.Count);
-            _pendingSelectionMode = PendingSelectionMode.BladeCrisis;
-            State.SetDiscovering();
-            GD.Print($"[CombatManager] ◆ 刀盾危机：可选最多{DiscoverPickCount}张手牌弃掉");
-            NotifyCombatStateChanged();
+            _pendingHandDiscardSelection = hand;
+            _pendingDiscardMin = 0;
+            _pendingDiscardMax = Math.Min(maxDiscard, hand.Count);
+            _pendingDiscardIsBladeCrisis = true;
+            SetHandSelectingState();
+            GD.Print($"[CombatManager] ◆ 刀盾危机：可选最多{_pendingDiscardMax}张手牌弃掉");
         }
         else
         {
@@ -2592,6 +2631,132 @@ public partial class CombatManager : Node
         CheckVictoryOrDefeat();
         NotifyCombatStateChanged();
         GD.Print("[CombatManager] 选牌完成，恢复玩家回合");
+    }
+
+    // ===== 手牌选择系统（STS2 风格） =====
+
+    /// <summary>
+    /// 进入手牌选择状态（调用 State.SetDiscovering 暂停回合流转）。
+    /// </summary>
+    private void SetHandSelectingState()
+    {
+        State.SetDiscovering();
+        NotifyCombatStateChanged();
+    }
+
+    /// <summary>
+    /// 确认手牌选择——由 CombatUI 的确认按钮调用。
+    /// 根据是否为刀盾危机执行不同的结算逻辑。
+    /// </summary>
+    /// <param name="selectedCards">玩家选中的卡牌列表</param>
+    public void ConfirmHandDiscardSelection(IReadOnlyList<Card.Card> selectedCards)
+    {
+        if (_pendingHandDiscardSelection == null)
+        {
+            GD.PrintErr("[CombatManager] ConfirmHandDiscardSelection 失败 — 不在手牌选择模式");
+            return;
+        }
+
+        int count = selectedCards.Count;
+        if (count < _pendingDiscardMin || count > _pendingDiscardMax)
+        {
+            GD.PrintErr($"[CombatManager] ConfirmHandDiscardSelection 失败 — 选择了{count}张，需要{_pendingDiscardMin}-{_pendingDiscardMax}张");
+            return;
+        }
+
+        if (_pendingDiscardIsBladeCrisis)
+        {
+            // 刀盾危机：弃牌 + 放置Token + 抽牌
+            int discarded = 0;
+            foreach (var card in selectedCards)
+            {
+                PlayerHero.DiscardCard(card);
+                discarded++;
+            }
+            GD.Print($"[CombatManager]   刀盾危机弃牌：弃掉{discarded}张");
+
+            var tokenData = GD.Load<CardData>("res://Resources/Cards/Minion_WhatTheDogDoing.tres");
+            if (tokenData != null)
+            {
+                for (int i = 0; i < discarded; i++)
+                {
+                    int? emptySlot = Board.GetEmptySlotIndex(isPlayerSide: true);
+                    if (emptySlot.HasValue)
+                    {
+                        var tokenMinion = new Minion(tokenData, isPlayerSide: true);
+                        Board.PlaceMinion(tokenMinion, emptySlot.Value);
+                        GD.Print($"[CombatManager]   刀盾危机：在槽位{emptySlot.Value}放置我的刀盾");
+                    }
+                    else
+                    {
+                        GD.Print($"[CombatManager]   刀盾危机：棋盘已满，停止放置（已放{i}个）");
+                        break;
+                    }
+                }
+            }
+            else GD.PrintErr("[CombatManager] 刀盾危机：无法加载我的刀盾Token卡牌");
+
+            PlayerHero.DrawCards(discarded);
+            GD.Print($"[CombatManager] ◆ 刀盾危机完成：弃{discarded}张，抽{discarded}张");
+        }
+        else
+        {
+            // 普通主动弃牌（白色军团等）
+            int discarded = 0;
+            foreach (var card in selectedCards)
+            {
+                if (discarded >= _pendingDiscardMax) break;
+                PlayerHero.DiscardCard(card);
+                discarded++;
+            }
+            GD.Print($"[CombatManager] ◆ 弃牌完成：弃掉 {discarded} 张牌");
+        }
+
+        // 清理触发法术牌
+        if (_pendingDiscoverSpellCard != null)
+        {
+            PlayerHero.DiscardCard(_pendingDiscoverSpellCard);
+            _pendingDiscoverSpellCard = null;
+        }
+
+        _pendingHandDiscardSelection = null;
+        _pendingDiscardMin = 0;
+        _pendingDiscardMax = 0;
+        _pendingDiscardIsBladeCrisis = false;
+        State.ResumePlayerTurn();
+
+        CheckDeaths();
+        CheckVictoryOrDefeat();
+        NotifyCombatStateChanged();
+        GD.Print("[CombatManager] 手牌选择完成，恢复玩家回合");
+    }
+
+    /// <summary>
+    /// 取消手牌选择——ESC/右键时由 CombatUI 调用。
+    /// 清除待选状态并恢复玩家回合，不弃任何牌。
+    /// </summary>
+    public void CancelHandDiscardSelection()
+    {
+        if (_pendingHandDiscardSelection == null)
+        {
+            GD.Print("[CombatManager] CancelHandDiscardSelection 跳过 — 不在手牌选择模式");
+            return;
+        }
+
+        // 清理触发法术牌（取消时法术仍进入弃牌堆）
+        if (_pendingDiscoverSpellCard != null)
+        {
+            PlayerHero.DiscardCard(_pendingDiscoverSpellCard);
+            _pendingDiscoverSpellCard = null;
+        }
+
+        _pendingHandDiscardSelection = null;
+        _pendingDiscardMin = 0;
+        _pendingDiscardMax = 0;
+        _pendingDiscardIsBladeCrisis = false;
+        State.ResumePlayerTurn();
+        NotifyCombatStateChanged();
+        GD.Print("[CombatManager] 手牌选择已取消");
     }
 
     /// <summary>

@@ -171,6 +171,28 @@ public partial class CombatUI : Control
     /// </summary>
     private DiscoverUI? _discoverUI;
 
+    // ===== 手牌选择模式（STS2 风格） =====
+
+    /// <summary>
+    /// 是否正在手牌选择模式。
+    /// </summary>
+    private bool _isHandSelecting;
+
+    /// <summary>
+    /// 手牌选择模式中已被选中的卡牌。
+    /// </summary>
+    private readonly List<Card.Card> _selectedHandCards = new();
+
+    /// <summary>
+    /// 手牌选择确认按钮。
+    /// </summary>
+    private Button? _handSelectConfirmBtn;
+
+    /// <summary>
+    /// 手牌选择头部提示标签。
+    /// </summary>
+    private Label? _handSelectHeaderLabel;
+
     // ===== 选择状态 =====
 
     /// <summary>
@@ -284,10 +306,22 @@ public partial class CombatUI : Control
     {
         if (!IsInsideTree()) return;
 
+        // 手牌选择模式——ESC/右键取消选择
+        if (_isHandSelecting)
+        {
+            if ((@event is InputEventKey keyEvent && keyEvent.Pressed && keyEvent.Keycode == Key.Escape)
+                || (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Right && mb.Pressed))
+            {
+                _combat?.CancelHandDiscardSelection();
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+        }
+
         // 开发者伤害模式——右键取消
-        if (@event is InputEventMouseButton mb
-            && mb.ButtonIndex == MouseButton.Right
-            && mb.Pressed
+        if (@event is InputEventMouseButton mb2
+            && mb2.ButtonIndex == MouseButton.Right
+            && mb2.Pressed
             && _selectionMode == SelectionMode.DevDamageTargeting)
         {
             ExitDevDamageMode();
@@ -1334,7 +1368,7 @@ public partial class CombatUI : Control
     /// </summary>
     public void RefreshAll()
     {
-        // 发现选牌阶段：仅更新状态显示（生命值/法力值等），跳过手牌和棋盘刷新
+        // 发现选牌或手牌选择阶段：仅更新状态显示，跳过手牌和棋盘刷新
         if (_combat != null && _combat.IsDiscovering)
         {
             CleanupDragCard();
@@ -1345,6 +1379,12 @@ public partial class CombatUI : Control
             UpdateDeckCounts();
             UpdateWeaponDisplay();
             UpdateStatusEffectDisplay();
+
+            // 手牌选择模式下，额外更新卡牌高亮状态
+            if (_isHandSelecting)
+            {
+                RefreshHandSelectionHighlights();
+            }
             return;
         }
 
@@ -2938,8 +2978,8 @@ public partial class CombatUI : Control
     // ===== 发现选牌 UI =====
 
     /// <summary>
-    /// 战斗状态变化时的发现选牌 UI 切换。
-    /// 进入 Discovering 阶段时显示选牌界面，退出时隐藏并刷新。
+    /// 战斗状态变化时的发现/手牌选择 UI 切换。
+    /// 优先检查手牌选择模式，其次检查发现选牌。
     /// </summary>
     private void OnCombatStateChangedForDiscover()
     {
@@ -2947,7 +2987,18 @@ public partial class CombatUI : Control
 
         if (_combat.IsDiscovering)
         {
-            ShowDiscoverUI();
+            if (_combat.IsHandSelecting)
+            {
+                EnterHandSelectionMode();
+            }
+            else
+            {
+                ShowDiscoverUI();
+            }
+        }
+        else if (_isHandSelecting)
+        {
+            ExitHandSelectionMode();
         }
         else if (_discoverUI != null && _discoverUI.Visible)
         {
@@ -3016,6 +3067,169 @@ public partial class CombatUI : Control
         }
         _endTurnButton.Disabled = false;
         GD.Print("[CombatUI] 发现选牌 UI 已隐藏");
+    }
+
+    // ===== 手牌选择模式（STS2 风格） =====
+
+    /// <summary>
+    /// 进入手牌选择模式——卡牌留在原位，点击切换选中，确认按钮出现。
+    /// </summary>
+    private void EnterHandSelectionMode()
+    {
+        if (_isHandSelecting) return;
+        _isHandSelecting = true;
+        _selectedHandCards.Clear();
+
+        // 禁用回合结束按钮
+        _endTurnButton.Disabled = true;
+
+        // 隐藏播放区域
+        HidePlayZonePanel();
+
+        // 设置 HandUI 为选择模式
+        _handUI.HandSelectMode = true;
+        _handUI.OnCardSelectionToggled += OnHandCardSelectionToggled;
+
+        // 创建头部提示标签
+        float scale = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+        var viewportSize = GetViewport().GetVisibleRect().Size;
+        string headerText;
+        if (_combat.HandSelectMin == _combat.HandSelectMax)
+        {
+            headerText = Loc.T("ui.combat.discard_select_format", "选择 {count} 张手牌弃掉")
+                .Replace("{count}", _combat.HandSelectMax.ToString());
+        }
+        else
+        {
+            headerText = Loc.T("ui.combat.discard_select_format_blade", "选择最多 {count} 张手牌弃掉")
+                .Replace("{count}", _combat.HandSelectMax.ToString());
+        }
+
+        _handSelectHeaderLabel = new Label
+        {
+            Name = "HandSelectHeader",
+            Text = headerText,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            CustomMinimumSize = new Vector2(400, 36),
+        };
+        _handSelectHeaderLabel.AddThemeColorOverride("font_color", new Color(1f, 0.85f, 0.3f));
+        _handSelectHeaderLabel.AddThemeFontSizeOverride("font_size", 20);
+        AddChild(_handSelectHeaderLabel);
+
+        float headerY = viewportSize.Y - 210 * scale;
+        _handSelectHeaderLabel.Position = new Vector2((viewportSize.X - 400) / 2, headerY);
+
+        // 创建确认按钮（初始隐藏，选择足够时显示）
+        _handSelectConfirmBtn = new Button
+        {
+            Name = "HandSelectConfirmBtn",
+            Text = Loc.T("ui.hand_select.confirm", "确认"),
+            CustomMinimumSize = new Vector2(120, 40),
+            Visible = false,
+            Disabled = true,
+        };
+        _handSelectConfirmBtn.Pressed += OnHandSelectConfirmPressed;
+        AddChild(_handSelectConfirmBtn);
+
+        float btnY = headerY + 44 * scale;
+        _handSelectConfirmBtn.Position = new Vector2((viewportSize.X - 120) / 2, btnY);
+
+        GD.Print("[CombatUI] 进入手牌选择模式");
+    }
+
+    /// <summary>
+    /// 退出手牌选择模式——清理 UI，恢复正常状态。
+    /// </summary>
+    private void ExitHandSelectionMode()
+    {
+        _isHandSelecting = false;
+        _selectedHandCards.Clear();
+
+        // 移除头部标签和确认按钮
+        _handSelectHeaderLabel?.QueueFree();
+        _handSelectHeaderLabel = null;
+        if (_handSelectConfirmBtn != null)
+        {
+            _handSelectConfirmBtn.Pressed -= OnHandSelectConfirmPressed;
+            _handSelectConfirmBtn.QueueFree();
+            _handSelectConfirmBtn = null;
+        }
+
+        // 恢复 HandUI 正常模式
+        _handUI.HandSelectMode = false;
+        _handUI.OnCardSelectionToggled -= OnHandCardSelectionToggled;
+
+        // 恢复回合结束按钮
+        _endTurnButton.Disabled = false;
+
+        // 全量刷新恢复所有 UI
+        RefreshAll();
+
+        GD.Print("[CombatUI] 退出手牌选择模式");
+    }
+
+    /// <summary>
+    /// 手牌选择模式：点击卡牌切换选中/取消。
+    /// </summary>
+    private void OnHandCardSelectionToggled(Card.Card card, bool toggled)
+    {
+        if (_selectedHandCards.Contains(card))
+        {
+            // 取消选中
+            _selectedHandCards.Remove(card);
+            var cardUI = _handUI.GetCardUIFor(card);
+            cardUI?.SetHandSelectionHighlight(false);
+        }
+        else
+        {
+            // 选中
+            _selectedHandCards.Add(card);
+            var cardUI = _handUI.GetCardUIFor(card);
+            cardUI?.SetHandSelectionHighlight(true);
+        }
+
+        UpdateHandSelectConfirmButton();
+    }
+
+    /// <summary>
+    /// 刷新手牌选择模式下的卡牌高亮（用于 RefreshAll 中）。
+    /// </summary>
+    private void RefreshHandSelectionHighlights()
+    {
+        if (_combat?.PlayerHero?.Hand == null) return;
+
+        foreach (var card in _combat.PlayerHero.Hand)
+        {
+            var cardUI = _handUI.GetCardUIFor(card);
+            if (cardUI != null)
+            {
+                bool isSelected = _selectedHandCards.Contains(card);
+                cardUI.SetHandSelectionHighlight(isSelected);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 更新确认按钮的可见性和可用状态。
+    /// </summary>
+    private void UpdateHandSelectConfirmButton()
+    {
+        if (_handSelectConfirmBtn == null) return;
+
+        int count = _selectedHandCards.Count;
+        bool canConfirm = count >= _combat.HandSelectMin && count <= _combat.HandSelectMax;
+        _handSelectConfirmBtn.Visible = canConfirm;
+        _handSelectConfirmBtn.Disabled = !canConfirm;
+    }
+
+    /// <summary>
+    /// 确认按钮点击——提交选中的卡牌给 CombatManager 结算。
+    /// </summary>
+    private void OnHandSelectConfirmPressed()
+    {
+        if (_combat == null || !_isHandSelecting) return;
+        GD.Print($"[CombatUI] 手牌选择确认 — 选中 {_selectedHandCards.Count} 张");
+        _combat.ConfirmHandDiscardSelection(_selectedHandCards);
     }
 
     // ===== 播放区域（类 STS2 风格） =====

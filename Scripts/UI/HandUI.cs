@@ -19,6 +19,18 @@ public partial class HandUI : Control
 	public event Action<Card.Card, ICommander>? OnCardPlayRequested;
 	public event Action? OnCardCancelled;
 
+	/// <summary>
+	/// 手牌选择模式——由 CombatUI 设置。
+	/// 为 true 时，点击手牌不再触发拖拽，而是切换选中状态。
+	/// </summary>
+	public bool HandSelectMode { get; set; }
+
+	/// <summary>
+	/// 手牌选择模式下，点击卡牌切换选中时触发。
+	/// 参数：(被点击的卡牌, 是否变为选中)
+	/// </summary>
+	public event Action<Card.Card, bool>? OnCardSelectionToggled;
+
 	private HBoxContainer _cardContainer = null!;
 	private Player? _player;
 	private CombatManager? _combat;
@@ -152,6 +164,13 @@ public partial class HandUI : Control
 	private void OnCardClicked(CardUI cardUI)
 	{
 		if (cardUI.Card == null) return;
+
+		// 手牌选择模式：点击切换选中，不触发拖拽
+		if (HandSelectMode)
+		{
+			OnCardSelectionToggled?.Invoke(cardUI.Card, true);
+			return;
+		}
 
 		if (_selectedCard == cardUI.Card)
 		{
