@@ -125,7 +125,31 @@ public enum CardEffectType
     /// 从弃牌堆中展示 N 张，选择 M 张加入手牌。
     /// Value = 展示数量，SecondaryValue = 选择数量。
     /// </summary>
-    ChooseFromDiscard = 24
+    ChooseFromDiscard = 24,
+
+    /// <summary>
+    /// 随机弃掉手牌。
+    /// Value = 弃牌数量。
+    /// </summary>
+    DiscardRandom = 25,
+
+    /// <summary>
+    /// 选择弃掉指定数量的手牌。
+    /// Value = 必须弃掉的数量（精确值）。
+    /// </summary>
+    DiscardChoose = 26,
+
+    /// <summary>
+    /// 选择弃掉最多指定数量的手牌（0 ~ N 均可）。
+    /// Value = 最大可弃数量。
+    /// </summary>
+    DiscardChooseUpTo = 27,
+
+    /// <summary>
+    /// 将 N 张随机指定标签的卡牌洗入抽牌堆。
+    /// Value = 洗入数量，TargetType = CardTag 枚举值名称（如 "Mechanics"）。
+    /// </summary>
+    ShuffleTribeCards = 28
 }
 
 public partial class CardEffectData : Resource
@@ -152,6 +176,10 @@ public partial class CardEffectData : Resource
             CardEffectType.ReplaceDeathrattleWithDraw => $"使一个随从失去亡语，获得亡语：抽{Value}张牌",
             CardEffectType.GrantIdolTwilight => $"所有友方随从获得被攻击后+{Value}/+{Value}",
             CardEffectType.ChooseFromDiscard => $"从弃牌堆{Value}张牌中选择{SecondaryValue}张加入手牌",
+            CardEffectType.DiscardRandom => $"随机弃掉{Value}张手牌",
+            CardEffectType.DiscardChoose => $"选择弃掉{Value}张手牌",
+            CardEffectType.DiscardChooseUpTo => $"选择弃掉最多{Value}张手牌",
+            CardEffectType.ShuffleTribeCards => $"将{Value}张随机{TargetType}卡牌洗入抽牌堆",
             CardEffectType.SummonMinion => $"召唤{TargetType}",
             CardEffectType.BuffMinion => $"使一个随从获得+{Value}/+{SecondaryValue}",
             CardEffectType.RestoreHealth => $"恢复{Value}点生命值",
