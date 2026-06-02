@@ -36,6 +36,12 @@ public partial class DiscoverUI : Control
     /// </summary>
     private const ulong ClickProtectionMs = 350;
 
+    /// <summary>
+    /// 自定义标题。如果设置了，则覆盖默认的本地化标题。
+    /// 用于弃牌选择等场景（如刀盾危机、主动弃牌）。
+    /// </summary>
+    public string? CustomTitle { get; set; }
+
     // ===== 公开 API =====
 
     /// <summary>
@@ -118,11 +124,11 @@ public partial class DiscoverUI : Control
         // 标题
         _titleLabel = new Label
         {
-            Text = Loc.T("ui.discover.title", "发现"),
+            Text = CustomTitle ?? (_pickCount > 1
+                ? Loc.T("ui.discover.pick_count", "选择 {count} 张").Replace("{count}", _pickCount.ToString())
+                : Loc.T("ui.discover.title", "发现")),
             HorizontalAlignment = HorizontalAlignment.Center,
         };
-        if (_pickCount > 1)
-            _titleLabel.Text = Loc.T("ui.discover.pick_count", "选择 {count} 张").Replace("{count}", _pickCount.ToString());
         _titleLabel.AddThemeColorOverride("font_color", new Color(1, 1, 1, 0.9f));
         _titleLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(28 * s));
         _titleLabel.MouseFilter = MouseFilterEnum.Ignore;
@@ -310,9 +316,9 @@ public partial class DiscoverUI : Control
 
     private void OnLanguageChanged(string lang)
     {
-        _titleLabel.Text = _pickCount > 1
+        _titleLabel.Text = CustomTitle ?? (_pickCount > 1
             ? Loc.T("ui.discover.pick_count", "选择 {count} 张").Replace("{count}", _pickCount.ToString())
-            : Loc.T("ui.discover.title", "发现");
+            : Loc.T("ui.discover.title", "发现"));
         if (_skipButton != null)
             _skipButton.Text = Loc.T("ui.discover.skip", "跳过");
         if (_confirmButton != null)

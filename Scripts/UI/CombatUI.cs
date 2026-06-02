@@ -7,6 +7,7 @@ using OdysseyCards.Card;
 using OdysseyCards.Core;
 using OdysseyCards.Character;
 using OdysseyCards.Combat;
+using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.UI;
 
@@ -281,6 +282,8 @@ public partial class CombatUI : Control
     /// </summary>
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (!IsInsideTree()) return;
+
         // 开发者伤害模式——右键取消
         if (@event is InputEventMouseButton mb
             && mb.ButtonIndex == MouseButton.Right
@@ -2964,9 +2967,27 @@ public partial class CombatUI : Control
         if (_discoverUI.GetParent() == null)
             AddChild(_discoverUI);
 
+        _discoverUI.CustomTitle = null;
+
         if (_combat.DiscoverRuntimeOptions != null && _combat.DiscoverPickCount > 1)
         {
-            _discoverUI.ShowCards(_combat.DiscoverRuntimeOptions, _combat.DiscoverPickCount, canSkip: true, onChosen: chosen =>
+            bool canSkip = true;
+            var mode = _combat.CurrentSelectionMode;
+
+            if (mode == Combat.CombatManager.PendingSelectionMode.ChooseDiscard)
+            {
+                _discoverUI.CustomTitle = Loc.T("ui.combat.discard_select_format", "选择 {count} 张手牌弃掉")
+                    .Replace("{count}", _combat.DiscoverPickCount.ToString());
+                canSkip = false;
+            }
+            else if (mode == Combat.CombatManager.PendingSelectionMode.BladeCrisis)
+            {
+                _discoverUI.CustomTitle = Loc.T("ui.combat.discard_select_format_blade", "选择最多 {count} 张手牌弃掉")
+                    .Replace("{count}", _combat.DiscoverPickCount.ToString());
+                canSkip = true;
+            }
+
+            _discoverUI.ShowCards(_combat.DiscoverRuntimeOptions, _combat.DiscoverPickCount, canSkip: canSkip, onChosen: chosen =>
             {
                 _combat.ConfirmDiscoverCards(chosen);
             });
