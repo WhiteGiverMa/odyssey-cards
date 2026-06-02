@@ -150,7 +150,7 @@ public partial class CardEffectData : Resource
             CardEffectType.DealDamageToEnemyHero => $"对敌方英雄造成{Value}点伤害",
             CardEffectType.DealDamageToFriendlyHero => $"对友方英雄造成{Value}点伤害",
             CardEffectType.ReplaceDeathrattleWithDraw => $"使一个随从失去亡语，获得亡语：抽{Value}张牌",
-            CardEffectType.GrantIdolTwilight => $"所有随从获得被攻击后+{Value}/+{Value}",
+            CardEffectType.GrantIdolTwilight => $"所有友方随从获得被攻击后+{Value}/+{Value}",
             CardEffectType.ChooseFromDiscard => $"从弃牌堆{Value}张牌中选择{SecondaryValue}张加入手牌",
             CardEffectType.SummonMinion => $"召唤{TargetType}",
             CardEffectType.BuffMinion => $"使一个随从获得+{Value}/+{SecondaryValue}",

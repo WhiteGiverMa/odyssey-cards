@@ -284,7 +284,7 @@ cards:
     description: "使一个随从失去亡语，获得「亡语：玩家英雄抽1张牌」。抽1张牌。"
   domain_idol_twilight:
     name: "偶像的黄昏"
-    description: "领域：手中、场上和卡组中的所有随从获得：被攻击后，获得+1/+1。"
+    description: "领域：手中、场上和卡组中的所有友方随从获得：被攻击后，获得+1/+1。"
   spell_MoonFishing:
     name: "捞月"
     description: "从弃牌堆中的5张牌中选择2张加入手牌。"

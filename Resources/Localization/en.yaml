@@ -284,7 +284,7 @@ cards:
     description: "Make a minion lose Last Words and gain 'Last Words: your hero draws 1 card.' Draw 1 card."
   domain_idol_twilight:
     name: "Idol's Twilight"
-    description: "Domain: All minions in your hand, board, and deck gain: after being attacked, gain +1/+1."
+    description: "Domain: All friendly minions in your hand, board, and deck gain: after being attacked, gain +1/+1."
   spell_MoonFishing:
     name: "Moon Fishing"
     description: "Choose 2 of 5 cards from your discard pile and add them to your hand."
