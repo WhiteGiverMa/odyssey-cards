@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Character;
 using OdysseyCards.Core;
+using OdysseyCards.Localization;
 
 namespace OdysseyCards.Card;
 
@@ -686,5 +687,86 @@ public class Hero : IDamageTarget, IDamageSource
             Weapon.ActiveSkill.CurrentCooldown--;
             GD.Print($"[Hero] 武器技能「{Weapon.ActiveSkill.Name}」冷却剩余 {Weapon.ActiveSkill.CurrentCooldown} 回合");
         }
+    }
+
+    // ===== 效果显示器数据聚合 =====
+
+    /// <summary>
+    /// 获取此英雄当前所有应显示的效果图标数据。
+    /// 聚合 StatusEffect + ActiveDomain + 数值变化 + 授予的关键词。
+    /// </summary>
+    public List<DisplayableEffect> GetDisplayableEffects()
+    {
+        var effects = new List<DisplayableEffect>();
+
+        // 1. StatusEffects
+        foreach (var (id, se) in _statusEffects)
+        {
+            if (se.IsExpired) continue;
+            var data = EffectIconTable.GetStatusEffect(id);
+            if (data == null) continue;
+            effects.Add(EffectIconTable.ToDisplayable(
+                data.Value, EffectCategory.StatusEffect, se.Stacks));
+        }
+
+        // 2. ActiveDomains
+        foreach (var (domainId, domain) in _activeDomains)
+        {
+            var data = EffectIconTable.GetDomain(domainId);
+            if (data == null) continue;
+            effects.Add(EffectIconTable.ToDisplayable(
+                data.Value, EffectCategory.Domain, domain.StackCount));
+        }
+
+        // 3. Numerical stat changes (Defense only — HP on health bar)
+        // Hero Attack comes from Weapon, not shown here.
+        if (Defense != 0)
+        {
+            bool isBuff = Defense > 0;
+            string icon = isBuff ? "🛡" : "💔";
+            string sign = isBuff ? "+" : "";
+            effects.Add(new DisplayableEffect
+            {
+                Icon = icon,
+                Name = isBuff
+                    ? Localization.Localization.T("stat.defense_up", "防御力+{value}").Replace("{value}", Defense.ToString())
+                    : Localization.Localization.T("stat.defense_down", "防御力{value}").Replace("{value}", Defense.ToString()),
+                Stacks = Math.Abs(Defense),
+                Description = "",
+                IsBuff = isBuff,
+                Category = EffectCategory.StatBuff,
+            });
+        }
+
+        // 4. Granted keywords (Hero 级别的伏击/冲击)
+        if (HasAmbush)
+        {
+            effects.Add(new DisplayableEffect
+            {
+                Icon = "🗡",
+                Name = Localization.Localization.T("keyword.ambush", "伏击"),
+                Stacks = 0,
+                Description = Localization.Localization.T("keyword.ambush_desc", "每回合首次被攻击时，先于攻击者造成反击伤害。"),
+                IsBuff = true,
+                Category = EffectCategory.Keyword,
+                SourceId = "hero_ambush",
+            });
+        }
+
+        if (HasUnbreakable)
+        {
+            effects.Add(new DisplayableEffect
+            {
+                Icon = "🔰",
+                Name = Localization.Localization.T("keyword.unbreakable", "不破"),
+                Stacks = 0,
+                Description = Localization.Localization.T("keyword.unbreakable_desc", "每回合只能受到一次生命伤害。"),
+                IsBuff = true,
+                Category = EffectCategory.Keyword,
+                SourceId = "hero_unbreakable",
+            });
+        }
+
+        return effects;
     }
 }

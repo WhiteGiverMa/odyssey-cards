@@ -1,5 +1,6 @@
 using Godot;
 using OdysseyCards.Core;
+using OdysseyCards.Localization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -492,5 +493,156 @@ public class Minion : Card, IDamageSource, IDamageTarget
     {
         string defenseStr = Defense != 0 ? $" 防{Defense}" : "";
         return $"{CardName} | {Cost}费 {Attack}/{CurrentHealth}{defenseStr}";
+    }
+
+    // ===== 效果显示器数据聚合 =====
+
+    /// <summary>
+    /// 获取此随从当前所有应显示的效果图标数据。
+    /// 聚合 StatusEffect + 数值变化 + 授予的关键词 + 运行时修饰。
+    /// </summary>
+    public List<DisplayableEffect> GetDisplayableEffects()
+    {
+        var effects = new List<DisplayableEffect>();
+
+        // 1. StatusEffects
+        foreach (var (id, se) in _statusEffects)
+        {
+            if (se.IsExpired) continue;
+            var data = EffectIconTable.GetStatusEffect(id);
+            if (data == null) continue;
+            effects.Add(EffectIconTable.ToDisplayable(
+                data.Value, EffectCategory.StatusEffect, se.Stacks));
+        }
+
+        // 2. Numerical stat changes (compared to CardData baseline)
+        // HP changes are displayed on the health bar, not here.
+        int attackDelta = Attack - Data.Attack;
+        if (attackDelta != 0)
+        {
+            bool isBuff = attackDelta > 0;
+            string icon = isBuff ? "⚔" : "🔽";
+            string sign = isBuff ? "+" : "";
+            effects.Add(new DisplayableEffect
+            {
+                Icon = icon,
+                Name = isBuff
+                    ? Localization.Localization.T("stat.attack_up", "攻击力+{value}").Replace("{value}", attackDelta.ToString())
+                    : Localization.Localization.T("stat.attack_down", "攻击力{value}").Replace("{value}", attackDelta.ToString()),
+                Stacks = Math.Abs(attackDelta),
+                Description = "",
+                IsBuff = isBuff,
+                Category = EffectCategory.StatBuff,
+            });
+        }
+
+        int defenseDelta = Defense - Data.Defense;
+        if (defenseDelta != 0 && !HasStatusEffect("meltdown"))
+        {
+            bool isBuff = defenseDelta > 0;
+            string icon = isBuff ? "🛡" : "💔";
+            string sign = isBuff ? "+" : "";
+            effects.Add(new DisplayableEffect
+            {
+                Icon = icon,
+                Name = isBuff
+                    ? Localization.Localization.T("stat.defense_up", "防御力+{value}").Replace("{value}", defenseDelta.ToString())
+                    : Localization.Localization.T("stat.defense_down", "防御力{value}").Replace("{value}", defenseDelta.ToString()),
+                Stacks = Math.Abs(defenseDelta),
+                Description = "",
+                IsBuff = isBuff,
+                Category = EffectCategory.StatBuff,
+            });
+        }
+
+        // 3. Granted keywords (not from CardData baseline)
+        CollectGrantedKeywordEffects(effects);
+
+        // 4. Runtime modifiers
+        if (IdolTwilightOnAttackedStacks > 0)
+        {
+            var data = EffectIconTable.GetDomain("idol_twilight");
+            if (data != null)
+            {
+                effects.Add(EffectIconTable.ToDisplayable(
+                    data.Value, EffectCategory.Domain, IdolTwilightOnAttackedStacks));
+            }
+        }
+
+        if (_runtimeDeathrattleEffects != null)
+        {
+            effects.Add(new DisplayableEffect
+            {
+                Icon = "💀",
+                Name = Localization.Localization.T("modifier.deathrattle_replaced", "亡语替换"),
+                Stacks = 0,
+                Description = Localization.Localization.T("modifier.deathrattle_replaced_desc", "亡语效果已被替换。"),
+                IsBuff = true,
+                Category = EffectCategory.Modifier,
+            });
+        }
+
+        return effects;
+    }
+
+    /// <summary>
+    /// 收集运行时授予的关键词效果（非 CardData 自带的关键词），
+    /// 按来源分组显示。
+    /// </summary>
+    private void CollectGrantedKeywordEffects(List<DisplayableEffect> effects)
+    {
+        // 诱饵战术：授予伏击 + 冲击 + 被攻击时敌方英雄防御-1
+        if (HasBaitTacticsOnAttacked)
+        {
+            var data = EffectIconTable.GetKeywordSource("bait_tactics");
+            if (data != null)
+            {
+                effects.Add(EffectIconTable.ToDisplayable(
+                    data.Value, EffectCategory.Keyword));
+            }
+        }
+
+        // 单个授予的关键词（非 CardData 自带）
+        if (HasTaunt && !Data.HasKeyword(Keyword.Taunt))
+        {
+            effects.Add(new DisplayableEffect
+            {
+                Icon = "🛡",
+                Name = Localization.Localization.T("keyword.taunt", "嘲讽"),
+                Stacks = 0,
+                Description = Localization.Localization.T("keyword.taunt_desc", "敌方随从必须优先攻击此随从。"),
+                IsBuff = true,
+                Category = EffectCategory.Keyword,
+                SourceId = "granted_taunt",
+            });
+        }
+
+        if (HasAmbush && !Data.HasKeyword(Keyword.Ambush) && !HasBaitTacticsOnAttacked)
+        {
+            effects.Add(new DisplayableEffect
+            {
+                Icon = "🗡",
+                Name = Localization.Localization.T("keyword.ambush", "伏击"),
+                Stacks = 0,
+                Description = Localization.Localization.T("keyword.ambush_desc", "每回合首次被攻击时，先于攻击者造成反击伤害。"),
+                IsBuff = true,
+                Category = EffectCategory.Keyword,
+                SourceId = "granted_ambush",
+            });
+        }
+
+        if (HasImpact && !Data.HasKeyword(Keyword.Impact) && !HasBaitTacticsOnAttacked)
+        {
+            effects.Add(new DisplayableEffect
+            {
+                Icon = "💥",
+                Name = Localization.Localization.T("keyword.impact", "冲击"),
+                Stacks = 0,
+                Description = Localization.Localization.T("keyword.impact_desc", "攻击时抵消所有反击伤害（一次性消耗）。"),
+                IsBuff = true,
+                Category = EffectCategory.Keyword,
+                SourceId = "granted_impact",
+            });
+        }
     }
 }
