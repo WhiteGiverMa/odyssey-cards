@@ -344,3 +344,43 @@ rarity:
   good: "Good"
   common: "Common"
   special: "Special"
+
+effect:
+  attack_zero: "Attack Zero"
+  attack_zero_desc: "Attack is set to 0."
+  meltdown: "Meltdown"
+  meltdown_desc: "Defense -1. Max 2 stacks."
+  weapon_disabled: "Weapon Disabled"
+  weapon_disabled_desc: "Weapon cannot be used."
+
+domain:
+  unlimited_potential: "Unlimited Potential"
+  unlimited_potential_desc: "Mana cap removed."
+  flying_away: "Flying Away"
+  flying_away_desc: "When attacked, draw 2 cards and gain Ukemi."
+  idol_twilight: "Idol's Twilight"
+  idol_twilight_desc: "After being attacked, gain +1/+1."
+
+stat:
+  attack_up: "Attack +{value}"
+  attack_down: "Attack {value}"
+  defense_up: "Defense +{value}"
+  defense_down: "Defense {value}"
+
+modifier:
+  deathrattle_replaced: "Deathrattle Replaced"
+  deathrattle_replaced_desc: "Deathrattle effect has been replaced."
+
+keyword_source:
+  bait_tactics: "Bait Tactics"
+  bait_tactics_desc: "Gain Ambush and Impact. Enemy hero loses 1 Defense when attacked."
+
+keyword:
+  taunt: "Taunt"
+  taunt_desc: "Enemy minions must attack this minion first."
+  ambush: "Ambush"
+  ambush_desc: "First time attacked each turn, counter-attack before the attacker."
+  impact: "Impact"
+  impact_desc: "Negate all counter-damage when attacking (consumed on use)."
+  unbreakable: "Unbreakable"
+  unbreakable_desc: "Can only take HP damage once per turn."

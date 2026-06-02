@@ -344,3 +344,43 @@ rarity:
   good: "良好"
   common: "普通"
   special: "专属"
+
+effect:
+  attack_zero: "攻击归零"
+  attack_zero_desc: "攻击力被设为0。"
+  meltdown: "熔毁"
+  meltdown_desc: "防御力-1。最多叠加2层。"
+  weapon_disabled: "武器禁用"
+  weapon_disabled_desc: "武器无法使用。"
+
+domain:
+  unlimited_potential: "无限潜能"
+  unlimited_potential_desc: "法力水晶上限移除。"
+  flying_away: "飞远"
+  flying_away_desc: "被攻击后抽2张牌并获得「受身」。"
+  idol_twilight: "偶像的黄昏"
+  idol_twilight_desc: "被攻击后获得+1/+1。"
+
+stat:
+  attack_up: "攻击力+{value}"
+  attack_down: "攻击力{value}"
+  defense_up: "防御力+{value}"
+  defense_down: "防御力{value}"
+
+modifier:
+  deathrattle_replaced: "亡语替换"
+  deathrattle_replaced_desc: "亡语效果已被替换。"
+
+keyword_source:
+  bait_tactics: "诱饵战术"
+  bait_tactics_desc: "获得伏击和冲击。被攻击时敌方英雄防御力-1。"
+
+keyword:
+  taunt: "嘲讽"
+  taunt_desc: "敌方随从必须优先攻击此随从。"
+  ambush: "伏击"
+  ambush_desc: "每回合首次被攻击时，先于攻击者造成反击伤害。"
+  impact: "冲击"
+  impact_desc: "攻击时抵消所有反击伤害（一次性消耗）。"
+  unbreakable: "不破"
+  unbreakable_desc: "每回合只能受到一次生命伤害。"
