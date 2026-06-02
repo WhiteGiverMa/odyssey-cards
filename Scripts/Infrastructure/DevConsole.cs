@@ -400,6 +400,7 @@ public partial class DevConsole : Node
                 WriteLine("  /qa_tombstone   — 验证墓碑伤害结算");
                 WriteLine("  /unlock_all     — 解锁全部卡牌（加入收藏）");
                 WriteLine("  /help           — 显示帮助[/color]");
+                WriteLine("  /tags           — 显示所有卡牌标签分布（QA）[/color]");
                 break;
 
             // ===== 加入手牌 =====
@@ -509,6 +510,11 @@ public partial class DevConsole : Node
             // ===== QA：诱饵战术 =====
             case "qa_bait_tactics":
                 RunBaitTacticsQa(cm!);
+                break;
+
+            // ===== 标签分布 =====
+            case "tags":
+                ShowTagsDistribution();
                 break;
 
             default:
@@ -783,6 +789,7 @@ public partial class DevConsole : Node
             new DevCommandDef("unlock_all",   [],         "/unlock_all",          "解锁全部卡牌（加入收藏）",     null),
             new DevCommandDef("fight",        [],         "/fight <enemy>",       "直接与指定敌人战斗（跳过地图）",  EnemyRegistry.AllIds.ToArray()),
             new DevCommandDef("help",         ["?"],      "/help",                "显示帮助",                   null),
+            new DevCommandDef("tags",         [],         "/tags",                "显示所有卡牌标签分布（QA）",     null),
         });
     }
 
@@ -895,5 +902,37 @@ public partial class DevConsole : Node
         }
 
         return "";
+    }
+
+    /// <summary>
+    /// 显示所有卡牌的标签分布。扫描 _cardCache 按 CardTag 分组。
+    /// </summary>
+    private void ShowTagsDistribution()
+    {
+        WriteLine("[color=#66ff66]=== 标签分布 ===[/color]");
+
+        // 按 CardTag 枚举值分组
+        var allTags = Enum.GetValues<OdysseyCards.Core.CardTag>();
+        foreach (var tag in allTags)
+        {
+            if (tag == OdysseyCards.Core.CardTag.None) continue;
+
+            var cards = _cardCache.Values
+                .Where(c => c.Tags.HasFlag(tag))
+                .OrderBy(c => c.CardName)
+                .ToList();
+
+            WriteLine($"  [color=#ffcc44]{tag}[/color] ({cards.Count} 张):");
+            foreach (var c in cards)
+            {
+                WriteLine($"    [color=#66ff66]{c.Id}[/color] [color=#aaaaaa]— {c.CardName}（{c.Cost}费 {c.Type}）[/color]");
+            }
+        }
+
+        // 无标签卡牌
+        var untagged = _cardCache.Values
+            .Where(c => c.Tags == OdysseyCards.Core.CardTag.None)
+            .ToList();
+        WriteLine($"  [color=#aaaaaa]无标签[/color] ({untagged.Count} 张)");
     }
 }
