@@ -371,7 +371,7 @@ namespace OdysseyCards.UI
                         if (mb.Pressed)
                         {
                             // 鼠标按下：记录拖拽起点
-                            CardData clickedCard = _filteredCards[start + capturedIndex];
+                            CardData clickedCard = _filteredCards[capturedIndex];
                             _draggingCard = clickedCard;
                             _dragStartPos = GetGlobalMousePosition();
                             _isDragging = false;
@@ -384,7 +384,7 @@ namespace OdysseyCards.UI
                             if (!_isDragging && dragStarted)
                             {
                                 // 无位移 → 点击
-                                CardData clickedCard = _filteredCards[start + capturedIndex];
+                                CardData clickedCard = _filteredCards[capturedIndex];
                                 OnCardClicked?.Invoke(clickedCard);
                             }
                             else if (_isDragging && _dragClone != null)
@@ -407,7 +407,7 @@ namespace OdysseyCards.UI
                         && rmb.Pressed
                         && rmb.ButtonIndex == MouseButton.Right)
                     {
-                        CardData clickedCard = _filteredCards[start + capturedIndex];
+                        CardData clickedCard = _filteredCards[capturedIndex];
                         OnCardRightClicked?.Invoke(clickedCard);
                         wrapper.AcceptEvent();
                     }
