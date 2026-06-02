@@ -88,7 +88,6 @@ public partial class EffectBar : HBoxContainer
     {
         HideTooltip();
 
-        GD.Print($"[EffectBar] ShowTooltip: {effect.Icon} {effect.Name} at ({screenPos.X:F0}, {screenPos.Y:F0})");
         _activeTooltip = new EffectTooltip(effect);
         var root = GetTree().Root;
         root.AddChild(_activeTooltip);
@@ -229,7 +228,6 @@ public partial class EffectBar : HBoxContainer
 
         private void OnMouseEnter()
         {
-            GD.Print($"[EffectBar] MouseEntered on {_effect.Icon} {_effect.Name}");
             _isHovered = true;
             Scale = new Vector2(1.15f, 1.15f);
             var globalPos = GetGlobalMousePosition();

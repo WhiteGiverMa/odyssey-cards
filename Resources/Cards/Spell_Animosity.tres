@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+CustomEffectName = "Animosity"
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_Animosity"
+CardName = "敌意"
+Description = "使一个随从获得嘲讽、「受到来自玩家阵营的伤害翻倍」和亡语：玩家抽一张牌。"
+Rarity = 4
+Cost = 0
+Type = 1
+RequiresTarget = true
+TargetFilter = 8
+Effects = [SubResource("SubResource_1")]

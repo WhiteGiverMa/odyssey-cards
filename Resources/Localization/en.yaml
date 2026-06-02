@@ -288,6 +288,12 @@ cards:
   spell_MoonFishing:
     name: "Moon Fishing"
     description: "Choose 2 of 5 cards from your discard pile and add them to your hand."
+  spell_Animosity:
+    name: "Animosity"
+    description: "Give a minion Taunt, 'Damage taken from the player's side is doubled', and Last Words: the player draws 1 card."
+  minion_centipede_aa:
+    name: "Mech Centipede - AA"
+    description: "When the enemy hero deploys a minion costing 2 or less, this minion fights it."
 
 intent:
   attack_format: "Deal {damage} damage to {target}"
@@ -352,6 +358,8 @@ effect:
   meltdown_desc: "Defense -1. Max 2 stacks."
   weapon_disabled: "Weapon Disabled"
   weapon_disabled_desc: "Weapon cannot be used."
+  animosity: "Animosity"
+  animosity_desc: "Damage taken from the player's side is doubled."
 
 domain:
   unlimited_potential: "Unlimited Potential"

@@ -25,6 +25,7 @@ public static class EffectIconTable
         ["attack_zero"] = new() { Icon = "🔒", NameKey = "effect.attack_zero", DescKey = "effect.attack_zero_desc", IsBuff = false },
         ["meltdown"] = new() { Icon = "🔥", NameKey = "effect.meltdown", DescKey = "effect.meltdown_desc", IsBuff = false },
         ["weapon_disabled"] = new() { Icon = "⛓", NameKey = "effect.weapon_disabled", DescKey = "effect.weapon_disabled_desc", IsBuff = false },
+        ["animosity"] = new() { Icon = "💢", NameKey = "effect.animosity", DescKey = "effect.animosity_desc", IsBuff = false },
     };
 
     private static readonly Dictionary<string, EffectIconData> _domains = new()
@@ -37,6 +38,11 @@ public static class EffectIconTable
     private static readonly Dictionary<string, EffectIconData> _keywordSources = new()
     {
         ["bait_tactics"] = new() { Icon = "🎯", NameKey = "keyword_source.bait_tactics", DescKey = "keyword_source.bait_tactics_desc", IsBuff = true },
+    };
+
+    private static readonly Dictionary<string, EffectIconData> _modifiers = new()
+    {
+        ["animosity"] = new() { Icon = "💢", NameKey = "effect.animosity", DescKey = "effect.animosity_desc", IsBuff = false },
     };
 
     /// <summary>
@@ -61,6 +67,14 @@ public static class EffectIconTable
     public static EffectIconData? GetKeywordSource(string sourceId)
     {
         return _keywordSources.TryGetValue(sourceId, out var data) ? data : null;
+    }
+
+    /// <summary>
+    /// 获取运行时修饰 ID 对应的图标数据（如敌意伤害翻倍）。
+    /// </summary>
+    public static EffectIconData? GetModifier(string modifierId)
+    {
+        return _modifiers.TryGetValue(modifierId, out var data) ? data : null;
     }
 
     /// <summary>

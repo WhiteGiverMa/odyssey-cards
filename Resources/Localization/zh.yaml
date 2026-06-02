@@ -288,6 +288,12 @@ cards:
   spell_MoonFishing:
     name: "捞月"
     description: "从弃牌堆中的5张牌中选择2张加入手牌。"
+  spell_Animosity:
+    name: "敌意"
+    description: "使一个随从获得嘲讽、「受到来自玩家阵营的伤害翻倍」和亡语：玩家抽一张牌。"
+  minion_centipede_aa:
+    name: "机械蜈蚣-防空型"
+    description: "敌方英雄部署费用不大于2的随从时，与本随从战斗。"
 
 intent:
   attack_format: "对{target}造成 {damage} 点伤害"
@@ -352,6 +358,8 @@ effect:
   meltdown_desc: "防御力-1。最多叠加2层。"
   weapon_disabled: "武器禁用"
   weapon_disabled_desc: "武器无法使用。"
+  animosity: "敌意"
+  animosity_desc: "受到来自玩家阵营的伤害翻倍。"
 
 domain:
   unlimited_potential: "无限潜能"

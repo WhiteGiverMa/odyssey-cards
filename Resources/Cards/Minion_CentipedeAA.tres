@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_centipede_aa"
+CardName = "机械蜈蚣-防空型"
+Description = "敌方英雄部署花费不大于2的随从时，与本随从战斗。"
+Rarity = 4
+Cost = 4
+ActionCost = 1
+Type = 0
+Attack = 3
+Health = 5
+Defense = 1
+Keywords = []
