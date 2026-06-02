@@ -48,6 +48,8 @@ ui:
     weapon_attack: "⚔ 武器攻击"
     weapon_skill: "✦ 技能"
     free_cost: "免费"
+    discard_select_title: "选择弃牌"
+    discard_select_format: "选择 {count} 张手牌弃掉"
     disabled_suffix: " [禁用]"
     weapon_attack_cost: "⚔ 武器攻击 ({cost}费)"
     weapon_disabled: "⚔ 武器攻击 [禁用]"
@@ -294,6 +296,21 @@ cards:
   minion_centipede_aa:
     name: "机械蜈蚣-防空型"
     description: "敌方英雄部署费用不大于2的随从时，与本随从战斗。"
+  spell_WhiteLegion:
+    name: "白色军团"
+    description: "选择并弃掉1张手牌，将5张随机「机械族」洗入抽牌堆。"
+  spell_FullAssault:
+    name: "全力攻击"
+    description: "随机弃掉一张手牌，对全体敌方造成3点伤害。"
+  minion_WhatTheDogDoing:
+    name: "我的刀盾"
+    description: "嘲讽\n战吼：将一张复制加入相邻棋盘槽处。"
+  minion_WhatTheDogDoing_Token:
+    name: "我的刀盾"
+    description: "嘲讽"
+  spell_BladeCrisis:
+    name: "刀盾危机"
+    description: "选择并弃掉不大于5张牌，将等量个「我的刀盾」添加到友方棋盘槽处，并抽取等量张牌。"
 
 intent:
   attack_format: "对{target}造成 {damage} 点伤害"

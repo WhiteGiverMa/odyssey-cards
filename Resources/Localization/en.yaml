@@ -48,6 +48,8 @@ ui:
     weapon_attack: "⚔ Weapon Attack"
     weapon_skill: "✦ Skill"
     free_cost: "Free"
+    discard_select_title: "Choose to Discard"
+    discard_select_format: "Choose {count} card(s) to discard"
     disabled_suffix: " [Disabled]"
     weapon_attack_cost: "⚔ Weapon Attack ({cost} MP)"
     weapon_disabled: "⚔ Weapon Attack [Disabled]"
@@ -294,6 +296,21 @@ cards:
   minion_centipede_aa:
     name: "Mech Centipede - AA"
     description: "When the enemy hero deploys a minion costing 2 or less, this minion fights it."
+  spell_WhiteLegion:
+    name: "White Legion"
+    description: "Choose and discard 1 card from your hand, shuffle 5 random Mechanics cards into your draw pile."
+  spell_FullAssault:
+    name: "Full Assault"
+    description: "Randomly discard 1 card from your hand, deal 3 damage to all enemies."
+  minion_WhatTheDogDoing:
+    name: "What The Dog Doing"
+    description: "Taunt\nBattlecry: Add a copy to an adjacent board slot."
+  minion_WhatTheDogDoing_Token:
+    name: "What The Dog Doing"
+    description: "Taunt"
+  spell_BladeCrisis:
+    name: "Blade Crisis"
+    description: "Choose and discard up to 5 cards, add that many What The Dog Doing to friendly board slots, and draw that many cards."
 
 intent:
   attack_format: "Deal {damage} damage to {target}"
