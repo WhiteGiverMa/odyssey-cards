@@ -3086,9 +3086,9 @@ public partial class CombatUI : Control
         // 隐藏播放区域
         HidePlayZonePanel();
 
-        // 设置 HandUI 为选择模式
-        _handUI.HandSelectMode = true;
-        _handUI.OnCardSelectionToggled += OnHandCardSelectionToggled;
+	// 设置 HandUI 为选择模式
+	_handUI.SetHandSelectionMode(true);
+	_handUI.OnCardSelectionToggled += OnHandCardSelectionToggled;
 
         // 创建头部提示标签
         float scale = UIScaler.Instance?.GetScaleFactor() ?? 1f;

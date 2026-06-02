@@ -23,7 +23,24 @@ public partial class HandUI : Control
 	/// 手牌选择模式——由 CombatUI 设置。
 	/// 为 true 时，点击手牌不再触发拖拽，而是切换选中状态。
 	/// </summary>
-	public bool HandSelectMode { get; set; }
+    /// <summary>
+    /// 手牌选择模式：点击卡片触发选择切换，禁用拖拽。
+    /// 设置时同步更新所有 CardUI 的 PreventDrag 标志。
+    /// </summary>
+    public bool HandSelectMode { get; set; }
+
+    /// <summary>
+    /// 启用/禁用手牌选择模式，同步更新子卡牌的 PreventDrag。
+    /// 必须在模式切换时调用，而非直接赋值 HandSelectMode。
+    /// </summary>
+    public void SetHandSelectionMode(bool enabled)
+    {
+        HandSelectMode = enabled;
+        foreach (var cardUI in _cardUIs)
+        {
+            cardUI.PreventDrag = enabled;
+        }
+    }
 
 	/// <summary>
 	/// 手牌选择模式下，点击卡牌切换选中时触发。

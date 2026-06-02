@@ -91,6 +91,12 @@ public partial class CardUI : Control
     public bool DisplayOnly { get; set; }
 
     /// <summary>
+    /// 阻止拖拽：不进入 StartDrag 流程，但仍触发 OnCardClicked 用于手牌选择模式。
+    /// 与 DisplayOnly 不同——DisplayOnly 完全禁用交互，PreventDrag 仅阻止拖拽副作用。
+    /// </summary>
+    public bool PreventDrag { get; set; }
+
+    /// <summary>
     /// 卡牌在拖拽中左键松开时触发。参数为卡牌 UI 和松开位置的全局坐标。
     /// 接收方根据松开位置判断：有效目标→打出，无效→取消（等效右键）。
     /// </summary>
@@ -549,6 +555,13 @@ public partial class CardUI : Control
 
 		if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
 		{
+			if (PreventDrag)
+			{
+				// 手牌选择模式：不进入拖拽态，仅触发 OnCardClicked 用于选择切换
+				OnCardClicked?.Invoke(this);
+				AcceptEvent();
+				return;
+			}
 			StartDrag();
 			AcceptEvent();
 		}
