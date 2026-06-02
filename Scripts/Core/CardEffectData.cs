@@ -107,7 +107,25 @@ public enum CardEffectType
     /// <summary>
     /// 对友方英雄造成伤害。
     /// </summary>
-    DealDamageToFriendlyHero = 21
+    DealDamageToFriendlyHero = 21,
+
+    /// <summary>
+    /// 替换目标随从的亡语为「抽 N 张牌」。
+    /// Value = 抽牌数量。
+    /// </summary>
+    ReplaceDeathrattleWithDraw = 22,
+
+    /// <summary>
+    /// 使所有玩家区域中的随从获得「被攻击后 +N/+N」。
+    /// Value = 攻击和生命成长值。
+    /// </summary>
+    GrantIdolTwilight = 23,
+
+    /// <summary>
+    /// 从弃牌堆中展示 N 张，选择 M 张加入手牌。
+    /// Value = 展示数量，SecondaryValue = 选择数量。
+    /// </summary>
+    ChooseFromDiscard = 24
 }
 
 public partial class CardEffectData : Resource
@@ -131,6 +149,9 @@ public partial class CardEffectData : Resource
             CardEffectType.DealDamageToAllEnemies => $"对所有敌方随从造成{Value}点伤害",
             CardEffectType.DealDamageToEnemyHero => $"对敌方英雄造成{Value}点伤害",
             CardEffectType.DealDamageToFriendlyHero => $"对友方英雄造成{Value}点伤害",
+            CardEffectType.ReplaceDeathrattleWithDraw => $"使一个随从失去亡语，获得亡语：抽{Value}张牌",
+            CardEffectType.GrantIdolTwilight => $"所有随从获得被攻击后+{Value}/+{Value}",
+            CardEffectType.ChooseFromDiscard => $"从弃牌堆{Value}张牌中选择{SecondaryValue}张加入手牌",
             CardEffectType.SummonMinion => $"召唤{TargetType}",
             CardEffectType.BuffMinion => $"使一个随从获得+{Value}/+{SecondaryValue}",
             CardEffectType.RestoreHealth => $"恢复{Value}点生命值",

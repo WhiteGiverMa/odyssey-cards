@@ -3000,10 +3000,20 @@ public partial class CombatUI : Control
         if (_discoverUI.GetParent() == null)
             AddChild(_discoverUI);
 
-        _discoverUI.ShowCards(_combat.DiscoverOptions, canSkip: true, onChosen: chosen =>
+        if (_combat.DiscoverRuntimeOptions != null && _combat.DiscoverPickCount > 1)
         {
-            _combat.ConfirmDiscoverChoice(chosen);
-        });
+            _discoverUI.ShowCards(_combat.DiscoverRuntimeOptions, _combat.DiscoverPickCount, canSkip: true, onChosen: chosen =>
+            {
+                _combat.ConfirmDiscoverCards(chosen);
+            });
+        }
+        else
+        {
+            _discoverUI.ShowCards(_combat.DiscoverOptions, canSkip: true, onChosen: chosen =>
+            {
+                _combat.ConfirmDiscoverChoice(chosen);
+            });
+        }
 
         // 暂停时禁用 ESC 和回合结束
         _endTurnButton.Disabled = true;

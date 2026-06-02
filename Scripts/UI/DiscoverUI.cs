@@ -1,7 +1,5 @@
 using Godot;
 using OdysseyCards.Core;
-using OdysseyCards.Localization;
-using OdysseyCards.Card;
 using System;
 using System.Collections.Generic;
 using Loc = OdysseyCards.Localization.Localization;
@@ -21,13 +19,17 @@ public partial class DiscoverUI : Control
     private Label _titleLabel = null!;
     private HBoxContainer _cardsContainer = null!;
     private Button? _skipButton;
+    private Button? _confirmButton;
 
     // ===== 状态 =====
 
     private readonly List<CardUI> _cardUIs = new();
     private Action<CardData?>? _onChosen;
+    private Action<IReadOnlyList<Card.Card>>? _onCardsChosen;
+    private readonly List<CardUI> _selectedCardUIs = new();
     private bool _isShowing;
     private ulong _openedTicks;
+    private int _pickCount = 1;
 
     /// <summary>
     /// STS2 模式：打开后 350ms 内忽略点击，防止误触。
@@ -45,20 +47,46 @@ public partial class DiscoverUI : Control
     public void ShowCards(IReadOnlyList<CardData> cards, bool canSkip, Action<CardData?> onChosen)
     {
         _onChosen = onChosen;
+        _onCardsChosen = null;
+        _pickCount = 1;
         _isShowing = true;
         _openedTicks = Time.GetTicksMsec();
+        Show();
 
-        BuildLayout(cards, canSkip);
+        var runtimeCards = new List<Card.Card>();
+        foreach (var cardData in cards)
+            runtimeCards.Add(new Card.Card(cardData));
+
+        BuildLayout(runtimeCards, canSkip);
         PlayEntryAnimation();
 
         // 订阅语言变更事件
         GameManager.Instance.LanguageChanged += OnLanguageChanged;
     }
 
+    /// <summary>
+    /// 显示可多选的选牌界面。
+    /// </summary>
+    public void ShowCards(IReadOnlyList<Card.Card> cards, int pickCount, bool canSkip, Action<IReadOnlyList<Card.Card>> onChosen)
+    {
+        _onChosen = null;
+        _onCardsChosen = onChosen;
+        _pickCount = Math.Max(1, pickCount);
+        _isShowing = true;
+        _openedTicks = Time.GetTicksMsec();
+        Show();
+
+        BuildLayout(cards, canSkip);
+        PlayEntryAnimation();
+
+        GameManager.Instance.LanguageChanged += OnLanguageChanged;
+    }
+
     // ===== 布局构建 =====
 
-    private void BuildLayout(IReadOnlyList<CardData> cards, bool canSkip)
+    private void BuildLayout(IReadOnlyList<Card.Card> cards, bool canSkip)
     {
+        ClearExistingLayout();
         float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
 
         // 全屏覆盖层，拦截所有鼠标事件
@@ -93,6 +121,8 @@ public partial class DiscoverUI : Control
             Text = Loc.T("ui.discover.title", "发现"),
             HorizontalAlignment = HorizontalAlignment.Center,
         };
+        if (_pickCount > 1)
+            _titleLabel.Text = Loc.T("ui.discover.pick_count", "选择 {count} 张").Replace("{count}", _pickCount.ToString());
         _titleLabel.AddThemeColorOverride("font_color", new Color(1, 1, 1, 0.9f));
         _titleLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(28 * s));
         _titleLabel.MouseFilter = MouseFilterEnum.Ignore;
@@ -113,11 +143,10 @@ public partial class DiscoverUI : Control
         _cardsContainer.MouseFilter = MouseFilterEnum.Ignore;
         center.AddChild(_cardsContainer);
 
-        foreach (var cardData in cards)
+        foreach (var card in cards)
         {
-            var card = new Card.Card(cardData);
             var cardUI = new CardUI();
-            cardUI.Name = $"DiscoverCard_{cardData.Id}";
+            cardUI.Name = $"DiscoverCard_{card.Id}";
             cardUI.SetCard(card);
             cardUI.CustomMinimumSize = new Vector2(130 * s, 195 * s);
 
@@ -148,6 +177,30 @@ public partial class DiscoverUI : Control
             _skipButton.Pressed += OnSkipPressed;
             center.AddChild(_skipButton);
         }
+
+        if (_pickCount > 1)
+        {
+            _confirmButton = new Button
+            {
+                Text = Loc.T("ui.discover.confirm", "确认"),
+                CustomMinimumSize = new Vector2(120 * s, 38 * s),
+                Disabled = true,
+            };
+            _confirmButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(16 * s));
+            _confirmButton.Pressed += OnConfirmPressed;
+            center.AddChild(_confirmButton);
+        }
+    }
+
+    private void ClearExistingLayout()
+    {
+        foreach (Node child in GetChildren())
+            child.QueueFree();
+
+        _cardUIs.Clear();
+        _selectedCardUIs.Clear();
+        _skipButton = null;
+        _confirmButton = null;
     }
 
     // ===== 入场动画 =====
@@ -188,16 +241,56 @@ public partial class DiscoverUI : Control
             return;
         }
 
+        if (_pickCount > 1)
+        {
+            ToggleCardSelection(cardUI);
+            return;
+        }
+
         var chosen = cardUI.Card?.Data;
         GD.Print($"[DiscoverUI] 玩家选择了：{chosen?.GetLocalizedName() ?? "(null)"}");
 
-        // 视觉反馈：高亮选中的卡牌
         cardUI.Modulate = new Color(1, 0.85f, 0.3f, 1);
 
         _isShowing = false;
         var callback = _onChosen;
         _onChosen = null;
         callback?.Invoke(chosen);
+    }
+
+    private void ToggleCardSelection(CardUI cardUI)
+    {
+        if (_selectedCardUIs.Remove(cardUI))
+        {
+            cardUI.Modulate = new Color(1, 1, 1, 1);
+        }
+        else
+        {
+            if (_selectedCardUIs.Count >= _pickCount) return;
+            _selectedCardUIs.Add(cardUI);
+            cardUI.Modulate = new Color(1, 0.85f, 0.3f, 1);
+        }
+
+        if (_confirmButton != null)
+            _confirmButton.Disabled = _selectedCardUIs.Count != _pickCount;
+    }
+
+    private void OnConfirmPressed()
+    {
+        if (!_isShowing || _selectedCardUIs.Count != _pickCount) return;
+
+        var chosenCards = new List<Card.Card>();
+        foreach (var cardUI in _selectedCardUIs)
+        {
+            if (cardUI.Card != null)
+                chosenCards.Add(cardUI.Card);
+        }
+
+        GD.Print($"[DiscoverUI] 玩家确认选择 {chosenCards.Count} 张牌");
+        _isShowing = false;
+        var callback = _onCardsChosen;
+        _onCardsChosen = null;
+        callback?.Invoke(chosenCards);
     }
 
     private void OnSkipPressed()
@@ -208,15 +301,22 @@ public partial class DiscoverUI : Control
 
         _isShowing = false;
         var callback = _onChosen;
+        var cardsCallback = _onCardsChosen;
         _onChosen = null;
+        _onCardsChosen = null;
         callback?.Invoke(null);
+        cardsCallback?.Invoke(Array.Empty<Card.Card>());
     }
 
     private void OnLanguageChanged(string lang)
     {
-        _titleLabel.Text = Loc.T("ui.discover.title", "发现");
+        _titleLabel.Text = _pickCount > 1
+            ? Loc.T("ui.discover.pick_count", "选择 {count} 张").Replace("{count}", _pickCount.ToString())
+            : Loc.T("ui.discover.title", "发现");
         if (_skipButton != null)
             _skipButton.Text = Loc.T("ui.discover.skip", "跳过");
+        if (_confirmButton != null)
+            _confirmButton.Text = Loc.T("ui.discover.confirm", "确认");
     }
 
     // ===== 生命周期 =====

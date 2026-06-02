@@ -19,6 +19,11 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// </summary>
     private readonly List<IDamageModifier> _damageModifiers = new();
 
+    /// <summary>
+    /// 运行时替换后的亡语效果。null 表示使用 CardData 原始亡语。
+    /// </summary>
+    private List<CardEffectData>? _runtimeDeathrattleEffects;
+
     // ===== 随从基础属性 =====
 
     /// <summary>
@@ -146,7 +151,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// <summary>
     /// 亡语：随从死亡时触发效果。
     /// </summary>
-    public bool HasDeathrattle { get; }
+    public bool HasDeathrattle { get; private set; }
 
     /// <summary>
     /// 风怒：每回合可以攻击两次。
@@ -183,6 +188,17 @@ public class Minion : Card, IDamageSource, IDamageTarget
     }
 
     /// <summary>
+    /// 触发「被攻击后获得 +1/+1」。
+    /// </summary>
+    public void TriggerIdolTwilightOnAttacked()
+    {
+        if (IdolTwilightOnAttackedStacks <= 0 || IsDead) return;
+
+        GainStats(IdolTwilightOnAttackedStacks, IdolTwilightOnAttackedStacks);
+        GD.Print($"[Minion:{CardName}] 偶像的黄昏触发：获得 +{IdolTwilightOnAttackedStacks}/+{IdolTwilightOnAttackedStacks}");
+    }
+
+    /// <summary>
     /// 本回合伏击是否已被消耗。回合开始时重置。
     /// </summary>
     internal bool AmbushUsedThisTurn { get; set; }
@@ -205,7 +221,19 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// <summary>
     /// 亡语效果列表（来源自卡牌数据）。
     /// </summary>
-    public IReadOnlyList<CardEffectData> DeathrattleEffects => Data.DeathrattleEffects;
+    public IReadOnlyList<CardEffectData> DeathrattleEffects => _runtimeDeathrattleEffects is { } effects
+        ? effects
+        : Data.DeathrattleEffects;
+
+    /// <summary>
+    /// 替换此随从当前的亡语效果。
+    /// </summary>
+    public void ReplaceDeathrattleEffects(IEnumerable<CardEffectData> effects)
+    {
+        _runtimeDeathrattleEffects = effects.ToList();
+        HasDeathrattle = _runtimeDeathrattleEffects.Count > 0;
+        GD.Print($"[Minion:{CardName}] 亡语已被替换（{_runtimeDeathrattleEffects.Count} 个效果）");
+    }
 
     // ===== IDamageSource 实现 =====
 
@@ -347,9 +375,28 @@ public class Minion : Card, IDamageSource, IDamageTarget
     }
 
     /// <summary>
+    /// 从运行时卡牌创建随从，并复制该卡牌上的临时修饰。
+    /// </summary>
+    public Minion(Card card, bool isPlayerSide)
+        : this(card.Data, isPlayerSide)
+    {
+        CopyRuntimeModifiersFrom(card);
+    }
+
+    /// <summary>
     /// 轮战：随从被击败后返回抽牌堆底部，不进入弃牌堆。
     /// </summary>
     public new bool HasRecycle { get; }
+
+    /// <summary>
+    /// 复制此随从返回牌堆时应保留的运行时牌面修饰。
+    /// </summary>
+    public Card ToRuntimeCard()
+    {
+        var card = new Card(Data);
+        card.CopyRuntimeModifiersFrom(this);
+        return card;
+    }
 
     // ===== 伤害与治疗 =====
 
@@ -422,6 +469,16 @@ public class Minion : Card, IDamageSource, IDamageTarget
         {
             GD.Print($"{CardName} 恢复了 {healed} 点生命值，当前生命值：{CurrentHealth}");
         }
+    }
+
+    /// <summary>
+    /// 同时修改攻击力和最大生命值，并同步恢复等量生命。
+    /// </summary>
+    public void GainStats(int attackDelta, int healthDelta)
+    {
+        ModifyAttack(attackDelta);
+        MaxHealth = Math.Max(1, MaxHealth + healthDelta);
+        CurrentHealth = Math.Max(0, CurrentHealth + healthDelta);
     }
 
     // ===== 信息方法 =====

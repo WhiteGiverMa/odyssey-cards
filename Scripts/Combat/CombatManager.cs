@@ -175,9 +175,32 @@ public partial class CombatManager : Node
     private List<CardData>? _pendingDiscoverOptions;
 
     /// <summary>
+    /// 当前发现/选牌界面候选的运行时卡牌。用于从弃牌堆选择原卡牌实例。
+    /// </summary>
+    private List<Card.Card>? _pendingDiscoverRuntimeOptions;
+
+    /// <summary>
+    /// 当前选牌需要选择的张数。
+    /// </summary>
+    public int DiscoverPickCount { get; private set; } = 1;
+
+    /// <summary>
+    /// 当前选牌是否使用运行时卡牌实例。
+    /// </summary>
+    public IReadOnlyList<Card.Card>? DiscoverRuntimeOptions => _pendingDiscoverRuntimeOptions?.AsReadOnly();
+
+    /// <summary>
     /// 触发发现效果的法术牌（选牌完成后从手牌移除）。
     /// </summary>
     private Card.Card? _pendingDiscoverSpellCard;
+
+    private enum PendingSelectionMode
+    {
+        Discover,
+        Discard
+    }
+
+    private PendingSelectionMode _pendingSelectionMode = PendingSelectionMode.Discover;
 
     // ===== 效果处理器 =====
 
@@ -377,6 +400,9 @@ public partial class CombatManager : Node
         _effectHandlers[CardEffectType.GainManaSlot] = HandleGainManaSlot;
         _effectHandlers[CardEffectType.RemoveNaturalManaCap] = HandleRemoveNaturalManaCap;
         _effectHandlers[CardEffectType.Discover] = HandleDiscoverEffectDispatch;
+        _effectHandlers[CardEffectType.ReplaceDeathrattleWithDraw] = HandleReplaceDeathrattleWithDraw;
+        _effectHandlers[CardEffectType.GrantIdolTwilight] = HandleGrantIdolTwilight;
+        _effectHandlers[CardEffectType.ChooseFromDiscard] = HandleChooseFromDiscard;
         _effectHandlers[CardEffectType.Custom] = HandleCustomEffect;
     }
 
@@ -528,6 +554,84 @@ public partial class CombatManager : Node
     private void HandleDiscoverEffectDispatch(CardEffectData effect, object target, IDamageSource? source)
     {
         HandleDiscoverEffect(effect);
+    }
+
+    /// <summary>
+    /// 替换目标随从亡语为「玩家英雄抽牌」。
+    /// </summary>
+    private void HandleReplaceDeathrattleWithDraw(CardEffectData effect, object target, IDamageSource? source)
+    {
+        if (target is not Minion minionTarget)
+        {
+            GD.Print("[CombatManager]   替换亡语需要有效的随从目标");
+            return;
+        }
+
+        int drawCount = Math.Max(1, effect.Value);
+        var drawEffect = new CardEffectData
+        {
+            EffectType = CardEffectType.DrawCards,
+            Value = drawCount,
+        };
+        minionTarget.ReplaceDeathrattleEffects(new[] { drawEffect });
+        GD.Print($"[CombatManager]   {minionTarget.CardName} 获得亡语：抽 {drawCount} 张牌");
+    }
+
+    /// <summary>
+    /// 偶像的黄昏：玩家所有区域中的随从获得被攻击后 +1/+1。
+    /// </summary>
+    private void HandleGrantIdolTwilight(CardEffectData effect, object target, IDamageSource? source)
+    {
+        int stacks = Math.Max(1, effect.Value);
+        int grantCount = 0;
+
+        foreach (var card in PlayerHero.Hand)
+            grantCount += GrantIdolTwilightToCard(card, stacks);
+        foreach (var card in PlayerHero.DeckState.DrawPile)
+            grantCount += GrantIdolTwilightToCard(card, stacks);
+        foreach (var card in PlayerHero.DeckState.DiscardPile)
+            grantCount += GrantIdolTwilightToCard(card, stacks);
+        foreach (var minion in Board.GetPlayerMinions())
+        {
+            minion.GrantIdolTwilightOnAttacked(stacks);
+            grantCount++;
+        }
+
+        GD.Print($"[CombatManager] ◆ 偶像的黄昏：为 {grantCount} 个玩家随从/随从牌授予被攻击后 +{stacks}/+{stacks}");
+        NotifyCombatStateChanged();
+    }
+
+    private static int GrantIdolTwilightToCard(Card.Card card, int stacks)
+    {
+        if (card.Type != CardType.Minion) return 0;
+
+        card.GrantIdolTwilightOnAttacked(stacks);
+        return 1;
+    }
+
+    /// <summary>
+    /// 捞月：从弃牌堆展示 N 张牌，选择 M 张移回手牌。
+    /// </summary>
+    private void HandleChooseFromDiscard(CardEffectData effect, object target, IDamageSource? source)
+    {
+        int optionCount = effect.Value > 0 ? effect.Value : 5;
+        int pickCount = effect.SecondaryValue > 0 ? effect.SecondaryValue : 2;
+        var options = GetRandomCardsFromDiscard(optionCount);
+
+        if (options.Count == 0)
+        {
+            GD.Print("[CombatManager] 捞月：弃牌堆为空，无牌可选");
+            return;
+        }
+
+        _pendingDiscoverRuntimeOptions = options;
+        _pendingDiscoverOptions = options.Select(c => c.Data).ToList();
+        DiscoverPickCount = Math.Min(pickCount, options.Count);
+        _pendingSelectionMode = PendingSelectionMode.Discard;
+        State.SetDiscovering();
+
+        GD.Print($"[CombatManager] ◆ 捞月：从弃牌堆展示 {options.Count} 张，选择 {DiscoverPickCount} 张");
+        NotifyCombatStateChanged();
     }
 
     /// <summary>
@@ -714,8 +818,8 @@ public partial class CombatManager : Node
         PlayerHero.SpendMana(card.Cost);
         GD.Print($"[CombatManager] 消耗 {card.Cost} 法力值（剩余 {PlayerHero.CurrentMana}）");
 
-        // 创建随从运行时实例
-        var minion = new Minion(card.Data, isPlayerSide: true);
+        // 创建随从运行时实例，并保留牌堆中已有的运行时修饰
+        var minion = new Minion(card, isPlayerSide: true);
 
         // 处理战吼效果
         if (minion.HasBattlecry)
@@ -812,21 +916,21 @@ public partial class CombatManager : Node
         GD.Print($"[CombatManager] 施放法术 {card.CardName}，消耗 {card.Cost} 法力值");
 
         // 解析每个法术效果
-        bool discoverTriggered = false;
+        bool selectionTriggered = false;
         foreach (var effect in card.Data.Effects)
         {
-            if (effect.EffectType == CardEffectType.Discover)
+            ResolveSpellEffect(effect, target);
+            if (IsDiscovering)
             {
-                discoverTriggered = true;
+                selectionTriggered = true;
                 _pendingDiscoverSpellCard = card;
             }
-            ResolveSpellEffect(effect, target);
         }
 
-        // 如果触发了发现效果，延迟清理——ConfirmDiscoverChoice 会处理 RemoveFromHand/CheckDeaths
-        if (discoverTriggered)
+        // 如果触发了选牌效果，延迟清理——确认选择后处理 RemoveFromHand/CheckDeaths
+        if (selectionTriggered)
         {
-            GD.Print("[CombatManager]   发现效果已触发，等待玩家选牌...");
+            GD.Print("[CombatManager]   选牌效果已触发，等待玩家选择...");
             return true;
         }
 
@@ -1124,6 +1228,8 @@ public partial class CombatManager : Node
             GD.Print($"[CombatManager]   ✨ {attacker.CardName} 的冲击已被消耗");
         }
 
+        defender.TriggerIdolTwilightOnAttacked();
+
         GD.Print($"[CombatManager]     交锋后 — {attacker.CardName}：{attacker.CurrentHealth}血，" +
                   $"{defender.CardName}：{defender.CurrentHealth}血");
 
@@ -1190,6 +1296,89 @@ public partial class CombatManager : Node
         string result = passed
             ? $"诱饵战术QA通过：友方目标触发、敌方目标触发，玩家敌方的英雄防御 {initialDefense}->{EnemyHero.Defense}"
             : $"诱饵战术QA失败：friendlySpell={friendlySpellPlayed}, friendlyBuff={friendlyBuffApplied}, friendlyTrigger={friendlyTriggerWorked}, enemySpell={enemySpellPlayed}, enemyBuff={enemyBuffApplied}, enemyTrigger={enemyTriggerWorked}, defense={EnemyHero.Defense}";
+        GD.Print($"[CombatManager] {result}");
+        return result;
+    }
+
+    /// <summary>
+    /// MCP QA 入口：验证本批新增三张卡的核心规则行为。
+    /// </summary>
+    public string RunNewCardsQa()
+    {
+        var nanoData = GD.Load<CardData>("res://Resources/Cards/Spell_NanoCorpseArt.tres");
+        var idolData = GD.Load<CardData>("res://Resources/Cards/Domain_IdolTwilight.tres");
+        var moonData = GD.Load<CardData>("res://Resources/Cards/Spell_MoonFishing.tres");
+        var scoutData = GD.Load<CardData>("res://Resources/Cards/Minion_LianshuScout.tres");
+        var slimeData = GD.Load<CardData>("res://Resources/Cards/Minion_Slime.tres");
+        var alertData = GD.Load<CardData>("res://Resources/Cards/Spell_Alert.tres");
+        var strikeData = GD.Load<CardData>("res://Resources/Cards/Spell_Strike.tres");
+        var assaultData = GD.Load<CardData>("res://Resources/Cards/Spell_Assault.tres");
+        var regimentData = GD.Load<CardData>("res://Resources/Cards/Minion_18thRegiment.tres");
+
+        if (nanoData == null || idolData == null || moonData == null || scoutData == null || slimeData == null
+            || alertData == null || strikeData == null || assaultData == null || regimentData == null)
+        {
+            return "新增卡牌QA失败：资源加载不完整";
+        }
+
+        PlayerHero.GainMana(50);
+        PlayerHero.AddToDrawPileBottom(new Card.Card(alertData));
+
+        var nanoTarget = new Minion(scoutData, isPlayerSide: true);
+        var nanoCard = new Card.Card(nanoData);
+        AddCardToHand(nanoCard);
+        bool nanoPlayed = PlaySpell(nanoCard, nanoTarget);
+        bool nanoReplaced = nanoTarget.HasDeathrattle
+            && nanoTarget.DeathrattleEffects.Count == 1
+            && nanoTarget.DeathrattleEffects[0].EffectType == CardEffectType.DrawCards
+            && nanoTarget.DeathrattleEffects[0].Value == 1;
+
+        var handMinionCard = new Card.Card(regimentData);
+        var drawMinionCard = new Card.Card(scoutData);
+        var discardMinionCard = new Card.Card(scoutData);
+        AddCardToHand(handMinionCard);
+        PlayerHero.AddToDrawPileBottom(drawMinionCard);
+        PlayerHero.AddToDiscardPile(discardMinionCard);
+        var boardMinion = new Minion(regimentData, isPlayerSide: true);
+        Board.PlaceMinion(boardMinion, Board.GetEmptySlotIndex(isPlayerSide: true));
+
+        var idolCard = new Card.Card(idolData);
+        AddCardToHand(idolCard);
+        bool idolPlayed = PlayDomain(idolCard);
+        bool idolGrantedZones = handMinionCard.IdolTwilightOnAttackedStacks == 1
+            && drawMinionCard.IdolTwilightOnAttackedStacks == 1
+            && discardMinionCard.IdolTwilightOnAttackedStacks == 1
+            && boardMinion.IdolTwilightOnAttackedStacks == 1;
+        int beforeAttack = boardMinion.Attack;
+        int beforeHealth = boardMinion.CurrentHealth;
+        ResolveMinionCombat(new Minion(slimeData, isPlayerSide: false), boardMinion);
+        bool idolTriggered = boardMinion.Attack == beforeAttack + 1
+            && boardMinion.CurrentHealth == beforeHealth - slimeData.Attack + 1;
+
+        var discardA = new Card.Card(strikeData);
+        var discardB = new Card.Card(assaultData);
+        var discardC = new Card.Card(alertData);
+        PlayerHero.AddToDiscardPile(discardA);
+        PlayerHero.AddToDiscardPile(discardB);
+        PlayerHero.AddToDiscardPile(discardC);
+        int discardBeforeMoon = PlayerHero.DeckState.DiscardPile.Count;
+        var moonCard = new Card.Card(moonData);
+        AddCardToHand(moonCard);
+        bool moonPlayed = PlaySpell(moonCard, PlayerHero);
+        var moonOptions = DiscoverRuntimeOptions?.Take(2).ToList() ?? new List<Card.Card>();
+        while (PlayerHero.Hand.Count > 8)
+        {
+            PlayerHero.RemoveFromHand(PlayerHero.Hand[0]);
+        }
+        ConfirmDiscoverCards(moonOptions);
+        bool moonMovedCards = moonOptions.Count == 2
+            && moonOptions.All(c => PlayerHero.Hand.Contains(c))
+            && PlayerHero.DeckState.DiscardPile.Count == discardBeforeMoon - 2 + 1;
+
+        bool passed = nanoPlayed && nanoReplaced && idolPlayed && idolGrantedZones && idolTriggered && moonPlayed && moonMovedCards;
+        string result = passed
+            ? "新增卡牌QA通过：纳米散尸术替换亡语并抽牌；偶像的黄昏授予跨区域触发且被攻击后+1/+1；捞月从弃牌堆2选加入手牌"
+            : $"新增卡牌QA失败：nanoPlayed={nanoPlayed}, nanoReplaced={nanoReplaced}, idolPlayed={idolPlayed}, idolGrantedZones={idolGrantedZones}, idolTriggered={idolTriggered}, moonPlayed={moonPlayed}, moonOptions={moonOptions.Count}, moonMovedCards={moonMovedCards}";
         GD.Print($"[CombatManager] {result}");
         return result;
     }
@@ -1508,6 +1697,8 @@ public partial class CombatManager : Node
             PlayerHero.SuppressWeaponCounter = false;
         }
 
+        target.TriggerIdolTwilightOnAttacked();
+
         // 记录武器攻击
         PlayerHero.RecordWeaponAttack();
 
@@ -1708,7 +1899,7 @@ public partial class CombatManager : Node
         if (!minion.IsPlayerSide)
             return;
 
-        var cardFromMinion = new Card.Card(minion.Data);
+        var cardFromMinion = minion.ToRuntimeCard();
         if (minion.HasRecycle)
         {
             PlayerHero.AddToDrawPileBottom(cardFromMinion);
@@ -1999,6 +2190,9 @@ public partial class CombatManager : Node
         }
 
         _pendingDiscoverOptions = pool;
+        _pendingDiscoverRuntimeOptions = null;
+        DiscoverPickCount = 1;
+        _pendingSelectionMode = PendingSelectionMode.Discover;
         State.SetDiscovering();
         GD.Print($"[CombatManager] ◆ 发现：展示 {pool.Count} 张候选卡牌");
         foreach (var c in pool)
@@ -2049,6 +2243,9 @@ public partial class CombatManager : Node
 
         // 清除发现状态
         _pendingDiscoverOptions = null;
+        _pendingDiscoverRuntimeOptions = null;
+        DiscoverPickCount = 1;
+        _pendingSelectionMode = PendingSelectionMode.Discover;
         State.ResumePlayerTurn();
 
         // 检查死亡和胜负
@@ -2065,6 +2262,53 @@ public partial class CombatManager : Node
     public void CancelDiscover()
     {
         ConfirmDiscoverChoice(null);
+    }
+
+    /// <summary>
+    /// 确认运行时卡牌选择结果。当前用于「捞月」从弃牌堆移牌回手牌。
+    /// </summary>
+    public void ConfirmDiscoverCards(IReadOnlyList<Card.Card> chosenCards)
+    {
+        if (!IsDiscovering)
+        {
+            GD.PrintErr("[CombatManager] ConfirmDiscoverCards 失败 — 不在选牌阶段");
+            return;
+        }
+
+        if (_pendingDiscoverSpellCard != null)
+        {
+            PlayerHero.DiscardCard(_pendingDiscoverSpellCard);
+            _pendingDiscoverSpellCard = null;
+        }
+
+        if (_pendingSelectionMode == PendingSelectionMode.Discard)
+        {
+            int moved = 0;
+            foreach (var card in chosenCards)
+            {
+                if (moved >= DiscoverPickCount) break;
+                if (_playerCore.Hand.Count >= MaxHandSize)
+                {
+                    GD.Print($"[CombatManager]   手牌已满（{MaxHandSize}张），停止加入弃牌堆卡牌");
+                    break;
+                }
+
+                if (PlayerHero.DeckState.MoveFromDiscardToHand(card))
+                    moved++;
+            }
+            GD.Print($"[CombatManager] ◆ 捞月完成：加入 {moved} 张牌");
+        }
+
+        _pendingDiscoverOptions = null;
+        _pendingDiscoverRuntimeOptions = null;
+        DiscoverPickCount = 1;
+        _pendingSelectionMode = PendingSelectionMode.Discover;
+        State.ResumePlayerTurn();
+
+        CheckDeaths();
+        CheckVictoryOrDefeat();
+        NotifyCombatStateChanged();
+        GD.Print("[CombatManager] 选牌完成，恢复玩家回合");
     }
 
     /// <summary>
@@ -2112,6 +2356,25 @@ public partial class CombatManager : Node
             return pool;
 
         // Fisher-Yates 洗牌后取前 count 张
+        using var rng = new RandomNumberGenerator();
+        rng.Randomize();
+        for (int i = pool.Count - 1; i > 0; i--)
+        {
+            int j = rng.RandiRange(0, i);
+            (pool[i], pool[j]) = (pool[j], pool[i]);
+        }
+        return pool.Take(count).ToList();
+    }
+
+    /// <summary>
+    /// 从弃牌堆中随机抽取不重复的 N 张运行时卡牌。
+    /// </summary>
+    private List<Card.Card> GetRandomCardsFromDiscard(int count)
+    {
+        var pool = PlayerHero.DeckState.DiscardPile.ToList();
+        if (pool.Count <= count)
+            return pool;
+
         using var rng = new RandomNumberGenerator();
         rng.Randomize();
         for (int i = pool.Count - 1; i > 0; i--)

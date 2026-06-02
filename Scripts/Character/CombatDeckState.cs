@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Godot;
 
 namespace OdysseyCards.Character;
@@ -130,6 +129,22 @@ public class CombatDeckState
 
         GD.Print($"[CombatDeckState] 将「{card.CardName}」加入弃牌堆（共 {DiscardPile.Count} 张）");
         OnDiscardPileChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 将弃牌堆中的一张牌移回手牌。
+    /// </summary>
+    /// <returns>移动成功返回 true。</returns>
+    public bool MoveFromDiscardToHand(OdysseyCards.Card.Card card)
+    {
+        if (!DiscardPile.Remove(card))
+            return false;
+
+        Hand.Add(card);
+        OnDiscardPileChanged?.Invoke();
+        OnHandChanged?.Invoke();
+        GD.Print($"[CombatDeckState] 将「{card.CardName}」从弃牌堆加入手牌（手牌 {Hand.Count} 张，弃牌堆 {DiscardPile.Count} 张）");
+        return true;
     }
 
     public void ShuffleDrawPile()
