@@ -2,6 +2,7 @@ using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
+using OdysseyCards.Infrastructure;
 using OdysseyCards.Localization;
 using System;
 using System.Collections.Generic;
@@ -674,10 +675,20 @@ public partial class BoardUI : Control
         // ===== 输入处理 =====
 
         /// <summary>
-        /// 处理 GUI 输入事件——检测鼠标左键点击触发攻击/放置，右键取消选择。
+        /// 处理 GUI 输入事件——鼠标/触控点击触发攻击/放置，右键取消选择。
+        /// 移动端不处理右键（无触控等效操作）。
         /// </summary>
         public override void _GuiInput(InputEvent @event)
         {
+            // 触控事件（移动端）
+            if (@event is InputEventScreenTouch touch && touch.Pressed)
+            {
+                _parentBoard.NotifySlotClicked(SlotIndex, IsPlayerSide);
+                AcceptEvent();
+                return;
+            }
+
+            // 鼠标事件（桌面端 / 移动端外接鼠标）
             if (@event is InputEventMouseButton mouseBtn && mouseBtn.Pressed)
             {
                 if (mouseBtn.ButtonIndex == MouseButton.Left)
@@ -685,7 +696,8 @@ public partial class BoardUI : Control
                     _parentBoard.NotifySlotClicked(SlotIndex, IsPlayerSide);
                     AcceptEvent();
                 }
-                else if (mouseBtn.ButtonIndex == MouseButton.Right)
+                else if (mouseBtn.ButtonIndex == MouseButton.Right
+                    && !MobileInputHelper.IsMobile) // 移动端无右键
                 {
                     _parentBoard.NotifySlotRightClicked(SlotIndex, IsPlayerSide);
                     AcceptEvent();

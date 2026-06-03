@@ -1,5 +1,6 @@
 using Godot;
 using OdysseyCards.Core;
+using OdysseyCards.Infrastructure;
 using OdysseyCards.Localization;
 using System;
 using System.Collections.Generic;
@@ -269,6 +270,21 @@ public partial class EffectBar : HBoxContainer
 
         public override void _GuiInput(InputEvent @event)
         {
+            // 移动端：点击切换 tooltip 显示（无 hover）
+            if (MobileInputHelper.IsMobile && @event is InputEventScreenTouch st && st.Pressed)
+            {
+                if (_isHovered)
+                {
+                    OnMouseExit();
+                }
+                else
+                {
+                    OnMouseEnter();
+                }
+                AcceptEvent();
+                return;
+            }
+
             if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && !mb.Pressed)
             {
                 // 不处理点击，仅用于确认事件可达

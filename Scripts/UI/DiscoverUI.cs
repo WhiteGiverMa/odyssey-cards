@@ -1,5 +1,6 @@
 using Godot;
 using OdysseyCards.Core;
+using OdysseyCards.Infrastructure;
 using System;
 using System.Collections.Generic;
 using Loc = OdysseyCards.Localization.Localization;
@@ -172,7 +173,9 @@ public partial class DiscoverUI : Control
         center.AddChild(spacer2);
 
         // 跳过按钮
-        if (canSkip)
+        // 移动端始终显示跳过按钮（右键无法使用），桌面端仅 canSkip=true 时显示
+        bool showSkip = canSkip || MobileInputHelper.IsMobile;
+        if (showSkip)
         {
             _skipButton = new Button
             {
@@ -333,10 +336,12 @@ public partial class DiscoverUI : Control
     }
 
     /// <summary>
-    /// 右键取消（等效跳过）。
+    /// 右键取消（仅桌面端，移动端使用跳过按钮）。
     /// </summary>
     public override void _GuiInput(InputEvent @event)
     {
+        if (MobileInputHelper.IsMobile) return; // 移动端使用跳过按钮
+
         if (@event is InputEventMouseButton mb
             && mb.Pressed
             && mb.ButtonIndex == MouseButton.Right)

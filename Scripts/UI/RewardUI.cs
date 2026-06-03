@@ -1,5 +1,6 @@
 using Godot;
 using OdysseyCards.Core;
+using OdysseyCards.Infrastructure;
 using System;
 using System.Collections.Generic;
 using Loc = OdysseyCards.Localization.Localization;
@@ -350,10 +351,12 @@ public partial class RewardUI : Control
     }
 
     /// <summary>
-    /// 右键取消（等效跳过）。
+    /// 右键取消（仅桌面端，移动端使用跳过按钮）。
     /// </summary>
     public override void _GuiInput(InputEvent @event)
     {
+        if (MobileInputHelper.IsMobile) return;
+
         if (@event is InputEventMouseButton mb
             && mb.Pressed
             && mb.ButtonIndex == MouseButton.Right)

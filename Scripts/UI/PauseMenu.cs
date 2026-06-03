@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using OdysseyCards.Core;
+using OdysseyCards.Infrastructure;
 using OdysseyCards.Localization;
 
 namespace OdysseyCards.UI;
@@ -33,6 +34,11 @@ public partial class PauseMenu : Control
     private Label _windowModeLabel = null!;
     private OptionButton _windowModeOptionButton = null!;
     private Button _settingsBackBtn = null!;
+
+    // 开发者模式
+    private CheckBox _devModeToggle = null!;
+    private Button _consoleButton = null!;
+    private bool _isDevMode;
 
     // ===== 事件 =====
 
@@ -228,6 +234,26 @@ public partial class PauseMenu : Control
         windowModeRow.AddChild(_windowModeOptionButton);
         _settingsContainer.AddChild(windowModeRow);
 
+        // 开发者模式行（移动端/桌面端均可用）
+        _devModeToggle = new CheckBox
+        {
+            Text = T("ui.settings.dev_mode", "开发者模式"),
+        };
+        _devModeToggle.AddThemeFontSizeOverride("font_size", 20);
+        _devModeToggle.Toggled += OnDevModeToggled;
+        _settingsContainer.AddChild(_devModeToggle);
+
+        // 控制台按钮（开发者模式启用时可见）
+        _consoleButton = new Button
+        {
+            Text = T("ui.settings.open_console", "打开控制台"),
+            CustomMinimumSize = new Vector2(200, 44),
+            Visible = false,
+        };
+        _consoleButton.AddThemeFontSizeOverride("font_size", 16);
+        _consoleButton.Pressed += OnConsolePressed;
+        _settingsContainer.AddChild(_consoleButton);
+
         // 返回按钮
         _settingsBackBtn = new Button
         {
@@ -337,6 +363,26 @@ public partial class PauseMenu : Control
         LoadResolutions();
     }
 
+    private void OnDevModeToggled(bool toggledOn)
+    {
+        _isDevMode = toggledOn;
+        _consoleButton.Visible = _isDevMode;
+    }
+
+    private void OnConsolePressed()
+    {
+        // 关闭暂停菜单
+        OnContinue?.Invoke();
+
+        // 延迟一帧打开控制台，确保暂停菜单完全关闭
+        CallDeferred(nameof(OpenDevConsole));
+    }
+
+    private void OpenDevConsole()
+    {
+        GetNodeOrNull<DevConsole>("/root/DevConsole")?.Toggle();
+    }
+
     // ===== 页面切换 =====
 
     private void ShowSettings()
@@ -374,6 +420,8 @@ public partial class PauseMenu : Control
         _resolutionLabel.Text = T("ui.settings.resolution", "分辨率");
         _windowModeLabel.Text = T("ui.settings.window_mode", "窗口模式");
         _settingsBackBtn.Text = T("ui.settings.back", "返回");
+        _devModeToggle.Text = T("ui.settings.dev_mode", "开发者模式");
+        _consoleButton.Text = T("ui.settings.open_console", "打开控制台");
 
         LoadWindowModes();
     }

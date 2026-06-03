@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Character;
 using OdysseyCards.Combat;
+using OdysseyCards.Infrastructure;
 
 namespace OdysseyCards.UI;
 
@@ -52,6 +53,9 @@ public partial class HandUI : Control
 	private readonly List<CardSlot> _cardSlots = new();
 	private Card.Card? _selectedCard;
 	private CardSlot? _hoveredSlot;
+
+	/// <summary>移动端点击展开的卡槽（非 hover，手动维持）</summary>
+	private CardSlot? _tappedSlot;
 
 	/// <summary>
 	/// 存储每张卡牌在其父容器中的"静止位置"（不含 OffsetTop），
@@ -111,6 +115,12 @@ public partial class HandUI : Control
 	{
 		if (_cardSlots.Count == 0) return;
 
+		if (MobileInputHelper.IsMobile)
+		{
+			MobileProcess();
+			return;
+		}
+
 		// 拖拽中或选择模式下不触发悬停
 		if (HandSelectMode) return;
 		if (_cardSlots.Exists(s => s.CardUI.IsDragging)) return;
@@ -168,6 +178,41 @@ public partial class HandUI : Control
 		}
 	}
 
+	/// <summary>
+	/// 移动端 _Process 替代逻辑：检测手牌区域外点击，收回展开的卡牌。
+	/// 悬停检测由移动端触控替代，不在此处处理。
+	/// </summary>
+	private void MobileProcess()
+	{
+		if (_tappedSlot == null) return;
+
+		// 检测触控松手是否发生在手牌区域外
+		if (MobileInputHelper.HasTouchRelease)
+		{
+			// 确认没有任何卡牌正在拖拽（拖拽中的触控由 CardUI 内部处理）
+			bool anyCardDragging = false;
+			foreach (var slot in _cardSlots)
+			{
+				if (slot.CardUI.IsDragging)
+				{
+					anyCardDragging = true;
+					break;
+				}
+			}
+
+			if (!anyCardDragging)
+			{
+				Vector2 releasePos = MobileInputHelper.TouchReleasePosition;
+				Rect2 handRect = new Rect2(GlobalPosition, Size);
+
+				if (!handRect.HasPoint(releasePos))
+				{
+					ClearTapExpansion();
+				}
+			}
+		}
+	}
+
 	// ============================================================
 	// 公共 API
 	// ============================================================
@@ -189,6 +234,7 @@ public partial class HandUI : Control
 	public void RefreshHand()
 	{
 		ClearHoverState();
+		ClearTapExpansion();
 		foreach (var slot in _cardSlots)
 			slot.CardUI.QueueFree();
 		_cardSlots.Clear();
@@ -238,6 +284,8 @@ public partial class HandUI : Control
 			_hoveredSlot = null;
 			cardUI.RemoveHoverEffect();
 		}
+		if (_tappedSlot?.CardUI == cardUI)
+			_tappedSlot = null;
 		CallDeferred(nameof(RefreshLayout));
 	}
 
@@ -250,6 +298,8 @@ public partial class HandUI : Control
 			_hoveredSlot = null;
 			cardUI.RemoveHoverEffect();
 		}
+		if (_tappedSlot?.CardUI == cardUI)
+			_tappedSlot = null;
 	}
 
 	/// <summary>
@@ -325,10 +375,12 @@ public partial class HandUI : Control
 		float totalSpread = stepX * (count - 1);
 		float startX = (containerWidth - totalSpread) / 2f;
 
-		// 悬停卡索引
+		// 悬停卡索引（桌面端 _hoveredSlot；移动端回退到 _tappedSlot）
 		int hoverIndex = _hoveredSlot != null
 			? _cardSlots.IndexOf(_hoveredSlot)
-			: -1;
+			: _tappedSlot != null
+				? _cardSlots.IndexOf(_tappedSlot)
+				: -1;
 
 		// 悬停卡扩大后额外需要的推开空间
 		float hoverExpand = hoverIndex >= 0 ? (cardWidth - scaledCardWidth) * 0.5f : 0f;
@@ -427,6 +479,18 @@ public partial class HandUI : Control
 
 	private void OnCardRightClicked(CardUI cardUI)
 	{
+		// 移动端快速点击（非拖拽）后重新施加展开效果
+		if (MobileInputHelper.IsMobile)
+		{
+			if (_tappedSlot?.CardUI == cardUI)
+			{
+				// CardUI 的拖拽周期已结束，重新施加视觉展开
+				cardUI.ApplyHoverEffect();
+				RefreshLayout();
+			}
+			return;
+		}
+
 		DeselectCard();
 		OnCardCancelled?.Invoke();
 	}
@@ -434,6 +498,24 @@ public partial class HandUI : Control
 	private void OnCardClicked(CardUI cardUI)
 	{
 		if (cardUI.Card == null) return;
+
+		// 移动端触控：首次点击展开，二次点击同一张进入拖拽
+		if (MobileInputHelper.IsMobile)
+		{
+			if (_tappedSlot?.CardUI == cardUI)
+			{
+				// 二次点击同一张 → 收回展开态，走正常选中/拖拽流程
+				ClearTapExpansion();
+				// 继续执行桌面统一逻辑
+			}
+			else
+			{
+				// 首次点击 或 点击不同的卡 → 展开这张
+				ClearTapExpansion();
+				_tappedSlot = GetSlotFor(cardUI);
+				return;
+			}
+		}
 
 		if (HandSelectMode)
 		{
@@ -486,6 +568,32 @@ public partial class HandUI : Control
 			_hoveredSlot.CardUI.RemoveHoverEffect();
 			_hoveredSlot = null;
 		}
+	}
+
+	/// <summary>
+	/// 收回移动端展开的卡牌，恢复折叠态。
+	/// </summary>
+	private void ClearTapExpansion()
+	{
+		if (_tappedSlot != null)
+		{
+			_tappedSlot.CardUI.RemoveHoverEffect();
+			_tappedSlot = null;
+			RefreshLayout();
+		}
+	}
+
+	/// <summary>
+	/// 按 CardUI 查找对应的 CardSlot。
+	/// </summary>
+	private CardSlot? GetSlotFor(CardUI cardUI)
+	{
+		foreach (var slot in _cardSlots)
+		{
+			if (slot.CardUI == cardUI)
+				return slot;
+		}
+		return null;
 	}
 
 	// ============================================================

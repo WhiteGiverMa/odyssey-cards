@@ -185,7 +185,7 @@ namespace OdysseyCards.UI
             var prevBtn = new Button
             {
                 Text = "←",
-                CustomMinimumSize = new Vector2(40 * s, 30 * s),
+                CustomMinimumSize = new Vector2(44 * s, 44 * s),
             };
             prevBtn.Pressed += GoToPreviousPage;
             _pageBar.AddChild(prevBtn);
@@ -201,7 +201,7 @@ namespace OdysseyCards.UI
             var nextBtn = new Button
             {
                 Text = "→",
-                CustomMinimumSize = new Vector2(40 * s, 30 * s),
+                CustomMinimumSize = new Vector2(44 * s, 44 * s),
             };
             nextBtn.Pressed += GoToNextPage;
             _pageBar.AddChild(nextBtn);
