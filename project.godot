@@ -8,14 +8,6 @@
 
 config_version=5
 
-[application]
-
-config/name="OdysseyCards"
-run/main_scene="res://Scenes/Main.tscn"
-config/features=PackedStringArray("4.6", "C#", "GL Compatibility")
-config/icon="res://icon.svg"
-config/use_native_file_dialog=true
-
 [android]
 
 package/unique_name="com.odyssey.cards"
@@ -26,6 +18,14 @@ screen/support_normal=true
 screen/support_large=true
 screen/support_xlarge=true
 xr_features/xr_mode=0
+
+[application]
+
+config/name="OdysseyCards"
+run/main_scene="res://Scenes/Main.tscn"
+config/features=PackedStringArray("4.6", "C#", "GL Compatibility")
+config/icon="res://icon.svg"
+config/use_native_file_dialog=true
 
 [autoload]
 
@@ -43,14 +43,10 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation="landscape"
 
-[input_devices]
-
-pointing/emulate_touch_from_mouse=false
-pointing/emulate_mouse_from_touch=false
-
 [dotnet]
 
 project/assembly_name="OdysseyCards"
+export/android/enable=true
 
 [editor]
 
@@ -59,6 +55,10 @@ version_control/autoload_on_startup=true
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg", "res://addons/gut/plugin.cfg")
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=false
 
 [physics]
 
@@ -69,3 +69,4 @@ enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg", "res://addons/gut
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
