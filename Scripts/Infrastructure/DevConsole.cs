@@ -799,29 +799,14 @@ public partial class DevConsole : Node
     private void BuildCardCache()
     {
         _cardCache.Clear();
-        var cardDir = "res://Resources/Cards/";
 
-        using var dir = DirAccess.Open(cardDir);
-        if (dir == null)
+        // 从 GameManager 注册表构建缓存（编辑器和导出版本均可用）
+        var allCards = Core.GameManager.Instance.GetAllCards();
+        foreach (var cardData in allCards)
         {
-            GD.PrintErr("[DevConsole] 无法打开卡牌目录");
-            return;
+            if (cardData != null && !string.IsNullOrEmpty(cardData.Id))
+                _cardCache[cardData.Id] = cardData;
         }
-
-        dir.ListDirBegin();
-        string fileName;
-        while ((fileName = dir.GetNext()) != "")
-        {
-            if (dir.CurrentIsDir()) continue;
-            if (!fileName.EndsWith(".tres") && !fileName.EndsWith(".res")) continue;
-
-            var fullPath = $"{cardDir}{fileName}";
-            var cardData = GD.Load<OdysseyCards.Core.CardData>(fullPath);
-            if (cardData == null) continue;
-
-            _cardCache[cardData.Id] = cardData;
-        }
-        dir.ListDirEnd();
 
         GD.Print($"[DevConsole] 卡牌缓存已构建，共 {_cardCache.Count} 张");
     }

@@ -147,16 +147,32 @@ public static class Localization
     {
         _translations.Clear();
 
+        // 先尝试 DirAccess 枚举（编辑器内正常，导出版本可能失败）
+        bool loadedViaDir = TryLoadTranslationsViaDirAccess();
+
+        // 回退：硬编码已知翻译文件列表（导出兼容）
+        if (!loadedViaDir)
+        {
+            GD.Print("[Localization] DirAccess 枚举失败，使用硬编码翻译文件路径回退");
+            LoadTranslationFile(LocalizationPath + "en.yaml", "en");
+            LoadTranslationFile(LocalizationPath + "zh.yaml", "zh");
+        }
+
+        if (!_translations.ContainsKey("en"))
+        {
+            _translations["en"] = new Dictionary<string, string>();
+        }
+    }
+
+    private static bool TryLoadTranslationsViaDirAccess()
+    {
         using DirAccess dir = DirAccess.Open(LocalizationPath);
         if (dir == null)
-        {
-            GD.Print($"[Localization] Directory not found: {LocalizationPath}, creating default 'en' entry");
-            _translations["en"] = new Dictionary<string, string>();
-            return;
-        }
+            return false;
 
         dir.ListDirBegin();
         string fileName = dir.GetNext();
+        bool loadedAny = false;
 
         while (!string.IsNullOrEmpty(fileName))
         {
@@ -165,17 +181,14 @@ public static class Localization
                 string langCode = Path.GetFileNameWithoutExtension(fileName);
                 string filePath = LocalizationPath + fileName;
                 LoadTranslationFile(filePath, langCode);
+                loadedAny = true;
             }
 
             fileName = dir.GetNext();
         }
 
         dir.ListDirEnd();
-
-        if (!_translations.ContainsKey("en"))
-        {
-            _translations["en"] = new Dictionary<string, string>();
-        }
+        return loadedAny;
     }
 
     private static void LoadTranslationFile(string filePath, string languageCode)

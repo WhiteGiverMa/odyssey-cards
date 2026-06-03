@@ -764,28 +764,15 @@ public partial class CombatManager : Node
             return;
         }
 
-        // 加载全卡牌池并过滤
+        // 从 GameManager 注册表加载全卡牌池并过滤（编辑器和导出版本均可用）
         var pool = new List<CardData>();
-        using var dir = DirAccess.Open("res://Resources/Cards/");
-        if (dir != null)
+        var allCards = GameManager.Instance.GetAllCards();
+        foreach (var cardData in allCards)
         {
-            dir.ListDirBegin();
-            string fileName = dir.GetNext();
-            while (!string.IsNullOrEmpty(fileName))
+            if (cardData.Tags.HasFlag(targetTag) && cardData.Type == CardType.Minion)
             {
-                if (!dir.CurrentIsDir() && fileName.EndsWith(".tres", StringComparison.OrdinalIgnoreCase))
-                {
-                    var cardData = GD.Load<CardData>($"res://Resources/Cards/{fileName}");
-                    if (cardData != null && !string.IsNullOrEmpty(cardData.Id)
-                        && cardData.Tags.HasFlag(targetTag)
-                        && cardData.Type == CardType.Minion)
-                    {
-                        pool.Add(cardData);
-                    }
-                }
-                fileName = dir.GetNext();
+                pool.Add(cardData);
             }
-            dir.ListDirEnd();
         }
 
         if (pool.Count == 0)
@@ -2769,25 +2756,14 @@ public partial class CombatManager : Node
     {
         var pool = new List<CardData>();
 
-        // 加载 Resources/Cards/ 下所有 .tres 文件
-        using var dir = DirAccess.Open("res://Resources/Cards/");
-        if (dir != null)
+        // 从 GameManager 注册表加载全卡牌池（编辑器和导出版本均可用）
+        var allCards = GameManager.Instance.GetAllCards();
+        foreach (var cardData in allCards)
         {
-            dir.ListDirBegin();
-            string fileName = dir.GetNext();
-            while (!string.IsNullOrEmpty(fileName))
+            if (cardData != null && !string.IsNullOrEmpty(cardData.Id))
             {
-                if (!dir.CurrentIsDir() && fileName.EndsWith(".tres", System.StringComparison.OrdinalIgnoreCase))
-                {
-                    var cardData = GD.Load<CardData>($"res://Resources/Cards/{fileName}");
-                    if (cardData != null && !string.IsNullOrEmpty(cardData.Id))
-                    {
-                        pool.Add(cardData);
-                    }
-                }
-                fileName = dir.GetNext();
+                pool.Add(cardData);
             }
-            dir.ListDirEnd();
         }
 
         GD.Print($"[CombatManager] GetRandomCardsFromPool: 卡牌池共 {pool.Count} 张，请求 {count} 张");
