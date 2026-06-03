@@ -19,6 +19,8 @@ ui:
     borderless: "无边框全屏"
     fullscreen: "全屏"
     back: "返回"
+    dev_mode: "开发者模式"
+    open_console: "打开控制台"
   combat:
     end_turn: "结束回合"
     player_turn: "玩家回合"
