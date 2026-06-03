@@ -58,6 +58,12 @@ public partial class BoardUI : Control
     /// </summary>
     public event Action<int, bool>? OnSlotClicked;
 
+    /// <summary>
+    /// 槽位右键点击事件。参数为槽位索引和是否玩家方。
+    /// CombatUI 订阅此事件以在攻击选择模式下取消选择。
+    /// </summary>
+    public event Action<int, bool>? OnSlotRightClicked;
+
     // ===== 战场引用 =====
 
     private Combat.Board? _board;
@@ -319,6 +325,14 @@ public partial class BoardUI : Control
     internal void NotifySlotClicked(int slotIndex, bool isPlayerSide)
     {
         OnSlotClicked?.Invoke(slotIndex, isPlayerSide);
+    }
+
+    /// <summary>
+    /// 由 BoardSlot 调用的内部回调，触发公开的 OnSlotRightClicked 事件。
+    /// </summary>
+    internal void NotifySlotRightClicked(int slotIndex, bool isPlayerSide)
+    {
+        OnSlotRightClicked?.Invoke(slotIndex, isPlayerSide);
     }
 
     // ==================================================================
@@ -660,16 +674,22 @@ public partial class BoardUI : Control
         // ===== 输入处理 =====
 
         /// <summary>
-        /// 处理 GUI 输入事件——检测鼠标左键点击，触发父 BoardUI 的 OnSlotClicked。
+        /// 处理 GUI 输入事件——检测鼠标左键点击触发攻击/放置，右键取消选择。
         /// </summary>
         public override void _GuiInput(InputEvent @event)
         {
-            if (@event is InputEventMouseButton mouseBtn
-                && mouseBtn.ButtonIndex == MouseButton.Left
-                && mouseBtn.Pressed)
+            if (@event is InputEventMouseButton mouseBtn && mouseBtn.Pressed)
             {
-                _parentBoard.NotifySlotClicked(SlotIndex, IsPlayerSide);
-                AcceptEvent();
+                if (mouseBtn.ButtonIndex == MouseButton.Left)
+                {
+                    _parentBoard.NotifySlotClicked(SlotIndex, IsPlayerSide);
+                    AcceptEvent();
+                }
+                else if (mouseBtn.ButtonIndex == MouseButton.Right)
+                {
+                    _parentBoard.NotifySlotRightClicked(SlotIndex, IsPlayerSide);
+                    AcceptEvent();
+                }
             }
         }
 
