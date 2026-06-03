@@ -7,6 +7,10 @@
 export.cfg
 export_presets.cfg
 
+# Export output
+/export/
+*.zip
+
 # C# / .NET
 bin/
 obj/
