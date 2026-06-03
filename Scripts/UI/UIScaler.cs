@@ -8,6 +8,14 @@ namespace OdysseyCards.UI
     {
         public static UIScaler Instance { get; private set; }
 
+        /// <summary>
+        /// 是否为移动平台（Android/iOS）。用于守卫桌面端特有的 DisplayServer 窗口调用。
+        /// </summary>
+        public static bool IsMobile => OS.HasFeature("mobile");
+
+        /// <summary>
+        /// 设计基准分辨率 — TODO: 统一改为 1600×900
+        /// </summary>
         private const float _designWidth = 1152f;
         private const float _designHeight = 648f;
         private const float _cardWidthRatio = 5f / 7f;
@@ -34,8 +42,18 @@ namespace OdysseyCards.UI
         {
             Instance = this;
             GetTree().Root.SizeChanged += OnWindowSizeChanged;
-            LoadSettings();
-            UpdateScale();
+
+            // 移动端全屏运行，不需要窗口管理 / 分辨率设置持久化
+            if (IsMobile)
+            {
+                GD.Print("[UIScaler] 移动平台 — 跳过窗口管理");
+                UpdateScale();
+            }
+            else
+            {
+                LoadSettings();
+                UpdateScale();
+            }
         }
 
         private void OnWindowSizeChanged()
@@ -103,10 +121,12 @@ namespace OdysseyCards.UI
         }
 
         /// <summary>
-        /// 设置窗口分辨率（仅窗口模式有效）
+        /// 设置窗口分辨率（仅桌面窗口模式有效，移动端无操作）。
         /// </summary>
         public void SetWindowResolution(int width, int height)
         {
+            if (IsMobile) return;
+
             DisplayServer.WindowSetSize(new Vector2I(width, height));
 
             // 窗口模式下居中
@@ -119,11 +139,13 @@ namespace OdysseyCards.UI
         }
 
         /// <summary>
-        /// 获取当前窗口尺寸
+        /// 获取当前窗口尺寸（移动端返回屏幕尺寸）。
         /// </summary>
         public Vector2I GetCurrentWindowSize()
         {
-            return DisplayServer.WindowGetSize();
+            return IsMobile
+                ? DisplayServer.ScreenGetSize()
+                : DisplayServer.WindowGetSize();
         }
 
         /// <summary>
@@ -158,11 +180,13 @@ namespace OdysseyCards.UI
         }
 
         /// <summary>
-        /// 设置窗口模式。
+        /// 设置窗口模式（仅桌面端有效，移动端无操作）。
         /// 0 = 窗口模式, 1 = 无边框全屏, 2 = 全屏
         /// </summary>
         public void SetWindowModeIndex(int modeIndex)
         {
+            if (IsMobile) return;
+
             switch (modeIndex)
             {
                 case 0: // 窗口
@@ -190,10 +214,13 @@ namespace OdysseyCards.UI
         }
 
         /// <summary>
-        /// 获取当前窗口模式索引：0=窗口, 1=无边框, 2=全屏
+        /// 获取当前窗口模式索引：0=窗口, 1=无边框, 2=全屏（移动端始终返回 1=全屏）。
         /// </summary>
         public int GetCurrentWindowModeIndex()
         {
+            if (IsMobile)
+                return 1; // 移动端始终全屏
+
             if (DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Fullscreen
                 || DisplayServer.WindowGetMode() == DisplayServer.WindowMode.ExclusiveFullscreen)
                 return 2;
@@ -216,18 +243,20 @@ namespace OdysseyCards.UI
         #region 持久化
 
         /// <summary>
-        /// 保存当前显示设置到 user://settings.cfg
+        /// 保存当前显示设置到 user://settings.cfg（移动端跳过窗口尺寸保存）。
         /// </summary>
         public void SaveSettings()
         {
             using var config = new ConfigFile();
 
-            Vector2I windowSize = DisplayServer.WindowGetSize();
-            int windowMode = GetCurrentWindowModeIndex();
-
-            config.SetValue("display", "window_width", windowSize.X);
-            config.SetValue("display", "window_height", windowSize.Y);
-            config.SetValue("display", "window_mode", windowMode);
+            if (!IsMobile)
+            {
+                Vector2I windowSize = DisplayServer.WindowGetSize();
+                int windowMode = GetCurrentWindowModeIndex();
+                config.SetValue("display", "window_width", windowSize.X);
+                config.SetValue("display", "window_height", windowSize.Y);
+                config.SetValue("display", "window_mode", windowMode);
+            }
 
             Error err = config.Save(ConfigPath);
             if (err != Error.Ok)
@@ -237,11 +266,13 @@ namespace OdysseyCards.UI
         }
 
         /// <summary>
-        /// 从 user://settings.cfg 加载并应用显示设置
-        /// 首次启动时文件不存在，使用 project.godot 中的默认值
+        /// 从 user://settings.cfg 加载并应用显示设置（移动端跳过）。
+        /// 首次启动时文件不存在，使用 project.godot 中的默认值。
         /// </summary>
         private void LoadSettings()
         {
+            if (IsMobile) return;
+
             using var config = new ConfigFile();
             Error err = config.Load(ConfigPath);
             if (err != Error.Ok)
