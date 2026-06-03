@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using OdysseyCards.Core;
+using OdysseyCards.Infrastructure;
 using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.UI;
@@ -158,7 +159,9 @@ public partial class CardUI : Control
     private bool _hasDragged;
     /// <summary>点击选中模式：用户快速点击（松手无拖拽位移）后进入，卡片跟随鼠标但不响应松手掉落。</summary>
     private bool _clickSelectMode;
-    private const float DragThreshold = 10f;
+    private const float DragThresholdDesktop = 10f;
+    private const float DragThresholdMobile = 20f;
+    private float DragThreshold => MobileInputHelper.IsMobile ? DragThresholdMobile : DragThresholdDesktop;
     private Tween? _hoverTween;
 	private bool _isHoverEffectActive;
 	private bool _built;
@@ -624,17 +627,30 @@ public partial class CardUI : Control
     }
 
 	/// <summary>
-	/// 拖拽时每帧跟随鼠标移动，并轮询右键取消和左键松开。
+	/// 拖拽时每帧跟随鼠标/触控移动，并轮询取消和松开事件。
 	/// 由于拖拽中 MouseFilter=Ignore，GuiInput 不会收到事件，故在此轮询。
 	///
-	/// 交互等效性（参考杀戮尖塔2 NMouseCardPlay 的区域+按键状态模型）：
+	/// 桌面端（交互等效性，参考杀戮尖塔2 NMouseCardPlay 的区域+按键状态模型）：
 	///   快速点击选中 → 卡片保持原位 → 点击有效目标打出（clickSelectMode）
 	///   按住并移动超过阈值 → 卡片跟随鼠标 → 松手打出/取消（drag-drop）
 	///   右键取消 ≡ 拖拽中松开在无效区域
+	///
+	/// 移动端（MobileInputHelper.IsMobile）：
+	///   仅拖拽模式，无 clickSelectMode
+	///   手指移动超过阈值（20f）→ 卡片跟随手指 → 松手打出/取消
+	///   无右键取消（拖到无效区域 = 取消）
 	/// </summary>
 	public override void _Process(double delta)
 	{
 		if (DisplayOnly || !_isDragging) return;
+
+		if (MobileInputHelper.IsMobile)
+		{
+			MobileDragProcess();
+			return;
+		}
+
+		// ==================== 桌面端鼠标拖拽逻辑 ====================
 
         // 右键取消（等效：拖拽中松手在无效区域）
         if (Input.IsMouseButtonPressed(MouseButton.Right))
@@ -694,6 +710,61 @@ public partial class CardUI : Control
         //   _hasDragged=false：继续跟踪拖拽距离
         //   _hasDragged=true：等待松手触发 drop
     }
+
+	/// <summary>
+	/// 移动端触控拖拽逻辑。
+	/// 手指按下后超过阈值（20f）即触发拖拽，松手即掉落或取消。
+	/// 无 clickSelectMode，无右键取消。
+	/// </summary>
+	private void MobileDragProcess()
+	{
+		if (MobileInputHelper.IsTouchPressed)
+		{
+			Vector2 touchPos = MobileInputHelper.TouchScreenPosition;
+
+			// 跟踪拖拽距离
+			if (!_hasDragged)
+			{
+				float dist = touchPos.DistanceTo(_dragStartScreenPos);
+				if (dist > DragThreshold)
+					_hasDragged = true;
+			}
+
+			if (_hasDragged)
+			{
+				// 拖拽模式：卡牌跟随手指，逐帧通知位置
+				GlobalPosition = touchPos - _dragOffset;
+				OnDragMove?.Invoke(this, touchPos);
+			}
+		}
+
+		// 手指松开处理
+		if (MobileInputHelper.HasTouchRelease)
+		{
+			Vector2 dropScreenPos = MobileInputHelper.TouchReleasePosition;
+			bool wasDragging = _hasDragged;
+			_isDragging = false;
+			_hasDragged = false;
+			_clickSelectMode = false;
+			_isHoverEffectActive = false;
+			KillHoverTween();
+			MouseFilter = MouseFilterEnum.Stop;
+			OffsetTop = 0;
+
+			if (wasDragging)
+			{
+				// 拖拽后松手 → 触发 OnCardDropped
+				OnCardDropped?.Invoke(this, dropScreenPos);
+			}
+			else
+			{
+				// 快速点击 → 取消（移动端无 clickSelectMode，直接取消拖拽）
+				OnCardRightClicked?.Invoke(this);
+			}
+
+			MobileInputHelper.ConsumeTouchRelease();
+		}
+	}
 
 	/// <summary>
 	/// 选中卡牌：切换高亮状态，上移产生抬起效果。

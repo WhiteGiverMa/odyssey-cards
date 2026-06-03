@@ -7,6 +7,7 @@ using OdysseyCards.Card;
 using OdysseyCards.Core;
 using OdysseyCards.Character;
 using OdysseyCards.Combat;
+using OdysseyCards.Infrastructure;
 using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.UI;
@@ -98,6 +99,12 @@ public partial class CombatUI : Control
 	/// 暂停按钮——右上角，点击弹出暂停菜单。
 	/// </summary>
 	private Button _pauseButton = null!;
+
+	/// <summary>
+	/// 移动端取消按钮（✕）——仅移动端可见，用于替代右键取消。
+	/// 在攻击选择/开发者伤害/手牌选择等可取消状态下显示。
+	/// </summary>
+	private Button? _mobileCancelButton;
 
 	/// <summary>
 	/// 暂停菜单覆盖层——ESC 或暂停按钮触发时创建。
@@ -275,7 +282,20 @@ public partial class CombatUI : Control
 	/// <summary>
 	/// 攻击拖拽最小位移阈值（像素），与 CardUI.DragThreshold 一致。
 	/// </summary>
-	private const float AttackDragThreshold = 10f;
+	/// <summary>
+	/// 攻击拖拽最小位移阈值（像素）。桌面端 10f，移动端 20f（触控精度较低，需更高阈值防误触）。
+	/// </summary>
+	private static float AttackDragThreshold => MobileInputHelper.IsMobile ? 20f : 10f;
+
+	/// <summary>
+	/// 获取当前输入坐标（屏幕空间）。桌面端返回鼠标位置，移动端返回触控位置。
+	/// </summary>
+	private Vector2 GetInputPosition()
+	{
+		if (MobileInputHelper.IsMobile)
+			return MobileInputHelper.TouchScreenPosition;
+		return GetGlobalMousePosition();
+	}
 
 	/// <summary>
 	/// 开发者伤害模式参数。
@@ -347,49 +367,66 @@ public partial class CombatUI : Control
 	}
 
 	/// <summary>
-	/// 全局输入处理——ESC 暂停/恢复 + 开发者伤害模式下右键取消。
+	/// 全局输入处理——ESC 暂停/恢复 + 桌面端右键取消（移动端使用专用取消按钮替代右键）。
 	/// </summary>
 	public override void _UnhandledInput(InputEvent @event)
 	{
 		if (!IsInsideTree()) return;
 
-		// 手牌选择模式——ESC/右键取消选择
+		// 手牌选择模式——桌面端 ESC/右键取消选择（移动端用取消按钮）
 		if (_isHandSelecting)
 		{
-			if ((@event is InputEventKey keyEvent && keyEvent.Pressed && keyEvent.Keycode == Key.Escape)
-				|| (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Right && mb.Pressed))
+			if (@event is InputEventKey keyEvent && keyEvent.Pressed && keyEvent.Keycode == Key.Escape)
 			{
 				_combat?.CancelHandDiscardSelection();
 				GetViewport().SetInputAsHandled();
 				return;
 			}
+
+			// 桌面端右键取消——移动端无右键，跳过
+			if (!MobileInputHelper.IsMobile)
+			{
+				if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Right && mb.Pressed)
+				{
+					_combat?.CancelHandDiscardSelection();
+					GetViewport().SetInputAsHandled();
+					return;
+				}
+			}
 		}
 
-		// 开发者伤害模式——右键取消
-		if (@event is InputEventMouseButton mb2
-			&& mb2.ButtonIndex == MouseButton.Right
-			&& mb2.Pressed
-			&& _selectionMode == SelectionMode.DevDamageTargeting)
+		// 开发者伤害模式——桌面端右键取消（移动端用取消按钮）
+		if (!MobileInputHelper.IsMobile)
 		{
-			ExitDevDamageMode();
-			GetViewport().SetInputAsHandled();
-			return;
+			if (@event is InputEventMouseButton mb2
+				&& mb2.ButtonIndex == MouseButton.Right
+				&& mb2.Pressed
+				&& _selectionMode == SelectionMode.DevDamageTargeting)
+			{
+				ExitDevDamageMode();
+				GetViewport().SetInputAsHandled();
+				return;
+			}
 		}
 
-		// 攻击目标选择模式——右键取消
-		if (@event is InputEventMouseButton mb3
-			&& mb3.ButtonIndex == MouseButton.Right
-			&& mb3.Pressed
-			&& _selectionMode == SelectionMode.SelectingAttackTarget)
+		// 攻击目标选择模式——桌面端右键取消（移动端用取消按钮）
+		if (!MobileInputHelper.IsMobile)
 		{
-			GD.Print("[CombatUI] 右键取消攻击选择");
-			ResetSelection();
-			_handUI.RefreshHand();
-			GetViewport().SetInputAsHandled();
-			return;
+			if (@event is InputEventMouseButton mb3
+				&& mb3.ButtonIndex == MouseButton.Right
+				&& mb3.Pressed
+				&& _selectionMode == SelectionMode.SelectingAttackTarget)
+			{
+				GD.Print("[CombatUI] 右键取消攻击选择");
+				ResetSelection();
+				_handUI.RefreshHand();
+				GetViewport().SetInputAsHandled();
+				return;
+			}
 		}
 
 		// ESC —— 暂停/恢复（发现选牌和游戏结束时不响应）
+		// 移动端 Android 返回按钮映射为 ESC，因此移动端保留此处理
 		if (@event is InputEventKey key && key.Pressed && key.Keycode == Key.Escape)
 		{
 			if (_combat == null || _combat.State.IsGameOver)
@@ -424,46 +461,64 @@ public partial class CombatUI : Control
 	}
 
 	/// <summary>
-	/// 每帧更新攻击选择箭头——从攻击方随从槽位指向鼠标光标。
+	/// 每帧更新攻击选择箭头——从攻击方随从槽位指向当前输入位置。
 	/// 仅在 SelectingAttackTarget 模式下有效。
 	/// 同时追踪攻击拖拽状态：按住拖动超过阈值→松手时执行攻击或取消。
+	/// 移动端使用 MobileInputHelper 触控状态替代鼠标轮询。
 	/// </summary>
 	public override void _Process(double delta)
 	{
+		// --- 攻击选择箭头 ---
 		if (_selectionMode == SelectionMode.SelectingAttackTarget && _selectedAttacker != null && _arrowRenderer != null)
 		{
 			var sourcePos = GetMinionScreenCenter(_selectedAttacker);
-			var mousePos = GetGlobalMousePosition();
-			_arrowRenderer.AddArrow("attack_select", sourcePos, mousePos, ArrowRenderer.AttackSelectColor);
+			var inputPos = GetInputPosition();
+			_arrowRenderer.AddArrow("attack_select", sourcePos, inputPos, ArrowRenderer.AttackSelectColor);
 		}
 		else if (_arrowRenderer != null && _arrowRenderer.HasArrow("attack_select"))
 		{
 			_arrowRenderer.RemoveArrow("attack_select");
 		}
 
-		// ===== 攻击拖拽追踪（双交互模式：点击选中→第二击攻击 / 按住拖动→松手攻击） =====
+		// --- 攻击拖拽追踪（双交互模式：点击选中→第二击攻击 / 按住拖动→松手攻击） ---
 		if (_isAttackDragPressed)
 		{
-			var mousePos = GetGlobalMousePosition();
+			var inputPos = GetInputPosition();
 
 			// 位移超过阈值 → 升级为真正拖拽
-			if (!_attackDragHasMoved && mousePos.DistanceTo(_attackDragStartPos) > AttackDragThreshold)
+			if (!_attackDragHasMoved && inputPos.DistanceTo(_attackDragStartPos) > AttackDragThreshold)
 			{
 				_attackDragHasMoved = true;
 			}
 
-			// 左键松开
-			if (!Input.IsMouseButtonPressed(MouseButton.Left))
+			// 检测松手
+			bool released;
+			if (MobileInputHelper.IsMobile)
+			{
+				// 移动端：触控松手事件
+				released = MobileInputHelper.HasTouchRelease;
+				if (released) MobileInputHelper.ConsumeTouchRelease();
+			}
+			else
+			{
+				// 桌面端：鼠标左键松开
+				released = !Input.IsMouseButtonPressed(MouseButton.Left);
+			}
+
+			if (released)
 			{
 				_isAttackDragPressed = false;
 				if (_attackDragHasMoved && _selectionMode == SelectionMode.SelectingAttackTarget)
 				{
 					// 拖拽路径：松手时检查落点，有效目标→攻击，无效→取消
-					HandleAttackDrop(mousePos);
+					HandleAttackDrop(inputPos);
 				}
 				// else: 快速点击无拖拽 → 保持选中状态，等待玩家第二击（现有行为）
 			}
 		}
+
+		// --- 移动端取消按钮可见性 ---
+		UpdateMobileCancelButton();
 	}
 
 	// ===== 初始化 =====
@@ -578,6 +633,16 @@ public partial class CombatUI : Control
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsVertical = SizeFlags.ExpandFill,
 		};
+
+		// 移动端安全区域边距（补偿刘海屏和手势导航栏）
+		if (MobileInputHelper.IsMobile)
+		{
+			root.OffsetLeft = 24;
+			root.OffsetRight = -24;
+			root.OffsetTop = 12;
+			root.OffsetBottom = -24;
+		}
+
 		AddChild(root);
 
 		// 敌方区域（顶部）
@@ -648,6 +713,21 @@ public partial class CombatUI : Control
 		_pauseButton.AddThemeColorOverride("font_color", new Color(0.8f, 0.8f, 0.8f));
 		_pauseButton.Pressed += OnPauseButtonPressed;
 		container.AddChild(_pauseButton);
+
+		// 移动端取消按钮（✕）——仅移动端可见，替代桌面端右键取消
+		// 在攻击选择/开发者伤害/手牌选择等可取消状态下显示
+		_mobileCancelButton = new Button
+		{
+			Name = "MobileCancelButton",
+			Text = "✕",
+			CustomMinimumSize = new Vector2(48, 48),
+			Flat = true,
+			Visible = false,
+		};
+		_mobileCancelButton.AddThemeFontSizeOverride("font_size", 24);
+		_mobileCancelButton.AddThemeColorOverride("font_color", new Color(0.9f, 0.5f, 0.5f));
+		_mobileCancelButton.Pressed += OnMobileCancelPressed;
+		container.AddChild(_mobileCancelButton);
 
 		return container;
 	}
@@ -984,7 +1064,7 @@ public partial class CombatUI : Control
 		{
 			Name = "EndTurnButton",
 			Text = Localization.Localization.T("ui.combat.end_turn", "结束回合"),
-			CustomMinimumSize = new Vector2(120, 40),
+			CustomMinimumSize = new Vector2(120, 48),
 		};
 
 		var buttonPlaceholder = GetNode<CenterContainer>("CombatRoot/PlayerArea/EndTurnButtonPlaceholder");
@@ -1073,7 +1153,7 @@ public partial class CombatUI : Control
 		{
 			Name = "EnemyHeroAttackButton",
 			Text = Localization.Localization.T("ui.combat.attack_enemy_hero", "⚔ 攻击敌方英雄"),
-			CustomMinimumSize = new Vector2(140, 36),
+			CustomMinimumSize = new Vector2(140, 44),
 			Visible = false,
 		};
 		_enemyHeroAttackButton.AddThemeColorOverride("font_color", new Color(1f, 0.3f, 0.3f));
@@ -1084,7 +1164,7 @@ public partial class CombatUI : Control
 		{
 			Name = "EnemyHeroSpellButton",
 			Text = Localization.Localization.T("ui.combat.spell_enemy_hero", "✦ 对敌方英雄施法"),
-			CustomMinimumSize = new Vector2(140, 36),
+			CustomMinimumSize = new Vector2(140, 44),
 			Visible = false,
 		};
 		_enemyHeroSpellButton.AddThemeColorOverride("font_color", new Color(1f, 0.7f, 0.2f));
@@ -1215,7 +1295,7 @@ public partial class CombatUI : Control
 		{
 			Name = "DrawPileBtn",
 			Text = Localization.Localization.T("ui.combat.draw_pile_format", "抽牌堆 ({count})").Replace("{count}", "0"),
-			CustomMinimumSize = new Vector2(100, 32),
+			CustomMinimumSize = new Vector2(100, 44),
 		};
 		_drawPileBtn.AddThemeColorOverride("font_color", new Color(0.7f, 0.8f, 1f));
 		_drawPileBtn.AddThemeFontSizeOverride("font_size", 13);
@@ -1238,7 +1318,7 @@ public partial class CombatUI : Control
 		{
 			Name = "DiscardPileBtn",
 			Text = Localization.Localization.T("ui.combat.discard_pile_format", "弃牌堆 ({count})").Replace("{count}", "0"),
-			CustomMinimumSize = new Vector2(100, 32),
+			CustomMinimumSize = new Vector2(100, 44),
 		};
 		_discardPileBtn.AddThemeColorOverride("font_color", new Color(0.8f, 0.7f, 0.6f));
 		_discardPileBtn.AddThemeFontSizeOverride("font_size", 13);
@@ -1291,7 +1371,7 @@ public partial class CombatUI : Control
 		{
 			Name = "WeaponAttackButton",
 			Text = Localization.Localization.T("ui.combat.weapon_attack", "⚔ 武器攻击"),
-			CustomMinimumSize = new Vector2(100, 28),
+			CustomMinimumSize = new Vector2(100, 44),
 			Visible = false,
 		};
 		_weaponAttackButton.AddThemeColorOverride("font_color", new Color(1f, 0.5f, 0.3f));
@@ -1303,7 +1383,7 @@ public partial class CombatUI : Control
 		{
 			Name = "WeaponActiveSkillButton",
 			Text = Localization.Localization.T("ui.combat.weapon_skill", "✦ 技能"),
-			CustomMinimumSize = new Vector2(100, 28),
+			CustomMinimumSize = new Vector2(100, 44),
 			Visible = false,
 		};
 		_weaponActiveSkillButton.AddThemeColorOverride("font_color", new Color(0.8f, 0.6f, 1f));
@@ -1936,7 +2016,7 @@ public partial class CombatUI : Control
 		// 启动攻击拖拽追踪（支持按住拖动→松手攻击）
 		_isAttackDragPressed = true;
 		_attackDragHasMoved = false;
-		_attackDragStartPos = GetGlobalMousePosition();
+		_attackDragStartPos = GetInputPosition();
 
 		GD.Print($"[CombatUI] 选中己方随从 {minion.CardName} 准备攻击");
 
@@ -3262,6 +3342,46 @@ public partial class CombatUI : Control
 		// 清除攻击拖拽状态
 		_isAttackDragPressed = false;
 		_attackDragHasMoved = false;
+	}
+
+	/// <summary>
+	/// 更新移动端取消按钮的可见性。
+	/// 在非 Normal 选择模式或手牌选择模式下显示，帮助移动端用户取消当前操作（替代桌面端右键）。
+	/// </summary>
+	private void UpdateMobileCancelButton()
+	{
+		if (_mobileCancelButton == null) return;
+
+		bool shouldShow = MobileInputHelper.IsMobile
+			&& (_selectionMode != SelectionMode.Normal || _isHandSelecting);
+		_mobileCancelButton.Visible = shouldShow;
+	}
+
+	/// <summary>
+	/// 移动端取消按钮按下回调。
+	/// 根据当前状态执行不同的取消操作：手牌选择、开发者伤害、攻击选择等。
+	/// </summary>
+	private void OnMobileCancelPressed()
+	{
+		GD.Print("[CombatUI] 移动端取消按钮按下");
+
+		// 手牌选择模式：取消手牌弃牌选择
+		if (_isHandSelecting)
+		{
+			_combat?.CancelHandDiscardSelection();
+			return;
+		}
+
+		// 开发者伤害模式：退出开发者伤害模式
+		if (_selectionMode == SelectionMode.DevDamageTargeting)
+		{
+			ExitDevDamageMode();
+			return;
+		}
+
+		// 其他选择模式（攻击目标、武器目标、法术目标、随从放置等）：重置选择
+		ResetSelection();
+		_handUI.RefreshHand();
 	}
 
 	// ===== 发现选牌 UI =====
