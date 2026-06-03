@@ -221,6 +221,17 @@ public class Hero : IDamageTarget, IDamageSource
     public event Action<Hero, IDamageSource, int>? OnAttacked;
 
     /// <summary>
+    /// 英雄受到伤害时触发。传递伤害事件信息和伤害来源。
+    /// 在 ApplyDamage 之后触发，此时生命值已减少。
+    /// </summary>
+    public event Action<DamageEventInfo, IDamageSource?>? OnDamageTaken;
+
+    /// <summary>
+    /// 英雄恢复生命值时触发。参数为实际恢复量。
+    /// </summary>
+    public event Action<int>? OnHealed;
+
+    /// <summary>
     /// 本回合是否已经受到过 >0 的生命伤害。仅当 <see cref="HasUnbreakable"/> 为 true 时，
     /// <see cref="TakeDamage(int, IDamageSource?, DamageKind)"/> 才会检查此标记以阻止后续伤害。
     /// </summary>
@@ -285,19 +296,21 @@ public class Hero : IDamageTarget, IDamageSource
 
         // Step 1: ALWAYS go through DamageResolver first (Defense modifier applies here)
         int resolvedDamage = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
+        int armorAbsorbed = 0;
 
         // Step 2: Armor absorbs remaining damage AFTER defense
         if (CurrentArmor > 0)
         {
-            int absorbed = Math.Min(CurrentArmor, resolvedDamage);
-            CurrentArmor -= absorbed;
-            resolvedDamage -= absorbed;
+            armorAbsorbed = Math.Min(CurrentArmor, resolvedDamage);
+            CurrentArmor -= armorAbsorbed;
+            resolvedDamage -= armorAbsorbed;
 
-            GD.Print($"[Hero] 护甲吸收了 {absorbed} 点伤害（防御力调整后），剩余护甲：{CurrentArmor}");
+            GD.Print($"[Hero] 护甲吸收了 {armorAbsorbed} 点伤害（防御力调整后），剩余护甲：{CurrentArmor}");
 
             if (resolvedDamage <= 0)
             {
                 ResolveAttackSideEffects(source, kind, 0);
+                OnDamageTaken?.Invoke(new DamageEventInfo(0, armorAbsorbed, true), source);
                 return;
             }
         }
@@ -306,6 +319,9 @@ public class Hero : IDamageTarget, IDamageSource
 
         // 不破（1）：生命伤害 > 0 时，标记本回合已受伤
         _hasTakenDamageThisTurn = true;
+
+        // 伤害事件通知（ApplyDamage 之后触发，保证 HP 已减少）
+        OnDamageTaken?.Invoke(new DamageEventInfo(resolvedDamage, armorAbsorbed, false), source);
 
         // Step 3: Attack-only side effects after damage is settled.
         ResolveAttackSideEffects(source, kind, resolvedDamage);
@@ -398,7 +414,15 @@ public class Hero : IDamageTarget, IDamageSource
     /// <param name="amount">恢复量</param>
     public void Heal(int amount)
     {
+        int beforeHeal = _core.CurrentHealth;
         _core.Heal(amount);
+        int actualHealed = _core.CurrentHealth - beforeHeal;
+
+        if (actualHealed > 0)
+        {
+            OnHealed?.Invoke(actualHealed);
+        }
+
         GD.Print($"[Hero] 恢复 {amount} 点生命值，当前生命：{CurrentHealth}");
     }
 

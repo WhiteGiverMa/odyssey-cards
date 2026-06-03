@@ -145,6 +145,16 @@ public partial class CombatUI : Control
 	private bool _isVictory;
 
 	/// <summary>
+	/// 伤害跳字容器——DamageNumberLayer CanvasLayer 的子节点，独立于主布局。
+	/// </summary>
+	private Control _damageNumberContainer = null!;
+
+	/// <summary>
+	/// 棋盘运行时引用——用于订阅随从放置/移除事件。
+	/// </summary>
+	private Board? _board;
+
+	/// <summary>
 	/// 拖拽层——卡牌拖拽时重parent到此，使其脱离 HandUI 的 HBoxContainer 布局约束。
 	/// </summary>
 	private Control _dragLayer = null!;
@@ -467,6 +477,12 @@ public partial class CombatUI : Control
 		GD.Print($"[CombatUI] 初始化 — 玩家生命 {combat.PlayerHero.CurrentHealth}/{combat.PlayerHero.MaxHealth}，" +
 				  $"敌方生命 {combat.EnemyHero.CurrentHealth}/{combat.EnemyHero.MaxHealth}");
 
+		// 伤害跳字层（介于棋盘效果层和拖拽层之间，Layer=15）
+		var damageNumberLayer = new CanvasLayer { Name = "DamageNumberLayer", Layer = 15 };
+		AddChild(damageNumberLayer);
+		_damageNumberContainer = new Control { Name = "DamageNumberContainer", MouseFilter = MouseFilterEnum.Ignore };
+		damageNumberLayer.AddChild(_damageNumberContainer);
+
 		// 创建并初始化子组件
 		SetupBoardUI();
 		SetupHandUI();
@@ -484,6 +500,13 @@ public partial class CombatUI : Control
 
 		// 订阅事件
 		SubscribeEvents();
+
+		// 英雄伤害跳字
+		SubscribeHeroDamageEvents(_combat.PlayerHero, -1);
+		for (int i = 0; i < _combat.EnemyUnits.Count; i++)
+		{
+			SubscribeHeroDamageEvents(_combat.EnemyUnits[i].Body, i);
+		}
 
 		// 首次刷新
 		RefreshAll();
@@ -760,7 +783,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void SetupBoardUI()
 	{
-		_boardUI.SetBoard(_combat.Board);
+		_board = _combat.Board;
+		_boardUI.SetBoard(_board);
 	}
 
 	/// <summary>
@@ -1444,6 +1468,46 @@ public partial class CombatUI : Control
 
 		// 游戏结束 → 显示弹窗
 		_combat.OnGameOver += ShowGameOverPopup;
+
+		// 随从伤害跳字 — 随从放置时通过闭包捕获 minion 引用订阅事件
+		_board.OnMinionPlaced += (minion, _) =>
+		{
+			var capturedMinion = minion;
+			capturedMinion.OnDamageTaken += (info, source) =>
+			{
+				var pos = GetMinionScreenCenter(capturedMinion);
+				if (pos != Vector2.Zero)
+					FloatingDamageNumber.CreateDamage(info, pos, _damageNumberContainer);
+			};
+			capturedMinion.OnHealed += (amount) =>
+			{
+				var pos = GetMinionScreenCenter(capturedMinion);
+				if (pos != Vector2.Zero)
+					FloatingDamageNumber.CreateHeal(amount, pos, _damageNumberContainer);
+			};
+		};
+	}
+
+	/// <summary>
+	/// 为英雄订阅伤害/治疗事件，在其上方生成跳字。
+	/// </summary>
+	/// <param name="hero">英雄实例</param>
+	/// <param name="enemyIndex">敌方英雄索引（玩家英雄传 -1）</param>
+	private void SubscribeHeroDamageEvents(Hero hero, int enemyIndex)
+	{
+		hero.OnDamageTaken += (info, source) =>
+		{
+			var pos = ResolveTargetScreenPos(hero);
+			if (pos != Vector2.Zero)
+				FloatingDamageNumber.CreateDamage(info, pos, _damageNumberContainer);
+		};
+
+		hero.OnHealed += (amount) =>
+		{
+			var pos = ResolveTargetScreenPos(hero);
+			if (pos != Vector2.Zero)
+				FloatingDamageNumber.CreateHeal(amount, pos, _damageNumberContainer);
+		};
 	}
 
 	// ===== 刷新方法 =====

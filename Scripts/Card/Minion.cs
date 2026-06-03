@@ -129,6 +129,19 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// </summary>
     public bool IsDead => CurrentHealth <= 0;
 
+    // ===== 事件 =====
+
+    /// <summary>
+    /// 随从受到伤害时触发。传递伤害事件信息和伤害来源。
+    /// 在 ApplyDamage 之后触发，此时生命值已减少。
+    /// </summary>
+    public event Action<DamageEventInfo, IDamageSource?>? OnDamageTaken;
+
+    /// <summary>
+    /// 随从恢复生命值时触发。参数为实际恢复量。
+    /// </summary>
+    public event Action<int>? OnHealed;
+
     /// <summary>
     /// 计算此随从的目标标签掩码。
     /// 用于目标选择系统的合法性验证。
@@ -443,17 +456,21 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// <param name="kind">伤害结算类型</param>
     public void TakeDamage(int baseDamage, IDamageSource? source, DamageKind kind)
     {
+        int armorAbsorbed = 0;
+
         // Step 1: Armor absorbs damage first (before DamageResolver)
         if (_currentArmor > 0)
         {
             if (baseDamage >= _currentArmor)
             {
+                armorAbsorbed = _currentArmor;
                 int remaining = baseDamage - _currentArmor;
                 _currentArmor = 0;
                 baseDamage = remaining;
             }
             else
             {
+                armorAbsorbed = baseDamage;
                 _currentArmor -= baseDamage;
                 baseDamage = 0;
             }
@@ -463,6 +480,10 @@ public class Minion : Card, IDamageSource, IDamageTarget
         // Step 2: Existing DamageResolver pipeline for HP damage
         int result = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
         ApplyDamage(result, source);
+
+        // 伤害事件通知（ApplyDamage 之后触发，保证 HP 已减少）
+        bool wasFullyBlocked = result == 0;
+        OnDamageTaken?.Invoke(new DamageEventInfo(result, armorAbsorbed, wasFullyBlocked), source);
     }
 
     /// <summary>
@@ -491,6 +512,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
         if (healed > 0)
         {
+            OnHealed?.Invoke(healed);
             GD.Print($"{CardName} 恢复了 {healed} 点生命值，当前生命值：{CurrentHealth}");
         }
     }
