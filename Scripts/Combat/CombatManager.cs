@@ -2588,12 +2588,12 @@ public partial class CombatManager : Node
             {
                 for (int i = 0; i < discarded; i++)
                 {
-                    int? emptySlot = Board.GetEmptySlotIndex(isPlayerSide: true);
-                    if (emptySlot.HasValue)
+                    int emptySlot = Board.GetEmptySlotIndex(isPlayerSide: true);
+                    if (emptySlot >= 0)
                     {
                         var tokenMinion = new Minion(tokenData, isPlayerSide: true);
-                        Board.PlaceMinion(tokenMinion, emptySlot.Value);
-                        GD.Print($"[CombatManager]   刀盾危机：在槽位{emptySlot.Value}放置我的刀盾");
+                        Board.PlaceMinion(tokenMinion, emptySlot);
+                        GD.Print($"[CombatManager]   刀盾危机：在槽位{emptySlot}放置我的刀盾");
                     }
                     else
                     {
@@ -2667,12 +2667,12 @@ public partial class CombatManager : Node
             {
                 for (int i = 0; i < discarded; i++)
                 {
-                    int? emptySlot = Board.GetEmptySlotIndex(isPlayerSide: true);
-                    if (emptySlot.HasValue)
+                    int emptySlot = Board.GetEmptySlotIndex(isPlayerSide: true);
+                    if (emptySlot >= 0)
                     {
                         var tokenMinion = new Minion(tokenData, isPlayerSide: true);
-                        Board.PlaceMinion(tokenMinion, emptySlot.Value);
-                        GD.Print($"[CombatManager]   刀盾危机：在槽位{emptySlot.Value}放置我的刀盾");
+                        Board.PlaceMinion(tokenMinion, emptySlot);
+                        GD.Print($"[CombatManager]   刀盾危机：在槽位{emptySlot}放置我的刀盾");
                     }
                     else
                     {
