@@ -7,8 +7,6 @@
 
 - 本文件是公共版。本地规则见 `AGENTS_LOCAL.md`（gitignored）。
 - 工作语言中文。代码注释中文。子代理调度中文。
-- 复杂设计/顽固 bug → 参考 STS2 反编译源码 `G:/dev/slay-the-spire-2/`。
-- 读完 STS2 源码 → 随笔保存到 `docs/notepads/`。
 - 新增功能后 → 更新本文件。
 
 ## Map
@@ -62,7 +60,7 @@ dotnet test                   # xunit (4 测试文件, tests/csharp/)
 | 伤害计算 | `Core/DamageResolver.cs` | 三阶段：ADDITIVE→MULTIPLICATIVE→CAPPING，Clamp≥0 |
 | 敌人 AI | `AI/IntentAI.cs` / `AI/EnemyRegistry.cs` | 多种敌人 + 多种 Brain |
 | UI 总控 | `UI/CombatUI.cs` | 程序化布局，5 种 SelectionMode + 攻击拖拽状态机 |
-| 手牌 | `UI/HandUI.cs` | STS2 风扇交叠，Control 手动布局（非 Container） |
+| 手牌 | `UI/HandUI.cs` | 风扇交叠，Control 手动布局（非 Container） |
 | 卡牌交互 | `UI/CardUI.cs` | 点击/拖拽状态机，`_Process` 轮询 |
 | 棋盘 UI | `UI/BoardUI.cs` | 2×5 BoardSlot，OnSlotRightClicked |
 | 收藏 | `UI/CollectionUI.cs` / `CardGrid.cs` | 浏览/编辑/分页/过滤 |
@@ -87,24 +85,24 @@ dotnet test                   # xunit (4 测试文件, tests/csharp/)
 - 每个阶段挂载 0..N 个 `IDamageModifier`。
 - 意图伤害预览走 `DamageResolver.ResolvePreviewDamage()`。
 - 护甲吸收在 DamageResolver **之前**——有护甲时不走伤害管线。
-- 参考 STS2：`Hook.ModifyDamage` 同模式，Cap 阶段可做 Intangible(≤1)，Multiplicative 阶段可做 Colossus(有易伤→×0.5)。
+- Cap 阶段：伤害上限（如 Intangible≤1）；Multiplicative 阶段：条件性倍率（如有易伤→×0.5）。
 
 ### 意图系统
 - `EnemyIntent` 是 struct：`DamageCalc`(Func lambda 延迟计算) + `TargetSelector`(Func lambda 动态选目标) + 显示文本。
 - 意图不存静态数值——每次查询重算，保证战场变化时意图显示实时更新。
 - `CombatManager.OnCombatStateChanged` 事件：Board/Minion 状态变更 → UI 刷新意图。
 - 意图执行动画期间 `CombatManager.IsEnemyTurnAnimating` 冻结 UI 不刷新。
-- 参考 STS2：`AbstractIntent.DamageCalc: Func<decimal>` 同模式；`_isFrozen` 冻结同模式。
+- `DamageCalc` 为 lambda 延迟求值，`IsEnemyTurnAnimating` 冻结动画期间 UI 不刷新。
 
 ### 多敌人架构
 - 每个敌人是独立 actor：自己的 HP、MoveState 链、Intent。
 - `EnemyUnit` = `Hero`(身体) + `EnemyEncounter`(大脑)，不是共享血条包装器。
 - 跨敌人协同用被动/状态效果监听事件，不让 Encounter 变上帝对象。
 - 敌方随从意图≥`DefaultAttackMinionBrain`，不降级为"无意图自动攻击"。
-- 参考 STS2：Kaiser Crab 双部件各自独立 Monster，协同通过 Power/事件。
+- 协同通过被动/事件监听，不通过上帝对象指挥。
 
 ### 领域系统
-- 领域 ≈ STS2 Power：打出时挂 `ActiveDomain` 到 `Hero.ActiveDomains`，长期行为在战斗事件点触发。
+- 领域：打出时挂 `ActiveDomain` 到 `Hero.ActiveDomains`，长期行为在战斗事件点触发。
 - 领域不是"消耗性法术"——打出后的效果持续性触发，非一次性结算。
 - Counter 叠加：多次打出同一领域 = 多层 counter，每触发一次消耗一层。
 
@@ -112,7 +110,7 @@ dotnet test                   # xunit (4 测试文件, tests/csharp/)
 - 双交互模式（手牌/攻击均适用）：点击选中→第二击目标 / 按住拖拽→松手打出。`DragThreshold=10f` 区分。
 - 手牌：`HandUI` 手动 Control 布局，风扇交叠 `OVERLAP_FACTOR=0.85`，悬停上浮放大，相邻推开衰减。
 - 攻击：拖拽不 reparent 随从到 DragLayer——留在原位，视觉仅靠 `ArrowRenderer`。
-- 出牌区域判定：参考 STS2 Y 轴阈值（屏幕高度 75%），自适应拖拽起始位置调整阈值。
+- 出牌区域判定：Y 轴阈值（屏幕高度 75%），自适应拖拽起始位置调整阈值。
 - 目标选择：无目标卡牌 → 松手即出；有目标卡牌 → 瞄准线+准星→第二击确认。
 - 取消：右键 / 拖回底部 / 松手在无效区域。
 
@@ -131,7 +129,7 @@ dotnet test                   # xunit (4 测试文件, tests/csharp/)
 ### 树操作安全
 - 避免同一调用栈内 `QueueFree` 旧节点 + `AddChild` 新节点。
 - 批量重建时应：缓存目标状态 → deferred 边界统一重建。
-- 参考 STS2：`AddChildSafely`/`RemoveChildSafely`/`QueueFreeSafely`——主线程直接操作，否则 `CallDeferred`。
+- 原则：主线程直接操作，否则 `CallDeferred`。
 
 ## Conventions
 
@@ -231,7 +229,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - 双层 CommanderCore：Player 和 CombatManager 各持一份，`internal Deck setter` 共享牌堆。
 - 手动法力同步：GameState 和 CommanderCore 各维护法力，CombatManager 手动 SetMana。
 - 意图动态计算：lambda 延迟求值，不缓存静态数值。
-- STS2 风扇手牌：Control 手动 LayoutChildren，`OVERLAP_FACTOR=0.85`，`BASE_SCALE=0.85`。
+- 风扇手牌：Control 手动 LayoutChildren，`OVERLAP_FACTOR=0.85`，`BASE_SCALE=0.85`。
 - 双交互：点击选中+拖拽松手，`DragThreshold=10f` 区分。
 - 攻击双交互：箭头追随+松手攻击/右键取消，`AttackDragThreshold=10f`。
 - 导出回退：DirAccess 优先 + 硬编码回退。
