@@ -1,5 +1,6 @@
 using Godot;
 using OdysseyCards.Character;
+using OdysseyCards.Infrastructure;
 using OdysseyCards.Localization;
 using OdysseyCards.UI;
 
@@ -41,9 +42,42 @@ public partial class MainMenu : Control
         _collectionButton.Pressed += OnCollectionPressed;
         _settingsButton.Pressed += OnSettingsPressed;
 
+        // 移动端触控兼容：确保鼠标过滤正确
+        if (MobileInputHelper.IsMobile)
+        {
+            MouseFilter = MouseFilterEnum.Stop;
+        }
+
         Localization.Localization.OnLanguageChanged += OnLanguageChanged;
         GameManager.Instance.LanguageChanged += OnLanguageChanged;
         UpdateLabels();
+    }
+
+    /// <summary>
+    /// 移动端触控兼容：手动将触控事件路由到按钮。
+    /// Godot 4.6 C# Android 上标准 Button 可能不响应触控，
+    /// 因此在顶层 Control._GuiInput 中做命中检测并直接触发按钮回调。
+    /// </summary>
+    public override void _GuiInput(InputEvent @event)
+    {
+        if (!MobileInputHelper.IsMobile) return;
+
+        if (@event is InputEventScreenTouch touch && touch.Pressed)
+        {
+            if (HitTestButton(_startButton, touch.Position))
+                OnStartPressed();
+            else if (HitTestButton(_collectionButton, touch.Position))
+                OnCollectionPressed();
+            else if (HitTestButton(_settingsButton, touch.Position))
+                OnSettingsPressed();
+        }
+    }
+
+    /// <summary>检测触控坐标是否在按钮矩形内。</summary>
+    private static bool HitTestButton(Button button, Vector2 touchPos)
+    {
+        if (!button.IsInsideTree() || !button.Visible) return false;
+        return button.GetGlobalRect().HasPoint(touchPos);
     }
 
     private void OnStartPressed()
