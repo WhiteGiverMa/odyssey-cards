@@ -145,9 +145,14 @@ public partial class CombatUI : Control
 	private bool _isVictory;
 
 	/// <summary>
-	/// 伤害跳字容器——DamageNumberLayer CanvasLayer 的子节点，独立于主布局。
+	/// 伤害跳字的父容器（独立 CanvasLayer，Layer=15），避免布局重算影响跳字位置。
 	/// </summary>
 	private Control _damageNumberContainer = null!;
+
+	/// <summary>
+	/// 卡牌飞行 VFX 的父容器（独立 CanvasLayer，Layer=20），用于卡牌打出→弃牌堆飞行动画。
+	/// </summary>
+	private Control _cardFlyLayer = null!;
 
 	/// <summary>
 	/// 棋盘运行时引用——用于订阅随从放置/移除事件。
@@ -482,6 +487,13 @@ public partial class CombatUI : Control
 		AddChild(damageNumberLayer);
 		_damageNumberContainer = new Control { Name = "DamageNumberContainer", MouseFilter = MouseFilterEnum.Ignore };
 		damageNumberLayer.AddChild(_damageNumberContainer);
+
+		// 卡牌飞行 VFX 层（Layer=20，高于伤害跳字，低于拖拽层 Z=100）
+		var cardFlyLayer = new CanvasLayer { Name = "CardFlyLayer", Layer = 20 };
+		AddChild(cardFlyLayer);
+		_cardFlyLayer = new Control { Name = "CardFlyContainer", MouseFilter = MouseFilterEnum.Ignore };
+		_cardFlyLayer.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		cardFlyLayer.AddChild(_cardFlyLayer);
 
 		// 创建并初始化子组件
 		SetupBoardUI();
@@ -1486,6 +1498,26 @@ public partial class CombatUI : Control
 					FloatingDamageNumber.CreateHeal(amount, pos, _damageNumberContainer);
 			};
 		};
+
+		// 随从死亡飞行动画 — 在槽位清空前获取屏幕坐标
+		_board.OnMinionPreRemove += (minion, slotIndex, isPlayerSide) =>
+		{
+			// 仅玩家方随从死亡时播放飞行特效
+			if (!isPlayerSide) return;
+
+			var cardPos = _boardUI.GetSlotScreenCenter(slotIndex, isPlayerSide);
+			if (cardPos == Vector2.Zero) return;
+
+			// 创建临时展示用 CardUI（不参与交互，动画结束后自毁）
+			var cardUI = new CardUI { DisplayOnly = true };
+			cardUI.SetCard(minion.ToRuntimeCard());
+			cardUI.GlobalPosition = cardPos;
+
+			// 轮战 → 抽牌堆，否则 → 弃牌堆
+			bool toDrawPile = minion.HasRecycle;
+			Vector2 targetPos = toDrawPile ? GetDrawPileCenter() : GetDiscardPileCenter();
+			CardFlyVfx.PlayToDiscard(cardUI, targetPos, _cardFlyLayer);
+		};
 	}
 
 	/// <summary>
@@ -1937,6 +1969,7 @@ public partial class CombatUI : Control
 		if (success)
 		{
 			GD.Print($"[CombatUI] ✓ 随从 {_selectedCard.CardName} 已放置到槽位 {slotIndex}");
+			// 随从上场不走飞行动画——随从死亡时才飞向牌堆
 		}
 		else
 		{
@@ -1967,7 +2000,16 @@ public partial class CombatUI : Control
 		}
 
 		GD.Print($"[CombatUI] 对 {target.CardName} 施放 {_selectedCard.CardName}");
-		_combat.PlaySpell(_selectedCard, target);
+		bool success = _combat.PlaySpell(_selectedCard, target);
+		if (success)
+		{
+			GD.Print($"[CombatUI] ✓ 法术 {_selectedCard.CardName} 已施放");
+			AnimateCardToDiscardPile();
+		}
+		else
+		{
+			GD.Print($"[CombatUI] ✗ 法术施放失败");
+		}
 		RefreshAll();
 	}
 
@@ -2326,6 +2368,59 @@ public partial class CombatUI : Control
 			_dragCardUI.QueueFree();
 			_dragCardUI = null;
 		}
+	}
+
+	/// <summary>
+	/// 将当前拖拽卡牌从 _dragLayer 提取出来并启动飞向牌堆的动画。
+	/// 目标位置根据卡牌关键词自动选择：轮战卡牌 → 抽牌堆，普通卡牌 → 弃牌堆。
+	/// 调用后 _dragCardUI 设为 null，CleanupDragCard 不再处理这张卡。
+	/// 仅在卡牌成功打出后调用。
+	/// </summary>
+	private void AnimateCardToDiscardPile()
+	{
+		if (_dragCardUI == null) return;
+
+		var cardUI = _dragCardUI;
+		_dragCardUI = null; // 提取所有权，防止 CleanupDragCard 二次处理
+
+		cardUI.OnCardDropped -= OnCardDroppedHandler;
+		cardUI.OnDragMove -= OnDragMoveForPlayZone;
+		cardUI.CancelDragSilent();
+
+		// 领域 → 玩家效果栏，轮战 → 抽牌堆，普通 → 弃牌堆
+		Vector2 targetPos;
+		if (_selectedCard?.Type == CardType.Domain)
+			targetPos = GetPlayerEffectBarCenter();
+		else if (_selectedCard?.HasRecycle ?? false)
+			targetPos = GetDrawPileCenter();
+		else
+			targetPos = GetDiscardPileCenter();
+		CardFlyVfx.PlayToDiscard(cardUI, targetPos, _cardFlyLayer);
+	}
+
+	/// <summary>
+	/// 获取弃牌堆按钮中心点的屏幕位置。
+	/// </summary>
+	private Vector2 GetDiscardPileCenter()
+	{
+		return _discardPileBtn.GlobalPosition + _discardPileBtn.Size / 2f;
+	}
+
+	/// <summary>
+	/// 获取抽牌堆按钮中心点的屏幕位置，用于轮战卡牌飞行动画。
+	/// </summary>
+	private Vector2 GetDrawPileCenter()
+	{
+		return _drawPileBtn.GlobalPosition + _drawPileBtn.Size / 2f;
+	}
+
+	/// <summary>
+	/// 获取玩家效果栏中心点的屏幕位置，用于领域卡牌飞行动画。
+	/// 领域打出后附加到英雄，不进入任何牌堆。
+	/// </summary>
+	private Vector2 GetPlayerEffectBarCenter()
+	{
+		return _playerEffectBar.GlobalPosition + _playerEffectBar.Size / 2f;
 	}
 
 	/// <summary>
@@ -3567,6 +3662,7 @@ public partial class CombatUI : Control
 		if (success)
 		{
 			GD.Print($"[CombatUI] ✓ 无目标卡牌 {_selectedCard.CardName} 已打出");
+			AnimateCardToDiscardPile();
 			RefreshAll();
 		}
 		else

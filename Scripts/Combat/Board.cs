@@ -34,6 +34,13 @@ public class Board
 	/// </summary>
 	public event Action<Minion>? OnMinionRemoved;
 
+	/// <summary>
+	/// 随从即将从战场被移除前触发（槽位尚未清空）。
+	/// 参数依次为：随从、槽位索引、是否为玩家方。
+	/// 供 UI 层在槽位清空前获取屏幕坐标，用于死亡飞行动画。
+	/// </summary>
+	public event Action<Minion, int, bool>? OnMinionPreRemove;
+
 	// ===== 战场槽位 =====
 
 	/// <summary>
@@ -133,6 +140,8 @@ public class Board
 		{
 			if (slots[i] == minion)
 			{
+				// 先通知 UI 层（槽位尚未清空，可获取屏幕坐标），再清空槽位
+				OnMinionPreRemove?.Invoke(minion, i, minion.IsPlayerSide);
 				slots[i] = null;
 				minion.BoardSlotIndex = -1;
 				OnMinionRemoved?.Invoke(minion);
