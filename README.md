@@ -5,7 +5,7 @@
 类炉石传说的回合制卡牌对战 Roguelite 游戏 — Godot 4.6 + C#
 
 > **分支:** `main` | **状态:** 能玩MVP
-> 59 个 .cs 文件，约 17,700 行代码。完整回合制战斗循环可运行，含卡牌收藏、地图路线、存档系统。
+> 78 个 .cs 文件，约 20,100 行代码。完整回合制战斗循环可运行，含卡牌收藏、地图路线、存档系统。
 
 ## 核心系统
 
@@ -80,16 +80,16 @@ SaveDataManager + GameSaveData 提供游戏进度持久化。
 
 ```
 Scripts/
-├── Core/ (16)           # CardData, DamageResolver, GameManager(Autoload), Keyword, CardType, SaveDataManager…
-├── UI/ (15)             # CombatUI, BoardUI, HandUI, CardUI, CollectionUI, MapUI, PauseMenu, DiscoverUI, RewardUI…
-├── Card/ (9)            # Card, Minion, Spell, Hero, Weapon, WeaponSkill, ActiveDomain, StatusEffect (纯 C#)
+├── Core/ (25)           # CardData, DamageResolver, GameManager(Autoload), Keyword, CardType, SaveDataManager…
+├── UI/ (18)             # CombatUI, BoardUI, HandUI, CardUI, CollectionUI, MapUI, PauseMenu, DiscoverUI, RewardUI…
+├── Card/ (10)           # Card, Minion, Spell, Hero, Weapon, WeaponSkill, ActiveDomain, StatusEffect (纯 C#)
 ├── Character/ (5)       # Player, CommanderCore, Deck, CombatDeckState, ICommander
-├── Combat/ (3)          # CombatManager(1740行), Board, GameState (纯 C#)
-├── AI/ (1)              # IntentAI (Cultist/SlimeBoss/WolfRider)
+├── Combat/ (4)          # CombatManager(1740行), Board, EnemyUnit, GameState (纯 C#)
+├── AI/ (7)              # IntentAI, EnemyRegistry, MechanicalRoachBrain, ZhangLang, ShanHu, DefaultAttackMinionBrain
 ├── Roguelike/ (3)       # EventSelector, RoomData, GameRunState
-├── Localization/ (5)    # YAML-based 多语言系统
+├── Localization/ (5)    # YAML-based 多语言系统（LocalStr/ConcatLocalStr/ILocalizable/YamlParser）
 └── Infrastructure/ (1)  # DevConsole (Autoload) — 开发者控制台
-Resources/Cards/         # 16 张卡牌数据 .tres（7法术 + 6随从 + 3领域）
+Resources/Cards/         # 32 张卡牌数据 .tres（法术15 + 随从11 + 领域6）
 Resources/Localization/  # zh.yaml / en.yaml 翻译文件
 Scenes/                  # Main.tscn, Combat.tscn, Collection.tscn, Map.tscn（4 个场景）
 ```
