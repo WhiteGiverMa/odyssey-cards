@@ -112,12 +112,4 @@ public class Card
         return availableMana >= Cost;
     }
 
-    /// <summary>
-    /// 获取卡牌信息摘要。
-    /// </summary>
-    /// <returns>格式如「火球术 | 4费」</returns>
-    public virtual string GetCardInfo()
-    {
-        return $"{CardName} | {Cost}费";
-    }
 }

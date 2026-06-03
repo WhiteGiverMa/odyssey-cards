@@ -134,7 +134,7 @@ public struct EnemyIntent
             IntentType.Defend => Localization.Localization.T("intent.defend_format", "获得 {amount} 点护甲")
                 .Replace("{amount}", Value.ToString()),
             IntentType.Summon => BuildSummonDescription(),
-            IntentType.Buff => Description,
+            IntentType.Buff => Localization.Localization.T("intent.buff_format", "{desc}").Replace("{desc}", Description),
             _ => Description
         };
     }

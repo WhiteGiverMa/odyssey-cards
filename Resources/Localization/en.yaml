@@ -65,9 +65,11 @@ ui:
     board_empty: "Empty"
     passive_skill: "Passive: {desc}"
     cost_suffix: " MP"
+    attack_suffix: " ATK"
   card:
     type_unit: "UNIT"
     type_order: "ORDER"
+    type_spell: "Spell"
     deploy: "Deploy"
     move: "Move"
     attack: "Attack"
@@ -111,6 +113,12 @@ ui:
     keyword_deathrattle: "D"
     keyword_ambush: "A"
     keyword_impact: "I"
+    defense_prefix: "Def"
+  card_grid:
+    filter_all: "All"
+    filter_minion: "Minion"
+    filter_spell: "Spell"
+    filter_domain: "Domain"
   pause:
     title: "Pause"
     continue_game: "Continue"
@@ -178,6 +186,11 @@ ui:
     delete_confirm_title: "Confirm Delete Deck"
     delete_confirm_message: "Delete deck \"{name}\"? ({count} cards)"
     changes_undone: "Changes undone"
+    deck_file_filter: "JSON Deck Files"
+
+language:
+  name_zh: "中文"
+  name_en: "English"
 
 weapon:
   ion_pistol:
@@ -316,6 +329,7 @@ cards:
 
 intent:
   attack_format: "Deal {damage} damage to {target}"
+  buff_format: "{desc}"
   defend_format: "Gain {amount} Armor"
   summon_format: "Summon {name} ({atk}/{hp})"
   summon_charge_format: "Summon {name} ({atk}/{hp} Charge)"

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OdysseyCards.Core;
+using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.UI
 {
@@ -109,6 +110,23 @@ namespace OdysseyCards.UI
             // 布局已在构造函数中构建，无需重复。
             // 如果 _Ready 在构造函数之前被调用（不应发生），则兜底构建。
             EnsureLayout();
+            GameManager.Instance.LanguageChanged += OnLanguageChanged;
+        }
+
+        public override void _ExitTree()
+        {
+            base._ExitTree();
+            if (GameManager.Instance != null)
+                GameManager.Instance.LanguageChanged -= OnLanguageChanged;
+        }
+
+        /// <summary>
+        /// 语言切换时刷新过滤栏按钮文本。
+        /// </summary>
+        private void OnLanguageChanged(string lang)
+        {
+            if (!IsInsideTree()) return;
+            Refresh();
         }
 
         /// <summary>
@@ -150,10 +168,10 @@ namespace OdysseyCards.UI
             _filterBar.Visible = ShowFilterBar;
 
             // 类型过滤按钮
-            _filterBar.AddChild(CreateFilterButton("全部", () => SetTypeFilter(null)));
-            _filterBar.AddChild(CreateFilterButton("随从", () => SetTypeFilter(CardType.Minion)));
-            _filterBar.AddChild(CreateFilterButton("法术", () => SetTypeFilter(CardType.Spell)));
-            _filterBar.AddChild(CreateFilterButton("领域", () => SetTypeFilter(CardType.Domain)));
+            _filterBar.AddChild(CreateFilterButton(Loc.T("ui.card_grid.filter_all", "全部"), () => SetTypeFilter(null)));
+            _filterBar.AddChild(CreateFilterButton(Loc.T("ui.card_grid.filter_minion", "随从"), () => SetTypeFilter(CardType.Minion)));
+            _filterBar.AddChild(CreateFilterButton(Loc.T("ui.card_grid.filter_spell", "法术"), () => SetTypeFilter(CardType.Spell)));
+            _filterBar.AddChild(CreateFilterButton(Loc.T("ui.card_grid.filter_domain", "领域"), () => SetTypeFilter(CardType.Domain)));
 
             root.AddChild(_filterBar);
 

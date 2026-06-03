@@ -416,7 +416,7 @@ public partial class CollectionUI : Control
             Access = FileDialog.AccessEnum.Filesystem,
             Title = Loc.T("ui.collection.export_title", "导出牌组"),
         };
-        _fileDialog.AddFilter("*.json", "JSON 牌组文件");
+        _fileDialog.AddFilter("*.json", Loc.T("ui.collection.deck_file_filter", "JSON 牌组文件"));
         _fileDialog.FileSelected += OnFileDialogFileSelected;
         _fileDialog.Canceled += OnFileDialogCancelled;
         AddChild(_fileDialog);

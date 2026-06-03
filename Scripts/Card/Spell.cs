@@ -30,13 +30,4 @@ public class Spell : Card
     {
     }
 
-    /// <summary>
-    /// 获取法术信息摘要。
-    /// 格式如「火球术 | 4费」。
-    /// </summary>
-    /// <returns>法术信息字符串</returns>
-    public override string GetCardInfo()
-    {
-        return $"{CardName} | {Cost}费";
-    }
 }

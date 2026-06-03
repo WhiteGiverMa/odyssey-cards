@@ -1564,7 +1564,7 @@ public partial class CombatUI : Control
                     target = _combat.PlayerHero;
 
                 int dmg = DamageResolver.ResolvePreviewDamage(minion.Attack, minion, target);
-                intent = new EnemyIntent(IntentType.Attack, dmg, $"攻击造成 {dmg} 点伤害");
+                intent = new EnemyIntent(IntentType.Attack, dmg, Loc.T("intent.attack_format", "对{target}造成 {damage} 点伤害").Replace("{target}", "英雄").Replace("{damage}", dmg.ToString()));
                 intent.TargetSelector = _ => target;
             }
 

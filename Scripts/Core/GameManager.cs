@@ -92,6 +92,46 @@ public partial class GameManager : Node
     private readonly Dictionary<string, CardData> _allCardRegistry = new();
 
     /// <summary>
+    /// 卡牌资源路径硬编码列表——作为 DirAccess 在导出版本中失败时的回退方案。
+    /// 新增卡牌时需同步更新此列表。
+    /// </summary>
+    internal static readonly string[] CardResourcePaths =
+    {
+        "res://Resources/Cards/Domain_FlyingAway.tres",
+        "res://Resources/Cards/Domain_IdolTwilight.tres",
+        "res://Resources/Cards/Domain_InfiniteFire.tres",
+        "res://Resources/Cards/Domain_UnlimitedPotential.tres",
+        "res://Resources/Cards/Domain_Zhijian.tres",
+        "res://Resources/Cards/Minion_18thRegiment.tres",
+        "res://Resources/Cards/Minion_CentipedeAA.tres",
+        "res://Resources/Cards/Minion_CentipedeSiege.tres",
+        "res://Resources/Cards/Minion_DetectiveSquad.tres",
+        "res://Resources/Cards/Minion_KnightType1.tres",
+        "res://Resources/Cards/Minion_LianshuScout.tres",
+        "res://Resources/Cards/Minion_Mech_Lancer.tres",
+        "res://Resources/Cards/Minion_Roach.tres",
+        "res://Resources/Cards/Minion_Slime.tres",
+        "res://Resources/Cards/Minion_Tombstone.tres",
+        "res://Resources/Cards/Minion_WhatTheDogDoing.tres",
+        "res://Resources/Cards/Spell_Alert.tres",
+        "res://Resources/Cards/Spell_Animosity.tres",
+        "res://Resources/Cards/Spell_Assault.tres",
+        "res://Resources/Cards/Spell_BaitTactics.tres",
+        "res://Resources/Cards/Spell_BladeCrisis.tres",
+        "res://Resources/Cards/Spell_Discover.tres",
+        "res://Resources/Cards/Spell_Expose.tres",
+        "res://Resources/Cards/Spell_FullAssault.tres",
+        "res://Resources/Cards/Spell_Ignite.tres",
+        "res://Resources/Cards/Spell_Longtermism.tres",
+        "res://Resources/Cards/Spell_MoonFishing.tres",
+        "res://Resources/Cards/Spell_NanoCorpseArt.tres",
+        "res://Resources/Cards/Spell_Plan.tres",
+        "res://Resources/Cards/Spell_Shoushen.tres",
+        "res://Resources/Cards/Spell_Strike.tres",
+        "res://Resources/Cards/Spell_WhiteLegion.tres",
+    };
+
+    /// <summary>
     /// JSON 持久化管理器。
     /// </summary>
     private readonly SaveDataManager _saveManager = new();
@@ -199,15 +239,33 @@ public partial class GameManager : Node
     {
         _allCardRegistry.Clear();
 
+        // 先尝试 DirAccess（编辑器内正常工作）
+        bool loadedViaDir = TryLoadCardsViaDirAccess();
+
+        // 回退：硬编码路径列表（导出版本中 DirAccess 可能失败）
+        if (!loadedViaDir || _allCardRegistry.Count == 0)
+        {
+            if (!loadedViaDir)
+                GD.Print("[GameManager] DirAccess 枚举失败，使用硬编码卡牌路径回退");
+            LoadCardsFromPaths(CardResourcePaths);
+        }
+
+        GD.Print($"[GameManager] 卡牌注册表已初始化 — {_allCardRegistry.Count} 张卡牌");
+    }
+
+    /// <summary>
+    /// 尝试通过 DirAccess 枚举加载卡牌。在导出版本中可能失败。
+    /// </summary>
+    /// <returns>是否成功加载了卡牌</returns>
+    private bool TryLoadCardsViaDirAccess()
+    {
         using var dir = DirAccess.Open("res://Resources/Cards/");
         if (dir == null)
-        {
-            GD.PushError("[GameManager] 无法打开 Resources/Cards/ 目录");
-            return;
-        }
+            return false;
 
         dir.ListDirBegin();
         string fileName;
+        int count = 0;
         while ((fileName = dir.GetNext()) != "")
         {
             if (dir.CurrentIsDir()) continue;
@@ -218,10 +276,38 @@ public partial class GameManager : Node
             if (cardData == null || string.IsNullOrEmpty(cardData.Id)) continue;
 
             _allCardRegistry[cardData.Id] = cardData;
+            count++;
         }
         dir.ListDirEnd();
+        return count > 0;
+    }
 
-        GD.Print($"[GameManager] 卡牌注册表已初始化 — {_allCardRegistry.Count} 张卡牌");
+    /// <summary>
+    /// 从硬编码路径列表加载卡牌资源（导出版本回退方案）。
+    /// 新增卡牌时需同步更新 <see cref="CardResourcePaths"/>。
+    /// </summary>
+    private void LoadCardsFromPaths(string[] paths)
+    {
+        int count = 0;
+        foreach (var path in paths)
+        {
+            if (!ResourceLoader.Exists(path))
+            {
+                GD.PushWarning($"[GameManager] 卡牌资源不存在: {path}");
+                continue;
+            }
+
+            var cardData = GD.Load<CardData>(path);
+            if (cardData == null || string.IsNullOrEmpty(cardData.Id))
+            {
+                GD.PushWarning($"[GameManager] 卡牌资源加载失败: {path}");
+                continue;
+            }
+
+            _allCardRegistry[cardData.Id] = cardData;
+            count++;
+        }
+        GD.Print($"[GameManager] 从硬编码路径加载了 {count} 张卡牌");
     }
 
     /// <summary>
@@ -294,7 +380,7 @@ public partial class GameManager : Node
     {
         Decks.Clear();
         var defaultDeck = CreateStartingDeck();
-        defaultDeck.Name = "默认牌组";
+        defaultDeck.Name = Localization.Localization.T("ui.collection.default_deck_name", "默认牌组");
         Decks.Add(defaultDeck);
         ActiveDeckIndex = 0;
         GD.Print("[GameManager] 默认牌组已创建");

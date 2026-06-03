@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using OdysseyCards.Core;
+using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.UI;
 
@@ -437,7 +438,7 @@ public partial class CardUI : Control
 			Position = new Vector2(0, y),
 			HorizontalAlignment = HorizontalAlignment.Center,
 			VerticalAlignment = VerticalAlignment.Center,
-			Text = "法术",
+			Text = Loc.T("ui.card.type_spell", "法术"),
 			Visible = false,
 		};
 		_spellTypeLabel.AddThemeColorOverride("font_color", new Color("#ccccaa"));

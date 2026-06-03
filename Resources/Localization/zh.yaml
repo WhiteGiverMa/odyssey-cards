@@ -65,9 +65,11 @@ ui:
     board_empty: "空"
     passive_skill: "被动：{desc}"
     cost_suffix: "费"
+    attack_suffix: "攻"
   card:
     type_unit: "单位"
     type_order: "指令"
+    type_spell: "法术"
     deploy: "部署"
     move: "移动"
     attack: "攻击"
@@ -111,6 +113,12 @@ ui:
     keyword_deathrattle: "亡"
     keyword_ambush: "伏"
     keyword_impact: "击"
+    defense_prefix: "防"
+  card_grid:
+    filter_all: "全部"
+    filter_minion: "随从"
+    filter_spell: "法术"
+    filter_domain: "领域"
   pause:
     title: "暂停"
     continue_game: "继续"
@@ -178,6 +186,11 @@ ui:
     delete_confirm_title: "确认删除牌组"
     delete_confirm_message: "确定要删除牌组「{name}」吗？（共 {count} 张卡牌）"
     changes_undone: "已撤销未保存的更改"
+    deck_file_filter: "JSON 牌组文件"
+
+language:
+  name_zh: "中文"
+  name_en: "English"
 
 weapon:
   ion_pistol:
@@ -316,6 +329,7 @@ cards:
 
 intent:
   attack_format: "对{target}造成 {damage} 点伤害"
+  buff_format: "{desc}"
   defend_format: "获得 {amount} 点护甲"
   summon_format: "召唤 {name} ({atk}/{hp})"
   summon_charge_format: "召唤 {name} ({atk}/{hp} 闪击)"

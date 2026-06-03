@@ -145,8 +145,8 @@ public partial class SettingsPage : Control
         var languages = Localization.Localization.AvailableLanguages;
         var languageNames = new System.Collections.Generic.Dictionary<string, string>
         {
-            { "en", "English" },
-            { "zh", "中文" }
+            { "en", Localization.Localization.T("language.name_en", "English") },
+            { "zh", Localization.Localization.T("language.name_zh", "中文") }
         };
 
         int selectedIndex = 0;

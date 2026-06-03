@@ -507,16 +507,6 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
     // ===== 信息方法 =====
 
-    /// <summary>
-    /// 获取随从信息摘要。
-    /// 格式如「石拳食人魔 | 4费 4/5」。
-    /// </summary>
-    /// <returns>随从信息字符串</returns>
-    public override string GetCardInfo()
-    {
-        string defenseStr = Defense != 0 ? $" 防{Defense}" : "";
-        return $"{CardName} | {Cost}费 {Attack}/{CurrentHealth}{defenseStr}";
-    }
 
     // ===== 效果显示器数据聚合 =====
 

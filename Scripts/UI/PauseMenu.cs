@@ -253,8 +253,8 @@ public partial class PauseMenu : Control
         var languages = OdysseyCards.Localization.Localization.AvailableLanguages;
         var languageNames = new System.Collections.Generic.Dictionary<string, string>
         {
-            { "en", "English" },
-            { "zh", "中文" }
+            { "en", T("language.name_en", "English") },
+            { "zh", T("language.name_zh", "中文") }
         };
 
         int selectedIndex = 0;

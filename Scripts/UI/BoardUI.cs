@@ -563,7 +563,7 @@ public partial class BoardUI : Control
             _actionCostLabel.Visible = true;
 
             // 随从名称与战斗属性
-            string defenseStr = minion.Defense != 0 ? $" 防{minion.Defense:+0;-#}" : "";
+            string defenseStr = minion.Defense != 0 ? $" {Localization.Localization.T("ui.board.defense_prefix", "防")}{minion.Defense:+0;-#}" : "";
             string display = $"{minion.GetLocalizedName()}\n{minion.Attack}/{minion.CurrentHealth}{defenseStr}";
 
             // 关键词标签

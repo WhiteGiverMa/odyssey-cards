@@ -182,7 +182,7 @@ public partial class EnemyIdentityCard : Panel
             string disabledText = weapon.IsDisabled
                 ? $" [{Localization.Localization.T("ui.combat.weapon_disabled", "禁用")}]"
                 : "";
-            _weaponLabel.Text = $"{weapon.Name} {weapon.Attack}攻{disabledText}";
+            _weaponLabel.Text = $"{weapon.Name} {weapon.Attack}{Localization.Localization.T("ui.combat.attack_suffix", "攻")}{disabledText}";
         }
         else
         {
