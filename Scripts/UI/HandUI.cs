@@ -515,14 +515,14 @@ public partial class HandUI : Control
 	{
 		if (cardUI.Card == null) return;
 
-		// 移动端触控：首次点击展开，二次点击同一张进入拖拽
+		// 移动端触控：首次点击展开预览，拖拽出牌，不保留二次点击选中
 		if (MobileInputHelper.IsMobile)
 		{
 			if (_tappedSlot?.CardUI == cardUI)
 			{
-				// 二次点击同一张 → 收回展开态，走正常选中/拖拽流程
+				// 二次点击同一张 → 收回展开态（移动端用拖拽出牌，不进入选中模式）
 				ClearTapExpansion();
-				// 继续执行桌面统一逻辑
+				return;
 			}
 			else
 			{
