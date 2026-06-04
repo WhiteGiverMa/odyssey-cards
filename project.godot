@@ -56,6 +56,12 @@ version_control/autoload_on_startup=true
 
 enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg", "res://addons/gut/plugin.cfg")
 
+[input_devices]
+
+; 移动端关键：开启触控→鼠标模拟，使标准 Button.Pressed + CardUI GuiInput 响应触控
+pointing/emulate_mouse_from_touch=true
+pointing/emulate_touch_from_mouse=false
+
 [physics]
 
 3d/physics_engine="Jolt Physics"
