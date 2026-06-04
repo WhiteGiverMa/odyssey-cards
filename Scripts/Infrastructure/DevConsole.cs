@@ -14,6 +14,10 @@ namespace OdysseyCards.Infrastructure;
 /// 按反引号键 (`) 呼出/隐藏。支持文本命令和 AI 远程调用。
 /// </summary>
 /// <remarks>
+/// 移动端入口：设置页 → 开发者模式开关 → 控制台按钮 → 调用 Toggle()。
+/// 开发模式状态通过 IsDevMode 全局共享，PauseMenu 和 SettingsPage 共用。
+/// </remarks>
+/// <remarks>
 /// AI 调用方式（godot-mcp）：
 ///   game_call_method(nodePath="/root/DevConsole", method="DevCommand", args=["/damage 10"])
 ///
@@ -166,6 +170,11 @@ public partial class DevConsole : Node
             }
         }
     }
+
+    // ===== 开发者模式（全局共享状态） =====
+
+    /// <summary>开发者模式是否启用。SettingsPage 和 PauseMenu 共用此状态。</summary>
+    public static bool IsDevMode { get; set; }
 
     // ===== 可见性 =====
 

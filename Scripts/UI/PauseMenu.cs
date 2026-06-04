@@ -40,7 +40,6 @@ public partial class PauseMenu : Control
     // 开发者模式
     private CheckBox _devModeToggle = null!;
     private Button _consoleButton = null!;
-    private bool _isDevMode;
 
     // ===== 事件 =====
 
@@ -367,8 +366,8 @@ public partial class PauseMenu : Control
 
     private void OnDevModeToggled(bool toggledOn)
     {
-        _isDevMode = toggledOn;
-        _consoleButton.Visible = _isDevMode;
+        DevConsole.IsDevMode = toggledOn;
+        _consoleButton.Visible = DevConsole.IsDevMode;
     }
 
     private void OnConsolePressed()

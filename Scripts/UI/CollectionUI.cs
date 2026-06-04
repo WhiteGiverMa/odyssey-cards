@@ -669,13 +669,41 @@ public partial class CollectionUI : Control
 
             // 点击/拖拽逻辑
             bool rowDragStarted = false;
+            // 移动端触控状态（区分轻触移除 vs 滚动牌组列表）
+            Vector2 rowTouchStart = Vector2.Zero;
+            bool rowTouchMoved = false;
+            const float ScrollThreshold = 10f;
+
             row.GuiInput += (InputEvent @event) =>
             {
-                if (MobileInputHelper.IsMobile && @event is InputEventScreenTouch touch && touch.Pressed)
+                if (MobileInputHelper.IsMobile)
                 {
-                    OnDeckCardRemoveClicked(cardData);
-                    row.AcceptEvent();
-                    return;
+                    if (@event is InputEventScreenTouch touch)
+                    {
+                        if (touch.Pressed)
+                        {
+                            rowTouchStart = touch.Position;
+                            rowTouchMoved = false;
+                        }
+                        else
+                        {
+                            if (!rowTouchMoved)
+                                OnDeckCardRemoveClicked(cardData);
+                        }
+                        row.AcceptEvent();
+                        return;
+                    }
+                    else if (@event is InputEventScreenDrag drag)
+                    {
+                        float dist = drag.Position.DistanceTo(rowTouchStart);
+                        if (dist > ScrollThreshold)
+                        {
+                            rowTouchMoved = true;
+                            return; // 不消费——让 ScrollContainer 处理
+                        }
+                        row.AcceptEvent();
+                        return;
+                    }
                 }
 
                 if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left)

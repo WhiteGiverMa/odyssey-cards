@@ -16,6 +16,10 @@ public partial class SettingsPage : Control
     private Label _languageLabel;
     private Label _resolutionLabel;
     private Label _windowModeLabel;
+    private HBoxContainer _resolutionRow;
+    private HBoxContainer _windowModeRow;
+    private CheckBox _devModeToggle;
+    private Button _consoleButton;
 
     public override void _Ready()
     {
@@ -92,6 +96,7 @@ public partial class SettingsPage : Control
         resolutionRow.AddThemeConstantOverride("separation", 20);
         resolutionRow.AddChild(_resolutionLabel);
         resolutionRow.AddChild(_resolutionOptionButton);
+        _resolutionRow = resolutionRow;
 
         // === 窗口模式行 ===
         _windowModeLabel = new Label
@@ -116,6 +121,25 @@ public partial class SettingsPage : Control
         windowModeRow.AddThemeConstantOverride("separation", 20);
         windowModeRow.AddChild(_windowModeLabel);
         windowModeRow.AddChild(_windowModeOptionButton);
+        _windowModeRow = windowModeRow;
+
+        // === 开发者模式行 ===
+        _devModeToggle = new CheckBox
+        {
+            Name = "DevModeToggle",
+            Text = Localization.Localization.T("ui.settings.dev_mode", "开发者模式"),
+            ButtonPressed = DevConsole.IsDevMode,
+        };
+        _devModeToggle.AddThemeFontSizeOverride("font_size", 20);
+
+        _consoleButton = new Button
+        {
+            Name = "ConsoleButton",
+            Text = Localization.Localization.T("ui.settings.open_console", "打开控制台"),
+            CustomMinimumSize = new Vector2(0, 44),
+            Visible = DevConsole.IsDevMode,
+        };
+        _consoleButton.AddThemeFontSizeOverride("font_size", 16);
 
         // === 返回按钮 ===
         _backButton = new Button
@@ -142,6 +166,8 @@ public partial class SettingsPage : Control
         container.AddChild(languageRow);
         container.AddChild(resolutionRow);
         container.AddChild(windowModeRow);
+        container.AddChild(_devModeToggle);
+        container.AddChild(_consoleButton);
         container.AddChild(_backButton);
 
         AddChild(container);
@@ -181,6 +207,21 @@ public partial class SettingsPage : Control
         {
             CycleOptionButton(_windowModeOptionButton, OnWindowModeSelected);
             GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        if (_devModeToggle.Visible && HitTestControl(_devModeToggle, touch.Position))
+        {
+            _devModeToggle.ButtonPressed = !_devModeToggle.ButtonPressed;
+            OnDevModeToggled(_devModeToggle.ButtonPressed);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        if (_consoleButton.Visible && HitTestControl(_consoleButton, touch.Position))
+        {
+            OnConsolePressed();
+            GetViewport().SetInputAsHandled();
         }
     }
 
@@ -200,6 +241,11 @@ public partial class SettingsPage : Control
         _windowModeOptionButton.CustomMinimumSize = new Vector2(260, 56);
         _backButton.CustomMinimumSize = new Vector2(220, 56);
         _backButton.AddThemeFontSizeOverride("font_size", 22);
+        _consoleButton.CustomMinimumSize = new Vector2(220, 56);
+
+        // 移动端隐藏无意义的桌面分辨率/窗口模式选项
+        _resolutionRow.Visible = false;
+        _windowModeRow.Visible = false;
     }
 
     private static void CycleOptionButton(OptionButton optionButton, System.Action<long> onSelected)
@@ -279,6 +325,8 @@ public partial class SettingsPage : Control
         _resolutionOptionButton.ItemSelected += OnResolutionSelected;
         _windowModeOptionButton.ItemSelected += OnWindowModeSelected;
         _backButton.Pressed += OnBackPressed;
+        _devModeToggle.Toggled += OnDevModeToggled;
+        _consoleButton.Pressed += OnConsolePressed;
         Core.GameManager.Instance.LanguageChanged += OnLanguageChanged;
     }
 
@@ -356,6 +404,17 @@ public partial class SettingsPage : Control
         QueueFree();
     }
 
+    private void OnDevModeToggled(bool toggledOn)
+    {
+        DevConsole.IsDevMode = toggledOn;
+        _consoleButton.Visible = toggledOn;
+    }
+
+    private void OnConsolePressed()
+    {
+        GetNodeOrNull<DevConsole>("/root/DevConsole")?.Toggle();
+    }
+
     public override void _ExitTree()
     {
         Core.GameManager.Instance.LanguageChanged -= OnLanguageChanged;
@@ -364,5 +423,7 @@ public partial class SettingsPage : Control
         _resolutionOptionButton.ItemSelected -= OnResolutionSelected;
         _windowModeOptionButton.ItemSelected -= OnWindowModeSelected;
         _backButton.Pressed -= OnBackPressed;
+        _devModeToggle.Toggled -= OnDevModeToggled;
+        _consoleButton.Pressed -= OnConsolePressed;
     }
 }

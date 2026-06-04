@@ -382,13 +382,46 @@ namespace OdysseyCards.UI
                 int capturedIndex = i;  // 闭包捕获
                 bool dragStarted = false;
 
+                // 移动端触控状态（区分轻触添加 vs 滚动浏览）
+                Vector2 touchStartPos = Vector2.Zero;
+                bool touchMoved = false;
+                const float ScrollThreshold = 10f;
+
                 wrapper.GuiInput += (InputEvent @event) =>
                 {
-                    if (MobileInputHelper.IsMobile && @event is InputEventScreenTouch touch && touch.Pressed)
+                    if (MobileInputHelper.IsMobile)
                     {
-                        CardData clickedCard = _filteredCards[capturedIndex];
-                        OnCardClicked?.Invoke(clickedCard);
-                        wrapper.AcceptEvent();
+                        // 移动端：区分 tap（添加卡牌）与 scroll（浏览卡库）
+                        if (@event is InputEventScreenTouch touch)
+                        {
+                            if (touch.Pressed)
+                            {
+                                touchStartPos = touch.Position;
+                                touchMoved = false;
+                            }
+                            else
+                            {
+                                if (!touchMoved)
+                                {
+                                    CardData clickedCard = _filteredCards[capturedIndex];
+                                    OnCardClicked?.Invoke(clickedCard);
+                                }
+                            }
+                            wrapper.AcceptEvent();
+                            return;
+                        }
+                        else if (@event is InputEventScreenDrag drag)
+                        {
+                            float dist = drag.Position.DistanceTo(touchStartPos);
+                            if (dist > ScrollThreshold)
+                            {
+                                touchMoved = true;
+                                // 不消费事件——让父级 ScrollContainer 处理滚动
+                                return;
+                            }
+                            wrapper.AcceptEvent();
+                            return;
+                        }
                         return;
                     }
 
