@@ -29,9 +29,13 @@ public static class SceneLifecycleGuard
         if (control.IsQueuedForDeletion()) return;
 
         // 关键：先禁用所有处理循环，防止它们在拆除期间继续运行。
-        control.SetProcess(false);
-        control.SetProcessInput(false);
-        control.SetProcessUnhandledInput(false);
+        // 检查 IsInsideTree：节点可能已被父级先一步移出树。
+        if (control.IsInsideTree())
+        {
+            control.SetProcess(false);
+            control.SetProcessInput(false);
+            control.SetProcessUnhandledInput(false);
+        }
 
         GD.Print($"[SceneLifecycleGuard] {control.Name} — 输入已禁用，场景正在拆除");
     }
