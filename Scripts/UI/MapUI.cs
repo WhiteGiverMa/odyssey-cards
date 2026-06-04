@@ -387,7 +387,7 @@ public partial class MapUI : Control
                     card,
                     card.GetGlobalRect(),
                     priority: 400,
-                    onTap: () => CallDeferred(nameof(HandleRoomSelectedDeferred), Variant.From(room)));
+                    onTap: () => HandleRoomSelected(room));
                 _roomZoneTokens.Add(token);
             }
         }
@@ -395,15 +395,6 @@ public partial class MapUI : Control
         {
             card.Pressed += () => HandleRoomSelected(room);
         }
-    }
-
-    /// <summary>
-    /// Deferred 版房间选择（供 TapZone 回调使用，避免在触摸栈内执行场景切换）。
-    /// </summary>
-    private void HandleRoomSelectedDeferred(RoomDefinition room)
-    {
-        if (SceneLifecycleGuard.ShouldSkip(this)) return;
-        HandleRoomSelected(room);
     }
 
     // ===== 房间选择处理（逻辑保持不变） =====
