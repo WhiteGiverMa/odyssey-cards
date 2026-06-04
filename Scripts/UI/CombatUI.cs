@@ -2591,6 +2591,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void EnterNoTargetPlayMode(Card.Card card)
 	{
+		GD.Print($"[CombatUI] EnterNoTargetPlayMode — 类型={card.Type}, 名称={card.CardName}, playZonePanel={_playZonePanel != null}, isInsideTree={IsInsideTree()}");
+
 		_selectionMode = SelectionMode.PlayingNoTargetCard;
 		_selectedCard = card;
 
@@ -3716,14 +3718,15 @@ public partial class CombatUI : Control
 		_playZonePanel.Position = new Vector2(margin, threshold - panelH - margin);
 		_playZonePanel.Size = new Vector2(viewport.X - margin * 2, panelH);
 		_playZonePanel.MouseFilter = MouseFilterEnum.Stop;
+		_playZonePanel.Visible = true;
+
+		GD.Print($"[CombatUI] ShowPlayZonePanel — viewport=({viewport.X:F0},{viewport.Y:F0}), threshold={threshold:F0}, panel=({_playZonePanel.Position.X:F0},{_playZonePanel.Position.Y:F0}), size=({_playZonePanel.Size.X:F0},{panelH:F0}), visible={_playZonePanel.Visible}");
 
 		if (!_playZonePanelConnected)
 		{
 			_playZonePanel.GuiInput += OnPlayZoneGuiInput;
 			_playZonePanelConnected = true;
 		}
-
-		_playZonePanel.Visible = true;
 	}
 
 	/// <summary>
