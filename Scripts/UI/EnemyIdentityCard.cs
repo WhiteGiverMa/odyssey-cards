@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using Godot;
+using OdysseyCards.AI.Intents;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
@@ -24,6 +26,7 @@ public partial class EnemyIdentityCard : Panel
     private readonly Button _spellButton;
     private readonly HBoxContainer _statusContainer;
     private readonly EffectBar _effectBar;
+    private readonly HBoxContainer _intentIconContainer;
 
     // Colors
     private static readonly Color _nameColor = new(1f, 0.5f, 0.5f);
@@ -117,6 +120,16 @@ public partial class EnemyIdentityCard : Panel
         _effectBar = new EffectBar();
         content.AddChild(_effectBar);
 
+        // Intent icon container (for new MoveState system)
+        _intentIconContainer = new HBoxContainer
+        {
+            Name = "IntentIcons",
+            Alignment = BoxContainer.AlignmentMode.Center,
+            Visible = false,
+        };
+        _intentIconContainer.AddThemeConstantOverride("separation", -8); // overlap like STS2
+        content.AddChild(_intentIconContainer);
+
         // Row 6: Target buttons (attack/spell)
         var btnRow = new HBoxContainer();
         _attackButton = new Button
@@ -189,9 +202,23 @@ public partial class EnemyIdentityCard : Panel
             _weaponLabel.Text = "";
         }
 
-        // Intent
-        var intent = brain.GetCurrentIntent(combat, body);
-        _intentLabel.Text = intent.GetDisplayDescription(combat);
+        // Intent display - new or old system
+        var move = brain.GetCurrentMove(combat, body);
+        if (brain.HasMoveStates)
+        {
+            // New system: show intent icons
+            _intentLabel.Visible = false;
+            _intentIconContainer.Visible = true;
+            UpdateIntentIcons(move.Intents, combat);
+        }
+        else
+        {
+            // Old system: show text label (backward compat)
+            _intentIconContainer.Visible = false;
+            _intentLabel.Visible = true;
+            var intent = brain.GetCurrentIntent(combat, body);
+            _intentLabel.Text = intent.GetDisplayDescription(combat);
+        }
 
         // Status effects — old text display kept for backward compat
         foreach (var child in _statusContainer.GetChildren())
@@ -224,5 +251,71 @@ public partial class EnemyIdentityCard : Panel
         _armorLabel.Visible = armor > 0;
         if (armor > 0)
             _armorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", armor.ToString());
+    }
+
+    /// <summary>
+    /// Diff-based update: reconcile intent icon children with current intent list.
+    /// Reuses existing IntentIcon nodes, creates new ones, removes extras.
+    /// Hooks up hover events to show IntentTooltip.
+    /// </summary>
+    private void UpdateIntentIcons(IReadOnlyList<AbstractIntent> intents, CombatManager combat)
+    {
+        int newCount = intents.Count;
+        int currentCount = _intentIconContainer.GetChildCount();
+
+        // Remove extra icons
+        while (_intentIconContainer.GetChildCount() > newCount)
+        {
+            var child = _intentIconContainer.GetChild(_intentIconContainer.GetChildCount() - 1);
+            _intentIconContainer.RemoveChild(child);
+            child.QueueFree();
+        }
+
+        // Update or create icons
+        for (int i = 0; i < newCount; i++)
+        {
+            var intent = intents[i];
+            int typeId = AbstractIntent.GetIconTypeId(intent.Type);
+            string label = intent.GetIntentLabel(combat);
+            int value = (intent is AttackIntent atk) ? atk.GetSingleDamage(combat) : 0;
+
+            IntentIcon icon;
+            if (i < currentCount)
+            {
+                // Reuse existing icon
+                icon = (IntentIcon)_intentIconContainer.GetChild(i);
+                icon.UpdateIntent(typeId, label, value);
+            }
+            else
+            {
+                // Create new icon
+                icon = new IntentIcon(typeId, label, value);
+                icon.OnHovered += OnIntentIconHovered;
+                icon.OnUnhovered += OnIntentIconUnhovered;
+                _intentIconContainer.AddChild(icon);
+            }
+        }
+    }
+
+    private void OnIntentIconHovered(IntentIcon icon)
+    {
+        // Find the tooltip layer on the root
+        var root = GetTree()?.Root;
+        if (root == null) return;
+
+        // Look for IntentTooltipLayer
+        var tipLayer = root.FindChild("IntentTooltipLayer", recursive: true, owned: false) as Control;
+        if (tipLayer == null) return;
+
+        string title = icon.GetLabelText();
+        string desc = $"Type: {icon.GetIntentTypeId()}, Value: {icon.GetValue()}";
+        var color = IntentTooltip.GetAccentColor(icon.GetIntentTypeId());
+
+        IntentTooltip.Show(tipLayer, icon.GlobalPosition, title, desc, false, color);
+    }
+
+    private void OnIntentIconUnhovered(IntentIcon icon)
+    {
+        IntentTooltip.HideCurrent();
     }
 }

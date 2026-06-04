@@ -385,6 +385,7 @@ public partial class BoardUI : Control
         private readonly ColorRect _actionCostBg;
         private readonly Label _actionCostLabel;
         private readonly Label _intentLabel;
+        private IntentIcon? _intentIcon;
         private bool _isHovered;
 
         // ===== 构造函数 =====
@@ -538,6 +539,44 @@ public partial class BoardUI : Control
                 _intentLabel.Text = text;
                 _intentLabel.Visible = true;
             }
+        }
+
+        /// <summary>
+        /// 设置槽位意图图标（用于新意图系统）。
+        /// 传入 null 时移除图标。
+        /// </summary>
+        public void SetIntentIcon(int typeId, string labelText, int value)
+        {
+            // Remove old icon if exists
+            if (_intentIcon != null)
+            {
+                RemoveChild(_intentIcon);
+                _intentIcon.QueueFree();
+                _intentIcon = null;
+            }
+
+            // Hide old text label
+            _intentLabel.Visible = false;
+
+            // Create and add new icon (small version for slot)
+            _intentIcon = new IntentIcon(typeId, labelText, value)
+            {
+                Position = new Vector2(SlotWidth / 2 - 20, SlotHeight - 26),
+                Scale = new Vector2(0.7f, 0.7f), // smaller for slot display
+            };
+            AddChild(_intentIcon);
+        }
+
+        /// <summary>清除槽位意图图标。</summary>
+        public void ClearIntentIcon()
+        {
+            if (_intentIcon != null)
+            {
+                RemoveChild(_intentIcon);
+                _intentIcon.QueueFree();
+                _intentIcon = null;
+            }
+            _intentLabel.Visible = false;
         }
 
         /// <summary>

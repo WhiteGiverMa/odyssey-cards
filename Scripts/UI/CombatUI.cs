@@ -551,6 +551,10 @@ public partial class CombatUI : Control
 		_cardFlyLayer.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 		cardFlyLayer.AddChild(_cardFlyLayer);
 
+		// 意图悬浮提示层（Layer=26，高于意图图标）
+		var intentTooltipLayer = new CanvasLayer { Name = "IntentTooltipLayer", Layer = 26 };
+		AddChild(intentTooltipLayer);
+
 		// 创建并初始化子组件
 		SetupBoardUI();
 		SetupHandUI();

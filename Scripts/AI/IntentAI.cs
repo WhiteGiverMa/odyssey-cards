@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using OdysseyCards.AI.Intents;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
@@ -11,9 +12,10 @@ namespace OdysseyCards.AI;
 // ====================================================================
 
 /// <summary>
-/// 敌人意图类型。
+/// 敌人意图类型（旧版，已废弃）。
 /// 参考《杀戮尖塔》的意图系统，用简单枚举表示敌人本回合的行为类别。
 /// </summary>
+[Obsolete("Use OdysseyCards.AI.Intents.IntentType instead")]
 public enum IntentType
 {
     /// <summary>攻击：对玩家英雄造成伤害。</summary>
@@ -217,6 +219,22 @@ public abstract class EnemyEncounter
     /// </summary>
     protected IDamageTarget? _cachedAttackTarget;
 
+    // ===== 新意图系统（MoveState） =====
+
+    /// <summary>
+    /// 可选的 MoveState 序列（新意图系统）。
+    /// 若设置则优先使用 MoveState 驱动意图；否则回退到旧 IntentPattern。
+    /// </summary>
+    protected MoveState[]? MoveStates { get; init; }
+
+    /// <summary>
+    /// 当前 MoveState 在序列中的索引。
+    /// </summary>
+    public int CurrentMoveIndex { get; private set; }
+
+    /// <summary>是否使用了新的 MoveState 意图系统。</summary>
+    public bool HasMoveStates => MoveStates != null;
+
     // ===== 构造函数 =====
 
     /// <summary>
@@ -246,6 +264,17 @@ public abstract class EnemyEncounter
     /// <returns>包含动态选择器的意图结构体</returns>
     public virtual EnemyIntent GetCurrentIntent(CombatManager combat, Hero self)
     {
+        // 新系统：从 MoveState 获取意图并转换为旧格式
+        if (MoveStates != null)
+        {
+            var move = MoveStates[CurrentMoveIndex];
+            var abstractIntent = move.Intents.Count > 0
+                ? move.Intents[0]
+                : new OdysseyCards.AI.Intents.UnknownIntent();
+            return ConvertToLegacyIntent(abstractIntent, combat, self);
+        }
+
+        // 旧系统：使用 IntentPattern
         var intent = IntentPattern[CurrentPatternIndex];
         if (intent.Type == IntentType.Attack)
         {
@@ -260,6 +289,53 @@ public abstract class EnemyEncounter
             };
         }
         return intent;
+    }
+
+    /// <summary>
+    /// 将新意图系统的 AbstractIntent 转换为旧的 EnemyIntent 格式（向后兼容）。
+    /// </summary>
+    /// <param name="abstractIntent">新意图</param>
+    /// <param name="combat">战斗管理器</param>
+    /// <param name="self">所属英雄身体</param>
+    /// <returns>兼容的 EnemyIntent</returns>
+    private EnemyIntent ConvertToLegacyIntent(AbstractIntent abstractIntent, CombatManager combat, Hero self)
+    {
+        if (abstractIntent is AttackIntent attackIntent)
+        {
+            int damage = attackIntent.GetSingleDamage(combat);
+            _cachedAttackTarget ??= ResolveAttackTarget(combat);
+            var cachedTarget = _cachedAttackTarget;
+            var intent = new EnemyIntent(IntentType.Attack, damage, attackIntent.GetIntentDescription(combat));
+            intent.TargetSelector = _ => cachedTarget;
+            intent.DamageCalc = (c) =>
+            {
+                int baseWithAttack = damage + Attack;
+                return DamageResolver.ResolvePreviewDamage(baseWithAttack, self, cachedTarget);
+            };
+            return intent;
+        }
+
+        var legacyType = MapToLegacyType(abstractIntent.Type);
+        return new EnemyIntent(legacyType, 0, abstractIntent.GetIntentDescription(combat));
+    }
+
+    /// <summary>
+    /// 将新意图类型枚举映射到旧意图类型枚举。
+    /// </summary>
+    /// <param name="newType">新意图类型</param>
+    /// <returns>对应的旧意图类型</returns>
+    private static IntentType MapToLegacyType(OdysseyCards.AI.Intents.IntentType newType)
+    {
+        return newType switch
+        {
+            OdysseyCards.AI.Intents.IntentType.Attack
+                or OdysseyCards.AI.Intents.IntentType.MultiAttack
+                or OdysseyCards.AI.Intents.IntentType.DeathBlow => IntentType.Attack,
+            OdysseyCards.AI.Intents.IntentType.Defend => IntentType.Defend,
+            OdysseyCards.AI.Intents.IntentType.Summon => IntentType.Summon,
+            OdysseyCards.AI.Intents.IntentType.Buff => IntentType.Buff,
+            _ => IntentType.Attack // 未知类型降级为攻击
+        };
     }
 
     /// <summary>
@@ -295,6 +371,48 @@ public abstract class EnemyEncounter
     public void ResetCachedAttackTarget()
     {
         _cachedAttackTarget = null;
+    }
+
+    // ===== MoveState 操作（新意图系统） =====
+
+    /// <summary>
+    /// 获取当前 MoveState。
+    /// 若 <see cref="MoveStates"/> 已设置则从中获取；否则将旧 IntentPattern 自动包装为单意图 MoveState。
+    /// </summary>
+    /// <param name="combat">战斗管理器</param>
+    /// <param name="self">所属英雄身体</param>
+    /// <returns>当前 MoveState</returns>
+    public virtual MoveState GetCurrentMove(CombatManager combat, Hero self)
+    {
+        if (MoveStates != null)
+            return MoveStates[CurrentMoveIndex];
+
+        // 向后兼容：将旧的 IntentPattern 包装为 MoveState
+        var oldIntent = GetCurrentIntent(combat, self);
+        // 旧意图包装：无 OnPerform（由 ExecuteIntent 处理），使用占位意图
+        var placeholderIntent = new OdysseyCards.AI.Intents.UnknownIntent();
+        return new MoveState($"legacy_pattern_{CurrentPatternIndex}", null, placeholderIntent);
+    }
+
+    /// <summary>
+    /// 推进到下一 MoveState。同时调用 <see cref="AdvanceIntent"/> 保证向后兼容。
+    /// </summary>
+    public virtual void AdvanceMove()
+    {
+        AdvanceIntent();
+        if (MoveStates != null)
+            CurrentMoveIndex = (CurrentMoveIndex + 1) % MoveStates.Length;
+    }
+
+    /// <summary>
+    /// 执行当前 MoveState 的 OnPerform 回调（若已设置）。
+    /// 用于新意图系统中直接通过回调执行行动逻辑。
+    /// </summary>
+    /// <param name="combat">战斗管理器</param>
+    /// <param name="self">所属英雄身体</param>
+    protected void ExecuteMove(CombatManager combat, Hero self)
+    {
+        GetCurrentMove(combat, self).OnPerform?.Invoke(combat, self);
     }
 
     // ===== 意图执行辅助方法 =====

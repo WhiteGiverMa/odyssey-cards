@@ -2302,8 +2302,8 @@ public partial class CombatManager : Node
             unit.Brain.Attack = unit.Body.Weapon is { IsDisabled: false } ? unit.Body.Weapon.Attack : 0;
             unit.Brain.ExecuteIntent(this, unit.Body);
 
-            // 2. 推进到下一意图
-            unit.Brain.AdvanceIntent();
+            // 2. 推进到下一意图——优先使用 MoveState 系统
+            unit.Brain.AdvanceMove();
             GD.Print($"[CombatManager] {unit.Brain.Name} 下回合意图：{unit.Brain.GetCurrentIntent(this, unit.Body).Description}");
 
             // 每次执行后检查死亡（攻击意图可能杀死敌人自身或玩家）

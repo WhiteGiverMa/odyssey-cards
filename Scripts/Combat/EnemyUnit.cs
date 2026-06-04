@@ -41,4 +41,13 @@ public class EnemyUnit : IIntentActor
 
     public void AdvanceIntent()
         => Brain.AdvanceIntent();
+
+    /// <summary>
+    /// 获取当前 MoveState（新意图系统）。
+    /// 委托给 Brain 查询。
+    /// </summary>
+    /// <param name="combat">战斗管理器</param>
+    /// <returns>当前 MoveState</returns>
+    public MoveState? GetCurrentMove(CombatManager combat)
+        => Brain.GetCurrentMove(combat, Body);
 }

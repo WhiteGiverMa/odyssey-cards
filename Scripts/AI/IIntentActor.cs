@@ -20,4 +20,12 @@ public interface IIntentActor
 
     /// <summary>推进到下一意图。</summary>
     void AdvanceIntent();
+
+    /// <summary>
+    /// 获取当前 MoveState（新意图系统）。
+    /// 默认返回 null——随从大脑等不支持 MoveState 的实现可不重写。
+    /// </summary>
+    /// <param name="combat">战斗管理器</param>
+    /// <returns>当前 MoveState，若不支持则返回 null</returns>
+    MoveState? GetCurrentMove(CombatManager combat) => null;
 }

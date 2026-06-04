@@ -1,7 +1,7 @@
 # OdysseyCards — Godot 4.6 C# · 类炉石 Roguelite 卡牌
 
 **Branch:** `main` · **Commit:** `394871f` · **Updated:** 2026-06-03
-**Scale:** 78 `.cs` (Scripts/) · ~20,100 行 · 32 `.tres` 卡牌 · 4 `.tscn` 场景
+**Scale:** 98 `.cs` (Scripts/) · ~22,500 行 · 32 `.tres` 卡牌 · 4 `.tscn` 场景
 
 ## Start
 
@@ -14,11 +14,11 @@
 ```
 Scripts/
 ├── Core/ (25)      # CardData, GameManager(Autoload), DamageResolver, Keyword, SaveDataManager…
-├── UI/ (18)        # CombatUI, BoardUI, HandUI, CardUI, CollectionUI, MapUI, DiscoverUI, RewardUI…
+├── UI/ (20)        # CombatUI, BoardUI, HandUI, CardUI, CollectionUI, MapUI, DiscoverUI, RewardUI, IntentIcon, IntentTooltip…
 ├── Card/ (10)      # Card, Minion, Spell, Hero, Weapon, ActiveDomain, StatusEffect (纯 C#，不继承 Node)
 ├── Character/ (5)  # Player, CommanderCore, Deck, CombatDeckState
 ├── Combat/ (4)     # CombatManager(1740+行), Board, EnemyUnit, GameState (纯 C#)
-├── AI/ (7)         # IntentAI, EnemyRegistry, MechanicalRoachBrain, ZhangLang, ShanHu…
+├── AI/ (25)         # Intents/(18): AbstractIntent类体系+MoveState; IntentAI, EnemyRegistry, MechanicalRoachBrain, ZhangLang, ShanHu…
 ├── Roguelike/ (3)  # EventSelector, RoomData, GameRunState
 ├── Localization/ (5)# YAML 多语言 (LocalStr, ConcatLocalStr, ILocalizable, YamlParser)
 └── Infrastructure/ (1) # DevConsole (Autoload)
@@ -59,6 +59,9 @@ dotnet test                   # xunit (4 测试文件, tests/csharp/)
 | 武器 | `Card/Weapon.cs` / `WeaponSkill.cs` | 纯 C#，被动/主动技能 |
 | 伤害计算 | `Core/DamageResolver.cs` | 三阶段：ADDITIVE→MULTIPLICATIVE→CAPPING，Clamp≥0 |
 | 敌人 AI | `AI/IntentAI.cs` / `AI/EnemyRegistry.cs` | 多种敌人 + 多种 Brain |
+| 意图数据模型 | `AI/Intents/AbstractIntent.cs` | 15 种意图类型类继承体系，纯 C#，MoveState 多意图支持 |
+| 意图图标 | `UI/IntentIcon.cs` | 代码绘制几何图标，bob 浮动动画，冻结态 |
+| 意图详情弹窗 | `UI/IntentTooltip.cs` | 悬停/长按弹出，伤害链路展示，智能定位 |
 | UI 总控 | `UI/CombatUI.cs` | 程序化布局，5 种 SelectionMode + 攻击拖拽状态机 |
 | 手牌 | `UI/HandUI.cs` | 风扇交叠，Control 手动布局（非 Container） |
 | 卡牌交互 | `UI/CardUI.cs` | 点击/拖拽状态机，`_Process` 轮询 |
@@ -242,6 +245,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - ✅ 卡牌选中/拖拽已修复：多选归位、点击跟随、拖拽追踪。
 - ✅ 攻击双交互 + 右键取消。HandleAttackDrop NRE 已修复。
 - ✅ 多敌人 AI：IntentAI + MechanicalRoachBrain + DefaultAttackMinionBrain + EnemyRegistry。
+- ✅ 意图系统升级：15 种意图类型类继承体系（`AI/Intents/`），MoveState 多意图支持，IntentIcon 代码绘制图标 + bob 动画，IntentTooltip 悬停详情面板。向后兼容旧敌人。
 - ✅ 暂停 ESC 全屏覆盖。`IsInsideTree()` 守卫。
 - ⚠️ `Spell.cs` 从未实例化（死代码）。
 - ⚠️ `EventSelector` 未接线（RewardUI 自包含洗牌）。
