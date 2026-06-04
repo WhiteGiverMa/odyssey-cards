@@ -2208,22 +2208,32 @@ public partial class CombatUI : Control
 		var cardUI = _handUI.GetCardUIFor(card);
 		if (cardUI != null)
 		{
+			bool isMobileDrag = MobileInputHelper.IsMobile && cardUI.IsDragging;
+
 			_handUI.StopLayoutControl(cardUI);
 
 			// 清除 HandUI 布局遗留的 OffsetTop（Select() 设的）。
-			// 必须在设 Position 之前清零，否则非锚定 Control 的布局重算会抹掉手动 Position。
 			cardUI.OffsetTop = 0;
 			cardUI.OffsetBottom = 0;
 			cardUI.OffsetLeft = 0;
 			cardUI.OffsetRight = 0;
 
-			Vector2 mousePosition = cardUI.LastClickGlobalPosition;
-			Vector2 preSize = cardUI.Size;
-			Vector2 preScale = cardUI.Scale;
-			Vector2 halfSize = preSize * preScale * 0.5f;
-			cardUI.GetParent()?.RemoveChild(cardUI);
-			_dragLayer.AddChild(cardUI);
-			cardUI.Position = mousePosition - halfSize - _dragLayer.GetGlobalRect().Position;
+			if (isMobileDrag)
+			{
+				// 移动端纯拖拽：卡牌已在跟随手指移动，用 Reparent 保持当前位置
+				cardUI.Reparent(_dragLayer);
+			}
+			else
+			{
+				Vector2 mousePosition = cardUI.LastClickGlobalPosition;
+				Vector2 preSize = cardUI.Size;
+				Vector2 preScale = cardUI.Scale;
+				Vector2 halfSize = preSize * preScale * 0.5f;
+				cardUI.GetParent()?.RemoveChild(cardUI);
+				_dragLayer.AddChild(cardUI);
+				cardUI.Position = mousePosition - halfSize - _dragLayer.GetGlobalRect().Position;
+			}
+
 			_dragCardUI = cardUI;
 
 			// 从 HandUI 内部列表脱钩，防止 RefreshHand 误销毁拖拽中的卡片

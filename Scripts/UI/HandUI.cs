@@ -475,6 +475,7 @@ public partial class HandUI : Control
 		cardUI.SetCard(card);
 		cardUI.OnCardClicked += OnCardClicked;
 		cardUI.OnCardRightClicked += OnCardRightClicked;
+		cardUI.OnMobileDragBegan += OnMobileDragBegan;
 		return cardUI;
 	}
 
@@ -496,7 +497,21 @@ public partial class HandUI : Control
 		OnCardCancelled?.Invoke();
 	}
 
-	private void OnCardClicked(CardUI cardUI)
+    /// <summary>
+    /// 移动端拖拽开始时触发。
+    /// 手指移动超过阈值后，自动进入选择模式——跳过二次点击，实现纯拖拽出牌。
+    /// </summary>
+    private void OnMobileDragBegan(CardUI cardUI)
+    {
+        if (cardUI.Card == null) return;
+        if (HandSelectMode) return;
+
+        // 清除展开态，通知 CombatUI 进入对应的选择模式
+        ClearTapExpansion();
+        OnCardSelectedForPlay?.Invoke(cardUI.Card);
+    }
+
+    private void OnCardClicked(CardUI cardUI)
 	{
 		if (cardUI.Card == null) return;
 

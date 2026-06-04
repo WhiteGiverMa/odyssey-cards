@@ -82,7 +82,13 @@ public partial class CardUI : Control
     /// <summary>
     /// 卡牌被右键点击（取消选中）时触发。
     /// </summary>
-    public event Action<CardUI>? OnCardRightClicked;
+	public event Action<CardUI>? OnCardRightClicked;
+
+    /// <summary>
+    /// 移动端拖拽开始时触发（手指移动超过 DragThreshold 时）。
+    /// HandUI 监听此事件以自动进入选择模式（跳过二次点击）。
+    /// </summary>
+    public event Action<CardUI>? OnMobileDragBegan;
 
     /// <summary>
     /// 纯展示模式：禁用所有战斗交互（拖拽、选中、拾起）。
@@ -728,7 +734,10 @@ public partial class CardUI : Control
 			{
 				float dist = touchPos.DistanceTo(_dragStartScreenPos);
 				if (dist > DragThreshold)
+				{
 					_hasDragged = true;
+					OnMobileDragBegan?.Invoke(this);
+				}
 			}
 
 			if (_hasDragged)
