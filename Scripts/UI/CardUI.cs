@@ -642,6 +642,7 @@ public partial class CardUI : Control
 	/// </summary>
 	public override void _Process(double delta)
 	{
+		if (SceneLifecycleGuard.ShouldSkip(this)) return;
 		if (DisplayOnly || !_isDragging) return;
 
 		if (MobileInputHelper.IsMobile)

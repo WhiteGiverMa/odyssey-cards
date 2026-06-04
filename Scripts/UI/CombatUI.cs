@@ -468,6 +468,7 @@ public partial class CombatUI : Control
 	/// </summary>
 	public override void _Process(double delta)
 	{
+		if (SceneLifecycleGuard.ShouldSkip(this)) return;
 		// --- 攻击选择箭头 ---
 		if (_selectionMode == SelectionMode.SelectingAttackTarget && _selectedAttacker != null && _arrowRenderer != null)
 		{

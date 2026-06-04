@@ -103,6 +103,7 @@ public partial class CollectionUI : Control
 
     public override void _Input(InputEvent @event)
     {
+        if (SceneLifecycleGuard.ShouldSkip(this)) return;
         if (!MobileInputHelper.IsMobile)
             return;
 

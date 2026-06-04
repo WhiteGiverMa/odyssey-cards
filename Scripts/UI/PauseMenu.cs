@@ -436,6 +436,7 @@ public partial class PauseMenu : Control
     /// </summary>
     public override void _Input(InputEvent @event)
     {
+        if (SceneLifecycleGuard.ShouldSkip(this)) return;
         if (!IsInsideTree()) return;
 
         if (MobileInputHelper.IsMobile && @event is InputEventScreenTouch touch && touch.Pressed)

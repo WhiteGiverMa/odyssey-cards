@@ -113,6 +113,7 @@ public partial class HandUI : Control
 
 	public override void _Process(double delta)
 	{
+		if (SceneLifecycleGuard.ShouldSkip(this)) return;
 		if (_cardSlots.Count == 0) return;
 
 		if (MobileInputHelper.IsMobile)

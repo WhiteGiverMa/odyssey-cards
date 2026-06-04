@@ -222,13 +222,15 @@ public partial class GameManager : Node
             CreateDefaultDeck();
         }
 
-        // 修复异常超上限牌组：收藏/构筑用牌组不应超过 20 张。
+        // Day1 重构：不再静默截断超限牌组。
+        // 改为诊断+警告——超限牌组由 UI 层标记为 invalid 并提示用户手动处理。
         foreach (var deck in Decks)
         {
-            if (deck.CardCount > Deck.MaxDeckSize)
+            var result = DeckValidityService.DiagnoseDeck(deck);
+            if (!result.IsValid)
             {
-                GD.Print($"[GameManager] 修复：牌组「{deck.Name}」超过上限 {deck.CardCount} → {Deck.MaxDeckSize}");
-                deck.Initialize(deck.Cards.Take(Deck.MaxDeckSize).ToList());
+                GD.PushWarning($"[GameManager] 牌组「{deck.Name}」状态异常：" +
+                               $"{result.DefaultMessage} ({result.CurrentCount} 张)");
             }
         }
 
