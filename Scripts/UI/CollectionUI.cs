@@ -20,7 +20,8 @@ namespace OdysseyCards.UI;
 /// </summary>
 public partial class CollectionUI : Control
 {
-    private const float MobileTouchHitPadding = 20f;
+    /// <summary>移动端 TouchZone 注册 token，ExitTree 时释放。</summary>
+    private readonly List<IDisposable> _zoneTokens = new();
 
     // ===== UI 控件 =====
 
@@ -99,6 +100,12 @@ public partial class CollectionUI : Control
         {
             MouseFilter = MouseFilterEnum.Stop;
         }
+
+        // 移动端：通过 MobileInputRouter 注册触控区域
+        if (MobileInputRouter.IsMobile)
+        {
+            RegisterMobileZones();
+        }
     }
 
     public override void _Input(InputEvent @event)
@@ -107,40 +114,7 @@ public partial class CollectionUI : Control
         if (!MobileInputHelper.IsMobile)
             return;
 
-        if (@event is not InputEventScreenTouch touch || !touch.Pressed)
-            return;
-
-        if (HitTestControl(_backButton, touch.Position))
-            OnBackPressed();
-        else if (HitTestControl(_deckSelector, touch.Position))
-            CycleOptionButton(_deckSelector, OnDeckSelectorChanged);
-        else if (HitTestControl(_newDeckButton, touch.Position))
-            OnNewDeckPressed();
-        else if (HitTestControl(_deleteDeckButton, touch.Position))
-            OnDeleteDeckPressed();
-        else if (HitTestControl(_clearDeckButton, touch.Position))
-            OnClearDeckPressed();
-        else if (HitTestControl(_undoButton, touch.Position))
-            OnUndoPressed();
-        else if (HitTestControl(_saveButton, touch.Position))
-            OnSavePressed();
-        else if (HitTestControl(_exportButton, touch.Position))
-            OnExportPressed();
-        else if (HitTestControl(_importButton, touch.Position))
-            OnImportPressed();
-        else
-            return;
-
-        GetViewport().SetInputAsHandled();
-    }
-
-    private static bool HitTestControl(Control control, Vector2 touchPos)
-    {
-        if (control == null || !control.IsInsideTree() || !control.Visible)
-            return false;
-
-        Rect2 rect = control.GetGlobalRect().Grow(MobileTouchHitPadding);
-        return rect.HasPoint(touchPos);
+        // 触控已迁移至 MobileInputRouter.RegisterTapZone
     }
 
     private static void CycleOptionButton(OptionButton optionButton, Action<long> onSelected)
@@ -155,11 +129,62 @@ public partial class CollectionUI : Control
 
     public override void _ExitTree()
     {
+        SceneLifecycleGuard.OnExitTree(this);
+
+        // 释放所有移动端 TouchZone 注册
+        foreach (var token in _zoneTokens)
+        {
+            token.Dispose();
+        }
+        _zoneTokens.Clear();
+
         if (GameManager.Instance != null)
         {
             GameManager.Instance.LanguageChanged -= OnLanguageChanged;
             GameManager.Instance.OnCollectionChanged -= OnCollectionChanged;
         }
+    }
+
+    /// <summary>为 9 个 UI 按钮注册轻触区域（仅移动端）。</summary>
+    private void RegisterMobileZones()
+    {
+        var router = MobileInputRouter.Instance;
+
+        _zoneTokens.Add(router.RegisterTapZone(_backButton,
+            _backButton.GetGlobalRect(),
+            priority: 400, onTap: () => OnBackPressed()));
+
+        _zoneTokens.Add(router.RegisterTapZone(_deckSelector,
+            _deckSelector.GetGlobalRect(),
+            priority: 400, onTap: () => CycleOptionButton(_deckSelector, OnDeckSelectorChanged)));
+
+        _zoneTokens.Add(router.RegisterTapZone(_newDeckButton,
+            _newDeckButton.GetGlobalRect(),
+            priority: 400, onTap: () => OnNewDeckPressed()));
+
+        _zoneTokens.Add(router.RegisterTapZone(_deleteDeckButton,
+            _deleteDeckButton.GetGlobalRect(),
+            priority: 400, onTap: () => OnDeleteDeckPressed()));
+
+        _zoneTokens.Add(router.RegisterTapZone(_clearDeckButton,
+            _clearDeckButton.GetGlobalRect(),
+            priority: 400, onTap: () => OnClearDeckPressed()));
+
+        _zoneTokens.Add(router.RegisterTapZone(_undoButton,
+            _undoButton.GetGlobalRect(),
+            priority: 400, onTap: () => OnUndoPressed()));
+
+        _zoneTokens.Add(router.RegisterTapZone(_saveButton,
+            _saveButton.GetGlobalRect(),
+            priority: 400, onTap: () => OnSavePressed()));
+
+        _zoneTokens.Add(router.RegisterTapZone(_exportButton,
+            _exportButton.GetGlobalRect(),
+            priority: 400, onTap: () => OnExportPressed()));
+
+        _zoneTokens.Add(router.RegisterTapZone(_importButton,
+            _importButton.GetGlobalRect(),
+            priority: 400, onTap: () => OnImportPressed()));
     }
 
     // ===== 快照/还原 =====
