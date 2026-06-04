@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OdysseyCards.Core;
+using OdysseyCards.Infrastructure;
 using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.UI
@@ -383,6 +384,14 @@ namespace OdysseyCards.UI
 
                 wrapper.GuiInput += (InputEvent @event) =>
                 {
+                    if (MobileInputHelper.IsMobile && @event is InputEventScreenTouch touch && touch.Pressed)
+                    {
+                        CardData clickedCard = _filteredCards[capturedIndex];
+                        OnCardClicked?.Invoke(clickedCard);
+                        wrapper.AcceptEvent();
+                        return;
+                    }
+
                     if (@event is InputEventMouseButton mb
                         && mb.ButtonIndex == MouseButton.Left)
                     {

@@ -1,6 +1,7 @@
 using Godot;
 using OdysseyCards.Core;
 using OdysseyCards.Character;
+using OdysseyCards.Infrastructure;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,6 +20,8 @@ namespace OdysseyCards.UI;
 /// </summary>
 public partial class CollectionUI : Control
 {
+    private const float MobileTouchHitPadding = 20f;
+
     // ===== UI 控件 =====
 
     private Button _backButton = null!;
@@ -30,6 +33,8 @@ public partial class CollectionUI : Control
     private Button _clearDeckButton = null!;
     private Button _undoButton = null!;
     private Button _saveButton = null!;
+    private Button _exportButton = null!;
+    private Button _importButton = null!;
     private VBoxContainer _deckCardList = null!;
     private Label _emptyDeckLabel = null!;
     private CardGrid _cardGrid = null!;
@@ -89,6 +94,62 @@ public partial class CollectionUI : Control
         // 订阅事件
         GameManager.Instance.LanguageChanged += OnLanguageChanged;
         GameManager.Instance.OnCollectionChanged += OnCollectionChanged;
+
+        if (MobileInputHelper.IsMobile)
+        {
+            MouseFilter = MouseFilterEnum.Stop;
+        }
+    }
+
+    public override void _Input(InputEvent @event)
+    {
+        if (!MobileInputHelper.IsMobile)
+            return;
+
+        if (@event is not InputEventScreenTouch touch || !touch.Pressed)
+            return;
+
+        if (HitTestControl(_backButton, touch.Position))
+            OnBackPressed();
+        else if (HitTestControl(_deckSelector, touch.Position))
+            CycleOptionButton(_deckSelector, OnDeckSelectorChanged);
+        else if (HitTestControl(_newDeckButton, touch.Position))
+            OnNewDeckPressed();
+        else if (HitTestControl(_deleteDeckButton, touch.Position))
+            OnDeleteDeckPressed();
+        else if (HitTestControl(_clearDeckButton, touch.Position))
+            OnClearDeckPressed();
+        else if (HitTestControl(_undoButton, touch.Position))
+            OnUndoPressed();
+        else if (HitTestControl(_saveButton, touch.Position))
+            OnSavePressed();
+        else if (HitTestControl(_exportButton, touch.Position))
+            OnExportPressed();
+        else if (HitTestControl(_importButton, touch.Position))
+            OnImportPressed();
+        else
+            return;
+
+        GetViewport().SetInputAsHandled();
+    }
+
+    private static bool HitTestControl(Control control, Vector2 touchPos)
+    {
+        if (control == null || !control.IsInsideTree() || !control.Visible)
+            return false;
+
+        Rect2 rect = control.GetGlobalRect().Grow(MobileTouchHitPadding);
+        return rect.HasPoint(touchPos);
+    }
+
+    private static void CycleOptionButton(OptionButton optionButton, Action<long> onSelected)
+    {
+        if (optionButton.ItemCount <= 0)
+            return;
+
+        int nextIndex = (optionButton.Selected + 1) % optionButton.ItemCount;
+        optionButton.Selected = nextIndex;
+        onSelected(nextIndex);
     }
 
     public override void _ExitTree()
@@ -362,23 +423,23 @@ public partial class CollectionUI : Control
         ioRow.AddThemeConstantOverride("separation", Mathf.RoundToInt(8 * s));
         ioRow.Alignment = BoxContainer.AlignmentMode.Center;
 
-        var exportBtn = new Button
+        _exportButton = new Button
         {
             Text = Loc.T("ui.collection.export", "导出牌组"),
             CustomMinimumSize = new Vector2(100 * s, 32 * s),
         };
-        exportBtn.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
-        exportBtn.Pressed += OnExportPressed;
-        ioRow.AddChild(exportBtn);
+        _exportButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
+        _exportButton.Pressed += OnExportPressed;
+        ioRow.AddChild(_exportButton);
 
-        var importBtn = new Button
+        _importButton = new Button
         {
             Text = Loc.T("ui.collection.import", "导入牌组"),
             CustomMinimumSize = new Vector2(100 * s, 32 * s),
         };
-        importBtn.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
-        importBtn.Pressed += OnImportPressed;
-        ioRow.AddChild(importBtn);
+        _importButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
+        _importButton.Pressed += OnImportPressed;
+        ioRow.AddChild(_importButton);
 
         leftBottomArea.AddChild(ioRow);
 
@@ -609,6 +670,13 @@ public partial class CollectionUI : Control
             bool rowDragStarted = false;
             row.GuiInput += (InputEvent @event) =>
             {
+                if (MobileInputHelper.IsMobile && @event is InputEventScreenTouch touch && touch.Pressed)
+                {
+                    OnDeckCardRemoveClicked(cardData);
+                    row.AcceptEvent();
+                    return;
+                }
+
                 if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left)
                 {
                     if (mb.Pressed)

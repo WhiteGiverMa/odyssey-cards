@@ -23,6 +23,12 @@ var _listen_port: int = DEFAULT_PORT
 var _poll_timer: Timer
 
 func _ready() -> void:
+	# 导出包（尤其 Android）不需要 MCP 运行时交互服务器。
+	# 在非编辑器环境直接禁用，避免移动端启动时疯狂刷端口监听错误。
+	if not OS.has_feature("editor"):
+		set_process(false)
+		return
+
 	# Ensure MCP server keeps processing even when game is paused
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_init_key_map()

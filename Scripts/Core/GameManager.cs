@@ -221,6 +221,17 @@ public partial class GameManager : Node
             GD.Print("[GameManager] 修复：创建默认牌组");
             CreateDefaultDeck();
         }
+
+        // 修复异常超上限牌组：收藏/构筑用牌组不应超过 20 张。
+        foreach (var deck in Decks)
+        {
+            if (deck.CardCount > Deck.MaxDeckSize)
+            {
+                GD.Print($"[GameManager] 修复：牌组「{deck.Name}」超过上限 {deck.CardCount} → {Deck.MaxDeckSize}");
+                deck.Initialize(deck.Cards.Take(Deck.MaxDeckSize).ToList());
+            }
+        }
+
         if (ActiveDeckIndex < 0 || ActiveDeckIndex >= Decks.Count)
         {
             GD.Print($"[GameManager] 修复：ActiveDeckIndex {ActiveDeckIndex} → 0");
@@ -610,7 +621,10 @@ public partial class GameManager : Node
             cards.Add(cardData);
         }
 
-        deck.Initialize(cards);
+        // 移动端/首次启动默认牌组必须满足构筑上限 20 张。
+        // 当前回退起始牌组原始列表共有 26 张（8*2 + 10），会直接导致主菜单无法开始游戏。
+        // 这里截断到前 20 张，保证新安装用户开局可玩。
+        deck.Initialize(cards.Take(Deck.MaxDeckSize).ToList());
         return deck;
     }
 

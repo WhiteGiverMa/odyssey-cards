@@ -9,6 +9,14 @@ public static class PlaceholderAssetGenerator
 {
     public static void GenerateAllPlaceholders()
     {
+        // 导出后的移动端 / 非编辑器运行环境中，res:// 只读，不能再动态写占位图。
+        // 占位图生成只在编辑器开发期有意义，运行时应直接跳过。
+        if (!OS.HasFeature("editor"))
+        {
+            GD.Print("[PlaceholderAssetGenerator] 非编辑器运行环境，跳过占位图生成");
+            return;
+        }
+
         GenerateCardPlaceholders();
         GenerateEnemyPlaceholders();
         GenerateIconPlaceholders();

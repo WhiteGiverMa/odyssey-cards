@@ -1,10 +1,13 @@
 using Godot;
+using OdysseyCards.Infrastructure;
 using OdysseyCards.Localization;
 
 namespace OdysseyCards.UI;
 
 public partial class SettingsPage : Control
 {
+    private const float MobileTouchHitPadding = 20f;
+
     private OptionButton _languageOptionButton;
     private OptionButton _resolutionOptionButton;
     private OptionButton _windowModeOptionButton;
@@ -22,6 +25,12 @@ public partial class SettingsPage : Control
         LoadWindowModes();
         ConnectSignals();
         UpdateCurrentLanguage();
+
+        if (MobileInputHelper.IsMobile)
+        {
+            MouseFilter = MouseFilterEnum.Stop;
+            ApplyMobileLayout();
+        }
     }
 
     private void SetupUI()
@@ -136,6 +145,70 @@ public partial class SettingsPage : Control
         container.AddChild(_backButton);
 
         AddChild(container);
+    }
+
+    public override void _Input(InputEvent @event)
+    {
+        if (!MobileInputHelper.IsMobile)
+            return;
+
+        if (@event is not InputEventScreenTouch touch || !touch.Pressed)
+            return;
+
+        if (HitTestControl(_backButton, touch.Position))
+        {
+            OnBackPressed();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        if (HitTestControl(_languageOptionButton, touch.Position))
+        {
+            CycleOptionButton(_languageOptionButton, OnLanguageSelected);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        if (HitTestControl(_resolutionOptionButton, touch.Position))
+        {
+            CycleOptionButton(_resolutionOptionButton, OnResolutionSelected);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        if (HitTestControl(_windowModeOptionButton, touch.Position))
+        {
+            CycleOptionButton(_windowModeOptionButton, OnWindowModeSelected);
+            GetViewport().SetInputAsHandled();
+        }
+    }
+
+    private static bool HitTestControl(Control control, Vector2 touchPos)
+    {
+        if (control == null || !control.IsInsideTree() || !control.Visible)
+            return false;
+
+        Rect2 rect = control.GetGlobalRect().Grow(MobileTouchHitPadding);
+        return rect.HasPoint(touchPos);
+    }
+
+    private void ApplyMobileLayout()
+    {
+        _languageOptionButton.CustomMinimumSize = new Vector2(260, 56);
+        _resolutionOptionButton.CustomMinimumSize = new Vector2(260, 56);
+        _windowModeOptionButton.CustomMinimumSize = new Vector2(260, 56);
+        _backButton.CustomMinimumSize = new Vector2(220, 56);
+        _backButton.AddThemeFontSizeOverride("font_size", 22);
+    }
+
+    private static void CycleOptionButton(OptionButton optionButton, System.Action<long> onSelected)
+    {
+        if (optionButton.ItemCount <= 0)
+            return;
+
+        int nextIndex = (optionButton.Selected + 1) % optionButton.ItemCount;
+        optionButton.Selected = nextIndex;
+        onSelected(nextIndex);
     }
 
     private void LoadLanguages()

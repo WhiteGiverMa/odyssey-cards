@@ -14,6 +14,8 @@ namespace OdysseyCards.UI;
 /// </summary>
 public partial class PauseMenu : Control
 {
+    private const float MobileTouchHitPadding = 20f;
+
     // ===== 主菜单控件 =====
 
     private VBoxContainer _mainContainer = null!;
@@ -436,6 +438,60 @@ public partial class PauseMenu : Control
     {
         if (!IsInsideTree()) return;
 
+        if (MobileInputHelper.IsMobile && @event is InputEventScreenTouch touch && touch.Pressed)
+        {
+            if (_settingsContainer.Visible)
+            {
+                if (HitTestControl(_settingsBackBtn, touch.Position))
+                {
+                    HideSettings();
+                }
+                else if (HitTestControl(_languageOptionButton, touch.Position))
+                {
+                    CycleOptionButton(_languageOptionButton, OnLanguageSelected);
+                }
+                else if (HitTestControl(_resolutionOptionButton, touch.Position))
+                {
+                    CycleOptionButton(_resolutionOptionButton, OnResolutionSelected);
+                }
+                else if (HitTestControl(_windowModeOptionButton, touch.Position))
+                {
+                    CycleOptionButton(_windowModeOptionButton, OnWindowModeSelected);
+                }
+                else if (HitTestControl(_devModeToggle, touch.Position))
+                {
+                    _devModeToggle.ButtonPressed = !_devModeToggle.ButtonPressed;
+                    OnDevModeToggled(_devModeToggle.ButtonPressed);
+                }
+                else if (_consoleButton.Visible && HitTestControl(_consoleButton, touch.Position))
+                {
+                    OnConsolePressed();
+                }
+            }
+            else
+            {
+                if (HitTestControl(_continueBtn, touch.Position))
+                {
+                    OnContinue?.Invoke();
+                }
+                else if (HitTestControl(_settingsBtn, touch.Position))
+                {
+                    ShowSettings();
+                }
+                else if (HitTestControl(_saveExitBtn, touch.Position))
+                {
+                    OnSaveAndExit?.Invoke();
+                }
+                else if (HitTestControl(_quickSlBtn, touch.Position))
+                {
+                    OnQuickSL?.Invoke();
+                }
+            }
+
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         if (@event is InputEventKey key && key.Pressed && key.Keycode == Key.Escape)
         {
             if (_settingsContainer.Visible)
@@ -448,6 +504,25 @@ public partial class PauseMenu : Control
             }
             GetViewport().SetInputAsHandled();
         }
+    }
+
+    private static bool HitTestControl(Control control, Vector2 touchPos)
+    {
+        if (control == null || !control.IsInsideTree() || !control.Visible)
+            return false;
+
+        Rect2 rect = control.GetGlobalRect().Grow(MobileTouchHitPadding);
+        return rect.HasPoint(touchPos);
+    }
+
+    private static void CycleOptionButton(OptionButton optionButton, System.Action<long> onSelected)
+    {
+        if (optionButton.ItemCount <= 0)
+            return;
+
+        int nextIndex = (optionButton.Selected + 1) % optionButton.ItemCount;
+        optionButton.Selected = nextIndex;
+        onSelected(nextIndex);
     }
 
     // ===== 便捷方法 =====
