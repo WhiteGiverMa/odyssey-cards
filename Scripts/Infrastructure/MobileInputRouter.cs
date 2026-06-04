@@ -154,7 +154,9 @@ public partial class MobileInputRouter : Node
 
     private void HandleTouchEvent(InputEventScreenTouch touch)
     {
-        if (touch.Pressed)
+        try
+        {
+            if (touch.Pressed)
         {
             // 手指按下 → 查找命中的最高优先级 zone
             TouchStartPosition = touch.Position;
@@ -205,6 +207,12 @@ public partial class MobileInputRouter : Node
             }
 
             OnTouchEnded?.Invoke(touch.Position);
+            _activeTouchZone = null;
+        }
+        }
+        catch (System.Exception ex)
+        {
+            GD.PushError($"[MobileInputRouter] HandleTouchEvent 异常: {ex.GetType().Name} — {ex.Message}\n{ex.StackTrace}");
             _activeTouchZone = null;
         }
     }
