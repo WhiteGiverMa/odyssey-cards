@@ -140,6 +140,7 @@ public partial class MobileInputRouter : Node
     public override void _Process(double delta)
     {
         if (!IsMobile || _activeTouchZone == null) return;
+        if (!IsActiveZoneValid()) { _activeTouchZone = null; return; }
 
         // 长按检测
         if (!_hasLongPressFired && !_isDragging && TouchDurationMsec >= LongPressThresholdMsec)
@@ -163,10 +164,14 @@ public partial class MobileInputRouter : Node
             _hasLongPressFired = false;
 
             _activeTouchZone = FindTopTouchZone(touch.Position);
-            if (_activeTouchZone != null)
+            if (_activeTouchZone != null && IsActiveZoneValid())
             {
                 _activeTouchZone.IsActive = true;
                 GD.Print($"[MobileInputRouter] 手势开始 — owner={_activeTouchZone.Owner.Name} pos={touch.Position}");
+            }
+            else
+            {
+                _activeTouchZone = null;
             }
 
             OnTouchBegan?.Invoke(touch.Position);
@@ -178,7 +183,11 @@ public partial class MobileInputRouter : Node
 
             if (_activeTouchZone != null)
             {
-                if (_isDragging)
+                if (!IsActiveZoneValid())
+                {
+                    _activeTouchZone = null;
+                }
+                else if (_isDragging)
                 {
                     _activeTouchZone.OnDragEnd?.Invoke(touch.Position);
                 }
@@ -187,9 +196,12 @@ public partial class MobileInputRouter : Node
                     _activeTouchZone.OnTap?.Invoke();
                 }
 
-                _activeTouchZone.IsActive = false;
-                GD.Print($"[MobileInputRouter] 手势结束 — owner={_activeTouchZone.Owner.Name} " +
-                         $"type={(_isDragging ? "drag" : "tap")} pos={touch.Position}");
+                if (_activeTouchZone != null)
+                {
+                    _activeTouchZone.IsActive = false;
+                    GD.Print($"[MobileInputRouter] 手势结束 — owner={_activeTouchZone.Owner.Name} " +
+                             $"type={(_isDragging ? "drag" : "tap")} pos={touch.Position}");
+                }
             }
 
             OnTouchEnded?.Invoke(touch.Position);
@@ -202,6 +214,7 @@ public partial class MobileInputRouter : Node
         TouchPosition = drag.Position;
 
         if (_activeTouchZone == null) return;
+        if (!IsActiveZoneValid()) { _activeTouchZone = null; return; }
 
         // 拖拽阈值检测
         if (!_isDragging && TouchTravelDistance >= DragThreshold)
@@ -311,6 +324,18 @@ public partial class MobileInputRouter : Node
             _activeTouchZone = null; // 安全释放
         }
         _touchZones.Remove(zone);
+    }
+
+    /// <summary>
+    /// 检查当前活跃 zone 的 owner 是否仍然有效。
+    /// 场景切换时 owner 可能已被释放，此时应清除 _activeTouchZone。
+    /// </summary>
+    private bool IsActiveZoneValid()
+    {
+        if (_activeTouchZone == null) return false;
+        if (!SceneLifecycleGuard.IsNodeValid(_activeTouchZone.Owner)) return false;
+        if (!_activeTouchZone.Owner.IsInsideTree()) return false;
+        return true;
     }
 
     // ===== 命中测试 =====
