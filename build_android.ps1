@@ -16,6 +16,20 @@ $proj  = "$root\project.godot"
 function step($msg) { Write-Host "`n▶ $msg" -ForegroundColor Cyan }
 
 # ============================================================
+# 0. 清理缓存（避免 Godot dotnet publish 使用旧 DLL）
+# ============================================================
+step "[0/4] 清理构建缓存..."
+# Godot mono 临时构建输出
+$godotTemp = "$root\.godot\mono\temp"
+if (Test-Path $godotTemp) {
+    Remove-Item -Recurse -Force $godotTemp 2>$null
+    Write-Host "  已清理: .godot/mono/temp" -ForegroundColor DarkGray
+}
+# dotnet obj/bin
+dotnet clean "$root\OdysseyCards.sln" -nologo 2>&1 | Out-Null
+Write-Host "  已清理: dotnet clean" -ForegroundColor DarkGray
+
+# ============================================================
 # 1. dotnet build
 # ============================================================
 if (-not $SkipBuild) {
