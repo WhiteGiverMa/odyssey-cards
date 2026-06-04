@@ -25,9 +25,17 @@ if (Test-Path $godotTemp) {
     Remove-Item -Recurse -Force $godotTemp 2>$null
     Write-Host "  已清理: .godot/mono/temp" -ForegroundColor DarkGray
 }
-# dotnet obj/bin
+# 所有 obj 目录（dotnet publish 的中间输出缓存）
+Get-ChildItem -Path $root -Recurse -Directory -Filter "obj" -Depth 3 | ForEach-Object {
+    Remove-Item -Recurse -Force $_.FullName 2>$null
+}
+Write-Host "  已清理: 所有 obj/ 目录" -ForegroundColor DarkGray
+# dotnet clean
 dotnet clean "$root\OdysseyCards.sln" -nologo 2>&1 | Out-Null
 Write-Host "  已清理: dotnet clean" -ForegroundColor DarkGray
+# 强制 dotnet publish（确保 Godot 导出使用最新编译结果）
+dotnet publish "$root\OdysseyCards.sln" -c Debug -nologo 2>&1 | Out-Null
+Write-Host "  已发布: dotnet publish" -ForegroundColor DarkGray
 
 # ============================================================
 # 1. dotnet build
