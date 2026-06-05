@@ -1,8 +1,6 @@
 using Godot;
-using OdysseyCards.AI;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
-using OdysseyCards.Relic;
 using OdysseyCards.UI;
 using System;
 using System.Collections.Generic;
@@ -43,6 +41,7 @@ namespace OdysseyCards.Infrastructure;
 ///   /intent_debug            显示当前敌方意图目标（QA）。
 ///   /qa_tombstone            验证墓碑伤害结算（QA）。
 ///   /qa_bait_tactics         验证诱饵战术双阵营触发（QA）。
+///   /qa_new_cards            验证近期新卡核心规则（QA）。
 ///   /fight &lt;enemy&gt;          直接与指定敌人战斗，跳过地图。
 ///   /addrelic &lt;relic_id&gt;    直接获得指定藏品。别名 /ar。
 ///   /help                    显示帮助。别名 /?。
@@ -388,6 +387,7 @@ public partial class DevConsole : Node
         _engine.Register(new Commands.SummonPlayerCommand());
         _engine.Register(new Commands.QaTombstoneCommand());
         _engine.Register(new Commands.QaBaitTacticsCommand());
+        _engine.Register(new Commands.QaNewCardsCommand());
         _engine.Register(new Commands.AddRelicCommand());
         _engine.Register(new Commands.ClearCommand());
         _engine.Register(new Commands.UnlockAllCommand());

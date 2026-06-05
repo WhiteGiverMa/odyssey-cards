@@ -1,6 +1,6 @@
-using Godot;
+#nullable enable
 using OdysseyCards.Combat;
-using System;
+using OdysseyCards.UI;
 using System.Linq;
 using static OdysseyCards.Infrastructure.Commands.CombatUIHelper;
 
@@ -20,10 +20,11 @@ public class DamageCommand : DevConsoleCommand
         var cm = CombatManager.Instance;
         if (cm == null) return CommandResult.Fail("未在战斗中");
         int n = args.Length > 0 && int.TryParse(args[0], out var v) ? v : 1;
-        cm.EnemyHero.TakeDamage(n, null);
+        var enemyHero = cm.EnemyUnits[0].Body;
+        enemyHero.TakeDamage(n, null);
         cm.CheckVictoryOrDefeat();
         RefreshCombatUI(cm);
-        return CommandResult.Ok($"对敌方英雄造成 {n} 点伤害（剩余 {cm.EnemyHero.CurrentHealth}）");
+        return CommandResult.Ok($"对敌方英雄造成 {n} 点伤害（剩余 {enemyHero.CurrentHealth}）");
     }
 }
 
@@ -38,10 +39,11 @@ public class DamageEnemyCommand : DevConsoleCommand
         var cm = CombatManager.Instance;
         if (cm == null) return CommandResult.Fail("未在战斗中");
         int n = args.Length > 0 && int.TryParse(args[0], out var v) ? v : 1;
-        cm.EnemyHero.TakeDamage(n, null);
+        var enemyHero = cm.EnemyUnits[0].Body;
+        enemyHero.TakeDamage(n, null);
         cm.CheckVictoryOrDefeat();
         RefreshCombatUI(cm);
-        return CommandResult.Ok($"对敌方英雄造成 {n} 点伤害（剩余 {cm.EnemyHero.CurrentHealth}）");
+        return CommandResult.Ok($"对敌方英雄造成 {n} 点伤害（剩余 {enemyHero.CurrentHealth}）");
     }
 }
 
@@ -138,11 +140,7 @@ internal static class CombatUIHelper
 {
     public static void RefreshCombatUI(CombatManager cm)
     {
-        var ui = cm.GetNodeOrNull<Control>("CanvasLayer/CombatUI");
-        if (ui != null)
-        {
-            var m = ui.GetType().GetMethod("RefreshAll");
-            m?.Invoke(ui, null);
-        }
+        var ui = cm.GetNodeOrNull<CombatUI>("CanvasLayer/CombatUI");
+        ui?.RefreshAll();
     }
 }

@@ -3,13 +3,12 @@ using OdysseyCards.Combat;
 using OdysseyCards.Core;
 using OdysseyCards.Character;
 using static OdysseyCards.Infrastructure.Commands.CombatUIHelper;
-using Card = OdysseyCards.Card.Card;
 using Minion = OdysseyCards.Card.Minion;
 using Hero = OdysseyCards.Card.Hero;
 
 namespace OdysseyCards.Infrastructure.Commands;
 
-// ===== /qa_tombstone /qa_bait_tactics =====
+// ===== /qa_tombstone /qa_bait_tactics /qa_new_cards =====
 
 public class QaTombstoneCommand : DevConsoleCommand
 {
@@ -62,41 +61,25 @@ public class QaBaitTacticsCommand : DevConsoleCommand
         var cm = CombatManager.Instance;
         if (cm == null) return CommandResult.Fail("未在战斗中");
 
-        var baitData = GD.Load<CardData>("res://Resources/Cards/Spell_BaitTactics.tres");
-        var playerMinionData = GD.Load<CardData>("res://Resources/Cards/Minion_18thRegiment.tres");
-        var enemyMinionData = GD.Load<CardData>("res://Resources/Cards/Minion_Slime.tres");
-
-        if (baitData == null || playerMinionData == null || enemyMinionData == null)
-            return CommandResult.Fail("诱饵战术QA失败：无法加载所需卡牌资源");
-
-        cm.PlayerHero.GainMana(20);
-        int initialDefense = cm.EnemyHero.Defense;
-
-        var friendlyTarget = new Minion(playerMinionData, isPlayerSide: true);
-        var enemyAttacker = new Minion(enemyMinionData, isPlayerSide: false);
-        var friendlySpell = new OdysseyCards.Card.Card(baitData);
-        cm.AddCardToHand(friendlySpell);
-        bool friendlySpellPlayed = cm.PlaySpell(friendlySpell, friendlyTarget);
-        bool friendlyBuffApplied = friendlyTarget.HasAmbush && friendlyTarget.HasImpact && friendlyTarget.HasBaitTacticsOnAttacked;
-        cm.ResolveMinionCombat(enemyAttacker, friendlyTarget);
-        bool friendlyTriggerWorked = cm.EnemyHero.Defense == initialDefense - 1;
-
-        var enemyTarget = new Minion(enemyMinionData, isPlayerSide: false);
-        var playerAttacker = new Minion(playerMinionData, isPlayerSide: true);
-        var enemySpell = new OdysseyCards.Card.Card(baitData);
-        cm.AddCardToHand(enemySpell);
-        bool enemySpellPlayed = cm.PlaySpell(enemySpell, enemyTarget);
-        bool enemyBuffApplied = enemyTarget.HasAmbush && enemyTarget.HasImpact && enemyTarget.HasBaitTacticsOnAttacked;
-        cm.ResolveMinionCombat(playerAttacker, enemyTarget);
-        bool enemyTriggerWorked = cm.EnemyHero.Defense == initialDefense - 2;
-
+        string result = CombatRuntimeQa.RunBaitTacticsQa(cm);
         RefreshCombatUI(cm);
+        return result.Contains("QA通过") ? CommandResult.Ok(result) : CommandResult.Fail(result);
+    }
+}
 
-        bool allPassed = friendlySpellPlayed && friendlyBuffApplied && friendlyTriggerWorked &&
-                         enemySpellPlayed && enemyBuffApplied && enemyTriggerWorked;
+public class QaNewCardsCommand : DevConsoleCommand
+{
+    public override string Name => "qa_new_cards";
+    public override string Signature => "/qa_new_cards";
+    public override string Description => "验证近期新卡的核心规则行为。";
 
-        return allPassed
-            ? CommandResult.Ok($"诱饵战术QA通过：友方目标触发、敌方目标触发，玩家敌方的英雄防御 {initialDefense}→{cm.EnemyHero.Defense}")
-            : CommandResult.Fail($"诱饵战术QA失败：friendlySpell={friendlySpellPlayed}, friendlyBuff={friendlyBuffApplied}, friendlyTrigger={friendlyTriggerWorked}, enemySpell={enemySpellPlayed}, enemyBuff={enemyBuffApplied}, enemyTrigger={enemyTriggerWorked}, defense={cm.EnemyHero.Defense}");
+    public override CommandResult Execute(string[] args)
+    {
+        var cm = CombatManager.Instance;
+        if (cm == null) return CommandResult.Fail("未在战斗中");
+
+        string result = CombatRuntimeQa.RunNewCardsQa(cm);
+        RefreshCombatUI(cm);
+        return result.Contains("QA通过") ? CommandResult.Ok(result) : CommandResult.Fail(result);
     }
 }
