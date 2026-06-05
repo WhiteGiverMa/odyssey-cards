@@ -58,13 +58,15 @@ public partial class DevConsole : Node
     private RichTextLabel _completionLabel = null!;
     private bool _visible;
 
-    // ===== 命令注册表 =====
+    // ===== 补全状态 =====
 
-    private record DevCommandDef(string Name, string[] Aliases, string Signature, string Description, string[]? ArgHints = null);
+    private readonly List<CompletionCandidate> _completionCandidates = new();
+    private int _selectedCompletionIndex = -1;
 
-    private readonly List<DevCommandDef> _commands = new();
-    private readonly Dictionary<string, OdysseyCards.Core.CardData> _cardCache = new();
-    private readonly Dictionary<string, AbstractRelic> _relicCache = new();
+    // ===== 命令引擎 =====
+
+    private readonly DevConsoleEngine _engine = new();
+    private int _historyIndex;
 
     // ===== 生命周期 =====
 
@@ -149,11 +151,11 @@ public partial class DevConsole : Node
         vbox.AddChild(_completionLabel);
 
         // 注册命令
-        RegisterCommands();
+        RegisterAllCommands();
 
-        // 构建卡牌缓存
-        BuildCardCache();
-        BuildRelicCache();
+        // 加载历史
+        var historyPath = ProjectSettings.GlobalizePath("user://console_history.log");
+        _engine.LoadHistory(historyPath);
 
         WriteLine("[color=#66ff66][DevConsole] 按 ` 键呼出/隐藏。输入 /help 查看命令[/color]");
     }
@@ -165,6 +167,35 @@ public partial class DevConsole : Node
             if (keyEvent.Keycode == Key.Quoteleft) // 反引号键
             {
                 Toggle();
+                GetViewport().SetInputAsHandled();
+            }
+            else if (_visible && _input.HasFocus() && keyEvent.Keycode == Key.Tab && TryAcceptSelectedCompletion())
+            {
+                GetViewport().SetInputAsHandled();
+            }
+            else if (_visible && _input.HasFocus() && keyEvent.Keycode == Key.Up)
+            {
+                if (_completionCandidates.Count > 0 && TryMoveCompletionSelection(-1))
+                {
+                    // 有补全候选：切换选中项
+                }
+                else
+                {
+                    // 无补全候选：走历史记录
+                    NavigateHistory(-1);
+                }
+                GetViewport().SetInputAsHandled();
+            }
+            else if (_visible && _input.HasFocus() && keyEvent.Keycode == Key.Down)
+            {
+                if (_completionCandidates.Count > 0 && TryMoveCompletionSelection(1))
+                {
+                    // 有补全候选：切换选中项
+                }
+                else
+                {
+                    NavigateHistory(1);
+                }
                 GetViewport().SetInputAsHandled();
             }
             else if (_visible && keyEvent.Keycode == Key.Escape)
@@ -195,6 +226,7 @@ public partial class DevConsole : Node
         _completionLabel.Visible = true;
         _input.GrabFocus();
         _input.Clear();
+        ResetCompletionState();
         OnTextChanged("");
     }
 
@@ -204,6 +236,7 @@ public partial class DevConsole : Node
         _panel.Visible = false;
         _completionLabel.Visible = false;
         _input.ReleaseFocus();
+        ResetCompletionState();
     }
 
     // ===== 命令处理 =====
@@ -212,7 +245,8 @@ public partial class DevConsole : Node
     {
         if (string.IsNullOrWhiteSpace(text)) return;
         _input.Clear();
-        DevCommand(text);
+        ResetCompletionState();
+        ExecuteCommand(text);
         _input.GrabFocus();
     }
 
@@ -222,431 +256,73 @@ public partial class DevConsole : Node
     /// <param name="cmd">命令字符串，格式: /&lt;action&gt; [参数]</param>
     public void DevCommand(string cmd)
     {
+        ExecuteCommand(cmd);
+    }
+
+    /// <summary>
+    /// 统一的命令执行入口：处理特殊命令后委托给引擎。
+    /// </summary>
+    private void ExecuteCommand(string cmd)
+    {
         cmd = cmd.Trim();
         WriteLine($"[color=#aaaaaa]> {cmd}[/color]");
 
-        if (!cmd.StartsWith("/"))
-        {
-            WriteLine("[color=#ff6644]命令需以 / 开头，输入 /help 查看帮助[/color]");
+        if (string.IsNullOrWhiteSpace(cmd))
             return;
-        }
 
-        var parts = cmd[1..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0) return;
-
-        var action = parts[0].ToLowerInvariant();
+        // 预派发：点击伤害模式
+        if (TryHandleClickDamageFromInput(cmd))
+            return;
 
         try
         {
-            Execute(action, parts);
+            var result = _engine.Execute(cmd);
+
+            if (!result.Success)
+            {
+                WriteLine($"[color=#ff6644]{result.Message}[/color]");
+                return;
+            }
+
+            // 特殊标记处理
+            var msg = result.Message;
+            if (msg == "__CLEAR__")
+            {
+                _output.Clear();
+            }
+            else if (msg.StartsWith("__FIGHT__"))
+            {
+                WriteLine($"[color=#66ff66]即将与 {msg[9..]} 战斗…[/color]");
+                GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
+            }
+            else
+            {
+                WriteLine($"[color=#66ff66]{msg}[/color]");
+            }
         }
         catch (Exception e)
         {
             WriteLine($"[color=#ff4444]命令执行异常: {e.Message}[/color]");
         }
+
+        _engine.SaveHistory(ProjectSettings.GlobalizePath("user://console_history.log"));
     }
 
     /// <summary>
-    /// 根据 action 执行对应的游戏操作。
+    /// 处理 /damage -c N 命令：进入点击伤害模式。
     /// </summary>
-    private void Execute(string action, string[] parts)
+    private bool TryHandleClickDamageFromInput(string cmd)
     {
-        var cm = CombatManager.Instance;
-        if (cm == null && action != "help" && action != "clear" && action != "addrelic" && action != "ar")
-        {
-            WriteLine("[color=#ffaa44]未在战斗中，此命令需要 CombatManager[/color]");
-            return;
-        }
+        if (!cmd.StartsWith("/")) return false;
+        var parts = cmd[1..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 3) return false;
+        var action = parts[0].ToLowerInvariant();
+        if (action is not "damage" and not "dmg") return false;
+        if (parts[1] != "-c") return false;
+        if (!int.TryParse(parts[2], out int dmg)) return false;
 
-        int Arg(int i = 1) => parts.Length > i && int.TryParse(parts[i], out var v) ? v : 1;
-
-        switch (action)
-        {
-            // ===== 伤害 =====
-            case "damage":
-            case "dmg":
-                if (TryHandleClickDamage(parts, cm!)) return;
-                cm!.EnemyHero.TakeDamage(Arg(), null);
-                WriteLine($"[color=#ff6644]对敌方英雄造成 {Arg()} 点伤害（剩余 {cm.EnemyHero.CurrentHealth}）[/color]");
-                cm.CheckVictoryOrDefeat();
-                RefreshCombatUI(cm);
-                break;
-
-            // ===== 伤害敌方随从 =====
-            case "damage_eslot":
-            case "des":
-                if (parts.Length < 3)
-                { WriteLine("[color=#ffaa44]用法: /damage_eslot <槽位0-4> <伤害值>[/color]"); break; }
-                if (!int.TryParse(parts[1], out var eslot) || eslot < 0 || eslot > 4)
-                { WriteLine("[color=#ffaa44]槽位需为 0-4[/color]"); break; }
-                int edmg = int.Parse(parts[2]);
-                var em = cm!.Board.GetMinionAt(eslot, isPlayerSide: false);
-                if (em == null || em.IsDead)
-                { WriteLine($"[color=#ffaa44]敌方槽位 {eslot} 无有效随从[/color]"); break; }
-                em.TakeDamage(edmg, null);
-                WriteLine($"[color=#ff6644]对敌方槽位{eslot} {em.CardName} 造成 {edmg} 点伤害（剩余 {em.CurrentHealth}）[/color]");
-                if (em.IsDead) { cm.Board.RemoveMinion(em); }
-                cm.CheckDeaths();
-                cm.CheckVictoryOrDefeat();
-                RefreshCombatUI(cm);
-                break;
-
-            // ===== 伤害己方随从 =====
-            case "damage_pslot":
-            case "dps":
-                if (parts.Length < 3)
-                { WriteLine("[color=#ffaa44]用法: /damage_pslot <槽位0-4> <伤害值>[/color]"); break; }
-                if (!int.TryParse(parts[1], out var pslot) || pslot < 0 || pslot > 4)
-                { WriteLine("[color=#ffaa44]槽位需为 0-4[/color]"); break; }
-                int pdmg = int.Parse(parts[2]);
-                var pm = cm!.Board.GetMinionAt(pslot, isPlayerSide: true);
-                if (pm == null || pm.IsDead)
-                { WriteLine($"[color=#ffaa44]己方槽位 {pslot} 无有效随从[/color]"); break; }
-                pm.TakeDamage(pdmg, null);
-                WriteLine($"[color=#ff6644]对己方槽位{pslot} {pm.CardName} 造成 {pdmg} 点伤害（剩余 {pm.CurrentHealth}）[/color]");
-                if (pm.IsDead) { cm.Board.RemoveMinion(pm); }
-                cm.CheckDeaths();
-                cm.CheckVictoryOrDefeat();
-                RefreshCombatUI(cm);
-                break;
-
-            // ===== 伤害己方英雄 =====
-            case "damage_self":
-            case "dself":
-                cm!.PlayerHero.TakeDamage(Arg(), null);
-                WriteLine($"[color=#ff6644]对己方英雄造成 {Arg()} 点伤害（剩余 {cm.PlayerHero.CurrentHealth}）[/color]");
-                cm.CheckVictoryOrDefeat();
-                RefreshCombatUI(cm);
-                break;
-
-            // ===== 伤害敌方英雄（显式） =====
-            case "damage_enemy":
-            case "denemy":
-                cm!.EnemyHero.TakeDamage(Arg(), null);
-                WriteLine($"[color=#ff6644]对敌方英雄造成 {Arg()} 点伤害（剩余 {cm.EnemyHero.CurrentHealth}）[/color]");
-                cm.CheckVictoryOrDefeat();
-                RefreshCombatUI(cm);
-                break;
-
-            // ===== 伤害全部敌方随从 =====
-            case "damage_all":
-            case "dall":
-                var enemies = cm!.Board.GetEnemyMinions().Where(m => !m.IsDead).ToList();
-                foreach (var e in enemies) { e.TakeDamage(Arg(), null);
-                    if (e.IsDead) { cm.Board.RemoveMinion(e); } }
-                WriteLine($"[color=#ff6644]对所有敌方随从造成 {Arg()} 点伤害（命中 {enemies.Count} 个目标）[/color]");
-                cm.CheckDeaths();
-                cm.CheckVictoryOrDefeat();
-                RefreshCombatUI(cm);
-                break;
-
-            // ===== 抽牌 =====
-            case "draw":
-            case "d":
-                cm!.PlayerHero.DrawCards(Arg());
-                WriteLine($"[color=#44aaff]抽 {Arg()} 张牌（手牌 {cm.PlayerHero.Hand.Count}）[/color]");
-                break;
-
-            // ===== 法力 =====
-            case "mana":
-            case "m":
-                cm!.PlayerHero.GainMana(Arg());
-                WriteLine($"[color=#44ddff]获得 {Arg()} 点法力（当前 {cm.PlayerHero.CurrentMana}）[/color]");
-                break;
-
-            // ===== 治疗 =====
-            case "heal":
-            case "h":
-                cm!.PlayerHero.Heal(Arg());
-                WriteLine($"[color=#44ff44]恢复 {Arg()} 点生命值（当前 {cm.PlayerHero.CurrentHealth}）[/color]");
-                break;
-
-            // ===== 护甲 =====
-            case "armor":
-            case "a":
-                cm!.PlayerHero.GainArmor(Arg());
-                WriteLine($"[color=#aaaaff]获得 {Arg()} 点护甲（当前 {cm.PlayerHero.CurrentArmor}）[/color]");
-                break;
-
-            // ===== 强制结束回合 =====
-            case "end":
-            case "endturn":
-                cm!.EndPlayerTurn();
-                WriteLine("[color=#ffaa44]强制结束玩家回合[/color]");
-                break;
-
-            // ===== 刷新 UI =====
-            case "refresh":
-            case "r":
-                // 通过场景树查找 CombatUI 并刷新
-                var combatUINode = cm!.GetNodeOrNull<Control>("../CanvasLayer/CombatUI");
-                if (combatUINode != null)
-                {
-                    var refreshMethod = combatUINode.GetType().GetMethod("RefreshAll");
-                    refreshMethod?.Invoke(combatUINode, null);
-                }
-                WriteLine("[color=#aaaaaa]UI 已刷新[/color]");
-                break;
-
-            // ===== 帮助 =====
-            case "help":
-            case "?":
-                WriteLine("[color=#66ff66]=== 开发者命令 ===");
-                WriteLine("  /damage N       — 对敌方英雄造成 N 点伤害");
-                WriteLine("  /damage_enemy N — 同上（显式）");
-                WriteLine("  /damage_self N  — 对己方英雄造成 N 点伤害");
-                WriteLine("  /damage_eslot X N — 对敌方槽位 X(0-4) 随从造成 N 点伤害");
-                WriteLine("  /damage_pslot X N — 对己方槽位 X(0-4) 随从造成 N 点伤害");
-                WriteLine("  /damage_all N   — 对所有敌方随从造成 N 点伤害");
-                WriteLine("  /draw N         — 抽 N 张牌");
-                WriteLine("  /mana N         — 获得 N 点法力");
-                WriteLine("  /heal N         — 恢复 N 点生命值");
-                WriteLine("  /armor N        — 获得 N 点护甲");
-                WriteLine("  /end            — 强制结束回合");
-                WriteLine("  /refresh        — 刷新 UI");
-                WriteLine("  /clear          — 清空输出");
-                WriteLine("  /token <id> [n] — 将指定ID的卡牌加入手牌（可批量 n 张）");
-                WriteLine("  /play <id>      — 从手牌打出指定ID卡牌（领域/无目标法术）");
-                WriteLine("  /summon_player <id> <slot> — 在己方槽位直接召唤随从（QA）");
-                WriteLine("  /intent_debug   — 显示当前敌方意图目标与箭头坐标（QA）");
-                WriteLine("  /fight <enemy>  — 直接与指定敌人战斗（跳过地图）");
-                WriteLine("  /addrelic <id>  — 直接获得指定藏品");
-                WriteLine("  /qa_tombstone   — 验证墓碑伤害结算");
-                WriteLine("  /unlock_all     — 解锁全部卡牌（加入收藏）");
-                WriteLine("  /help           — 显示帮助[/color]");
-                WriteLine("  /tags           — 显示所有卡牌标签分布（QA）[/color]");
-                break;
-
-            // ===== 加入手牌 =====
-            case "token":
-            case "t":
-                if (parts.Length < 2)
-                {
-                    WriteLine("[color=#ffaa44]用法: /token <card_id> [count]  可用ID见补全提示[/color]");
-                    break;
-                }
-                var tokenId = parts[1];
-                int tokenCount = 1;
-                if (parts.Length >= 3 && int.TryParse(parts[2], out var cnt) && cnt > 0)
-                    tokenCount = Math.Min(cnt, 99); // 上限 99 张，防止刷爆
-                if (!_cardCache.TryGetValue(tokenId, out var cardData))
-                {
-                    // 尝试大小写不敏感匹配
-                    var match = _cardCache.Keys.FirstOrDefault(k =>
-                        string.Equals(k, tokenId, StringComparison.OrdinalIgnoreCase));
-                    if (match != null)
-                        _cardCache.TryGetValue(match, out cardData);
-                }
-                if (cardData == null)
-                {
-                    WriteLine($"[color=#ffaa44]未找到卡牌: {tokenId}  可用ID见补全提示[/color]");
-                    break;
-                }
-                for (int i = 0; i < tokenCount; i++)
-                {
-                    var tokenCard = new OdysseyCards.Card.Card(cardData);
-                    cm!.AddCardToHand(tokenCard);
-                }
-                WriteLine(tokenCount > 1
-                    ? $"[color=#66ff66]将 {tokenCount} 张「{cardData.CardName}」加入手牌（手牌 {cm!.PlayerHero.Hand.Count} 张）[/color]"
-                    : $"[color=#66ff66]将「{cardData.CardName}」加入手牌（手牌 {cm!.PlayerHero.Hand.Count} 张）[/color]");
-                break;
-
-            // ===== 从手牌打出卡牌 =====
-            case "play":
-            case "p":
-                if (parts.Length < 2)
-                {
-                    WriteLine("[color=#ffaa44]用法: /play <card_id>[/color]");
-                    break;
-                }
-                var playId = parts[1];
-                var cardToPlay = cm!.PlayerHero.Hand.FirstOrDefault(c =>
-                    string.Equals(c.Id, playId, StringComparison.OrdinalIgnoreCase));
-                if (cardToPlay == null)
-                {
-                    WriteLine($"[color=#ffaa44]手牌中没有卡牌: {playId}[/color]");
-                    break;
-                }
-
-                bool played = cardToPlay.Type switch
-                {
-                    CardType.Domain => cm.PlayDomain(cardToPlay),
-                    CardType.Spell when !cardToPlay.Data.RequiresTarget => cm.PlaySpell(cardToPlay, cm.PlayerHero),
-                    _ => false
-                };
-
-                WriteLine(played
-                    ? $"[color=#66ff66]打出「{cardToPlay.GetLocalizedName()}」[/color]"
-                    : $"[color=#ffaa44]无法通过 /play 打出「{cardToPlay.GetLocalizedName()}」[/color]");
-                break;
-
-            // ===== QA：直接召唤玩家随从 =====
-            case "summon_player":
-            case "sp":
-                SummonPlayerMinion(parts, cm!);
-                break;
-
-            // ===== QA：显示当前敌方意图目标 =====
-            case "intent_debug":
-                WriteIntentDebug(cm!);
-                break;
-
-            // ===== 清空输出 =====
-            case "clear":
-            case "cls":
-                _output.Clear();
-                break;
-
-            // ===== 解锁全部卡牌 =====
-            case "unlock_all":
-                GameManager.Instance?.UnlockAllCards();
-                GameManager.Instance?.SaveToDisk();
-                WriteLine("[color=#66ff66]已解锁全部卡牌并保存到磁盘[/color]");
-                break;
-
-            // ===== 直接战斗（跳过地图） =====
-            case "fight":
-                if (parts.Length < 2)
-                {
-                    WriteLine($"[color=#ffaa44]用法: /fight <enemy>  可用: {string.Join(", ", EnemyRegistry.AllIds)}[/color]");
-                    break;
-                }
-                var fightId = parts[1].ToLowerInvariant();
-                var fightEnemies = EnemyRegistry.Create(fightId);
-                if (fightEnemies.Count == 0)
-                {
-                    WriteLine($"[color=#ff6644]未知敌人: {fightId}，可用: {string.Join(", ", EnemyRegistry.AllIds)}[/color]");
-                    break;
-                }
-                GameManager.Instance!.FightOverride = fightEnemies;
-                WriteLine($"[color=#66ff66]即将与 {string.Join(", ", fightEnemies.Select(e => e.Name))} 战斗…[/color]");
-                GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
-                break;
-
-            // ===== 获得藏品 =====
-            case "addrelic":
-            case "ar":
-                if (parts.Length < 2)
-                {
-                    WriteLine($"[color=#ffaa44]用法: /addrelic <relic_id>  可用: {string.Join(", ", _relicCache.Keys)}[/color]");
-                    break;
-                }
-                var relicId = parts[1].ToLowerInvariant();
-                if (!_relicCache.TryGetValue(relicId, out var relicDef))
-                {
-                    WriteLine($"[color=#ff6644]未知藏品: {relicId}，可用: {string.Join(", ", _relicCache.Keys)}[/color]");
-                    break;
-                }
-                // 根据类型反射创建新实例（避免缓存实例被共享）
-                AbstractRelic newRelic = relicDef switch
-                {
-                    GoodDreamPillowRelic => new GoodDreamPillowRelic(),
-                    SmallFanRelic => new SmallFanRelic(),
-                    IceBagRelic => new IceBagRelic(),
-                    TacticalNukeRelic => new TacticalNukeRelic(),
-                    InternBadgeRelic => new InternBadgeRelic(),
-                    _ => relicDef
-                };
-                GameManager.Instance!.Relics.AddRelic(newRelic);
-                WriteLine($"[color=#66ff66]已获得藏品「{newRelic.Name}」[/color]");
-                break;
-
-            // ===== QA：墓碑伤害结算 =====
-            case "qa_tombstone":
-                RunTombstoneDamageQa();
-                break;
-
-            // ===== QA：诱饵战术 =====
-            case "qa_bait_tactics":
-                RunBaitTacticsQa(cm!);
-                break;
-
-            // ===== 标签分布 =====
-            case "tags":
-                ShowTagsDistribution();
-                break;
-
-            default:
-                WriteLine($"[color=#ff6644]未知命令: /{action}，输入 /help 查看帮助[/color]");
-                break;
-        }
-    }
-
-    /// <summary>
-    /// QA 命令：直接在玩家槽位召唤指定随从，用于构造自动化验证场景。
-    /// </summary>
-    private void SummonPlayerMinion(string[] parts, CombatManager cm)
-    {
-        if (parts.Length < 3)
-        {
-            WriteLine("[color=#ffaa44]用法: /summon_player <card_id> <slot0-4>[/color]");
-            return;
-        }
-
-        if (!TryGetCardData(parts[1], out var cardData) || cardData == null)
-        {
-            WriteLine($"[color=#ffaa44]未找到卡牌: {parts[1]}  可用ID见补全提示[/color]");
-            return;
-        }
-
-        if (!cardData.IsMinion)
-        {
-            WriteLine($"[color=#ffaa44]「{cardData.CardName}」不是随从牌[/color]");
-            return;
-        }
-
-        if (!int.TryParse(parts[2], out var slot) || slot < 0 || slot >= Board.MaxSlotsPerSide)
-        {
-            WriteLine("[color=#ffaa44]槽位需为 0-4[/color]");
-            return;
-        }
-
-        var minion = new OdysseyCards.Card.Minion(cardData, isPlayerSide: true);
-        cm.Board.PlaceMinion(minion, slot);
-        RefreshCombatUI(cm);
-        WriteLine($"[color=#66ff66]已在己方槽位 {slot} 召唤「{minion.GetLocalizedName()}」[/color]");
-    }
-
-    /// <summary>
-    /// QA 命令：输出敌方意图目标与箭头坐标快照。
-    /// </summary>
-    private void WriteIntentDebug(CombatManager cm)
-    {
-        for (int i = 0; i < cm.EnemyUnits.Count; i++)
-        {
-            var unit = cm.EnemyUnits[i];
-            var intent = unit.GetCurrentIntent(cm);
-            var target = intent.GetTarget(cm);
-            WriteLine($"[color=#66ff66]Enemy[{i}] {unit.Brain.Name}: {intent.Type} -> {DescribeTarget(target)}, damage={intent.GetEffectiveDamage(cm)}[/color]");
-        }
-
-        var combatUI = cm.GetNodeOrNull<CombatUI>("CanvasLayer/CombatUI");
-        var arrows = combatUI?.GetIntentArrowDebugInfo();
-        WriteLine(string.IsNullOrEmpty(arrows)
-            ? "[color=#aaaaaa]Arrows: <none>[/color]"
-            : $"[color=#aaaaaa]Arrows:\n{arrows}[/color]");
-    }
-
-    private bool TryGetCardData(string cardId, out CardData? cardData)
-    {
-        if (_cardCache.TryGetValue(cardId, out cardData))
-            return true;
-
-        var match = _cardCache.Keys.FirstOrDefault(k =>
-            string.Equals(k, cardId, StringComparison.OrdinalIgnoreCase));
-        return match != null && _cardCache.TryGetValue(match, out cardData);
-    }
-
-    private static string DescribeTarget(IDamageTarget? target)
-    {
-        return target switch
-        {
-            OdysseyCards.Card.Hero h => h.IsPlayerSide ? "Hero:Player" : "Hero:Enemy",
-            OdysseyCards.Card.Minion m => $"Minion:{m.GetLocalizedName()}@{m.BoardSlotIndex}",
-            null => "<none>",
-            _ => target.GetType().Name,
-        };
+        EnterClickDamageMode(dmg);
+        return true;
     }
 
     // ===== 输出 =====
@@ -669,117 +345,8 @@ public partial class DevConsole : Node
         }
     }
 
-    /// <summary>
-    /// 验证墓碑的关键伤害规则：
-    /// 1. 效果伤害无视防御力，但仍计算来源侧造成伤害加成；
-    /// 2. 攻击伤害先计算造成伤害加成，再受目标防御力减免。
-    /// 3. 效果伤害不触发英雄武器反击；武器反击伤害必须正常吃墓碑防御力。
-    /// </summary>
-    private void RunTombstoneDamageQa()
-    {
-        var tombstoneData = GD.Load<CardData>("res://Resources/Cards/Minion_Tombstone.tres");
-        if (tombstoneData == null)
-        {
-            WriteLine("[color=#ff6644]QA失败：无法加载墓碑资源[/color]");
-            return;
-        }
+    // ===== 点击伤害模式 =====
 
-        var tombstone = new OdysseyCards.Card.Minion(tombstoneData, isPlayerSide: true);
-        var defendedTargetData = new CardData
-        {
-            Id = "qa_defended_target",
-            CardName = "QA防御目标",
-            Attack = 1,
-            Health = 20,
-            Defense = 1,
-        };
-        var defendedTarget = new OdysseyCards.Card.Minion(defendedTargetData, isPlayerSide: false);
-
-        int battlecryDamage = DamageResolver.ResolveDamage(1, tombstone, defendedTarget, DamageKind.Effect);
-        int attackDamage = DamageResolver.ResolveDamage(tombstone.Attack, tombstone, defendedTarget, DamageKind.Attack);
-
-        var friendlyHeroCore = new OdysseyCards.Character.CommanderCore();
-        friendlyHeroCore.InitializeHealth(30);
-        var friendlyHero = new OdysseyCards.Card.Hero(friendlyHeroCore, isPlayerSide: true)
-        {
-            Weapon = new OdysseyCards.Card.IonPistol(),
-        };
-        friendlyHero.ModifyDefense(1);
-        friendlyHero.TakeDamage(1, tombstone, DamageKind.Effect);
-        bool effectDidNotCounter = tombstone.CurrentHealth == tombstone.MaxHealth;
-        bool effectDamageResolved = friendlyHero.CurrentHealth == 27;
-
-        var counterHeroCore = new OdysseyCards.Character.CommanderCore();
-        counterHeroCore.InitializeHealth(30);
-        var counterHero = new OdysseyCards.Card.Hero(counterHeroCore, isPlayerSide: false)
-        {
-            Weapon = new OdysseyCards.Card.RollingLog(),
-        };
-        counterHero.TakeDamage(tombstone.Attack, tombstone, DamageKind.Attack);
-        bool counterDamageUsedDefense = tombstone.CurrentHealth == tombstone.MaxHealth;
-
-        bool passed = battlecryDamage == 3
-            && attackDamage == 8
-            && effectDamageResolved
-            && effectDidNotCounter
-            && counterDamageUsedDefense;
-
-        WriteLine(passed
-            ? $"[color=#66ff66]墓碑QA通过：战吼效果={battlecryDamage}，攻击={attackDamage}，Effect不反击={effectDidNotCounter}，反击吃防={counterDamageUsedDefense}[/color]"
-            : $"[color=#ff6644]墓碑QA失败：战吼效果={battlecryDamage}（期望3），攻击={attackDamage}（期望8），Effect后墓碑血={tombstone.CurrentHealth}（期望{tombstone.MaxHealth}），友方英雄血={friendlyHero.CurrentHealth}（期望27）[/color]");
-    }
-
-    /// <summary>
-    /// 验证「诱饵战术」：法术可指定任意随从，且不论目标阵营，被攻击时都降低玩家敌方的英雄防御力。
-    /// </summary>
-    private void RunBaitTacticsQa(CombatManager cm)
-    {
-        var baitData = GD.Load<CardData>("res://Resources/Cards/Spell_BaitTactics.tres");
-        var playerMinionData = GD.Load<CardData>("res://Resources/Cards/Minion_18thRegiment.tres");
-        var enemyMinionData = GD.Load<CardData>("res://Resources/Cards/Minion_Slime.tres");
-
-        if (baitData == null || playerMinionData == null || enemyMinionData == null)
-        {
-            WriteLine("[color=#ff6644]诱饵战术QA失败：无法加载所需卡牌资源[/color]");
-            return;
-        }
-
-        cm.PlayerHero.GainMana(20);
-        int initialDefense = cm.EnemyHero.Defense;
-
-        var friendlyTarget = new OdysseyCards.Card.Minion(playerMinionData, isPlayerSide: true);
-        var enemyAttacker = new OdysseyCards.Card.Minion(enemyMinionData, isPlayerSide: false);
-        var friendlySpell = new OdysseyCards.Card.Card(baitData);
-        cm.AddCardToHand(friendlySpell);
-        bool friendlySpellPlayed = cm.PlaySpell(friendlySpell, friendlyTarget);
-        bool friendlyBuffApplied = friendlyTarget.HasAmbush && friendlyTarget.HasImpact && friendlyTarget.HasBaitTacticsOnAttacked;
-        cm.ResolveMinionCombat(enemyAttacker, friendlyTarget);
-        bool friendlyTriggerWorked = cm.EnemyHero.Defense == initialDefense - 1;
-
-        var enemyTarget = new OdysseyCards.Card.Minion(enemyMinionData, isPlayerSide: false);
-        var playerAttacker = new OdysseyCards.Card.Minion(playerMinionData, isPlayerSide: true);
-        var enemySpell = new OdysseyCards.Card.Card(baitData);
-        cm.AddCardToHand(enemySpell);
-        bool enemySpellPlayed = cm.PlaySpell(enemySpell, enemyTarget);
-        bool enemyBuffApplied = enemyTarget.HasAmbush && enemyTarget.HasImpact && enemyTarget.HasBaitTacticsOnAttacked;
-        cm.ResolveMinionCombat(playerAttacker, enemyTarget);
-        bool enemyTriggerWorked = cm.EnemyHero.Defense == initialDefense - 2;
-
-        RefreshCombatUI(cm);
-
-        WriteLine(friendlySpellPlayed
-            && friendlyBuffApplied
-            && friendlyTriggerWorked
-            && enemySpellPlayed
-            && enemyBuffApplied
-            && enemyTriggerWorked
-            ? $"[color=#66ff66]诱饵战术QA通过：友方目标触发、敌方目标触发，玩家敌方的英雄防御 {initialDefense}→{cm.EnemyHero.Defense}[/color]"
-            : $"[color=#ff6644]诱饵战术QA失败：friendlySpell={friendlySpellPlayed}, friendlyBuff={friendlyBuffApplied}, friendlyTrigger={friendlyTriggerWorked}, enemySpell={enemySpellPlayed}, enemyBuff={enemyBuffApplied}, enemyTrigger={enemyTriggerWorked}, defense={cm.EnemyHero.Defense}[/color]");
-    }
-
-    /// <summary>
-    /// 进入点击伤害模式：隐藏控制台，通过 CombatUI 进入交互模式。
-    /// </summary>
     private void EnterClickDamageMode(int damageAmount)
     {
         Hide();
@@ -798,88 +365,48 @@ public partial class DevConsole : Node
         };
     }
 
-    /// <summary>
-    /// 处理 /damage -c N 命令：进入点击伤害模式。
-    /// </summary>
-    private bool TryHandleClickDamage(string[] parts, CombatManager cm)
+    // ===== 命令注册 =====
+
+    private void RegisterAllCommands()
     {
-        // /damage -c N → 交互式点击伤害
-        if (parts.Length >= 3 && parts[1] == "-c" && int.TryParse(parts[2], out int dmg))
-        {
-            EnterClickDamageMode(dmg);
-            return true;
-        }
-        return false;
+        _engine.Register(new Commands.DamageCommand());
+        _engine.Register(new Commands.DamageEnemyCommand());
+        _engine.Register(new Commands.DamageSelfCommand());
+        _engine.Register(new Commands.DamageESlotCommand());
+        _engine.Register(new Commands.DamagePSlotCommand());
+        _engine.Register(new Commands.DamageAllCommand());
+        _engine.Register(new Commands.DrawCommand());
+        _engine.Register(new Commands.ManaCommand());
+        _engine.Register(new Commands.HealCommand());
+        _engine.Register(new Commands.ArmorCommand());
+        _engine.Register(new Commands.EndCommand());
+        _engine.Register(new Commands.FightCommand());
+        _engine.Register(new Commands.RefreshCommand());
+        _engine.Register(new Commands.IntentDebugCommand());
+        _engine.Register(new Commands.TokenCommand());
+        _engine.Register(new Commands.PlayCommand());
+        _engine.Register(new Commands.SummonPlayerCommand());
+        _engine.Register(new Commands.QaTombstoneCommand());
+        _engine.Register(new Commands.QaBaitTacticsCommand());
+        _engine.Register(new Commands.AddRelicCommand());
+        _engine.Register(new Commands.ClearCommand());
+        _engine.Register(new Commands.UnlockAllCommand());
+        _engine.Register(new Commands.TagsCommand());
+        _engine.Register(new Commands.HelpCommand());
+
+        Commands.HelpCommand.AllCommands = _engine.Commands;
     }
 
-    // ===== 命令注册与补全 =====
+    // ===== 历史导航 =====
 
-    private void RegisterCommands()
+    private void NavigateHistory(int direction)
     {
-        _commands.AddRange(new[]
-        {
-            new DevCommandDef("damage",       ["dmg"],    "/damage [-c] N",       "对敌方英雄造成 N 点伤害",     ["N", "-c N（点击模式）"]),
-            new DevCommandDef("damage_enemy", ["denemy"], "/damage_enemy N",      "对敌方英雄造成 N 点伤害（显式）", ["N"]),
-            new DevCommandDef("damage_self",  ["dself"],  "/damage_self N",       "对己方英雄造成 N 点伤害",     ["N"]),
-            new DevCommandDef("damage_eslot", ["des"],    "/damage_eslot X N",    "对敌方槽位 X(0-4) 随从造成 N 点伤害", ["X(0-4)", "N"]),
-            new DevCommandDef("damage_pslot", ["dps"],    "/damage_pslot X N",    "对己方槽位 X(0-4) 随从造成 N 点伤害", ["X(0-4)", "N"]),
-            new DevCommandDef("damage_all",   ["dall"],   "/damage_all N",        "对所有敌方随从造成 N 点伤害",   ["N"]),
-            new DevCommandDef("draw",         ["d"],      "/draw N",              "抽 N 张牌",                  ["N"]),
-            new DevCommandDef("mana",         ["m"],      "/mana N",              "获得 N 点法力",              ["N"]),
-            new DevCommandDef("heal",         ["h"],      "/heal N",              "恢复 N 点生命值",            ["N"]),
-            new DevCommandDef("armor",        ["a"],      "/armor N",             "获得 N 点护甲",              ["N"]),
-            new DevCommandDef("end",          ["endturn"],"/end",                 "强制结束回合",               null),
-            new DevCommandDef("refresh",      ["r"],      "/refresh",             "刷新 UI",                   null),
-            new DevCommandDef("clear",        ["cls"],    "/clear",               "清空输出",                   null),
-            new DevCommandDef("token",        ["t"],      "/token <card_id> [count]", "将指定ID的卡牌加入手牌（可批量）", _cardCache.Keys.ToArray()),
-            new DevCommandDef("play",         ["p"],      "/play <card_id>",      "从手牌打出领域/无目标法术",      _cardCache.Keys.ToArray()),
-            new DevCommandDef("summon_player",["sp"],     "/summon_player <card_id> <slot>", "在己方槽位直接召唤随从（QA）", _cardCache.Keys.ToArray()),
-            new DevCommandDef("intent_debug", [],          "/intent_debug",        "显示当前敌方意图目标（QA）",     null),
-            new DevCommandDef("qa_bait_tactics", [],       "/qa_bait_tactics",     "验证诱饵战术双阵营触发（QA）",     null),
-            new DevCommandDef("unlock_all",   [],         "/unlock_all",          "解锁全部卡牌（加入收藏）",     null),
-            new DevCommandDef("fight",        [],         "/fight <enemy>",       "直接与指定敌人战斗（跳过地图）",  EnemyRegistry.AllIds.ToArray()),
-            new DevCommandDef("addrelic",     ["ar"],     "/addrelic <relic_id>", "直接获得指定藏品",           _relicCache.Keys.ToArray()),
-            new DevCommandDef("help",         ["?"],      "/help",                "显示帮助",                   null),
-            new DevCommandDef("tags",         [],         "/tags",                "显示所有卡牌标签分布（QA）",     null),
-        });
-    }
+        var historyCount = _engine.History.Count;
+        if (historyCount == 0) return;
 
-    /// <summary>
-    /// 构建卡牌 ID → CardData 缓存。扫描 Resources/Cards/ 目录。
-    /// </summary>
-    private void BuildCardCache()
-    {
-        _cardCache.Clear();
-
-        // 从 GameManager 注册表构建缓存（编辑器和导出版本均可用）
-        var allCards = Core.GameManager.Instance.GetAllCards();
-        foreach (var cardData in allCards)
-        {
-            if (cardData != null && !string.IsNullOrEmpty(cardData.Id))
-                _cardCache[cardData.Id] = cardData;
-        }
-
-        GD.Print($"[DevConsole] 卡牌缓存已构建，共 {_cardCache.Count} 张");
-    }
-
-    /// <summary>
-    /// 构建藏品 ID → AbstractRelic 缓存。
-    /// </summary>
-    private void BuildRelicCache()
-    {
-        _relicCache.Clear();
-        var relics = new AbstractRelic[]
-        {
-            new GoodDreamPillowRelic(),
-            new SmallFanRelic(),
-            new IceBagRelic(),
-            new TacticalNukeRelic(),
-            new InternBadgeRelic(),
-        };
-        foreach (var relic in relics)
-            _relicCache[relic.Id] = relic;
-
-        GD.Print($"[DevConsole] 藏品缓存已构建，共 {_relicCache.Count} 个");
+        _historyIndex = Math.Clamp(_historyIndex + direction, 0, historyCount - 1);
+        _input.Text = _engine.History[_historyIndex];
+        _input.CaretColumn = _input.Text.Length;
     }
 
     /// <summary>
@@ -887,129 +414,104 @@ public partial class DevConsole : Node
     /// </summary>
     private void OnTextChanged(string text)
     {
-        _completionLabel.Text = GetCompletionHint(text);
+        RefreshCompletionHint(text);
     }
 
     /// <summary>
-    /// 根据当前输入生成补全提示文本。
+    /// 根据当前输入刷新补全候选与渲染。
     /// </summary>
-    private string GetCompletionHint(string input)
+    private void RefreshCompletionHint(string input)
+    {
+        _completionCandidates.Clear();
+        _completionCandidates.AddRange(_engine.GetCompletions(input));
+        EnsureValidCompletionSelection();
+
+        if (_completionCandidates.Count == 0)
+        {
+            _completionLabel.Text = string.IsNullOrEmpty(input) || !input.StartsWith("/")
+                ? ""
+                : $"[color=#ff6644]未知命令或参数: {input}[/color]";
+        }
+        else
+        {
+            _completionLabel.Text = RenderCompletionCandidates(GetCompletionHeader(input));
+        }
+    }
+
+    private static string GetCompletionHeader(string input)
     {
         if (string.IsNullOrEmpty(input) || !input.StartsWith("/"))
-            return "";
+            return "补全候选";
 
-        var content = input[1..]; // 去掉 /
+        var content = input[1..];
         var spaceIdx = content.IndexOf(' ');
-        var partialCmd = spaceIdx < 0 ? content.ToLowerInvariant() : content[..spaceIdx].ToLowerInvariant();
-        var argPart = spaceIdx < 0 ? "" : content[(spaceIdx + 1)..].TrimStart();
-
-        // 还没输入空格 → 显示匹配的命令列表
         if (spaceIdx < 0)
-        {
-            var matches = _commands
-                .Where(c => c.Name.StartsWith(partialCmd) || c.Aliases.Any(a => a.StartsWith(partialCmd)))
-                .Take(6)
-                .ToList();
+            return "匹配命令（Tab 补全，↑↓ 切换）";
 
-            if (matches.Count == 0)
-                return $"[color=#ff6644]未知命令: /{partialCmd}[/color]";
-
-            var lines = matches.Select(m =>
-            {
-                var aliasStr = m.Aliases.Length > 0 ? $"（别名: {string.Join(", ", m.Aliases)}）" : "";
-                return $"[color=#66ff66]/{m.Name}[/color] [color=#aaaaaa]{m.Signature.Split(' ', 2).ElementAtOrDefault(1) ?? ""}[/color] [color=#888888]— {m.Description}{aliasStr}[/color]";
-            });
-            return string.Join("\n", lines);
-        }
-
-        // 已输入命令名 + 空格 → 显示参数提示
-        var cmd = _commands.FirstOrDefault(c =>
-            c.Name.Equals(partialCmd, StringComparison.OrdinalIgnoreCase) ||
-            c.Aliases.Any(a => a.Equals(partialCmd, StringComparison.OrdinalIgnoreCase)));
-
-        if (cmd == null)
-            return "";
-
-        // token 命令特殊处理：显示可用 card_id
-        if (partialCmd is "token" or "t")
-        {
-            var filtered = _cardCache.Keys
-                .Where(id => id.StartsWith(argPart, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(id => id)
-                .Take(8)
-                .ToList();
-
-            if (filtered.Count == 0)
-                return $"[color=#ffaa44]无匹配的卡牌ID[/color]";
-
-            var lines = filtered.Select(id =>
-            {
-                var c = _cardCache[id];
-                return $"  [color=#66ff66]{id}[/color] [color=#aaaaaa]— {c.CardName}（{c.Cost}费）[/color]";
-            });
-            return "[color=#aaaaaa]可用卡牌ID:[/color]\n" + string.Join("\n", lines);
-        }
-
-        // addrelic 命令特殊处理：显示可用 relic_id
-        if (partialCmd is "addrelic" or "ar")
-        {
-            var filtered = _relicCache.Keys
-                .Where(id => id.StartsWith(argPart, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(id => id)
-                .Take(8)
-                .ToList();
-
-            if (filtered.Count == 0)
-                return $"[color=#ffaa44]无匹配的藏品ID[/color]";
-
-            var lines = filtered.Select(id =>
-            {
-                var r = _relicCache[id];
-                var tag = r.IsNegative ? "负面" : r.IsSubtle ? "微妙" : "正面";
-                return $"  [color=#66ff66]{id}[/color] [color=#aaaaaa]— {r.Name}（{tag}）[/color]";
-            });
-            return "[color=#aaaaaa]可用藏品ID:[/color]\n" + string.Join("\n", lines);
-        }
-
-        // 通用参数提示
-        if (cmd.ArgHints != null && cmd.ArgHints.Length > 0)
-        {
-            var hints = string.Join("  ", cmd.ArgHints);
-            return $"[color=#aaaaaa]参数: {hints}[/color]";
-        }
-
-        return "";
+        return "可用参数（Tab 补全，↑↓ 切换）";
     }
 
-    /// <summary>
-    /// 显示所有卡牌的标签分布。扫描 _cardCache 按 CardTag 分组。
-    /// </summary>
-    private void ShowTagsDistribution()
+    private string RenderCompletionCandidates(string header)
     {
-        WriteLine("[color=#66ff66]=== 标签分布 ===[/color]");
-
-        // 按 CardTag 枚举值分组
-        var allTags = Enum.GetValues<OdysseyCards.Core.CardTag>();
-        foreach (var tag in allTags)
+        var lines = new List<string>
         {
-            if (tag == OdysseyCards.Core.CardTag.None) continue;
+            $"[color=#aaaaaa]{header}[/color]"
+        };
 
-            var cards = _cardCache.Values
-                .Where(c => c.Tags.HasFlag(tag))
-                .OrderBy(c => c.CardName)
-                .ToList();
-
-            WriteLine($"  [color=#ffcc44]{tag}[/color] ({cards.Count} 张):");
-            foreach (var c in cards)
-            {
-                WriteLine($"    [color=#66ff66]{c.Id}[/color] [color=#aaaaaa]— {c.CardName}（{c.Cost}费 {c.Type}）[/color]");
-            }
+        for (int i = 0; i < _completionCandidates.Count; i++)
+        {
+            var candidate = _completionCandidates[i];
+            var isSelected = i == _selectedCompletionIndex;
+            var prefix = isSelected ? "[color=#ffdd66]▶[/color]" : "  ";
+            var primary = isSelected
+                ? $"[color=#ffffff][b]{candidate.PrimaryText}[/b][/color]"
+                : $"[color=#66ff66]{candidate.PrimaryText}[/color]";
+            var secondary = string.IsNullOrEmpty(candidate.SecondaryText)
+                ? ""
+                : $" [color=#888888]— {candidate.SecondaryText}[/color]";
+            lines.Add($"{prefix} {primary}{secondary}");
         }
 
-        // 无标签卡牌
-        var untagged = _cardCache.Values
-            .Where(c => c.Tags == OdysseyCards.Core.CardTag.None)
-            .ToList();
-        WriteLine($"  [color=#aaaaaa]无标签[/color] ({untagged.Count} 张)");
+        return string.Join("\n", lines);
+    }
+
+    private void EnsureValidCompletionSelection()
+    {
+        if (_completionCandidates.Count == 0)
+        {
+            _selectedCompletionIndex = -1;
+            return;
+        }
+
+        if (_selectedCompletionIndex < 0 || _selectedCompletionIndex >= _completionCandidates.Count)
+            _selectedCompletionIndex = 0;
+    }
+
+    private bool TryMoveCompletionSelection(int direction)
+    {
+        if (_completionCandidates.Count == 0)
+            return false;
+
+        _selectedCompletionIndex = (_selectedCompletionIndex + direction + _completionCandidates.Count) % _completionCandidates.Count;
+        _completionLabel.Text = RenderCompletionCandidates(GetCompletionHeader(_input.Text));
+        return true;
+    }
+
+    private bool TryAcceptSelectedCompletion()
+    {
+        if (_selectedCompletionIndex < 0 || _selectedCompletionIndex >= _completionCandidates.Count)
+            return false;
+
+        var insertText = _completionCandidates[_selectedCompletionIndex].InsertText;
+        _input.Text = insertText;
+        _input.CaretColumn = insertText.Length;
+        RefreshCompletionHint(insertText);
+        return true;
+    }
+
+    private void ResetCompletionState()
+    {
+        _completionCandidates.Clear();
+        _selectedCompletionIndex = -1;
     }
 }
