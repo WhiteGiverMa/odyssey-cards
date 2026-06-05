@@ -1,4 +1,5 @@
 using Godot;
+using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
 using OdysseyCards.Localization;
 
@@ -20,6 +21,15 @@ public partial class SettingsPage : Control
     private HBoxContainer _windowModeRow;
     private CheckBox _devModeToggle;
     private Button _consoleButton;
+    private Label _emoteIdleTimeLabel;
+    private HSlider _emoteIdleTimeSlider;
+    private Label _emoteIdleTimeValueLabel;
+    private Label _emoteVarMinLabel;
+    private HSlider _emoteVarMinSlider;
+    private Label _emoteVarMinValueLabel;
+    private Label _emoteVarMaxLabel;
+    private HSlider _emoteVarMaxSlider;
+    private Label _emoteVarMaxValueLabel;
 
     public override void _Ready()
     {
@@ -141,6 +151,116 @@ public partial class SettingsPage : Control
         };
         _consoleButton.AddThemeFontSizeOverride("font_size", 16);
 
+        // === 表情空闲时间行 ===
+        var gm = GameManager.Instance;
+        float currentIdleTime = gm?.EmoteIdleTimeSeconds ?? 5.0f;
+
+        _emoteIdleTimeLabel = new Label
+        {
+            Name = "EmoteIdleTimeLabel",
+            Text = Localization.Localization.T("ui.settings.emote_idle_time", "表情空闲时间"),
+        };
+        _emoteIdleTimeLabel.AddThemeFontSizeOverride("font_size", 20);
+        _emoteIdleTimeLabel.CustomMinimumSize = new Vector2(150, 0);
+
+        _emoteIdleTimeSlider = new HSlider
+        {
+            Name = "EmoteIdleTimeSlider",
+            MinValue = 3.0,
+            MaxValue = 15.0,
+            Step = 0.5,
+            Value = currentIdleTime,
+            CustomMinimumSize = new Vector2(160, 0),
+        };
+
+        _emoteIdleTimeValueLabel = new Label
+        {
+            Name = "EmoteIdleTimeValueLabel",
+            Text = $"{currentIdleTime:F1}s",
+            CustomMinimumSize = new Vector2(50, 0),
+        };
+        _emoteIdleTimeValueLabel.AddThemeFontSizeOverride("font_size", 16);
+
+        var emoteIdleRow = new HBoxContainer
+        {
+            Name = "EmoteIdleRow",
+            Alignment = BoxContainer.AlignmentMode.Center,
+        };
+        emoteIdleRow.AddThemeConstantOverride("separation", 12);
+        emoteIdleRow.AddChild(_emoteIdleTimeLabel);
+        emoteIdleRow.AddChild(_emoteIdleTimeSlider);
+        emoteIdleRow.AddChild(_emoteIdleTimeValueLabel);
+
+        // === 随机最小倍率行 ===
+        float currentVarMin = gm?.EmoteIdleVariationMin ?? 0.7f;
+
+        _emoteVarMinLabel = new Label
+        {
+            Text = Localization.Localization.T("ui.settings.emote_variation_min", "随机最小倍率"),
+        };
+        _emoteVarMinLabel.AddThemeFontSizeOverride("font_size", 20);
+        _emoteVarMinLabel.CustomMinimumSize = new Vector2(150, 0);
+
+        _emoteVarMinSlider = new HSlider
+        {
+            MinValue = 0.1,
+            MaxValue = 3.0,
+            Step = 0.1,
+            Value = currentVarMin,
+            CustomMinimumSize = new Vector2(160, 0),
+        };
+
+        _emoteVarMinValueLabel = new Label
+        {
+            Text = $"×{currentVarMin:F1}",
+            CustomMinimumSize = new Vector2(50, 0),
+        };
+        _emoteVarMinValueLabel.AddThemeFontSizeOverride("font_size", 16);
+
+        var varMinRow = new HBoxContainer
+        {
+            Alignment = BoxContainer.AlignmentMode.Center,
+        };
+        varMinRow.AddThemeConstantOverride("separation", 12);
+        varMinRow.AddChild(_emoteVarMinLabel);
+        varMinRow.AddChild(_emoteVarMinSlider);
+        varMinRow.AddChild(_emoteVarMinValueLabel);
+
+        // === 随机最大倍率行 ===
+        float currentVarMax = gm?.EmoteIdleVariationMax ?? 1.3f;
+
+        _emoteVarMaxLabel = new Label
+        {
+            Text = Localization.Localization.T("ui.settings.emote_variation_max", "随机最大倍率"),
+        };
+        _emoteVarMaxLabel.AddThemeFontSizeOverride("font_size", 20);
+        _emoteVarMaxLabel.CustomMinimumSize = new Vector2(150, 0);
+
+        _emoteVarMaxSlider = new HSlider
+        {
+            MinValue = 0.1,
+            MaxValue = 3.0,
+            Step = 0.1,
+            Value = currentVarMax,
+            CustomMinimumSize = new Vector2(160, 0),
+        };
+
+        _emoteVarMaxValueLabel = new Label
+        {
+            Text = $"×{currentVarMax:F1}",
+            CustomMinimumSize = new Vector2(50, 0),
+        };
+        _emoteVarMaxValueLabel.AddThemeFontSizeOverride("font_size", 16);
+
+        var varMaxRow = new HBoxContainer
+        {
+            Alignment = BoxContainer.AlignmentMode.Center,
+        };
+        varMaxRow.AddThemeConstantOverride("separation", 12);
+        varMaxRow.AddChild(_emoteVarMaxLabel);
+        varMaxRow.AddChild(_emoteVarMaxSlider);
+        varMaxRow.AddChild(_emoteVarMaxValueLabel);
+
         // === 返回按钮 ===
         _backButton = new Button
         {
@@ -168,6 +288,9 @@ public partial class SettingsPage : Control
         container.AddChild(windowModeRow);
         container.AddChild(_devModeToggle);
         container.AddChild(_consoleButton);
+        container.AddChild(emoteIdleRow);
+        container.AddChild(varMinRow);
+        container.AddChild(varMaxRow);
         container.AddChild(_backButton);
 
         AddChild(container);
@@ -327,6 +450,9 @@ public partial class SettingsPage : Control
         _backButton.Pressed += OnBackPressed;
         _devModeToggle.Toggled += OnDevModeToggled;
         _consoleButton.Pressed += OnConsolePressed;
+        _emoteIdleTimeSlider.ValueChanged += OnEmoteIdleTimeChanged;
+        _emoteVarMinSlider.ValueChanged += OnEmoteVarMinChanged;
+        _emoteVarMaxSlider.ValueChanged += OnEmoteVarMaxChanged;
         Core.GameManager.Instance.LanguageChanged += OnLanguageChanged;
     }
 
@@ -390,6 +516,9 @@ public partial class SettingsPage : Control
         _languageLabel.Text = Localization.Localization.T("ui.settings.language", "Language");
         _resolutionLabel.Text = Localization.Localization.T("ui.settings.resolution", "Resolution");
         _windowModeLabel.Text = Localization.Localization.T("ui.settings.window_mode", "Window Mode");
+        _emoteIdleTimeLabel.Text = Localization.Localization.T("ui.settings.emote_idle_time", "Emote Idle Time");
+        _emoteVarMinLabel.Text = Localization.Localization.T("ui.settings.emote_variation_min", "Variation Min");
+        _emoteVarMaxLabel.Text = Localization.Localization.T("ui.settings.emote_variation_max", "Variation Max");
         _backButton.Text = Localization.Localization.T("ui.settings.back", "Back");
     }
 
@@ -415,6 +544,47 @@ public partial class SettingsPage : Control
         GetNodeOrNull<DevConsole>("/root/DevConsole")?.Toggle();
     }
 
+    private void OnEmoteIdleTimeChanged(double value)
+    {
+        float v = (float)value;
+        _emoteIdleTimeValueLabel.Text = $"{v:F1}s";
+        var gm = GameManager.Instance;
+        if (gm != null)
+        {
+            gm.EmoteIdleTimeSeconds = v;
+        }
+    }
+
+    private void OnEmoteVarMinChanged(double value)
+    {
+        float v = (float)value;
+        var gm = GameManager.Instance;
+        float varMax = gm?.EmoteIdleVariationMax ?? 1.3f;
+        // Clamp: min ≤ max
+        v = Mathf.Clamp(v, 0.1f, varMax);
+        if (Mathf.Abs(v - (float)value) > 0.001f)
+        {
+            _emoteVarMinSlider.Value = v;
+        }
+        _emoteVarMinValueLabel.Text = $"×{v:F1}";
+        if (gm != null) gm.EmoteIdleVariationMin = v;
+    }
+
+    private void OnEmoteVarMaxChanged(double value)
+    {
+        float v = (float)value;
+        var gm = GameManager.Instance;
+        float varMin = gm?.EmoteIdleVariationMin ?? 0.7f;
+        // Clamp: max ≥ min
+        v = Mathf.Clamp(v, varMin, 3.0f);
+        if (Mathf.Abs(v - (float)value) > 0.001f)
+        {
+            _emoteVarMaxSlider.Value = v;
+        }
+        _emoteVarMaxValueLabel.Text = $"×{v:F1}";
+        if (gm != null) gm.EmoteIdleVariationMax = v;
+    }
+
     public override void _ExitTree()
     {
         Core.GameManager.Instance.LanguageChanged -= OnLanguageChanged;
@@ -425,5 +595,8 @@ public partial class SettingsPage : Control
         _backButton.Pressed -= OnBackPressed;
         _devModeToggle.Toggled -= OnDevModeToggled;
         _consoleButton.Pressed -= OnConsolePressed;
+        _emoteIdleTimeSlider.ValueChanged -= OnEmoteIdleTimeChanged;
+        _emoteVarMinSlider.ValueChanged -= OnEmoteVarMinChanged;
+        _emoteVarMaxSlider.ValueChanged -= OnEmoteVarMaxChanged;
     }
 }

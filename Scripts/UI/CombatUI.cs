@@ -581,8 +581,8 @@ public partial class CombatUI : Control
 		_player = player ?? throw new ArgumentNullException(nameof(player));
 		_combat = combat ?? throw new ArgumentNullException(nameof(combat));
 
-        GD.Print($"[CombatUI] 初始化 — 玩家生命 {combat.PlayerHero.CurrentHealth}/{combat.PlayerHero.MaxHealth}，" +
-                  $"敌方生命 {combat.EnemyUnits[0].Body.CurrentHealth}/{combat.EnemyUnits[0].Body.MaxHealth}");
+		GD.Print($"[CombatUI] 初始化 — 玩家生命 {combat.PlayerHero.CurrentHealth}/{combat.PlayerHero.MaxHealth}，" +
+				  $"敌方生命 {combat.EnemyUnits[0].Body.CurrentHealth}/{combat.EnemyUnits[0].Body.MaxHealth}");
 
 		// 伤害跳字层（介于棋盘效果层和拖拽层之间，Layer=15）
 		var damageNumberLayer = new CanvasLayer { Name = "DamageNumberLayer", Layer = 15 };
@@ -1676,6 +1676,10 @@ public partial class CombatUI : Control
 		// 随从死亡飞行动画 — 在槽位清空前获取屏幕坐标
 		_board.OnMinionPreRemove += OnBoardMinionPreRemove;
 		_unsubscribeActions.Add(() => _board.OnMinionPreRemove -= OnBoardMinionPreRemove);
+
+		// 敌方表情 — 空闲超时或 DevConsole 触发
+		_combat.OnEnemyEmote += OnEnemyEmote;
+		_unsubscribeActions.Add(() => _combat.OnEnemyEmote -= OnEnemyEmote);
 	}
 
 	private void OnHandChanged()
@@ -1692,6 +1696,24 @@ public partial class CombatUI : Control
 	{
 		RefreshIntentDisplay();
 		RefreshIntentArrows();
+	}
+
+	/// <summary>
+	/// 敌方表情事件——在第一个敌人身份卡上方显示浮动表情文本。
+	/// </summary>
+	private void OnEnemyEmote(string text)
+	{
+		if (string.IsNullOrEmpty(text)) return;
+		var pos = GetEnemyIdentityCardCenter(0);
+		GD.Print($"[CombatUI] 收到表情「{text}」，敌人位置={pos}");
+		if (pos == Vector2.Zero)
+		{
+			GD.PrintErr("[CombatUI] 表情位置无效（_enemyCards 可能为空）");
+			return;
+		}
+		// 敌人身份卡在屏幕顶部，表情显示在卡片下方
+		pos.Y += 70;
+		FloatingEmote.Show(text, pos, _damageNumberContainer);
 	}
 
 	private void OnBoardMinionPlacedSubscribeDamage(Minion minion, int slotIndex)
@@ -3299,6 +3321,9 @@ public partial class CombatUI : Control
 
 		AddChild(_pauseMenu);
 		_isPaused = true;
+
+		// 真正暂停场景树——停止所有 Timer、_Process、_Input
+		GetTree().Paused = true;
 	}
 
 	/// <summary>
@@ -3309,6 +3334,9 @@ public partial class CombatUI : Control
 		if (_pauseMenu == null) return;
 
 		GD.Print("[CombatUI] 暂停菜单 — 关闭");
+
+		// 恢复场景树处理
+		GetTree().Paused = false;
 
 		_pauseMenu.OnContinue -= HidePauseMenu;
 		_pauseMenu.OnSaveAndExit -= OnSaveAndExit;
@@ -3335,6 +3363,9 @@ public partial class CombatUI : Control
 	{
 		GD.Print("[CombatUI] 保存并退出 → 返回主菜单");
 
+		// 切换场景前必须先恢复暂停，否则新场景加载后按钮不响应
+		GetTree().Paused = false;
+
 		if (_combat != null)
 		{
 			var gm = GameManager.Instance;
@@ -3351,6 +3382,10 @@ public partial class CombatUI : Control
 	private void OnQuickSL()
 	{
 		GD.Print("[CombatUI] 快速SL → 重新加载战斗场景");
+
+		// 切换场景前必须先恢复暂停
+		GetTree().Paused = false;
+
 		GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
 	}
 

@@ -21,6 +21,9 @@ ui:
     back: "Back"
     dev_mode: "Developer Mode"
     open_console: "Open Console"
+    emote_idle_time: "Emote Idle Time"
+    emote_variation_min: "Variation Min"
+    emote_variation_max: "Variation Max"
   combat:
     end_turn: "End Turn"
     player_turn: "Player Turn"

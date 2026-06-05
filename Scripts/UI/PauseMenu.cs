@@ -41,6 +41,17 @@ public partial class PauseMenu : Control
     private CheckBox _devModeToggle = null!;
     private Button _consoleButton = null!;
 
+    // 表情空闲时间
+    private Label _emoteIdleTimeLabel = null!;
+    private HSlider _emoteIdleTimeSlider = null!;
+    private Label _emoteIdleTimeValueLabel = null!;
+    private Label _emoteVarMinLabel = null!;
+    private HSlider _emoteVarMinSlider = null!;
+    private Label _emoteVarMinValueLabel = null!;
+    private Label _emoteVarMaxLabel = null!;
+    private HSlider _emoteVarMaxSlider = null!;
+    private Label _emoteVarMaxValueLabel = null!;
+
     // ===== 事件 =====
 
     /// <summary>「继续」按钮点击——关闭暂停菜单。</summary>
@@ -57,6 +68,9 @@ public partial class PauseMenu : Control
     public override void _Ready()
     {
         Name = "PauseMenu";
+
+        // 暂停场景树时 PauseMenu 仍需处理输入（按钮、ESC等）
+        ProcessMode = ProcessModeEnum.Always;
 
         // 全屏覆盖，阻止下层鼠标事件。
         // 关键：仅设 Anchor 不足够——程序化创建的 Control 默认 OffsetRight/OffsetBottom 非零，
@@ -255,6 +269,108 @@ public partial class PauseMenu : Control
         _consoleButton.Pressed += OnConsolePressed;
         _settingsContainer.AddChild(_consoleButton);
 
+        // 表情空闲时间行
+        float currentIdleTime = GameManager.Instance.EmoteIdleTimeSeconds;
+
+        _emoteIdleTimeLabel = new Label
+        {
+            Text = T("ui.settings.emote_idle_time", "表情空闲时间"),
+        };
+        _emoteIdleTimeLabel.AddThemeFontSizeOverride("font_size", 20);
+        _emoteIdleTimeLabel.CustomMinimumSize = new Vector2(150, 0);
+
+        _emoteIdleTimeSlider = new HSlider
+        {
+            MinValue = 3.0,
+            MaxValue = 15.0,
+            Step = 0.5,
+            Value = currentIdleTime,
+            CustomMinimumSize = new Vector2(160, 0),
+        };
+
+        _emoteIdleTimeValueLabel = new Label
+        {
+            Text = $"{currentIdleTime:F1}s",
+            CustomMinimumSize = new Vector2(50, 0),
+        };
+        _emoteIdleTimeValueLabel.AddThemeFontSizeOverride("font_size", 16);
+
+        var emoteIdleRow = new HBoxContainer
+        {
+            Alignment = BoxContainer.AlignmentMode.Center,
+        };
+        emoteIdleRow.AddThemeConstantOverride("separation", 12);
+        emoteIdleRow.AddChild(_emoteIdleTimeLabel);
+        emoteIdleRow.AddChild(_emoteIdleTimeSlider);
+        emoteIdleRow.AddChild(_emoteIdleTimeValueLabel);
+        _settingsContainer.AddChild(emoteIdleRow);
+
+        // 随机最小倍率行
+        float currentVarMin = GameManager.Instance.EmoteIdleVariationMin;
+
+        _emoteVarMinLabel = new Label
+        {
+            Text = T("ui.settings.emote_variation_min", "随机最小倍率"),
+        };
+        _emoteVarMinLabel.AddThemeFontSizeOverride("font_size", 20);
+        _emoteVarMinLabel.CustomMinimumSize = new Vector2(150, 0);
+
+        _emoteVarMinSlider = new HSlider
+        {
+            MinValue = 0.1,
+            MaxValue = 3.0,
+            Step = 0.1,
+            Value = currentVarMin,
+            CustomMinimumSize = new Vector2(160, 0),
+        };
+
+        _emoteVarMinValueLabel = new Label
+        {
+            Text = $"×{currentVarMin:F1}",
+            CustomMinimumSize = new Vector2(50, 0),
+        };
+        _emoteVarMinValueLabel.AddThemeFontSizeOverride("font_size", 16);
+
+        var varMinRow = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+        varMinRow.AddThemeConstantOverride("separation", 12);
+        varMinRow.AddChild(_emoteVarMinLabel);
+        varMinRow.AddChild(_emoteVarMinSlider);
+        varMinRow.AddChild(_emoteVarMinValueLabel);
+        _settingsContainer.AddChild(varMinRow);
+
+        // 随机最大倍率行
+        float currentVarMax = GameManager.Instance.EmoteIdleVariationMax;
+
+        _emoteVarMaxLabel = new Label
+        {
+            Text = T("ui.settings.emote_variation_max", "随机最大倍率"),
+        };
+        _emoteVarMaxLabel.AddThemeFontSizeOverride("font_size", 20);
+        _emoteVarMaxLabel.CustomMinimumSize = new Vector2(150, 0);
+
+        _emoteVarMaxSlider = new HSlider
+        {
+            MinValue = 0.1,
+            MaxValue = 3.0,
+            Step = 0.1,
+            Value = currentVarMax,
+            CustomMinimumSize = new Vector2(160, 0),
+        };
+
+        _emoteVarMaxValueLabel = new Label
+        {
+            Text = $"×{currentVarMax:F1}",
+            CustomMinimumSize = new Vector2(50, 0),
+        };
+        _emoteVarMaxValueLabel.AddThemeFontSizeOverride("font_size", 16);
+
+        var varMaxRow = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+        varMaxRow.AddThemeConstantOverride("separation", 12);
+        varMaxRow.AddChild(_emoteVarMaxLabel);
+        varMaxRow.AddChild(_emoteVarMaxSlider);
+        varMaxRow.AddChild(_emoteVarMaxValueLabel);
+        _settingsContainer.AddChild(varMaxRow);
+
         // 返回按钮
         _settingsBackBtn = new Button
         {
@@ -269,6 +385,9 @@ public partial class PauseMenu : Control
         _languageOptionButton.ItemSelected += OnLanguageSelected;
         _resolutionOptionButton.ItemSelected += OnResolutionSelected;
         _windowModeOptionButton.ItemSelected += OnWindowModeSelected;
+        _emoteIdleTimeSlider.ValueChanged += OnEmoteIdleTimeChanged;
+        _emoteVarMinSlider.ValueChanged += OnEmoteVarMinChanged;
+        _emoteVarMaxSlider.ValueChanged += OnEmoteVarMaxChanged;
     }
 
     // ===== 设置页面——数据加载 =====
@@ -379,6 +498,33 @@ public partial class PauseMenu : Control
         CallDeferred(nameof(OpenDevConsole));
     }
 
+    private void OnEmoteIdleTimeChanged(double value)
+    {
+        float v = (float)value;
+        _emoteIdleTimeValueLabel.Text = $"{v:F1}s";
+        GameManager.Instance.EmoteIdleTimeSeconds = v;
+    }
+
+    private void OnEmoteVarMinChanged(double value)
+    {
+        float v = (float)value;
+        float varMax = GameManager.Instance.EmoteIdleVariationMax;
+        v = Mathf.Clamp(v, 0.1f, varMax);
+        if (Mathf.Abs(v - (float)value) > 0.001f) _emoteVarMinSlider.Value = v;
+        _emoteVarMinValueLabel.Text = $"×{v:F1}";
+        GameManager.Instance.EmoteIdleVariationMin = v;
+    }
+
+    private void OnEmoteVarMaxChanged(double value)
+    {
+        float v = (float)value;
+        float varMin = GameManager.Instance.EmoteIdleVariationMin;
+        v = Mathf.Clamp(v, varMin, 3.0f);
+        if (Mathf.Abs(v - (float)value) > 0.001f) _emoteVarMaxSlider.Value = v;
+        _emoteVarMaxValueLabel.Text = $"×{v:F1}";
+        GameManager.Instance.EmoteIdleVariationMax = v;
+    }
+
     private void OpenDevConsole()
     {
         GetNodeOrNull<DevConsole>("/root/DevConsole")?.Toggle();
@@ -423,6 +569,9 @@ public partial class PauseMenu : Control
         _settingsBackBtn.Text = T("ui.settings.back", "返回");
         _devModeToggle.Text = T("ui.settings.dev_mode", "开发者模式");
         _consoleButton.Text = T("ui.settings.open_console", "打开控制台");
+        _emoteIdleTimeLabel.Text = T("ui.settings.emote_idle_time", "表情空闲时间");
+        _emoteVarMinLabel.Text = T("ui.settings.emote_variation_min", "随机最小倍率");
+        _emoteVarMaxLabel.Text = T("ui.settings.emote_variation_max", "随机最大倍率");
 
         LoadWindowModes();
     }

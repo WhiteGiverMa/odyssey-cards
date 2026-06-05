@@ -21,6 +21,9 @@ ui:
     back: "返回"
     dev_mode: "开发者模式"
     open_console: "打开控制台"
+    emote_idle_time: "表情空闲时间"
+    emote_variation_min: "随机最小倍率"
+    emote_variation_max: "随机最大倍率"
   combat:
     end_turn: "结束回合"
     player_turn: "玩家回合"
