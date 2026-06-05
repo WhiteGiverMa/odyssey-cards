@@ -456,34 +456,30 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// <param name="kind">伤害结算类型</param>
     public void TakeDamage(int baseDamage, IDamageSource? source, DamageKind kind)
     {
+        // Step 1: ALWAYS go through DamageResolver first (Defense modifier applies here)
+        int resolvedDamage = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
         int armorAbsorbed = 0;
 
-        // Step 1: Armor absorbs damage first (before DamageResolver)
+        // Step 2: Armor absorbs remaining damage AFTER defense (与 Hero 统一)
         if (_currentArmor > 0)
         {
-            if (baseDamage >= _currentArmor)
+            armorAbsorbed = Math.Min(_currentArmor, resolvedDamage);
+            _currentArmor -= armorAbsorbed;
+            resolvedDamage -= armorAbsorbed;
+
+            GD.Print($"[Minion:{CardName}] 护甲吸收了 {armorAbsorbed} 点伤害（防御力调整后），剩余护甲：{_currentArmor}");
+
+            if (resolvedDamage <= 0)
             {
-                armorAbsorbed = _currentArmor;
-                int remaining = baseDamage - _currentArmor;
-                _currentArmor = 0;
-                baseDamage = remaining;
+                OnDamageTaken?.Invoke(new DamageEventInfo(0, armorAbsorbed, true), source);
+                return;
             }
-            else
-            {
-                armorAbsorbed = baseDamage;
-                _currentArmor -= baseDamage;
-                baseDamage = 0;
-            }
-            GD.Print($"[Minion:{CardName}] 护甲吸收后剩余护甲：{_currentArmor}，剩余伤害：{baseDamage}");
         }
 
-        // Step 2: Existing DamageResolver pipeline for HP damage
-        int result = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
-        ApplyDamage(result, source);
+        ApplyDamage(resolvedDamage, source);
 
         // 伤害事件通知（ApplyDamage 之后触发，保证 HP 已减少）
-        bool wasFullyBlocked = result == 0;
-        OnDamageTaken?.Invoke(new DamageEventInfo(result, armorAbsorbed, wasFullyBlocked), source);
+        OnDamageTaken?.Invoke(new DamageEventInfo(resolvedDamage, armorAbsorbed, false), source);
     }
 
     /// <summary>

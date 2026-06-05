@@ -65,6 +65,7 @@ public partial class CombatManager : Node
     /// <summary>
     /// 敌方英雄（向后兼容单一敌人）。多敌人时返回 EnemyUnits[0].Body。
     /// </summary>
+    [Obsolete("使用 EnemyUnits[i].Body 代替。多敌人兼容属性，Phase 3 移除。")]
     public Hero EnemyHero => EnemyUnits[0].Body;
 
     /// <summary>
@@ -185,11 +186,6 @@ public partial class CombatManager : Node
     /// 当前发现选牌的 N 个候选卡牌（只读）。
     /// </summary>
     public IReadOnlyList<CardData>? DiscoverOptions => _pendingDiscoverOptions?.AsReadOnly();
-
-    /// <summary>
-    /// 手牌数量上限（炉石规则：10 张）。
-    /// </summary>
-    public const int MaxHandSize = 10;
 
     /// <summary>
     /// 发现选牌候选卡牌列表（null 表示不在发现阶段）。
@@ -415,17 +411,18 @@ public partial class CombatManager : Node
         _playerCore.Deck = player.Deck;
         _playerCore.InitializeHealth(player.MaxHealth, player.CurrentHealth);
         _playerCore.SetMana(0, 0);
+        _playerCore.MaxHandSize = 10; // 统一手牌上限，覆盖 CombatDeckState 默认值 9
         PlayerHero = new Hero(_playerCore, true);
         PlayerHero.OnAttacked += HandlePlayerHeroAttacked;
 
         Board = new Board();
         State = new GameState();
 
-        // 亡语驱动：随从从棋盘移除时自动触发亡语，无需在各处手动调用
-        Board.OnMinionRemoved += TriggerDeathrattle;
+        // 亡语驱动：随从死亡时自动触发亡语（替换不触发），无需在各处手动调用
+        Board.OnMinionDied += TriggerDeathrattle;
 
         // 牌堆回收驱动：随从死亡时自动进入弃牌堆或返回抽牌堆（轮战），无需在各处手动调用
-        Board.OnMinionRemoved += HandleMinionDeathPile;
+        Board.OnMinionDied += HandleMinionDeathPile;
 
         // 状态变更事件：随从部署/移除时触发，驱动意图 UI 实时刷新
         Board.OnMinionPlaced += (_, _) => NotifyCombatStateChanged();
@@ -527,8 +524,9 @@ public partial class CombatManager : Node
     /// </summary>
     private void HandleDealDamageToEnemyHero(CardEffectData effect, object target, IDamageSource? source)
     {
-        EnemyHero.TakeDamage(effect.Value, source, DamageKind.Effect);
-        GD.Print($"[CombatManager]   对敌方英雄造成 {effect.Value} 点伤害（剩余 {EnemyHero.CurrentHealth}）");
+        if (target is not Hero hero) return;
+        hero.TakeDamage(effect.Value, source, DamageKind.Effect);
+        GD.Print($"[CombatManager]   对敌方英雄造成 {effect.Value} 点伤害（剩余 {hero.CurrentHealth}）");
     }
 
     /// <summary>
@@ -1431,8 +1429,8 @@ public partial class CombatManager : Node
         if (!ReferenceEquals(target, PlayerHero)) return;
         if (State.IsPlayerTurn) return;
 
-        bool isEnemyAttackSource = ReferenceEquals(source, EnemyHero)
-            || source is Minion { IsPlayerSide: false };
+        bool isEnemyAttackSource = source is Minion { IsPlayerSide: false }
+            || (source is Hero h && EnemyUnits.Any(eu => ReferenceEquals(eu.Body, h)));
         if (!isEnemyAttackSource) return;
 
         if (!PlayerHero.ActiveDomains.TryGetValue("flying_away", out var domain)) return;
@@ -1919,7 +1917,7 @@ public partial class CombatManager : Node
     /// 对敌方英雄造成武器攻击力伤害，同时受到敌方武器反击伤害。
     /// </summary>
     /// <returns>攻击成功返回 true</returns>
-    public bool HeroWeaponAttackHero()
+    public bool HeroWeaponAttackHero(Hero target)
     {
         if (IsDiscovering)
         {
@@ -1954,15 +1952,15 @@ public partial class CombatManager : Node
         GD.Print($"[CombatManager] ⚔ 玩家英雄使用 {PlayerHero.Weapon.Name} 攻击敌方英雄，造成 {weaponDamage} 点伤害");
 
         // 对敌方英雄造成伤害（敌方英雄的武器反击由 Hero.TakeDamage → CounterAttack 自动处理）
-        EnemyHero.TakeDamage(weaponDamage, PlayerHero);
+        target.TakeDamage(weaponDamage, PlayerHero);
 
         // 触发武器被动命中效果（如熔毁：目标防御-1）
-        PlayerHero.Weapon?.PassiveSkill?.OnWeaponHit(EnemyHero, PlayerHero);
+        PlayerHero.Weapon?.PassiveSkill?.OnWeaponHit(target, PlayerHero);
 
         // 记录武器攻击
         PlayerHero.RecordWeaponAttack();
 
-        GD.Print($"[CombatManager]   敌方英雄剩余生命值：{EnemyHero.CurrentHealth}（护甲：{EnemyHero.CurrentArmor}）");
+        GD.Print($"[CombatManager]   敌方英雄剩余生命值：{target.CurrentHealth}（护甲：{target.CurrentArmor}）");
 
         // 检查我方英雄是否被敌方武器反击致死
         if (PlayerHero.IsDead)
@@ -1975,7 +1973,7 @@ public partial class CombatManager : Node
         }
 
         // 检查胜负
-        if (EnemyHero.IsDead)
+        if (target.IsDead)
         {
             GD.Print("[CombatManager]   ★ 敌方英雄被击败！");
             State.SetVictory();
@@ -2649,17 +2647,9 @@ public partial class CombatManager : Node
         {
             GD.Print($"[CombatManager] ◆ 发现选牌：{chosen.GetLocalizedName()}");
 
-            // 检查手牌上限
-            if (_playerCore.Hand.Count >= MaxHandSize)
-            {
-                GD.Print($"[CombatManager]   手牌已满（{MaxHandSize}张），{chosen.GetLocalizedName()} 被烧毁！");
-            }
-            else
-            {
-                var card = new OdysseyCards.Card.Card(chosen);
-                _playerCore.AddToHand(card);
-                GD.Print($"[CombatManager]   已将 {chosen.GetLocalizedName()} 加入手牌（共 {_playerCore.Hand.Count} 张）");
-            }
+            var card = new OdysseyCards.Card.Card(chosen);
+            _playerCore.AddToHand(card);
+            GD.Print($"[CombatManager]   已将 {chosen.GetLocalizedName()} 加入手牌（共 {_playerCore.Hand.Count} 张）");
         }
         else
         {
@@ -2719,9 +2709,9 @@ public partial class CombatManager : Node
             foreach (var card in chosenCards)
             {
                 if (moved >= DiscoverPickCount) break;
-                if (_playerCore.Hand.Count >= MaxHandSize)
+                if (_playerCore.Hand.Count >= _playerCore.MaxHandSize)
                 {
-                    GD.Print($"[CombatManager]   手牌已满（{MaxHandSize}张），停止加入弃牌堆卡牌");
+                    GD.Print($"[CombatManager]   手牌已满（{_playerCore.MaxHandSize}张），停止加入弃牌堆卡牌");
                     break;
                 }
 

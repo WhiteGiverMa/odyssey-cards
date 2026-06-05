@@ -84,6 +84,14 @@ public class CombatDeckState
     /// <param name="card">要加入的卡牌实例</param>
     public void AddToHand(OdysseyCards.Card.Card card)
     {
+        if (card == null) return;
+
+        if (Hand.Count >= MaxHandSize)
+        {
+            GD.Print($"[CombatDeckState] 手牌已满（{MaxHandSize}张），「{card.CardName}」被烧毁！");
+            return;
+        }
+
         Hand.Add(card);
         OnHandChanged?.Invoke();
         GD.Print($"[CombatDeckState] 将「{card.CardName}」加入手牌（共 {Hand.Count} 张）");
@@ -139,6 +147,14 @@ public class CombatDeckState
     {
         if (!DiscardPile.Remove(card))
             return false;
+
+        if (Hand.Count >= MaxHandSize)
+        {
+            // 手牌已满时回到弃牌堆
+            DiscardPile.Add(card);
+            GD.Print($"[CombatDeckState] 手牌已满（{MaxHandSize}张），「{card.CardName}」回到弃牌堆");
+            return false;
+        }
 
         Hand.Add(card);
         OnDiscardPileChanged?.Invoke();

@@ -3079,7 +3079,7 @@ public partial class CombatUI : Control
 		if (_combat.State.IsGameOver) return;
 
 		GD.Print("[CombatUI] 武器攻击敌方英雄");
-		_combat.HeroWeaponAttackHero();
+		_combat.HeroWeaponAttackHero(_combat.EnemyHero);
 
 		// 恢复敌方英雄按钮的原始事件
 		_enemyHeroAttackButton.Pressed -= OnWeaponAttackHeroPressed;
