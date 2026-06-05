@@ -24,10 +24,16 @@ namespace OdysseyCards.Core
         /// </summary>
         MULTIPLICATIVE = 2,
 
-        /// <summary>
-        /// Limit/cap modifiers (e.g., Intangible caps at 1, Immune caps at 0).
-        /// 限定阶段：伤害上限限制。
-        /// </summary>
-        CAPPING = 3
-    }
+    /// <summary>
+    /// Limit/cap modifiers (e.g., Intangible caps at 1, Immune caps at 0).
+    /// 限定阶段：伤害上限限制。
+    /// </summary>
+    CAPPING = 3,
+
+    /// <summary>
+    /// 热力值缩放阶段——全局伤害乘区，独立于其他乘区。
+    /// 如 40% 热力值 → ×0.4；200% → ×2.0。
+    /// </summary>
+    HEAT = 4,
+}
 }

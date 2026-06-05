@@ -68,6 +68,19 @@ namespace OdysseyCards.Core
                 damage = ApplyModifiers(damage, context, target.DamageModifiers, DamagePhase.MULTIPLICATIVE, isDealt: false);
             }
 
+            // Phase 2.5: HEAT (热力值独立乘区——敌方全局缩放)
+            // Apply source's heat modifiers
+            if (source != null)
+            {
+                damage = ApplyModifiers(damage, context, source.DamageModifiers, DamagePhase.HEAT, isDealt: true);
+            }
+
+            // Apply target's heat modifiers
+            if (target != null)
+            {
+                damage = ApplyModifiers(damage, context, target.DamageModifiers, DamagePhase.HEAT, isDealt: false);
+            }
+
             // Phase 3: CAPPING (限定)
             // Apply source's capping modifiers
             if (source != null)
