@@ -93,6 +93,21 @@ public partial class GameManager : Node
     public int ActiveDeckIndex { get; set; } = -1;
 
     /// <summary>
+    /// 表情空闲计时器时长（秒）。玩家不出牌超过此时间后敌人发送嘲讽表情。
+    /// </summary>
+    public float EmoteIdleTimeSeconds { get; set; } = 5.0f;
+
+    /// <summary>
+    /// 空闲计时器随机浮动的最小倍率（clamped：0.1 ≤ min ≤ max）。
+    /// </summary>
+    public float EmoteIdleVariationMin { get; set; } = 0.7f;
+
+    /// <summary>
+    /// 空闲计时器随机浮动的最大倍率（clamped：min ≤ max ≤ 3.0）。
+    /// </summary>
+    public float EmoteIdleVariationMax { get; set; } = 1.3f;
+
+    /// <summary>
     /// 所有卡牌资源的注册表（Id → CardData）。
     /// </summary>
     private readonly Dictionary<string, CardData> _allCardRegistry = new();
@@ -751,6 +766,9 @@ public partial class GameManager : Node
             OwnedCardIds = OwnedCardIds.ToList(),
             Decks = Decks.Select(d => DeckSaveData.FromDeck(d)).ToList(),
             ActiveDeckIndex = ActiveDeckIndex,
+            EmoteIdleTimeSeconds = EmoteIdleTimeSeconds,
+            EmoteIdleVariationMin = EmoteIdleVariationMin,
+            EmoteIdleVariationMax = EmoteIdleVariationMax,
         };
 
         _saveManager.Save(data);
@@ -784,6 +802,9 @@ public partial class GameManager : Node
         }
 
         ActiveDeckIndex = data.ActiveDeckIndex;
+        EmoteIdleTimeSeconds = data.EmoteIdleTimeSeconds;
+        EmoteIdleVariationMin = data.EmoteIdleVariationMin;
+        EmoteIdleVariationMax = data.EmoteIdleVariationMax;
 
         GD.Print($"[GameManager] 存档已加载 — {Decks.Count} 个牌组，" +
                   $"{OwnedCardIds.Count} 张已解锁");

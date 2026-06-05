@@ -25,6 +25,18 @@ public class GameSaveData
 
     [JsonPropertyName("active_deck_index")]
     public int ActiveDeckIndex { get; set; } = -1;
+
+    /// <summary>表情空闲计时器时长（秒）。玩家不出牌超过此时间后敌人发送嘲讽表情。</summary>
+    [JsonPropertyName("emote_idle_time_seconds")]
+    public float EmoteIdleTimeSeconds { get; set; } = 5.0f;
+
+    /// <summary>空闲计时器随机浮动的最小倍率。下次触发时间 = 基础值 × random(min, max)。</summary>
+    [JsonPropertyName("emote_idle_variation_min")]
+    public float EmoteIdleVariationMin { get; set; } = 0.7f;
+
+    /// <summary>空闲计时器随机浮动的最大倍率。</summary>
+    [JsonPropertyName("emote_idle_variation_max")]
+    public float EmoteIdleVariationMax { get; set; } = 1.3f;
 }
 
 /// <summary>
