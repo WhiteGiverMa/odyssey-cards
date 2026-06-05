@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using OdysseyCards.Character;
+using OdysseyCards.Relic;
 using OdysseyCards.Roguelike;
 
 namespace OdysseyCards.Core;
@@ -68,6 +69,11 @@ public partial class GameManager : Node
     /// </summary>
     public IReadOnlyList<AI.EnemyEncounter>? FightOverride { get; set; }
 
+    /// <summary>
+    /// 藏品管理器——持有玩家所有藏品的列表，跨战斗持久化。
+    /// </summary>
+    public RelicManager Relics { get; private set; } = new();
+
     // ===== 收藏与持久化 =====
 
     /// <summary>
@@ -129,6 +135,7 @@ public partial class GameManager : Node
         "res://Resources/Cards/Spell_Shoushen.tres",
         "res://Resources/Cards/Spell_Strike.tres",
         "res://Resources/Cards/Spell_WhiteLegion.tres",
+        "res://Resources/Cards/Status_Fatigue.tres",
     };
 
     /// <summary>

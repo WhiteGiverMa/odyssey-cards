@@ -53,4 +53,16 @@ public enum Keyword
     /// 随从被击败后回到抽牌堆底部（不进入弃牌堆）。
     /// </summary>
     Recycle,
+
+    /// <summary>
+    /// 不可打出：此卡牌无法从手牌中主动打出。
+    /// 只能通过弃牌、消耗或其他机制从手牌移除。
+    /// </summary>
+    Unplayable,
+
+    /// <summary>
+    /// 虚无：回合结束时自动消耗。
+    /// 卡牌在回合结束阶段从手牌中强制消耗，不进入弃牌堆。
+    /// </summary>
+    Ethereal,
 }

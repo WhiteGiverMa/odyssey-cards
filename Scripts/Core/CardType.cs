@@ -21,7 +21,13 @@ public enum CardType
     /// 领域牌：展开一个持久领域效果，挂在英雄身上，整场战斗生效。
     /// 同类领域可以叠加层数。
     /// </summary>
-    Domain
+    Domain,
+
+    /// <summary>
+    /// 状态牌：战斗中由敌人塞入的临时负面卡牌。
+    /// 仅战斗期间存在，战斗结束自动清除，不进入永久卡组。
+    /// </summary>
+    Status
 }
 
 /// <summary>
@@ -51,7 +57,14 @@ public enum CardRarity
     Common = 4,
 
     /// <summary>角色专属特殊卡，不在常规稀有度奖励中出现。</summary>
-    Special = 5
+    Special = 5,
+
+    /// <summary>
+    /// 状态牌稀有度。战斗中由敌人添加的临时卡牌。
+    /// 不可在奖励中获得，不可带入永久卡组，不跨战斗保留。
+    /// 可在藏品界面展示。
+    /// </summary>
+    StatusToken = 6
 }
 
 /// <summary>
@@ -73,6 +86,7 @@ public static class CardRarityExtensions
             CardRarity.Master => 1,
             CardRarity.Derivative => 0,
             CardRarity.Special => 0,
+            CardRarity.StatusToken => 0,
             _ => throw new ArgumentOutOfRangeException(nameof(rarity), rarity, "未知稀有度")
         };
     }
