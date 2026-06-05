@@ -112,6 +112,103 @@ public partial class CombatManager : Node
     public event Action<bool>? OnGameOver;
 
     /// <summary>
+    /// 敌方表情事件——当敌人发送嘲讽表情时触发（参数为表情文本）。
+    /// 由 CombatUI 订阅以显示浮动表情文本。
+    /// </summary>
+    public event Action<string>? OnEnemyEmote;
+
+    // ===== 表情系统（私有字段） =====
+
+    /// <summary>空闲计时器——玩家不出牌超时后触发敌人嘲讽。</summary>
+    private Timer? _emoteIdleTimer;
+
+    /// <summary>随机数生成器（表情选择 + 时间浮动）。</summary>
+    private readonly Random _emoteRng = new();
+
+    /// <summary>敌对嘲讽词库。</summary>
+    private static readonly string[] _tauntPool =
+    [
+        "阿姨快点啊阿姨",
+        "给阿姨倒一杯卡布奇诺",
+        "开始你的炸弹秀",
+    ];
+
+    // ===== 表情系统（私有方法） =====
+
+    /// <summary>玩家出牌时重置空闲计时器。</summary>
+    private void ResetEmoteIdleTimer()
+    {
+        if (_emoteIdleTimer == null) return;
+        _emoteIdleTimer.Stop();
+
+        float baseTime = GameManager.Instance?.EmoteIdleTimeSeconds ?? 5.0f;
+        float varMin = GameManager.Instance?.EmoteIdleVariationMin ?? 0.7f;
+        float varMax = GameManager.Instance?.EmoteIdleVariationMax ?? 1.3f;
+
+        // Clamp：确保 min ≤ max 且范围合法
+        varMin = Math.Clamp(varMin, 0.1f, varMax);
+        varMax = Math.Clamp(varMax, varMin, 3.0f);
+
+        float variation = varMin + _emoteRng.NextSingle() * (varMax - varMin);
+        _emoteIdleTimer.WaitTime = Math.Max(0.5f, baseTime * variation);
+        _emoteIdleTimer.Start();
+        GD.Print($"[CombatManager] 表情计时器已重置 — WaitTime={_emoteIdleTimer.WaitTime:F1}s (base={baseTime:F1} × {variation:F2})");
+    }
+
+    /// <summary>玩家回合开始时启动空闲计时器。</summary>
+    private void StartEmoteIdleTimer()
+    {
+        if (_emoteIdleTimer == null) return;
+        _emoteIdleTimer.Stop();
+        float baseTime = GameManager.Instance?.EmoteIdleTimeSeconds ?? 5.0f;
+        _emoteIdleTimer.WaitTime = baseTime;
+        _emoteIdleTimer.Start();
+        GD.Print($"[CombatManager] 表情计时器已启动 — WaitTime={_emoteIdleTimer.WaitTime:F1}s");
+    }
+
+    /// <summary>玩家回合结束时停止空闲计时器。</summary>
+    private void StopEmoteIdleTimer()
+    {
+        if (_emoteIdleTimer != null)
+        {
+            _emoteIdleTimer.Stop();
+            GD.Print("[CombatManager] 表情计时器已停止（回合结束）");
+        }
+    }
+
+    /// <summary>空闲超时回调——随机选取嘲讽词发送表情事件。</summary>
+    private void OnEmoteIdleTimeout()
+    {
+        GD.Print($"[CombatManager] 表情计时器超时！IsPlayerTurn={State?.IsPlayerTurn}");
+        if (State == null || !State.IsPlayerTurn)
+        {
+            GD.Print("[CombatManager] 表情计时器超时但非玩家回合，跳过");
+            return;
+        }
+        string taunt = _tauntPool[_emoteRng.Next(_tauntPool.Length)];
+        GD.Print($"[CombatManager] 发送嘲讽表情：「{taunt}」，订阅者数={OnEnemyEmote?.GetInvocationList().Length ?? 0}");
+        OnEnemyEmote?.Invoke(taunt);
+
+        // 重新启动计时器（下一轮嘲讽）
+        ResetEmoteIdleTimer();
+    }
+
+    /// <summary>
+    /// 强制从指定敌人发送一条表情文本（由 DevConsole /emote 命令调用）。
+    /// </summary>
+    public void SendEmote(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        GD.Print($"[CombatManager] SendEmote 被调用：「{text}」");
+        OnEnemyEmote?.Invoke(text);
+    }
+
+    /// <summary>
+    /// 获取当前表情空闲计时器的基础时长（从 GameManager 读取，用于设置 UI 初始值）。
+    /// </summary>
+    public static float EmoteIdleBaseTime => GameManager.Instance?.EmoteIdleTimeSeconds ?? 5.0f;
+
+    /// <summary>
     /// 获取当前敌方遭遇的动态意图（含实时目标和伤害计算）。
     /// UI 在 <see cref="OnCombatStateChanged"/> 触发时调用此方法刷新显示。
     /// </summary>
@@ -285,6 +382,17 @@ public partial class CombatManager : Node
     {
         Instance = this;
         GD.Print("[CombatManager] _Ready — 单例已注册");
+
+        // 表情空闲计时器
+        _emoteIdleTimer = new Timer
+        {
+            Name = "EmoteIdleTimer",
+            OneShot = true,
+            WaitTime = GameManager.Instance?.EmoteIdleTimeSeconds ?? 5.0f,
+        };
+        _emoteIdleTimer.Timeout += OnEmoteIdleTimeout;
+        AddChild(_emoteIdleTimer);
+        GD.Print($"[CombatManager] 表情计时器已创建，初始 WaitTime={_emoteIdleTimer.WaitTime:F1}s");
 
         // 使用 CallDeferred 延迟到下一帧执行，确保 GameManager.Instance 等 Autoload 已就绪
         CallDeferred(nameof(BootstrapCombat));
@@ -578,6 +686,9 @@ public partial class CombatManager : Node
         PlayerHero.ResetWeaponAttacks();
         PlayerHero.TickWeaponCooldown();
 
+        // 启动表情空闲计时器
+        StartEmoteIdleTimer();
+
         GD.Print($"[CombatManager] 第 {State.TurnCount} 回合开始（法力 {State.PlayerMana}/{State.PlayerMaxMana}），手牌 {_playerCore.Hand.Count} 张");
     }
 
@@ -595,6 +706,10 @@ public partial class CombatManager : Node
         _heatSystem.OnManaSpent(actualCost);
         _relicManager.TriggerCardPlayed(this, card, actualCost);
         _relicManager.TriggerManaSpent(this, actualCost);
+
+        // 玩家出牌，重置表情空闲计时器
+        ResetEmoteIdleTimer();
+        GD.Print($"[CombatManager] 卡牌「{card.CardName}」已打出，表情计时器已重置");
     }
 
     /// <summary>
@@ -1740,6 +1855,9 @@ public partial class CombatManager : Node
         }
 
         GD.Print("[CombatManager] ========== 玩家回合结束 ==========");
+
+        // 停止表情空闲计时器
+        StopEmoteIdleTimer();
 
         // 清理本回合攻击追踪
         _canAttackThisTurn.Clear();
