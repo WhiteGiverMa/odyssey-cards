@@ -1,8 +1,11 @@
 using System;
 using Godot;
+using OdysseyCards.AI.Intents;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
+
+#pragma warning disable CS0618
 
 namespace OdysseyCards.AI;
 
@@ -18,6 +21,7 @@ public class ZhangLang : EnemyEncounter
     private bool _dJustExecuted;
     private bool _abAFirst;
     private int _cycleStep; // 0=first-AB, 1=second-AB, 2=C
+    private int _currentSingleAttackDamage;
 
     public ZhangLang()
         : base("张郎", 20, new EnemyIntent[]
@@ -27,8 +31,49 @@ public class ZhangLang : EnemyEncounter
             new(IntentType.Buff, 1, "武器攻击力 +1"),
         })
     {
+        MoveStates = new[]
+        {
+            new MoveState("zhanglang_a", null, new UnknownIntent()),
+            new MoveState("zhanglang_b", null, new UnknownIntent()),
+            new MoveState("zhanglang_c", null, new UnknownIntent()),
+        };
         _dTurnsRemaining = Random.Shared.Next(2, 5);
         _abAFirst = Random.Shared.Next(2) == 0;
+        RollCurrentSingleAttackDamage();
+    }
+
+    public override MoveState GetCurrentMove(CombatManager combat, Hero self)
+    {
+        if (_dTurnsRemaining <= 0)
+        {
+            return new MoveState(
+                "zhanglang_summon",
+                (cm, _) => ExecuteSummon(cm),
+                new SummonIntent());
+        }
+
+        if (_cycleStep == 2)
+        {
+            return new MoveState(
+                "zhanglang_buff",
+                (_, hero) => ApplyWeaponBuff(hero, 1),
+                new BuffIntent());
+        }
+
+        bool isA = IsCurrentAttackAMove();
+        if (isA)
+        {
+            int damage = _currentSingleAttackDamage;
+            return new MoveState(
+                "zhanglang_single_attack",
+                (cm, hero) => ExecuteAttackIntent(cm, hero),
+                new SingleAttackIntent(c => DamageResolver.ResolvePreviewDamage(damage + Attack, self, ResolveAttackTarget(c))));
+        }
+
+        return new MoveState(
+            "zhanglang_multi_attack",
+            (cm, hero) => ExecuteMultiHit(cm, hero, 1, 3),
+            new MultiAttackIntent(c => DamageResolver.ResolvePreviewDamage(1 + Attack, self, ResolveAttackTarget(c)), 3));
     }
 
     public override EnemyIntent GetCurrentIntent(CombatManager combat, Hero self)
@@ -43,39 +88,29 @@ public class ZhangLang : EnemyEncounter
         if (_cycleStep == 2)
             return new EnemyIntent(IntentType.Buff, 1, "武器攻击力 +1");
 
-        bool isA = _cycleStep == 0 ? _abAFirst : !_abAFirst;
-        return BuildABIntent(combat, self, isA);
-    }
+        _cachedAttackTarget ??= ResolveAttackTarget(combat);
+        var cachedTarget = _cachedAttackTarget;
 
-    private EnemyIntent BuildABIntent(CombatManager combat, Hero self, bool isA)
-    {
-        if (isA)
+        if (IsCurrentAttackAMove())
         {
-            int dmg = Random.Shared.Next(3, 5);
-            var intent = new EnemyIntent(IntentType.Attack, dmg, $"造成 {dmg} 点伤害");
-            return InjectLambda(combat, self, intent);
+            int damage = _currentSingleAttackDamage;
+            return new EnemyIntent(IntentType.Attack, damage, $"造成 {damage} 点伤害")
+            {
+                TargetSelector = _ => cachedTarget,
+                DamageCalc = _ => DamageResolver.ResolvePreviewDamage(damage + Attack, self, cachedTarget),
+            };
         }
-        else
-        {
-            var intent = new EnemyIntent(IntentType.Attack, 3, "造成 1 点伤害 ×3");
-            return InjectLambda(combat, self, intent);
-        }
-    }
 
-    /// <summary>注入目标选择器和伤害计算器到意图中（返回修改后的结构体以避免 struct 值拷贝问题）。</summary>
-    private EnemyIntent InjectLambda(CombatManager combat, Hero self, EnemyIntent intent)
-    {
-        // 始终基于当前战场状态重新解析目标（不缓存，确保嘲讽等动态变化生效）
-        var t = ResolveAttackTarget(combat);
-        intent.TargetSelector = _ => t;
-        intent.DamageCalc = (c) =>
-            DamageResolver.ResolvePreviewDamage(intent.Value + Attack, self, t);
-        return intent;
+        return new EnemyIntent(IntentType.Attack, 1, "造成 1 点伤害 ×3")
+        {
+            TargetSelector = _ => cachedTarget,
+            DamageCalc = _ => DamageResolver.ResolvePreviewDamage(1 + Attack, self, cachedTarget),
+        };
     }
 
     public override void ExecuteIntent(CombatManager combat, Hero self)
     {
-        _cachedAttackTarget = null; // 基于当前战场状态重新解析目标
+        _cachedAttackTarget = null;
 
         if (_dTurnsRemaining <= 0)
         {
@@ -87,37 +122,65 @@ public class ZhangLang : EnemyEncounter
         }
 
         _dJustExecuted = false;
-        var intent = GetCurrentIntent(combat, self);
-        GD.Print($"[张郎] 执行意图：{intent.Description}");
-
-        bool isA = _cycleStep == 0 ? _abAFirst : !_abAFirst;
-
-        switch (intent.Type)
-        {
-            case IntentType.Attack:
-                if (!isA) // B: multi-hit
-                    ExecuteMultiHit(combat, self, intent, 1, 3);
-                else
-                    ExecuteAttackIntent(combat, self);
-                break;
-
-            case IntentType.Buff:
-                if (self.Weapon != null)
-                {
-                    self.Weapon.Attack += intent.Value;
-                    GD.Print($"[张郎] 武器攻击力 +{intent.Value} → {self.Weapon.Attack}");
-                }
-                break;
-        }
+        var move = GetCurrentMove(combat, self);
+        GD.Print($"[张郎] 执行 MoveState：{move.Id}");
+        move.OnPerform?.Invoke(combat, self);
     }
 
-    private void ExecuteMultiHit(CombatManager combat, Hero self, EnemyIntent intent, int perHit, int hits)
+    public override void AdvanceMove()
     {
-        var target = intent.GetTarget(combat);
+        if (_dJustExecuted)
+        {
+            _dJustExecuted = false;
+        }
+        else
+        {
+            _cycleStep = (_cycleStep + 1) % 3;
+            if (_cycleStep == 0)
+            {
+                _abAFirst = Random.Shared.Next(2) == 0;
+            }
+        }
+
+        if (_dTurnsRemaining > 0)
+            _dTurnsRemaining--;
+
+        if (_cycleStep != 2 && IsCurrentAttackAMove())
+            RollCurrentSingleAttackDamage();
+
+        _cachedAttackTarget = null;
+    }
+
+    public override void AdvanceIntent()
+    {
+        AdvanceMove();
+    }
+
+    private bool IsCurrentAttackAMove()
+    {
+        return _cycleStep == 0 ? _abAFirst : !_abAFirst;
+    }
+
+    private void RollCurrentSingleAttackDamage()
+    {
+        _currentSingleAttackDamage = Random.Shared.Next(3, 5);
+    }
+
+    private static void ApplyWeaponBuff(Hero self, int value)
+    {
+        if (self.Weapon == null) return;
+        self.Weapon.Attack += value;
+        GD.Print($"[张郎] 武器攻击力 +{value} → {self.Weapon.Attack}");
+    }
+
+    private void ExecuteMultiHit(CombatManager combat, Hero self, int perHit, int hits)
+    {
+        var target = ResolveAttackTarget(combat);
         for (int i = 0; i < hits; i++)
         {
             if (self.IsDead) break;
-            GD.Print($"[张郎] 多段攻击 {i + 1}/{hits}：{intent.Description}");
+
+            GD.Print($"[张郎] 多段攻击 {i + 1}/{hits}");
             if (target is Minion m)
             {
                 combat.TriggerBaitTacticsOnAttacked(m);
@@ -140,34 +203,23 @@ public class ZhangLang : EnemyEncounter
     private void ExecuteSummon(CombatManager combat)
     {
         if (!combat.Board.CanPlaceMinion(isPlayerSide: false)) return;
+
         const string path = "res://Resources/Cards/Minion_Roach.tres";
         if (!ResourceLoader.Exists(path))
         {
             GD.PrintErr($"[张郎] 未找到机械小蠊卡牌资源：{path}");
             return;
         }
+
         var data = GD.Load<CardData>(path);
         if (data == null) return;
+
         var roach = new Minion(data, isPlayerSide: false);
         roach.IntentBrain = new MechanicalRoachBrain(roach);
         int slot = combat.Board.GetEmptySlotIndex(isPlayerSide: false);
         combat.Board.PlaceMinion(roach, slot);
         GD.Print($"[张郎] 槽位{slot} 召唤机械小蠊 ({roach.Attack}/{roach.CurrentHealth})，已挂载意图大脑");
     }
-
-    public override void AdvanceIntent()
-    {
-        if (_dJustExecuted)
-        {
-            _dJustExecuted = false;
-        }
-        else
-        {
-            _cycleStep = (_cycleStep + 1) % 3;
-            if (_cycleStep == 0) _abAFirst = Random.Shared.Next(2) == 0;
-        }
-
-        if (_dTurnsRemaining > 0) _dTurnsRemaining--;
-        _cachedAttackTarget = null;
-    }
 }
+
+#pragma warning restore CS0618
