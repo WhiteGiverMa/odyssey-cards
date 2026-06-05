@@ -88,7 +88,7 @@ Scripts/
 ├── AI/ (7)              # IntentAI, EnemyRegistry, MechanicalRoachBrain, ZhangLang, ShanHu, DefaultAttackMinionBrain
 ├── Roguelike/ (3)       # EventSelector, RoomData, GameRunState
 ├── Localization/ (5)    # YAML-based 多语言系统（LocalStr/ConcatLocalStr/ILocalizable/YamlParser）
-└── Infrastructure/ (1)  # DevConsole (Autoload) — 开发者控制台
+└── Infrastructure/ (12)  # DevConsole (Autoload), DevConsoleEngine, Commands/ (7 命令组)
 Resources/Cards/         # 32 张卡牌数据 .tres（法术15 + 随从11 + 领域6）
 Resources/Localization/  # zh.yaml / en.yaml 翻译文件
 Scenes/                  # Main.tscn, Combat.tscn, Collection.tscn, Map.tscn（4 个场景）
@@ -135,7 +135,7 @@ dotnet test
 
 - **GameManager** (`Scripts/Core/GameManager.cs`) — 全局状态，跨战斗持久化，语言切换
 - **UIScaler** (`Scripts/UI/UIScaler.cs`) — UI 缩放，基准分辨率 1152×648
-- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — 开发者控制台，`` ` `` 键呼出
+- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — 开发者控制台，`` ` `` 键呼出，23+ 命令，命令系统架构，AI 可远程调用
 
 ## 已知限制
 

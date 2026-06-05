@@ -88,7 +88,7 @@ Scripts/
 ├── AI/ (1)              # IntentAI (Cultist/SlimeBoss/WolfRider)
 ├── Roguelike/ (3)       # EventSelector, RoomData, GameRunState
 ├── Localization/ (5)    # YAML-based localization system
-└── Infrastructure/ (1)  # DevConsole (Autoload) — developer console
+└── Infrastructure/ (12)  # DevConsole (Autoload), DevConsoleEngine, Commands/ (7 command groups)
 Resources/Cards/         # 16 card data .tres (7 spells + 6 minions + 3 domains)
 Resources/Localization/  # zh.yaml / en.yaml translation files
 Scenes/                  # Main.tscn, Combat.tscn, Collection.tscn, Map.tscn (4 scenes)
@@ -135,7 +135,7 @@ dotnet test
 
 - **GameManager** (`Scripts/Core/GameManager.cs`) — global state, cross-combat persistence, language switching
 - **UIScaler** (`Scripts/UI/UIScaler.cs`) — UI scaling, base resolution 1152×648
-- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — developer console, toggle with `` ` `` key
+- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — developer console, toggle with `` ` `` key, 23+ commands, command system architecture, AI-remotable
 
 ## Known Limitations
 

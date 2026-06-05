@@ -21,7 +21,7 @@ Scripts/
 ├── AI/ (25)         # Intents/(18): AbstractIntent类体系+MoveState; IntentAI, EnemyRegistry, MechanicalRoachBrain, ZhangLang, ShanHu…
 ├── Roguelike/ (3)  # EventSelector, RoomData, GameRunState
 ├── Localization/ (5)# YAML 多语言 (LocalStr, ConcatLocalStr, ILocalizable, YamlParser)
-└── Infrastructure/ (1) # DevConsole (Autoload)
+└── Infrastructure/ (12, 含 Commands/) # DevConsole (Autoload), DevConsoleEngine, DevConsoleCommand, 7 命令组
 Resources/Cards/    # 32 卡牌 .tres (法术15 + 随从11 + 领域6)
 Resources/Localization/ # zh.yaml / en.yaml
 Scenes/             # Main.tscn, Combat.tscn, Collection.tscn, Map.tscn
@@ -74,7 +74,7 @@ dotnet test                   # xunit (4 测试文件, tests/csharp/)
 | 暂停 | `UI/PauseMenu.cs` | ESC 触发全屏覆盖，内嵌设置 |
 | 存档 | `Core/SaveDataManager.cs` | user://save.json 持久化 |
 | 本地化 | `Localization/Localization.cs` | YAML 加载，DirAccess→硬编码回退 |
-| 控制台 | `Infrastructure/DevConsole.cs` | `` ` `` 呼出，AI 可调 |
+| 控制台 | `Infrastructure/DevConsole.cs` → `DevConsoleEngine.cs` → `Commands/` | `` ` `` 呼出，命令系统架构，AI 可调 |
 
 ## Architecture Rules
 
@@ -184,6 +184,10 @@ dotnet test                   # xunit (4 测试文件, tests/csharp/)
 
 AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", args=["/damage 10"])`
 
+架构：`DevConsole`(薄 UI 壳) → `DevConsoleEngine`(纯 C# 引擎) → `Commands/*`(23 条独立命令类，继承 `DevConsoleCommand`)。
+新增命令只需写一个 `DevConsoleCommand` 子类并在 `RegisterAllCommands()` 注册一行。
+`/help` 自动从命令元数据生成。历史记录持久化到 `user://console_history.log`（↑↓ 导航）。
+
 | 命令 | 效果 |
 |------|------|
 | `/damage N` | 对敌方英雄造成 N 点伤害 |
@@ -199,8 +203,18 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 | `/armor N` | 获得 N 点护甲 |
 | `/end` | 强制结束回合 |
 | `/refresh` | 刷新战斗 UI |
-| `/help` | 显示帮助 |
 | `/clear` | 清空输出 |
+| `/token <id> [n]` | 将指定卡牌加入手牌（可批量） |
+| `/play <id>` | 从手牌打出领域/无目标法术 |
+| `/summon_player <id> <slot>` | 在己方槽位召唤随从（QA） |
+| `/fight <enemy>` | 直接与指定敌人战斗，跳过地图 |
+| `/addrelic <id>` | 直接获得指定藏品 |
+| `/intent_debug` | 显示当前敌方意图目标（QA） |
+| `/qa_tombstone` | 验证墓碑伤害结算（QA） |
+| `/qa_bait_tactics` | 验证诱饵战术双阵营触发（QA） |
+| `/unlock_all` | 解锁全部卡牌 |
+| `/tags` | 显示所有卡牌标签分布（QA） |
+| `/help` | 显示帮助 |
 
 ## MCP Testing
 
@@ -247,12 +261,13 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - ✅ 多敌人 AI：IntentAI + MechanicalRoachBrain + DefaultAttackMinionBrain + EnemyRegistry。
 - ✅ 意图系统升级：15 种意图类型类继承体系（`AI/Intents/`），MoveState 多意图支持，IntentIcon 代码绘制图标 + bob 动画，IntentTooltip 悬停详情面板。向后兼容旧敌人。
 - ✅ 暂停 ESC 全屏覆盖。`IsInsideTree()` 守卫。
+- ✅ DevConsole v2 命令系统重构：`DevConsoleEngine` + `DevConsoleCommand` 抽象 + 23 条独立命令类 + 历史持久化。
 - ⚠️ `Spell.cs` 从未实例化（死代码）。
 - ⚠️ `EventSelector` 未接线（RewardUI 自包含洗牌）。
 - ⚠️ 英雄技能未实现（`IHeroPower` 空接口）。
 - ⚠️ 手牌无上限 + 无疲劳。
 - ⚠️ `CardEffectData.GetDescription()` 26 debug 字符串未本地化（低优）。
-- ⚠️ DevConsole ~40 帮助文本未本地化（低优）。
+- ⚠️ DevConsole `/help` 已从命令元数据自动生成，不再有硬编码文本。
 - `.godot/` 删除后编辑器重生成 UID，异常先查 .tscn 引用。
 - `.cs` ↔ `.uid` 配对，重命名/移动同步处理。
 - 端口冲突→旧 Godot 进程残留→手动 Stop-Process。
