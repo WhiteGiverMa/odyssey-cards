@@ -296,6 +296,7 @@ public class Hero : IDamageTarget, IDamageSource
 
         // Step 1: ALWAYS go through DamageResolver first (Defense modifier applies here)
         int resolvedDamage = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
+        GD.Print($"[Hero.TakeDamage] base={baseDamage} → resolved={resolvedDamage} (kind={kind})");
         int armorAbsorbed = 0;
 
         // Step 2: Armor absorbs remaining damage AFTER defense

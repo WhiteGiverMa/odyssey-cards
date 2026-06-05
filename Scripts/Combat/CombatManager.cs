@@ -3,6 +3,8 @@ using OdysseyCards.AI;
 using OdysseyCards.Card;
 using OdysseyCards.Core;
 using OdysseyCards.Character;
+using OdysseyCards.Heat;
+using OdysseyCards.Relic;
 using OdysseyCards.Roguelike;
 using OdysseyCards.UI;
 using System;
@@ -32,6 +34,16 @@ public partial class CombatManager : Node
     /// 保留引用以便访问 Hero 类未暴露的方法（如 Heal）。
     /// </summary>
     private CommanderCore _playerCore;
+
+    /// <summary>
+    /// 热力值系统——每场战斗生效的全场级 buff。
+    /// </summary>
+    private HeatSystem _heatSystem;
+
+    /// <summary>
+    /// 藏品管理器——持有玩家所有藏品的列表，负责事件分发。
+    /// </summary>
+    private RelicManager _relicManager;
 
     // ===== 公开属性 =====
 
@@ -75,6 +87,16 @@ public partial class CombatManager : Node
     /// 当前敌方 AI 遭遇实例（向后兼容单一敌人）。
     /// </summary>
     private EnemyEncounter _currentEnemy => EnemyUnits[0].Brain;
+
+    /// <summary>
+    /// 热力值系统（只读访问）。
+    /// </summary>
+    public HeatSystem Heat => _heatSystem;
+
+    /// <summary>
+    /// 藏品管理器（只读访问）。
+    /// </summary>
+    public RelicManager Relics => _relicManager;
 
     /// <summary>
     /// 敌方意图变化事件（参数为意图描述文本）。
@@ -414,6 +436,22 @@ public partial class CombatManager : Node
 
         // 装配默认武器
         PlayerHero.Weapon = new IonPistol();
+
+        // 初始化热力值系统
+        _heatSystem = new HeatSystem();
+
+        // 初始化藏品管理器（从 GameManager 获取，或创建空列表）
+        _relicManager = GameManager.Instance.Relics ?? new RelicManager();
+        // 藏品修改热力值（如冰袋）
+        _relicManager.ModifyHeatSystem(_heatSystem);
+
+        // 注册热力值伤害修改器到所有敌方单位
+        var heatMod = new HeatDamageModifier(_heatSystem);
+        foreach (var unit in EnemyUnits)
+        {
+            unit.Body._damageModifiers.Add(heatMod);
+        }
+
         foreach (var unit in EnemyUnits)
         {
             unit.Body.Weapon = new RollingLog();
@@ -924,6 +962,9 @@ public partial class CombatManager : Node
         PlayerHero.DrawCards(5);
         GD.Print($"[CombatManager] 起手抽 5 张牌 → 共 {_playerCore.Hand.Count} 张手牌");
 
+        // 藏品 — 战斗开始时触发（需在发牌之后，以便好梦抱枕等操作抽牌堆）
+        _relicManager.TriggerBattleStart(this);
+
         // 开始第一个玩家回合
         StartPlayerTurn();
     }
@@ -940,6 +981,9 @@ public partial class CombatManager : Node
             : GameState.MaxManaCrystals;
         State.StartPlayerTurn(growthCap);
         _playerCore.SetMana(State.PlayerMana, State.PlayerMaxMana);
+
+        // 藏品 — 回合开始时触发（在法力设置之后，以便战术核显卡等修改法力值）
+        _relicManager.TriggerTurnStart(this);
 
         // 回合开始抽 1 张牌
         PlayerHero.DrawCards(1);
@@ -966,6 +1010,30 @@ public partial class CombatManager : Node
         PlayerHero.TickWeaponCooldown();
 
         GD.Print($"[CombatManager] 第 {State.TurnCount} 回合开始（法力 {State.PlayerMana}/{State.PlayerMaxMana}），手牌 {_playerCore.Hand.Count} 张");
+    }
+
+    // ===== 卡牌打出通知（藏品/热力值钩子） =====
+
+    /// <summary>
+    /// 卡牌成功打出后的统一通知点。
+    /// 通知热力值系统和藏品系统卡牌打出和法力花费事件。
+    /// </summary>
+    /// <param name="card">打出的卡牌</param>
+    /// <param name="actualCost">实际消耗的法力值</param>
+    private void NotifyCardPlayed(Card.Card card, int actualCost)
+    {
+        _heatSystem.OnCardPlayed();
+        _heatSystem.OnManaSpent(actualCost);
+        _relicManager.TriggerCardPlayed(this, card, actualCost);
+        _relicManager.TriggerManaSpent(this, actualCost);
+    }
+
+    /// <summary>
+    /// 应用藏品费用修改器，返回修改后的费用。
+    /// </summary>
+    private int ApplyRelicCostModifiers(Card.Card card)
+    {
+        return _relicManager.ApplyCostModifiers(card, card.Cost);
     }
 
     // ===== 随从召唤 =====
@@ -1001,9 +1069,10 @@ public partial class CombatManager : Node
         }
 
         // 验证：法力值充足
-        if (!PlayerHero.CanSpendMana(card.Cost))
+        int actualCost = ApplyRelicCostModifiers(card);
+        if (!PlayerHero.CanSpendMana(actualCost))
         {
-            GD.PrintErr($"[CombatManager] PlayMinion 失败 — 法力值不足（需 {card.Cost}，现有 {PlayerHero.CurrentMana}）");
+            GD.PrintErr($"[CombatManager] PlayMinion 失败 — 法力值不足（需 {actualCost}，现有 {PlayerHero.CurrentMana}）");
             return false;
         }
 
@@ -1015,8 +1084,11 @@ public partial class CombatManager : Node
         }
 
         // 消耗法力值
-        PlayerHero.SpendMana(card.Cost);
-        GD.Print($"[CombatManager] 消耗 {card.Cost} 法力值（剩余 {PlayerHero.CurrentMana}）");
+        PlayerHero.SpendMana(actualCost);
+        GD.Print($"[CombatManager] 消耗 {actualCost} 法力值（剩余 {PlayerHero.CurrentMana}）");
+
+        // 通知藏品和热力值系统
+        NotifyCardPlayed(card, actualCost);
 
         // 创建随从运行时实例，并保留牌堆中已有的运行时修饰
         var minion = new Minion(card, isPlayerSide: true);
@@ -1128,17 +1200,18 @@ public partial class CombatManager : Node
             return false;
         }
 
-        // 验证：是法术牌
-        if (card.Type != CardType.Spell)
+        // 验证：是法术牌或状态牌
+        if (card.Type != CardType.Spell && card.Type != CardType.Status)
         {
-            GD.PrintErr($"[CombatManager] PlaySpell 失败 — {card.CardName} 不是法术牌");
+            GD.PrintErr($"[CombatManager] PlaySpell 失败 — {card.CardName} 不是法术牌或状态牌");
             return false;
         }
 
         // 验证：法力值充足
-        if (!PlayerHero.CanSpendMana(card.Cost))
+        int actualCost = ApplyRelicCostModifiers(card);
+        if (!PlayerHero.CanSpendMana(actualCost))
         {
-            GD.PrintErr($"[CombatManager] PlaySpell 失败 — 法力值不足（需 {card.Cost}，现有 {PlayerHero.CurrentMana}）");
+            GD.PrintErr($"[CombatManager] PlaySpell 失败 — 法力值不足（需 {actualCost}，现有 {PlayerHero.CurrentMana}）");
             return false;
         }
 
@@ -1150,8 +1223,11 @@ public partial class CombatManager : Node
         }
 
         // 消耗法力值
-        PlayerHero.SpendMana(card.Cost);
-        GD.Print($"[CombatManager] 施放法术 {card.CardName}，消耗 {card.Cost} 法力值");
+        PlayerHero.SpendMana(actualCost);
+        GD.Print($"[CombatManager] 施放法术 {card.CardName}，消耗 {actualCost} 法力值");
+
+        // 通知藏品和热力值系统
+        NotifyCardPlayed(card, actualCost);
 
         // 解析每个法术效果
         bool selectionTriggered = false;
@@ -1227,15 +1303,19 @@ public partial class CombatManager : Node
         }
 
         // 验证：法力值充足
-        if (!PlayerHero.CanSpendMana(card.Cost))
+        int actualCost = ApplyRelicCostModifiers(card);
+        if (!PlayerHero.CanSpendMana(actualCost))
         {
-            GD.PrintErr($"[CombatManager] PlayDomain 失败 — 法力值不足（需 {card.Cost}，现有 {PlayerHero.CurrentMana}）");
+            GD.PrintErr($"[CombatManager] PlayDomain 失败 — 法力值不足（需 {actualCost}，现有 {PlayerHero.CurrentMana}）");
             return false;
         }
 
         // 消耗法力值
-        PlayerHero.SpendMana(card.Cost);
-        GD.Print($"[CombatManager] 展开领域 {card.CardName}，消耗 {card.Cost} 法力值");
+        PlayerHero.SpendMana(actualCost);
+        GD.Print($"[CombatManager] 展开领域 {card.CardName}，消耗 {actualCost} 法力值");
+
+        // 通知藏品和热力值系统
+        NotifyCardPlayed(card, actualCost);
 
         // 将领域效果附加到英雄
         string domainId = card.Data.DomainId;
@@ -2202,6 +2282,7 @@ public partial class CombatManager : Node
             }
 
             State.SetVictory();
+            CleanupCombat();
             OnGameOver?.Invoke(true);
             return true;
         }
@@ -2215,11 +2296,37 @@ public partial class CombatManager : Node
             gm?.RunState?.FailRun();
 
             State.SetDefeat();
+            CleanupCombat();
             OnGameOver?.Invoke(false);
             return true;
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// 战斗结束清理——移除所有状态牌，重置热力值等。
+    /// </summary>
+    private void CleanupCombat()
+    {
+        // 清理状态牌——从手牌、抽牌堆、弃牌堆中移除所有 Status 类型的卡牌
+        RemoveStatusCardsFromList(_playerCore.Hand);
+        RemoveStatusCardsFromList(_playerCore.DrawPile);
+        RemoveStatusCardsFromList(_playerCore.DiscardPile);
+
+        GD.Print("[CombatManager] 战斗结束——状态牌已清理，热力值已重置");
+    }
+
+    /// <summary>
+    /// 从卡牌列表中移除所有状态牌。
+    /// </summary>
+    private static void RemoveStatusCardsFromList(IList<Card.Card> cards)
+    {
+        for (int i = cards.Count - 1; i >= 0; i--)
+        {
+            if (cards[i].Type == CardType.Status)
+                cards.RemoveAt(i);
+        }
     }
 
     // ===== 回合管理 =====
@@ -2243,6 +2350,9 @@ public partial class CombatManager : Node
 
         // 触发领域效果 — 友方回合结束时
         TriggerDomainsOnTurnEnd();
+
+        // 藏品 — 玩家回合结束时触发
+        _relicManager.TriggerTurnEnd(this);
 
         // 状态效果衰减 — 友方回合结束时
         PlayerHero.TickStatusEffects(TickTiming.PlayerTurnEnd);
@@ -2337,6 +2447,10 @@ public partial class CombatManager : Node
             minion.TickStatusEffects(TickTiming.EnemyTurnEnd);
         foreach (var minion in Board.GetEnemyMinions())
             minion.TickStatusEffects(TickTiming.EnemyTurnEnd);
+
+        // 7.5 热力值自然增长 + 藏品敌方回合结束触发
+        _heatSystem.OnEnemyTurnEnd();
+        _relicManager.TriggerEnemyTurnEnd(this);
 
         // 8. 通知 UI 刷新意图显示（解冻后触发）
         NotifyCombatStateChanged();
