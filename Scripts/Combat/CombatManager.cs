@@ -85,11 +85,6 @@ public partial class CombatManager : Node
     public Player Player { get; private set; }
 
     /// <summary>
-    /// 当前敌方 AI 遭遇实例（向后兼容单一敌人）。
-    /// </summary>
-    private EnemyEncounter _currentEnemy => EnemyUnits[0].Brain;
-
-    /// <summary>
     /// 热力值系统（只读访问）。
     /// </summary>
     public HeatSystem Heat => _heatSystem;
@@ -269,12 +264,17 @@ public partial class CombatManager : Node
     /// </summary>
     public int HandSelectMax => _pendingDiscardMax;
 
-    // ===== 效果处理器 =====
+    // ===== 规则子系统 =====
 
     /// <summary>
-    /// 效果类型到处理器的映射字典。在 <see cref="InitializeEffectHandlers"/> 中填充。
+    /// 卡牌效果分发器——持有 EffectType→Handler 注册表与具体处理逻辑。
     /// </summary>
-    private Dictionary<CardEffectType, Action<CardEffectData, object, IDamageSource?>> _effectHandlers = null!;
+    private CardEffectDispatcher _effectDispatcher = null!;
+
+    /// <summary>
+    /// 领域触发管理器——封装领域在部署/回合/受击等时机的行为。
+    /// </summary>
+    private DomainTriggerManager _domainTriggerManager = null!;
 
     // ===== Godot 生命周期 =====
 
@@ -372,9 +372,6 @@ public partial class CombatManager : Node
         // 5. 初始化战斗管理器（创建 _playerCore、PlayerHero、Board、GameState）
         Initialize(player, enemyUnits);
 
-        // 5.5. 初始化效果处理器字典
-        InitializeEffectHandlers();
-
         // 6. 获取 CombatUI 并初始化
         var combatUI = GetNode<CombatUI>("CanvasLayer/CombatUI");
         combatUI.Initialize(player, this);
@@ -413,7 +410,6 @@ public partial class CombatManager : Node
         _playerCore.SetMana(0, 0);
         _playerCore.MaxHandSize = 10; // 统一手牌上限，覆盖 CombatDeckState 默认值 9
         PlayerHero = new Hero(_playerCore, true);
-        PlayerHero.OnAttacked += HandlePlayerHeroAttacked;
 
         Board = new Board();
         State = new GameState();
@@ -441,6 +437,23 @@ public partial class CombatManager : Node
         _relicManager = GameManager.Instance.Relics ?? new RelicManager();
         // 藏品修改热力值（如冰袋）
         _relicManager.ModifyHeatSystem(_heatSystem);
+        _effectDispatcher = new CardEffectDispatcher(
+            _playerCore,
+            PlayerHero,
+            Board,
+            State,
+            NotifyCombatStateChanged,
+            HandleDiscoverEffect,
+            BeginDiscardDiscoverSelection,
+            BeginHandDiscardSelection);
+        _domainTriggerManager = new DomainTriggerManager(
+            _playerCore,
+            PlayerHero,
+            Board,
+            State,
+            EnemyUnits,
+            NotifyCombatStateChanged);
+        PlayerHero.OnAttacked += HandlePlayerHeroAttacked;
 
         // 注册热力值伤害修改器到所有敌方单位
         var heatMod = new HeatDamageModifier(_heatSystem);
@@ -464,465 +477,23 @@ public partial class CombatManager : Node
                   string.Join(", ", EnemyUnits.Select(u => $"{u.Brain.Name} {u.Body.CurrentHealth}/{u.Body.MaxHealth}")));
     }
 
-    /// <summary>
-    /// 初始化效果处理器字典。在各 Wave 迁移中逐步填充。
-    /// </summary>
-    private void InitializeEffectHandlers()
+    private void BeginDiscardDiscoverSelection(List<Card.Card> options, int pickCount)
     {
-        _effectHandlers = new Dictionary<CardEffectType, Action<CardEffectData, object, IDamageSource?>>();
-
-        // Wave 2: 伤害类型
-        _effectHandlers[CardEffectType.Damage] = HandleDamage;
-        _effectHandlers[CardEffectType.DealDamageToTarget] = HandleDamage;
-        _effectHandlers[CardEffectType.DealDamageToEnemyHero] = HandleDealDamageToEnemyHero;
-        _effectHandlers[CardEffectType.DealDamageToFriendlyHero] = HandleDealDamageToFriendlyHero;
-        _effectHandlers[CardEffectType.DealDamageToAllEnemies] = HandleDealDamageToAllEnemies;
-        _effectHandlers[CardEffectType.DrawCards] = HandleDrawCards;
-        _effectHandlers[CardEffectType.Heal] = HandleHeal;
-        _effectHandlers[CardEffectType.RestoreHealth] = HandleHeal;
-        _effectHandlers[CardEffectType.GainArmor] = HandleGainArmor;
-        _effectHandlers[CardEffectType.GainMaxHealth] = HandleGainMaxHealth;
-        _effectHandlers[CardEffectType.SummonMinion] = HandleSummonMinion;
-        _effectHandlers[CardEffectType.BuffMinion] = HandleBuffMinion;
-        _effectHandlers[CardEffectType.GainManaSlot] = HandleGainManaSlot;
-        _effectHandlers[CardEffectType.RemoveNaturalManaCap] = HandleRemoveNaturalManaCap;
-        _effectHandlers[CardEffectType.Discover] = HandleDiscoverEffectDispatch;
-        _effectHandlers[CardEffectType.ReplaceDeathrattleWithDraw] = HandleReplaceDeathrattleWithDraw;
-        _effectHandlers[CardEffectType.GrantIdolTwilight] = HandleGrantIdolTwilight;
-        _effectHandlers[CardEffectType.ChooseFromDiscard] = HandleChooseFromDiscard;
-        _effectHandlers[CardEffectType.DiscardRandom] = HandleDiscardRandom;
-        _effectHandlers[CardEffectType.DiscardChoose] = HandleDiscardChoose;
-        _effectHandlers[CardEffectType.ShuffleTribeCards] = HandleShuffleTribeCards;
-        _effectHandlers[CardEffectType.Custom] = HandleCustomEffect;
-    }
-
-    // ===== 效果处理器 (Effect Handlers) =====
-
-    /// <summary>
-    /// 对目标（随从或英雄）造成效果伤害。
-    /// </summary>
-    private void HandleDamage(CardEffectData effect, object target, IDamageSource? source)
-    {
-        if (target is Minion minionTarget)
-        {
-            minionTarget.TakeDamage(effect.Value, source, DamageKind.Effect);
-            GD.Print($"[CombatManager]   对 {minionTarget.CardName} 造成 {effect.Value} 点伤害");
-        }
-        else if (target is Hero heroTarget)
-        {
-            heroTarget.TakeDamage(effect.Value, source, DamageKind.Effect);
-            GD.Print($"[CombatManager]   对英雄造成 {effect.Value} 点伤害");
-        }
-        else
-        {
-            GD.PrintErr("[CombatManager]   目标类型不支持伤害");
-        }
-    }
-
-    /// <summary>
-    /// 对敌方英雄造成效果伤害。
-    /// </summary>
-    private void HandleDealDamageToEnemyHero(CardEffectData effect, object target, IDamageSource? source)
-    {
-        if (target is not Hero hero) return;
-        hero.TakeDamage(effect.Value, source, DamageKind.Effect);
-        GD.Print($"[CombatManager]   对敌方英雄造成 {effect.Value} 点伤害（剩余 {hero.CurrentHealth}）");
-    }
-
-    /// <summary>
-    /// 对友方英雄造成效果伤害。
-    /// </summary>
-    private void HandleDealDamageToFriendlyHero(CardEffectData effect, object target, IDamageSource? source)
-    {
-        PlayerHero.TakeDamage(effect.Value, source, DamageKind.Effect);
-        GD.Print($"[CombatManager]   对友方英雄造成 {effect.Value} 点伤害（剩余 {PlayerHero.CurrentHealth}）");
-    }
-
-    /// <summary>
-    /// 对所有敌方随从造成效果伤害。
-    /// </summary>
-    private void HandleDealDamageToAllEnemies(CardEffectData effect, object target, IDamageSource? source)
-    {
-        int hitCount = 0;
-        foreach (var enemyMinion in Board.GetEnemyMinions())
-        {
-            enemyMinion.TakeDamage(effect.Value, source, DamageKind.Effect);
-            hitCount++;
-        }
-        GD.Print($"[CombatManager]   对所有敌方随从造成 {effect.Value} 点伤害（命中 {hitCount} 个目标）");
-    }
-
-    /// <summary>
-    /// 抽牌。
-    /// </summary>
-    private void HandleDrawCards(CardEffectData effect, object target, IDamageSource? source)
-    {
-        PlayerHero.DrawCards(effect.Value);
-        GD.Print($"[CombatManager]   抽 {effect.Value} 张牌");
-    }
-
-    /// <summary>
-    /// 恢复生命值（上限内）。
-    /// </summary>
-    private void HandleHeal(CardEffectData effect, object target, IDamageSource? source)
-    {
-        _playerCore.Heal(effect.Value);
-        GD.Print($"[CombatManager]   恢复 {effect.Value} 点生命值（当前 {PlayerHero.CurrentHealth}）");
-    }
-
-    /// <summary>
-    /// 获得护甲值。
-    /// </summary>
-    private void HandleGainArmor(CardEffectData effect, object target, IDamageSource? source)
-    {
-        PlayerHero.GainArmor(effect.Value);
-        GD.Print($"[CombatManager]   获得 {effect.Value} 点护甲（当前 {PlayerHero.CurrentArmor}）");
-    }
-
-    /// <summary>
-    /// 获得最大生命值（同步回复等量生命值）。
-    /// </summary>
-    private void HandleGainMaxHealth(CardEffectData effect, object target, IDamageSource? source)
-    {
-        _playerCore.InitializeHealth(
-            _playerCore.MaxHealth + effect.Value,
-            _playerCore.CurrentHealth + effect.Value);
-        GD.Print($"[CombatManager]   最大生命值 +{effect.Value} 并恢复等量生命值（当前 {PlayerHero.CurrentHealth}/{PlayerHero.MaxHealth}）");
-    }
-
-    /// <summary>
-    /// 召唤随从（原型：仅记录日志）。
-    /// </summary>
-    private void HandleSummonMinion(CardEffectData effect, object target, IDamageSource? source)
-    {
-        int emptySlot = Board.GetEmptySlotIndex(isPlayerSide: true);
-        if (emptySlot >= 0)
-        {
-            GD.Print($"[CombatManager]   召唤随从效果：{effect.GetDescription()}（原型：仅记录日志）");
-        }
-        else
-        {
-            GD.Print($"[CombatManager]   召唤随从失败 — 战场已满");
-        }
-    }
-
-    /// <summary>
-    /// 强化随从（原型：暂未实现属性修改）。
-    /// </summary>
-    private void HandleBuffMinion(CardEffectData effect, object target, IDamageSource? source)
-    {
-        if (target is Minion buffTarget)
-        {
-            GD.Print($"[CombatManager]   BuffMinion：{effect.GetDescription()} → {buffTarget.CardName}（原型：暂未实现属性修改）");
-        }
-        else
-        {
-            GD.Print($"[CombatManager]   BuffMinion 需要有效的随从目标");
-        }
-    }
-
-    /// <summary>
-    /// 获得额外的法力水晶槽。
-    /// </summary>
-    private void HandleGainManaSlot(CardEffectData effect, object target, IDamageSource? source)
-    {
-        State.GainManaSlot(effect.Value);
-        _playerCore.SetMana(_playerCore.CurrentMana, State.PlayerMaxMana);
-        GD.Print($"[CombatManager]   获得 {effect.Value} 个法力水晶槽（总上限 {State.PlayerMaxMana}）");
-    }
-
-    /// <summary>
-    /// 解除自然增长的法力水晶上限。
-    /// </summary>
-    private void HandleRemoveNaturalManaCap(CardEffectData effect, object target, IDamageSource? source)
-    {
-        GD.Print("[CombatManager]   无限潜能领域已展开，自然增长上限提升至 30");
-    }
-
-    /// <summary>
-    /// 发现选牌——委托给现有的 HandleDiscoverEffect 方法。
-    /// </summary>
-    private void HandleDiscoverEffectDispatch(CardEffectData effect, object target, IDamageSource? source)
-    {
-        HandleDiscoverEffect(effect);
-    }
-
-    /// <summary>
-    /// 替换目标随从亡语为「玩家英雄抽牌」。
-    /// </summary>
-    private void HandleReplaceDeathrattleWithDraw(CardEffectData effect, object target, IDamageSource? source)
-    {
-        if (target is not Minion minionTarget)
-        {
-            GD.Print("[CombatManager]   替换亡语需要有效的随从目标");
-            return;
-        }
-
-        int drawCount = Math.Max(1, effect.Value);
-        var drawEffect = new CardEffectData
-        {
-            EffectType = CardEffectType.DrawCards,
-            Value = drawCount,
-        };
-        minionTarget.ReplaceDeathrattleEffects(new[] { drawEffect });
-        GD.Print($"[CombatManager]   {minionTarget.CardName} 获得亡语：抽 {drawCount} 张牌");
-    }
-
-    /// <summary>
-    /// 偶像的黄昏：玩家所有区域中的随从获得被攻击后 +1/+1。
-    /// </summary>
-    private void HandleGrantIdolTwilight(CardEffectData effect, object target, IDamageSource? source)
-    {
-        int stacks = Math.Max(1, effect.Value);
-        int grantCount = 0;
-
-        foreach (var card in PlayerHero.Hand)
-            grantCount += GrantIdolTwilightToCard(card, stacks);
-        foreach (var card in PlayerHero.DeckState.DrawPile)
-            grantCount += GrantIdolTwilightToCard(card, stacks);
-        foreach (var card in PlayerHero.DeckState.DiscardPile)
-            grantCount += GrantIdolTwilightToCard(card, stacks);
-        foreach (var minion in Board.GetPlayerMinions())
-        {
-            minion.GrantIdolTwilightOnAttacked(stacks);
-            grantCount++;
-        }
-
-        GD.Print($"[CombatManager] ◆ 偶像的黄昏：为 {grantCount} 个玩家随从/随从牌授予被攻击后 +{stacks}/+{stacks}");
-        NotifyCombatStateChanged();
-    }
-
-    private static int GrantIdolTwilightToCard(Card.Card card, int stacks)
-    {
-        if (card.Type != CardType.Minion) return 0;
-
-        card.GrantIdolTwilightOnAttacked(stacks);
-        return 1;
-    }
-
-    /// <summary>
-    /// 捞月：从弃牌堆展示 N 张牌，选择 M 张移回手牌。
-    /// </summary>
-    private void HandleChooseFromDiscard(CardEffectData effect, object target, IDamageSource? source)
-    {
-        int optionCount = effect.Value > 0 ? effect.Value : 5;
-        int pickCount = effect.SecondaryValue > 0 ? effect.SecondaryValue : 2;
-        var options = GetRandomCardsFromDiscard(optionCount);
-
-        if (options.Count == 0)
-        {
-            GD.Print("[CombatManager] 捞月：弃牌堆为空，无牌可选");
-            return;
-        }
-
         _pendingDiscoverRuntimeOptions = options;
         _pendingDiscoverOptions = options.Select(c => c.Data).ToList();
         DiscoverPickCount = Math.Min(pickCount, options.Count);
         _pendingSelectionMode = PendingSelectionMode.Discard;
         State.SetDiscovering();
-
-        GD.Print($"[CombatManager] ◆ 捞月：从弃牌堆展示 {options.Count} 张，选择 {DiscoverPickCount} 张");
         NotifyCombatStateChanged();
     }
 
-    /// <summary>
-    /// 随机弃牌：从手牌中随机弃掉 N 张牌。
-    /// </summary>
-    private void HandleDiscardRandom(CardEffectData effect, object target, IDamageSource? source)
+    private void BeginHandDiscardSelection(List<Card.Card> handOptions, int min, int max, bool isBladeCrisis)
     {
-        int discardCount = effect.Value;
-        var hand = PlayerHero.Hand.ToList();
-
-        if (hand.Count == 0)
-        {
-            GD.Print("[CombatManager] 随机弃牌：手牌为空，无法弃牌");
-            return;
-        }
-
-        int actualDiscard = Math.Min(discardCount, hand.Count);
-        using var rng = new RandomNumberGenerator();
-        rng.Randomize();
-
-        for (int i = 0; i < actualDiscard; i++)
-        {
-            int randomIndex = rng.RandiRange(0, hand.Count - 1);
-            var card = hand[randomIndex];
-            GD.Print($"[CombatManager]   随机弃掉: {card.GetLocalizedName()}");
-            PlayerHero.DiscardCard(card);
-            hand.RemoveAt(randomIndex);
-        }
-
-        GD.Print($"[CombatManager] ◆ 随机弃牌完成：弃掉 {actualDiscard}/{discardCount} 张牌");
-        NotifyCombatStateChanged();
-    }
-
-    /// <summary>
-    /// 主动弃牌：从手牌中选择 N 张牌弃掉（STS2 风格手牌选择模式）。
-    /// </summary>
-    private void HandleDiscardChoose(CardEffectData effect, object target, IDamageSource? source)
-    {
-        int mustDiscard = effect.Value;
-        var handCopy = PlayerHero.Hand.ToList();
-
-        if (handCopy.Count == 0)
-        {
-            GD.Print("[CombatManager] 主动弃牌：手牌为空，无法弃牌");
-            return;
-        }
-
-        if (handCopy.Count < mustDiscard)
-        {
-            GD.Print($"[CombatManager] 主动弃牌：手牌数量({handCopy.Count})不足，需要弃{mustDiscard}张");
-            return;
-        }
-
-        _pendingHandDiscardSelection = handCopy;
-        _pendingDiscardMin = mustDiscard;
-        _pendingDiscardMax = mustDiscard;
-        _pendingDiscardIsBladeCrisis = false;
+        _pendingHandDiscardSelection = handOptions;
+        _pendingDiscardMin = min;
+        _pendingDiscardMax = max;
+        _pendingDiscardIsBladeCrisis = isBladeCrisis;
         SetHandSelectingState();
-
-        GD.Print($"[CombatManager] ◆ 主动弃牌：从手牌 {handCopy.Count} 张中选择弃掉 {mustDiscard} 张");
-    }
-
-    /// <summary>
-    /// 种族洗牌：将 N 张随机指定种族的随从卡牌洗入抽牌堆。
-    /// 从全卡牌池中加载指定标签的随从，可重复选取（with replacement）。
-    /// </summary>
-    private void HandleShuffleTribeCards(CardEffectData effect, object target, IDamageSource? source)
-    {
-        int insertCount = effect.Value;
-
-        // 解析目标种族标签
-        if (!Enum.TryParse<CardTag>(effect.TargetType, out var targetTag) || targetTag == CardTag.None)
-        {
-            GD.PrintErr($"[CombatManager] 种族洗牌：无法识别的种族标签 '{effect.TargetType}'");
-            return;
-        }
-
-        // 从 GameManager 注册表加载全卡牌池并过滤（编辑器和导出版本均可用）
-        var pool = new List<CardData>();
-        var allCards = GameManager.Instance.GetAllCards();
-        foreach (var cardData in allCards)
-        {
-            if (cardData.Tags.HasFlag(targetTag) && cardData.Type == CardType.Minion)
-            {
-                pool.Add(cardData);
-            }
-        }
-
-        if (pool.Count == 0)
-        {
-            GD.Print($"[CombatManager] 种族洗牌：没有符合条件的 {effect.TargetType} 随从卡牌");
-            return;
-        }
-
-        // 有放回随机选取
-        using var rng = new RandomNumberGenerator();
-        rng.Randomize();
-
-        for (int i = 0; i < insertCount; i++)
-        {
-            int randomIndex = rng.RandiRange(0, pool.Count - 1);
-            var cardData = pool[randomIndex];
-            var card = new OdysseyCards.Card.Card(cardData);
-            PlayerHero.InsertCardToDrawPile(card);
-            GD.Print($"[CombatManager]   洗入抽牌堆: {card.GetLocalizedName()}");
-        }
-
-        PlayerHero.ShuffleDrawPile();
-        GD.Print($"[CombatManager] ◆ 种族洗牌完成：将 {insertCount} 张随机 {effect.TargetType} 随从洗入抽牌堆");
-        NotifyCombatStateChanged();
-    }
-
-    /// <summary>
-    /// 自定义效果——根据 CustomEffectName 分发到子逻辑。
-    /// </summary>
-    private void HandleCustomEffect(CardEffectData effect, object target, IDamageSource? source)
-    {
-        if (effect.CustomEffectName == "AddPlanToHand")
-        {
-            var planData = GD.Load<CardData>("res://Resources/Cards/Spell_Plan.tres");
-            if (planData != null)
-            {
-                var planCard = new OdysseyCards.Card.Card(planData);
-                _playerCore.AddToHand(planCard);
-                GD.Print("[CombatManager]   将「计划」加入手牌");
-            }
-            else
-            {
-                GD.PrintErr("[CombatManager]   无法加载计划卡牌资源");
-            }
-        }
-        else if (effect.CustomEffectName == "FlyingAway")
-        {
-            PlayerHero.GainArmor(effect.Value);
-            GD.Print($"[CombatManager]   飞远：获得 {effect.Value} 点格挡（护甲）");
-        }
-        else if (effect.CustomEffectName == "StripArmor")
-        {
-            if (target is Hero heroTarget)
-            {
-                int armorLost = heroTarget.CurrentArmor;
-                heroTarget.RemoveArmor();
-                GD.Print($"[CombatManager]   移除目标所有护甲（失去 {armorLost} 点）");
-            }
-            else
-            {
-                GD.Print("[CombatManager]   StripArmor 目标无护甲（非英雄单位），无效果");
-            }
-        }
-        else if (effect.CustomEffectName == "BaitTactics")
-        {
-            if (target is Minion minionTarget)
-            {
-                minionTarget.GrantBaitTactics();
-                GD.Print($"[CombatManager]   诱饵战术：{minionTarget.CardName} 获得伏击、冲击与被攻击触发");
-            }
-            else
-            {
-                GD.Print("[CombatManager]   诱饵战术需要有效的随从目标");
-            }
-        }
-        else if (effect.CustomEffectName == "Animosity")
-        {
-            if (target is Minion minionTarget)
-            {
-                // 1. 授予嘲讽
-                minionTarget.HasTaunt = true;
-                // 2. 注册敌意伤害翻倍修改器（受到来自玩家阵营的伤害翻倍）
-                minionTarget._damageModifiers.Add(new AnimosityDamageModifier());
-                // 3. 追加亡语：玩家抽一张牌
-                var drawEffect = new CardEffectData
-                {
-                    EffectType = CardEffectType.DrawCards,
-                    Value = 1,
-                };
-                minionTarget.AddDeathrattleEffect(drawEffect);
-                GD.Print($"[CombatManager]   敌意：{minionTarget.CardName} 获得嘲讽、伤害翻倍（玩家阵营）和亡语抽牌");
-            }
-            else
-            {
-                GD.Print("[CombatManager]   敌意需要有效的随从目标");
-            }
-        }
-        else if (effect.CustomEffectName == "BladeCrisis")
-        {
-            int maxDiscard = effect.Value > 0 ? effect.Value : 5;
-            var hand = PlayerHero.Hand.ToList();
-            if (hand.Count == 0) { GD.Print("[CombatManager] 刀盾危机：手牌为空"); return; }
-
-            _pendingHandDiscardSelection = hand;
-            _pendingDiscardMin = 0;
-            _pendingDiscardMax = Math.Min(maxDiscard, hand.Count);
-            _pendingDiscardIsBladeCrisis = true;
-            SetHandSelectingState();
-            GD.Print($"[CombatManager] ◆ 刀盾危机：可选最多{_pendingDiscardMax}张手牌弃掉");
-        }
-        else
-        {
-            GD.Print($"[CombatManager]   未处理的Custom效果：{effect.CustomEffectName}");
-        }
     }
 
     /// <summary>
@@ -1129,7 +700,7 @@ public partial class CombatManager : Node
         GD.Print($"[CombatManager] 玩家召唤了 {minion.CardName}（{minion.Attack}/{minion.CurrentHealth}）到槽位 {slotIndex}");
 
         // 触发领域效果 — 友方随从部署后
-        TriggerDomainsOnMinionPlaced(minion);
+        _domainTriggerManager.OnMinionPlaced(minion);
 
         return true;
     }
@@ -1353,69 +924,15 @@ public partial class CombatManager : Node
         return true;
     }
 
-    // ===== 领域触发 =====
-
     /// <summary>
-    /// 触发「友方随从部署」相关领域效果。
-    /// 在 <see cref="PlayMinion"/> 中随从放置到棋盘后调用。
-    /// </summary>
-    /// <param name="minion">刚被部署的随从</param>
-    private void TriggerDomainsOnMinionPlaced(Minion minion)
-    {
-        foreach (var domain in PlayerHero.ActiveDomains.Values)
-        {
-            switch (domain.DomainId)
-            {
-                case "zhijian":
-                    int bonusAtk = domain.EffectData.Value * domain.StackCount;
-                    minion.ModifyAttack(bonusAtk);
-                    GD.Print($"[CombatManager] ◆ 「执锐」触发：{minion.CardName} 攻击力 +{bonusAtk}（{domain.StackCount}层）");
-                    break;
-            }
-        }
-    }
-
-    /// <summary>
-    /// 触发「友方回合结束」相关领域效果。
-    /// 在 <see cref="EndPlayerTurn"/> 中回合结束清理后调用。
-    /// </summary>
-    private void TriggerDomainsOnTurnEnd()
-    {
-        foreach (var domain in PlayerHero.ActiveDomains.Values)
-        {
-            switch (domain.DomainId)
-            {
-                case "infinite_fire":
-                    int shuffleCount = domain.EffectData.Value * domain.StackCount;
-                    for (int i = 0; i < shuffleCount; i++)
-                    {
-                        var strikeData = GD.Load<CardData>("res://Resources/Cards/Spell_Strike.tres");
-                        var strikeCard = new OdysseyCards.Card.Card(strikeData);
-                        PlayerHero.InsertCardToDrawPile(strikeCard);
-                    }
-                    GD.Print($"[CombatManager] ◆ 「无限火力」触发：洗入 {shuffleCount} 张打击（{domain.StackCount}层）");
-                    break;
-            }
-        }
-    }
-
-    /// <summary>
-    /// 执行单个卡牌效果，根据 EffectType 分发到对应的处理逻辑。
-    /// 供法术、战吼、亡语等所有效果触发场景共用。
-    /// </summary>
-    /// <param name="effect">效果数据</param>
-    /// <param name="target">效果目标对象（Minion 或 Hero，可为 null）</param>
+     /// 执行单个卡牌效果，根据 EffectType 分发到对应的处理逻辑。
+     /// 供法术、战吼、亡语等所有效果触发场景共用。
+     /// </summary>
+     /// <param name="effect">效果数据</param>
+     /// <param name="target">效果目标对象（Minion 或 Hero，可为 null）</param>
     private void ExecuteEffect(CardEffectData effect, object target, IDamageSource? source = null)
     {
-        // 字典优先分发：已注册的效果类型直接调用对应 handler
-        if (_effectHandlers.TryGetValue(effect.EffectType, out var handler))
-        {
-            handler(effect, target, source);
-            return;
-        }
-
-        // 未注册的效果类型 — 输出日志
-        GD.Print($"[CombatManager]   未处理的效果类型：{effect.EffectType}（{effect.GetDescription()}）");
+        _effectDispatcher.ExecuteEffect(effect, target, source);
     }
 
     /// <summary>
@@ -1426,46 +943,7 @@ public partial class CombatManager : Node
     /// <param name="finalDamage">护甲结算后的实际生命伤害</param>
     private void HandlePlayerHeroAttacked(Hero target, IDamageSource source, int finalDamage)
     {
-        if (!ReferenceEquals(target, PlayerHero)) return;
-        if (State.IsPlayerTurn) return;
-
-        bool isEnemyAttackSource = source is Minion { IsPlayerSide: false }
-            || (source is Hero h && EnemyUnits.Any(eu => ReferenceEquals(eu.Body, h)));
-        if (!isEnemyAttackSource) return;
-
-        if (!PlayerHero.ActiveDomains.TryGetValue("flying_away", out var domain)) return;
-        if (domain.LastTriggeredTurn == State.TurnCount) return;
-
-        domain.LastTriggeredTurn = State.TurnCount;
-
-        int drawCount = domain.EffectData.SecondaryValue > 0 ? domain.EffectData.SecondaryValue : 2;
-        PlayerHero.DrawCards(drawCount);
-
-        string tokenPath = string.IsNullOrWhiteSpace(domain.EffectData.TargetType)
-            ? "res://Resources/Cards/Spell_Shoushen.tres"
-            : domain.EffectData.TargetType;
-        var tokenData = GD.Load<CardData>(tokenPath);
-        if (tokenData != null)
-        {
-            _playerCore.AddToHand(new OdysseyCards.Card.Card(tokenData));
-            GD.Print($"[CombatManager] ◆ 「飞远」触发：抽 {drawCount} 张牌，将「{tokenData.GetLocalizedName()}」加入手牌");
-        }
-        else
-        {
-            GD.PrintErr($"[CombatManager] ◆ 「飞远」触发失败：无法加载受身卡牌 {tokenPath}");
-        }
-
-        if (domain.StackCount <= 1)
-        {
-            PlayerHero.RemoveDomain("flying_away");
-        }
-        else
-        {
-            domain.StackCount--;
-            GD.Print($"[CombatManager] ◆ 「飞远」剩余 {domain.StackCount} 层");
-        }
-
-        NotifyCombatStateChanged();
+        _domainTriggerManager.HandlePlayerHeroAttacked(target, source, finalDamage);
     }
 
     /// <summary>
@@ -1605,147 +1083,14 @@ public partial class CombatManager : Node
     {
         if (!target.HasBaitTacticsOnAttacked) return;
 
-        EnemyHero.ModifyDefense(-1);
-        GD.Print($"[CombatManager] ◆ 诱饵战术触发：{target.CardName} 受到攻击，敌方英雄防御力-1（当前 {EnemyHero.Defense}）");
+        var enemyBody = EnemyUnits[0].Body;
+        enemyBody.ModifyDefense(-1);
+        GD.Print($"[CombatManager] ◆ 诱饵战术触发：{target.CardName} 受到攻击，敌方英雄防御力-1（当前 {enemyBody.Defense}）");
     }
 
     /// <summary>
-    /// MCP QA 入口：验证「诱饵战术」在友方/敌方随从目标上都降低玩家敌方的英雄防御力。
-    /// </summary>
-    public string RunBaitTacticsQa()
-    {
-        var baitData = GD.Load<CardData>("res://Resources/Cards/Spell_BaitTactics.tres");
-        var playerMinionData = GD.Load<CardData>("res://Resources/Cards/Minion_18thRegiment.tres");
-        var enemyMinionData = GD.Load<CardData>("res://Resources/Cards/Minion_Slime.tres");
-
-        if (baitData == null || playerMinionData == null || enemyMinionData == null)
-        {
-            return "诱饵战术QA失败：无法加载所需卡牌资源";
-        }
-
-        PlayerHero.GainMana(20);
-        int initialDefense = EnemyHero.Defense;
-
-        var friendlyTarget = new Minion(playerMinionData, isPlayerSide: true);
-        var enemyAttacker = new Minion(enemyMinionData, isPlayerSide: false);
-        var friendlySpell = new OdysseyCards.Card.Card(baitData);
-        AddCardToHand(friendlySpell);
-        bool friendlySpellPlayed = PlaySpell(friendlySpell, friendlyTarget);
-        bool friendlyBuffApplied = friendlyTarget.HasAmbush && friendlyTarget.HasImpact && friendlyTarget.HasBaitTacticsOnAttacked;
-        ResolveMinionCombat(enemyAttacker, friendlyTarget);
-        bool friendlyTriggerWorked = EnemyHero.Defense == initialDefense - 1;
-
-        var enemyTarget = new Minion(enemyMinionData, isPlayerSide: false);
-        var playerAttacker = new Minion(playerMinionData, isPlayerSide: true);
-        var enemySpell = new OdysseyCards.Card.Card(baitData);
-        AddCardToHand(enemySpell);
-        bool enemySpellPlayed = PlaySpell(enemySpell, enemyTarget);
-        bool enemyBuffApplied = enemyTarget.HasAmbush && enemyTarget.HasImpact && enemyTarget.HasBaitTacticsOnAttacked;
-        ResolveMinionCombat(playerAttacker, enemyTarget);
-        bool enemyTriggerWorked = EnemyHero.Defense == initialDefense - 2;
-
-        NotifyCombatStateChanged();
-
-        bool passed = friendlySpellPlayed
-            && friendlyBuffApplied
-            && friendlyTriggerWorked
-            && enemySpellPlayed
-            && enemyBuffApplied
-            && enemyTriggerWorked;
-
-        string result = passed
-            ? $"诱饵战术QA通过：友方目标触发、敌方目标触发，玩家敌方的英雄防御 {initialDefense}->{EnemyHero.Defense}"
-            : $"诱饵战术QA失败：friendlySpell={friendlySpellPlayed}, friendlyBuff={friendlyBuffApplied}, friendlyTrigger={friendlyTriggerWorked}, enemySpell={enemySpellPlayed}, enemyBuff={enemyBuffApplied}, enemyTrigger={enemyTriggerWorked}, defense={EnemyHero.Defense}";
-        GD.Print($"[CombatManager] {result}");
-        return result;
-    }
-
-    /// <summary>
-    /// MCP QA 入口：验证本批新增三张卡的核心规则行为。
-    /// </summary>
-    public string RunNewCardsQa()
-    {
-        var nanoData = GD.Load<CardData>("res://Resources/Cards/Spell_NanoCorpseArt.tres");
-        var idolData = GD.Load<CardData>("res://Resources/Cards/Domain_IdolTwilight.tres");
-        var moonData = GD.Load<CardData>("res://Resources/Cards/Spell_MoonFishing.tres");
-        var scoutData = GD.Load<CardData>("res://Resources/Cards/Minion_LianshuScout.tres");
-        var slimeData = GD.Load<CardData>("res://Resources/Cards/Minion_Slime.tres");
-        var alertData = GD.Load<CardData>("res://Resources/Cards/Spell_Alert.tres");
-        var strikeData = GD.Load<CardData>("res://Resources/Cards/Spell_Strike.tres");
-        var assaultData = GD.Load<CardData>("res://Resources/Cards/Spell_Assault.tres");
-        var regimentData = GD.Load<CardData>("res://Resources/Cards/Minion_18thRegiment.tres");
-
-        if (nanoData == null || idolData == null || moonData == null || scoutData == null || slimeData == null
-            || alertData == null || strikeData == null || assaultData == null || regimentData == null)
-        {
-            return "新增卡牌QA失败：资源加载不完整";
-        }
-
-        PlayerHero.GainMana(50);
-        PlayerHero.AddToDrawPileBottom(new Card.Card(alertData));
-
-        var nanoTarget = new Minion(scoutData, isPlayerSide: true);
-        var nanoCard = new Card.Card(nanoData);
-        AddCardToHand(nanoCard);
-        bool nanoPlayed = PlaySpell(nanoCard, nanoTarget);
-        bool nanoReplaced = nanoTarget.HasDeathrattle
-            && nanoTarget.DeathrattleEffects.Count == 1
-            && nanoTarget.DeathrattleEffects[0].EffectType == CardEffectType.DrawCards
-            && nanoTarget.DeathrattleEffects[0].Value == 1;
-
-        var handMinionCard = new Card.Card(regimentData);
-        var drawMinionCard = new Card.Card(scoutData);
-        var discardMinionCard = new Card.Card(scoutData);
-        AddCardToHand(handMinionCard);
-        PlayerHero.AddToDrawPileBottom(drawMinionCard);
-        PlayerHero.AddToDiscardPile(discardMinionCard);
-        var boardMinion = new Minion(regimentData, isPlayerSide: true);
-        Board.PlaceMinion(boardMinion, Board.GetEmptySlotIndex(isPlayerSide: true));
-
-        var idolCard = new Card.Card(idolData);
-        AddCardToHand(idolCard);
-        bool idolPlayed = PlayDomain(idolCard);
-        bool idolGrantedZones = handMinionCard.IdolTwilightOnAttackedStacks == 1
-            && drawMinionCard.IdolTwilightOnAttackedStacks == 1
-            && discardMinionCard.IdolTwilightOnAttackedStacks == 1
-            && boardMinion.IdolTwilightOnAttackedStacks == 1;
-        int beforeAttack = boardMinion.Attack;
-        int beforeHealth = boardMinion.CurrentHealth;
-        ResolveMinionCombat(new Minion(slimeData, isPlayerSide: false), boardMinion);
-        bool idolTriggered = boardMinion.Attack == beforeAttack + 1
-            && boardMinion.CurrentHealth == beforeHealth - slimeData.Attack + 1;
-
-        var discardA = new Card.Card(strikeData);
-        var discardB = new Card.Card(assaultData);
-        var discardC = new Card.Card(alertData);
-        PlayerHero.AddToDiscardPile(discardA);
-        PlayerHero.AddToDiscardPile(discardB);
-        PlayerHero.AddToDiscardPile(discardC);
-        int discardBeforeMoon = PlayerHero.DeckState.DiscardPile.Count;
-        var moonCard = new Card.Card(moonData);
-        AddCardToHand(moonCard);
-        bool moonPlayed = PlaySpell(moonCard, PlayerHero);
-        var moonOptions = DiscoverRuntimeOptions?.Take(2).ToList() ?? new List<Card.Card>();
-        while (PlayerHero.Hand.Count > 8)
-        {
-            PlayerHero.RemoveFromHand(PlayerHero.Hand[0]);
-        }
-        ConfirmDiscoverCards(moonOptions);
-        bool moonMovedCards = moonOptions.Count == 2
-            && moonOptions.All(c => PlayerHero.Hand.Contains(c))
-            && PlayerHero.DeckState.DiscardPile.Count == discardBeforeMoon - 2 + 1;
-
-        bool passed = nanoPlayed && nanoReplaced && idolPlayed && idolGrantedZones && idolTriggered && moonPlayed && moonMovedCards;
-        string result = passed
-            ? "新增卡牌QA通过：纳米散尸术替换亡语并抽牌；偶像的黄昏授予跨区域触发且被攻击后+1/+1；捞月从弃牌堆2选加入手牌"
-            : $"新增卡牌QA失败：nanoPlayed={nanoPlayed}, nanoReplaced={nanoReplaced}, idolPlayed={idolPlayed}, idolGrantedZones={idolGrantedZones}, idolTriggered={idolTriggered}, moonPlayed={moonPlayed}, moonOptions={moonOptions.Count}, moonMovedCards={moonMovedCards}";
-        GD.Print($"[CombatManager] {result}");
-        return result;
-    }
-
-    /// <summary>
-    /// 玩家随从攻击敌方随从。
-    /// 通过统一战斗序列 <see cref="ResolveMinionCombat"/> 处理伤害交互，
+     /// 玩家随从攻击敌方随从。
+     /// 通过统一战斗序列 <see cref="ResolveMinionCombat"/> 处理伤害交互，
     /// 自动支持伏击、冲击、嘲讽检测和风怒多次攻击。
     /// </summary>
     /// <param name="attacker">攻击方（必须是玩家随从）</param>
@@ -2401,7 +1746,7 @@ public partial class CombatManager : Node
         _attackCountThisTurn.Clear();
 
         // 触发领域效果 — 友方回合结束时
-        TriggerDomainsOnTurnEnd();
+        _domainTriggerManager.OnPlayerTurnEnd();
 
         // 藏品 — 玩家回合结束时触发
         _relicManager.TriggerTurnEnd(this);
@@ -2938,25 +2283,6 @@ public partial class CombatManager : Node
             return pool;
 
         // Fisher-Yates 洗牌后取前 count 张
-        using var rng = new RandomNumberGenerator();
-        rng.Randomize();
-        for (int i = pool.Count - 1; i > 0; i--)
-        {
-            int j = rng.RandiRange(0, i);
-            (pool[i], pool[j]) = (pool[j], pool[i]);
-        }
-        return pool.Take(count).ToList();
-    }
-
-    /// <summary>
-    /// 从弃牌堆中随机抽取不重复的 N 张运行时卡牌。
-    /// </summary>
-    private List<Card.Card> GetRandomCardsFromDiscard(int count)
-    {
-        var pool = PlayerHero.DeckState.DiscardPile.ToList();
-        if (pool.Count <= count)
-            return pool;
-
         using var rng = new RandomNumberGenerator();
         rng.Randomize();
         for (int i = pool.Count - 1; i > 0; i--)
