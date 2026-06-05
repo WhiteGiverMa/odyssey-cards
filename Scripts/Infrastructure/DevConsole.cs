@@ -2,6 +2,7 @@ using Godot;
 using OdysseyCards.AI;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
+using OdysseyCards.Relic;
 using OdysseyCards.UI;
 using System;
 using System.Collections.Generic;
@@ -43,6 +44,7 @@ namespace OdysseyCards.Infrastructure;
 ///   /qa_tombstone            验证墓碑伤害结算（QA）。
 ///   /qa_bait_tactics         验证诱饵战术双阵营触发（QA）。
 ///   /fight &lt;enemy&gt;          直接与指定敌人战斗，跳过地图。
+///   /addrelic &lt;relic_id&gt;    直接获得指定藏品。别名 /ar。
 ///   /help                    显示帮助。别名 /?。
 /// </remarks>
 public partial class DevConsole : Node
@@ -62,6 +64,7 @@ public partial class DevConsole : Node
 
     private readonly List<DevCommandDef> _commands = new();
     private readonly Dictionary<string, OdysseyCards.Core.CardData> _cardCache = new();
+    private readonly Dictionary<string, AbstractRelic> _relicCache = new();
 
     // ===== 生命周期 =====
 
@@ -150,6 +153,7 @@ public partial class DevConsole : Node
 
         // 构建卡牌缓存
         BuildCardCache();
+        BuildRelicCache();
 
         WriteLine("[color=#66ff66][DevConsole] 按 ` 键呼出/隐藏。输入 /help 查看命令[/color]");
     }
@@ -248,7 +252,7 @@ public partial class DevConsole : Node
     private void Execute(string action, string[] parts)
     {
         var cm = CombatManager.Instance;
-        if (cm == null && action != "help" && action != "clear")
+        if (cm == null && action != "help" && action != "clear" && action != "addrelic" && action != "ar")
         {
             WriteLine("[color=#ffaa44]未在战斗中，此命令需要 CombatManager[/color]");
             return;
@@ -401,11 +405,12 @@ public partial class DevConsole : Node
                 WriteLine("  /end            — 强制结束回合");
                 WriteLine("  /refresh        — 刷新 UI");
                 WriteLine("  /clear          — 清空输出");
-                WriteLine("  /token <id>     — 将指定ID的卡牌加入手牌");
+                WriteLine("  /token <id> [n] — 将指定ID的卡牌加入手牌（可批量 n 张）");
                 WriteLine("  /play <id>      — 从手牌打出指定ID卡牌（领域/无目标法术）");
                 WriteLine("  /summon_player <id> <slot> — 在己方槽位直接召唤随从（QA）");
                 WriteLine("  /intent_debug   — 显示当前敌方意图目标与箭头坐标（QA）");
                 WriteLine("  /fight <enemy>  — 直接与指定敌人战斗（跳过地图）");
+                WriteLine("  /addrelic <id>  — 直接获得指定藏品");
                 WriteLine("  /qa_tombstone   — 验证墓碑伤害结算");
                 WriteLine("  /unlock_all     — 解锁全部卡牌（加入收藏）");
                 WriteLine("  /help           — 显示帮助[/color]");
@@ -417,10 +422,13 @@ public partial class DevConsole : Node
             case "t":
                 if (parts.Length < 2)
                 {
-                    WriteLine("[color=#ffaa44]用法: /token <card_id>  可用ID见补全提示[/color]");
+                    WriteLine("[color=#ffaa44]用法: /token <card_id> [count]  可用ID见补全提示[/color]");
                     break;
                 }
                 var tokenId = parts[1];
+                int tokenCount = 1;
+                if (parts.Length >= 3 && int.TryParse(parts[2], out var cnt) && cnt > 0)
+                    tokenCount = Math.Min(cnt, 99); // 上限 99 张，防止刷爆
                 if (!_cardCache.TryGetValue(tokenId, out var cardData))
                 {
                     // 尝试大小写不敏感匹配
@@ -434,9 +442,14 @@ public partial class DevConsole : Node
                     WriteLine($"[color=#ffaa44]未找到卡牌: {tokenId}  可用ID见补全提示[/color]");
                     break;
                 }
-                var tokenCard = new OdysseyCards.Card.Card(cardData);
-                cm!.AddCardToHand(tokenCard);
-                WriteLine($"[color=#66ff66]将「{cardData.CardName}」加入手牌（手牌 {cm.PlayerHero.Hand.Count} 张）[/color]");
+                for (int i = 0; i < tokenCount; i++)
+                {
+                    var tokenCard = new OdysseyCards.Card.Card(cardData);
+                    cm!.AddCardToHand(tokenCard);
+                }
+                WriteLine(tokenCount > 1
+                    ? $"[color=#66ff66]将 {tokenCount} 张「{cardData.CardName}」加入手牌（手牌 {cm!.PlayerHero.Hand.Count} 张）[/color]"
+                    : $"[color=#66ff66]将「{cardData.CardName}」加入手牌（手牌 {cm!.PlayerHero.Hand.Count} 张）[/color]");
                 break;
 
             // ===== 从手牌打出卡牌 =====
@@ -509,6 +522,34 @@ public partial class DevConsole : Node
                 GameManager.Instance!.FightOverride = fightEnemies;
                 WriteLine($"[color=#66ff66]即将与 {string.Join(", ", fightEnemies.Select(e => e.Name))} 战斗…[/color]");
                 GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
+                break;
+
+            // ===== 获得藏品 =====
+            case "addrelic":
+            case "ar":
+                if (parts.Length < 2)
+                {
+                    WriteLine($"[color=#ffaa44]用法: /addrelic <relic_id>  可用: {string.Join(", ", _relicCache.Keys)}[/color]");
+                    break;
+                }
+                var relicId = parts[1].ToLowerInvariant();
+                if (!_relicCache.TryGetValue(relicId, out var relicDef))
+                {
+                    WriteLine($"[color=#ff6644]未知藏品: {relicId}，可用: {string.Join(", ", _relicCache.Keys)}[/color]");
+                    break;
+                }
+                // 根据类型反射创建新实例（避免缓存实例被共享）
+                AbstractRelic newRelic = relicDef switch
+                {
+                    GoodDreamPillowRelic => new GoodDreamPillowRelic(),
+                    SmallFanRelic => new SmallFanRelic(),
+                    IceBagRelic => new IceBagRelic(),
+                    TacticalNukeRelic => new TacticalNukeRelic(),
+                    InternBadgeRelic => new InternBadgeRelic(),
+                    _ => relicDef
+                };
+                GameManager.Instance!.Relics.AddRelic(newRelic);
+                WriteLine($"[color=#66ff66]已获得藏品「{newRelic.Name}」[/color]");
                 break;
 
             // ===== QA：墓碑伤害结算 =====
@@ -790,13 +831,14 @@ public partial class DevConsole : Node
             new DevCommandDef("end",          ["endturn"],"/end",                 "强制结束回合",               null),
             new DevCommandDef("refresh",      ["r"],      "/refresh",             "刷新 UI",                   null),
             new DevCommandDef("clear",        ["cls"],    "/clear",               "清空输出",                   null),
-            new DevCommandDef("token",        ["t"],      "/token <card_id>",     "将指定ID的卡牌加入手牌",        _cardCache.Keys.ToArray()),
+            new DevCommandDef("token",        ["t"],      "/token <card_id> [count]", "将指定ID的卡牌加入手牌（可批量）", _cardCache.Keys.ToArray()),
             new DevCommandDef("play",         ["p"],      "/play <card_id>",      "从手牌打出领域/无目标法术",      _cardCache.Keys.ToArray()),
             new DevCommandDef("summon_player",["sp"],     "/summon_player <card_id> <slot>", "在己方槽位直接召唤随从（QA）", _cardCache.Keys.ToArray()),
             new DevCommandDef("intent_debug", [],          "/intent_debug",        "显示当前敌方意图目标（QA）",     null),
             new DevCommandDef("qa_bait_tactics", [],       "/qa_bait_tactics",     "验证诱饵战术双阵营触发（QA）",     null),
             new DevCommandDef("unlock_all",   [],         "/unlock_all",          "解锁全部卡牌（加入收藏）",     null),
             new DevCommandDef("fight",        [],         "/fight <enemy>",       "直接与指定敌人战斗（跳过地图）",  EnemyRegistry.AllIds.ToArray()),
+            new DevCommandDef("addrelic",     ["ar"],     "/addrelic <relic_id>", "直接获得指定藏品",           _relicCache.Keys.ToArray()),
             new DevCommandDef("help",         ["?"],      "/help",                "显示帮助",                   null),
             new DevCommandDef("tags",         [],         "/tags",                "显示所有卡牌标签分布（QA）",     null),
         });
@@ -821,6 +863,26 @@ public partial class DevConsole : Node
     }
 
     /// <summary>
+    /// 构建藏品 ID → AbstractRelic 缓存。
+    /// </summary>
+    private void BuildRelicCache()
+    {
+        _relicCache.Clear();
+        var relics = new AbstractRelic[]
+        {
+            new GoodDreamPillowRelic(),
+            new SmallFanRelic(),
+            new IceBagRelic(),
+            new TacticalNukeRelic(),
+            new InternBadgeRelic(),
+        };
+        foreach (var relic in relics)
+            _relicCache[relic.Id] = relic;
+
+        GD.Print($"[DevConsole] 藏品缓存已构建，共 {_relicCache.Count} 个");
+    }
+
+    /// <summary>
     /// 输入框文本变化时更新补全提示。
     /// </summary>
     private void OnTextChanged(string text)
@@ -841,8 +903,8 @@ public partial class DevConsole : Node
         var partialCmd = spaceIdx < 0 ? content.ToLowerInvariant() : content[..spaceIdx].ToLowerInvariant();
         var argPart = spaceIdx < 0 ? "" : content[(spaceIdx + 1)..].TrimStart();
 
-        // 还没输入完整命令名 → 显示匹配的命令
-        if (spaceIdx < 0 || string.IsNullOrEmpty(argPart))
+        // 还没输入空格 → 显示匹配的命令列表
+        if (spaceIdx < 0)
         {
             var matches = _commands
                 .Where(c => c.Name.StartsWith(partialCmd) || c.Aliases.Any(a => a.StartsWith(partialCmd)))
@@ -886,6 +948,27 @@ public partial class DevConsole : Node
                 return $"  [color=#66ff66]{id}[/color] [color=#aaaaaa]— {c.CardName}（{c.Cost}费）[/color]";
             });
             return "[color=#aaaaaa]可用卡牌ID:[/color]\n" + string.Join("\n", lines);
+        }
+
+        // addrelic 命令特殊处理：显示可用 relic_id
+        if (partialCmd is "addrelic" or "ar")
+        {
+            var filtered = _relicCache.Keys
+                .Where(id => id.StartsWith(argPart, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(id => id)
+                .Take(8)
+                .ToList();
+
+            if (filtered.Count == 0)
+                return $"[color=#ffaa44]无匹配的藏品ID[/color]";
+
+            var lines = filtered.Select(id =>
+            {
+                var r = _relicCache[id];
+                var tag = r.IsNegative ? "负面" : r.IsSubtle ? "微妙" : "正面";
+                return $"  [color=#66ff66]{id}[/color] [color=#aaaaaa]— {r.Name}（{tag}）[/color]";
+            });
+            return "[color=#aaaaaa]可用藏品ID:[/color]\n" + string.Join("\n", lines);
         }
 
         // 通用参数提示
