@@ -90,10 +90,12 @@ public class ZhangLang : EnemyEncounter
         var intent = GetCurrentIntent(combat, self);
         GD.Print($"[张郎] 执行意图：{intent.Description}");
 
+        bool isA = _cycleStep == 0 ? _abAFirst : !_abAFirst;
+
         switch (intent.Type)
         {
             case IntentType.Attack:
-                if (intent.Value <= 5) // B: multi-hit
+                if (!isA) // B: multi-hit
                     ExecuteMultiHit(combat, self, intent, 1, 3);
                 else
                     ExecuteAttackIntent(combat, self);

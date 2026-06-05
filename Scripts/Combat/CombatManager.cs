@@ -1047,6 +1047,12 @@ public partial class CombatManager : Node
     /// <returns>成功返回 true；验证失败返回 false</returns>
     public bool PlayMinion(Card.Card card, int slotIndex)
     {
+        if (IsDiscovering)
+        {
+            GD.PrintErr("[CombatManager] PlayMinion 失败 — 正在发现选牌阶段");
+            return false;
+        }
+
         // 验证：玩家回合
         if (!State.IsPlayerTurn)
         {
@@ -1186,6 +1192,12 @@ public partial class CombatManager : Node
     /// <returns>成功返回 true</returns>
     public bool PlaySpell(Card.Card card, object target)
     {
+        if (IsDiscovering)
+        {
+            GD.PrintErr("[CombatManager] PlaySpell 失败 — 正在发现选牌阶段");
+            return false;
+        }
+
         // 验证：玩家回合
         if (!State.IsPlayerTurn)
         {
@@ -1281,6 +1293,12 @@ public partial class CombatManager : Node
     /// <returns>成功返回 true</returns>
     public bool PlayDomain(Card.Card card)
     {
+        if (IsDiscovering)
+        {
+            GD.PrintErr("[CombatManager] PlayDomain 失败 — 正在发现选牌阶段");
+            return false;
+        }
+
         // 验证：玩家回合
         if (!State.IsPlayerTurn)
         {
@@ -1737,6 +1755,12 @@ public partial class CombatManager : Node
     /// <returns>攻击成功返回 true</returns>
     public bool MinionAttack(Minion attacker, Minion defender)
     {
+        if (IsDiscovering)
+        {
+            GD.PrintErr("[CombatManager] MinionAttack 失败 — 正在发现选牌阶段");
+            return false;
+        }
+
         // 验证：玩家回合
         if (!State.IsPlayerTurn)
         {
@@ -1747,13 +1771,6 @@ public partial class CombatManager : Node
         // 验证：攻击方合法性
         if (!ValidateAttacker(attacker))
             return false;
-
-        // 消耗行动花费法力
-        if (attacker.ActionCost > 0)
-        {
-            PlayerHero.SpendMana(attacker.ActionCost);
-            GD.Print($"[CombatManager]   {attacker.CardName} 行动花费 {attacker.ActionCost} 法力，剩余法力：{PlayerHero.CurrentMana}");
-        }
 
         // 验证：防御方有效性
         if (defender == null || defender.IsDead)
@@ -1774,6 +1791,13 @@ public partial class CombatManager : Node
         {
             GD.PrintErr($"[CombatManager] MinionAttack 失败 — 敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡，必须先攻击嘲讽目标");
             return false;
+        }
+
+        // 消耗行动花费法力
+        if (attacker.ActionCost > 0)
+        {
+            PlayerHero.SpendMana(attacker.ActionCost);
+            GD.Print($"[CombatManager]   {attacker.CardName} 行动花费 {attacker.ActionCost} 法力，剩余法力：{PlayerHero.CurrentMana}");
         }
 
         // 通过统一战斗序列执行随从间战斗（自动处理伏击、冲击）
@@ -1814,6 +1838,12 @@ public partial class CombatManager : Node
     /// <returns>攻击成功返回 true</returns>
     public bool MinionAttackHero(Minion attacker, Hero hero)
     {
+        if (IsDiscovering)
+        {
+            GD.PrintErr("[CombatManager] MinionAttackHero 失败 — 正在发现选牌阶段");
+            return false;
+        }
+
         // 验证：玩家回合
         if (!State.IsPlayerTurn)
         {
@@ -1825,19 +1855,19 @@ public partial class CombatManager : Node
         if (!ValidateAttacker(attacker))
             return false;
 
-        // 消耗行动花费法力
-        if (attacker.ActionCost > 0)
-        {
-            PlayerHero.SpendMana(attacker.ActionCost);
-            GD.Print($"[CombatManager]   {attacker.CardName} 行动花费 {attacker.ActionCost} 法力，剩余法力：{PlayerHero.CurrentMana}");
-        }
-
         // 嘲讽检测（攻击英雄）
         var enemyTaunts = Board.GetTaunts(ofEnemy: true);
         if (enemyTaunts.Count > 0)
         {
             GD.PrintErr($"[CombatManager] MinionAttackHero 失败 — 敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
             return false;
+        }
+
+        // 消耗行动花费法力
+        if (attacker.ActionCost > 0)
+        {
+            PlayerHero.SpendMana(attacker.ActionCost);
+            GD.Print($"[CombatManager]   {attacker.CardName} 行动花费 {attacker.ActionCost} 法力，剩余法力：{PlayerHero.CurrentMana}");
         }
 
         GD.Print($"[CombatManager] ⚔ {attacker.CardName} 攻击敌方英雄，造成 {attacker.Attack} 点伤害" +
@@ -1891,6 +1921,12 @@ public partial class CombatManager : Node
     /// <returns>攻击成功返回 true</returns>
     public bool HeroWeaponAttackHero()
     {
+        if (IsDiscovering)
+        {
+            GD.PrintErr("[CombatManager] HeroWeaponAttackHero 失败 — 正在发现选牌阶段");
+            return false;
+        }
+
         if (!State.IsPlayerTurn)
         {
             GD.PrintErr("[CombatManager] HeroWeaponAttackHero 失败 — 不是玩家回合");
@@ -1958,6 +1994,12 @@ public partial class CombatManager : Node
     /// <returns>攻击成功返回 true</returns>
     public bool HeroWeaponAttackMinion(Minion target)
     {
+        if (IsDiscovering)
+        {
+            GD.PrintErr("[CombatManager] HeroWeaponAttackMinion 失败 — 正在发现选牌阶段");
+            return false;
+        }
+
         if (!State.IsPlayerTurn)
         {
             GD.PrintErr("[CombatManager] HeroWeaponAttackMinion 失败 — 不是玩家回合");
@@ -2070,6 +2112,12 @@ public partial class CombatManager : Node
     /// <returns>执行成功返回 true</returns>
     public bool UseWeaponActiveSkill()
     {
+        if (IsDiscovering)
+        {
+            GD.PrintErr("[CombatManager] UseWeaponActiveSkill 失败 — 正在发现选牌阶段");
+            return false;
+        }
+
         if (!State.IsPlayerTurn)
         {
             GD.PrintErr("[CombatManager] UseWeaponActiveSkill 失败 — 不是玩家回合");
@@ -2336,6 +2384,12 @@ public partial class CombatManager : Node
     /// </summary>
     public void EndPlayerTurn()
     {
+        if (IsDiscovering)
+        {
+            GD.PrintErr("[CombatManager] EndPlayerTurn 失败 — 正在发现选牌阶段");
+            return;
+        }
+
         if (!State.IsPlayerTurn)
         {
             GD.PrintErr("[CombatManager] EndPlayerTurn 失败 — 当前不是玩家回合");

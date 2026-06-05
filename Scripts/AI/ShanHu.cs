@@ -89,10 +89,12 @@ public class ShanHu : EnemyEncounter
         var intent = GetCurrentIntent(combat, self);
         GD.Print($"[珊胡] 执行意图：{intent.Description}");
 
+        bool isA = _cycleStep == 0 ? _abAFirst : !_abAFirst;
+
         switch (intent.Type)
         {
             case IntentType.Attack:
-                if (intent.Value <= 5) // B: multi-hit
+                if (!isA) // B: multi-hit
                     ExecuteMultiHit(combat, self, intent, 2, 2);
                 else
                     ExecuteAttackIntent(combat, self);
