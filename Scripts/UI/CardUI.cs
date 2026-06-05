@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using Godot;
 using OdysseyCards.Core;
@@ -167,7 +168,13 @@ public partial class CardUI : Control
     private bool _clickSelectMode;
     private const float DragThresholdDesktop = 10f;
     private const float DragThresholdMobile = 20f;
-    private float DragThreshold => MobileInputHelper.IsMobile ? DragThresholdMobile : DragThresholdDesktop;
+    private float DragThreshold => MobileInputRouter.IsMobile ? DragThresholdMobile : DragThresholdDesktop;
+
+    /// <summary>
+    /// 上一帧移动端主触控是否仍处于按下状态。
+    /// 用于从 Router 的当前态推导“本帧刚松手”，避免全局共享 release 标记竞争消费。
+    /// </summary>
+    private bool _wasMobileTouchActive;
     private Tween? _hoverTween;
 	private bool _isHoverEffectActive;
 	private bool _built;
@@ -651,7 +658,7 @@ public partial class CardUI : Control
 		if (SceneLifecycleGuard.ShouldSkip(this)) return;
 		if (DisplayOnly || !_isDragging) return;
 
-		if (MobileInputHelper.IsMobile)
+		if (MobileInputRouter.IsMobile)
 		{
 			MobileDragProcess();
 			return;
@@ -725,9 +732,10 @@ public partial class CardUI : Control
 	/// </summary>
 	private void MobileDragProcess()
 	{
-		if (MobileInputHelper.IsTouchPressed)
+		var router = MobileInputRouter.Instance;
+		if (router.IsTouchActive)
 		{
-			Vector2 touchPos = MobileInputHelper.TouchScreenPosition;
+			Vector2 touchPos = router.TouchPosition;
 
 			// 跟踪拖拽距离
 			if (!_hasDragged)
@@ -749,9 +757,9 @@ public partial class CardUI : Control
 		}
 
 		// 手指松开处理
-		if (MobileInputHelper.HasTouchRelease)
+		if (_wasMobileTouchActive && !router.IsTouchActive)
 		{
-			Vector2 dropScreenPos = MobileInputHelper.TouchReleasePosition;
+			Vector2 dropScreenPos = router.TouchReleasePosition;
 			bool wasDragging = _hasDragged;
 			_isDragging = false;
 			_hasDragged = false;
@@ -771,9 +779,9 @@ public partial class CardUI : Control
 				// 快速点击 → 取消（移动端无 clickSelectMode，直接取消拖拽）
 				OnCardRightClicked?.Invoke(this);
 			}
-
-			MobileInputHelper.ConsumeTouchRelease();
 		}
+
+		_wasMobileTouchActive = router.IsTouchActive;
 	}
 
 	/// <summary>

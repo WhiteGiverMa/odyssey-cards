@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,7 +26,7 @@ public partial class CombatUI : Control
 	/// <summary>
 	/// 生命值条 PackedScene。从左到右填充的 ProgressBar 样式组件。
 	/// </summary>
-	[Export] public PackedScene HealthBarScene { get; set; }
+	[Export] public PackedScene? HealthBarScene { get; set; }
 
 	// ===== 子组件 =====
 
@@ -177,6 +178,14 @@ public partial class CombatUI : Control
 	private Board? _board;
 
 	/// <summary>
+	/// 事件解绑列表。CombatUI 生命周期结束时统一释放，避免场景切换后悬空订阅。
+	/// </summary>
+	private readonly List<Action> _unsubscribeActions = new();
+
+	private readonly Dictionary<Hero, (Action<DamageEventInfo, IDamageSource?> Damage, Action<int> Heal)> _heroDamageHandlers = new();
+	private readonly Dictionary<Minion, (Action<DamageEventInfo, IDamageSource?> Damage, Action<int> Heal)> _minionDamageHandlers = new();
+
+	/// <summary>
 	/// 拖拽层——卡牌拖拽时重parent到此，使其脱离 HandUI 的 HBoxContainer 布局约束。
 	/// </summary>
 	private Control _dragLayer = null!;
@@ -295,15 +304,16 @@ public partial class CombatUI : Control
 	/// <summary>
 	/// 攻击拖拽最小位移阈值（像素）。桌面端 10f，移动端 20f（触控精度较低，需更高阈值防误触）。
 	/// </summary>
-	private static float AttackDragThreshold => MobileInputHelper.IsMobile ? 20f : 10f;
+	private static float AttackDragThreshold => MobileInputRouter.IsMobile ? 20f : 10f;
+	private bool _wasMobileAttackTouchActive;
 
 	/// <summary>
 	/// 获取当前输入坐标（屏幕空间）。桌面端返回鼠标位置，移动端返回触控位置。
 	/// </summary>
 	private Vector2 GetInputPosition()
 	{
-		if (MobileInputHelper.IsMobile)
-			return MobileInputHelper.TouchScreenPosition;
+		if (MobileInputRouter.IsMobile)
+			return MobileInputRouter.Instance.TouchPosition;
 		return GetGlobalMousePosition();
 	}
 
@@ -382,7 +392,7 @@ public partial class CombatUI : Control
 	/// </summary>
 	public override void _Input(InputEvent @event)
 	{
-		if (!MobileInputHelper.IsMobile && @event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Right && mb.Pressed)
+		if (!MobileInputRouter.IsMobile && @event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Right && mb.Pressed)
 		{
 			if (_selectionMode == SelectionMode.SelectingAttackTarget)
 			{
@@ -415,7 +425,7 @@ public partial class CombatUI : Control
 			}
 
 			// 桌面端右键取消——移动端无右键，跳过
-			if (!MobileInputHelper.IsMobile)
+			if (!MobileInputRouter.IsMobile)
 			{
 				if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Right && mb.Pressed)
 				{
@@ -427,7 +437,7 @@ public partial class CombatUI : Control
 		}
 
 		// 开发者伤害模式——桌面端右键取消（移动端用取消按钮）
-		if (!MobileInputHelper.IsMobile)
+		if (!MobileInputRouter.IsMobile)
 		{
 			if (@event is InputEventMouseButton mb2
 				&& mb2.ButtonIndex == MouseButton.Right
@@ -441,7 +451,7 @@ public partial class CombatUI : Control
 		}
 
 		// 攻击目标选择模式——桌面端右键取消（移动端用取消按钮）
-		if (!MobileInputHelper.IsMobile)
+		if (!MobileInputRouter.IsMobile)
 		{
 			if (@event is InputEventMouseButton mb3
 				&& mb3.ButtonIndex == MouseButton.Right
@@ -495,7 +505,7 @@ public partial class CombatUI : Control
 	/// 每帧更新攻击选择箭头——从攻击方随从槽位指向当前输入位置。
 	/// 仅在 SelectingAttackTarget 模式下有效。
 	/// 同时追踪攻击拖拽状态：按住拖动超过阈值→松手时执行攻击或取消。
-	/// 移动端使用 MobileInputHelper 触控状态替代鼠标轮询。
+	/// 移动端使用 MobileInputRouter 触控状态替代鼠标轮询。
 	/// </summary>
 	public override void _Process(double delta)
 	{
@@ -525,11 +535,13 @@ public partial class CombatUI : Control
 
 			// 检测松手
 			bool released;
-			if (MobileInputHelper.IsMobile)
+			Vector2 releaseOrInputPos = inputPos;
+			if (MobileInputRouter.IsMobile)
 			{
-				// 移动端：触控松手事件
-				released = MobileInputHelper.HasTouchRelease;
-				if (released) MobileInputHelper.ConsumeTouchRelease();
+				var router = MobileInputRouter.Instance;
+				released = _wasMobileAttackTouchActive && !router.IsTouchActive;
+				if (released)
+					releaseOrInputPos = router.TouchReleasePosition;
 			}
 			else
 			{
@@ -543,11 +555,14 @@ public partial class CombatUI : Control
 				if (_attackDragHasMoved && _selectionMode == SelectionMode.SelectingAttackTarget)
 				{
 					// 拖拽路径：松手时检查落点，有效目标→攻击，无效→取消
-					HandleAttackDrop(inputPos);
+					HandleAttackDrop(releaseOrInputPos);
 				}
 				// else: 快速点击无拖拽 → 保持选中状态，等待玩家第二击（现有行为）
 			}
 		}
+
+		if (MobileInputRouter.IsMobile)
+			_wasMobileAttackTouchActive = MobileInputRouter.Instance.IsTouchActive;
 
 		// --- 移动端取消按钮可见性 ---
 		UpdateMobileCancelButton();
@@ -566,8 +581,8 @@ public partial class CombatUI : Control
 		_player = player ?? throw new ArgumentNullException(nameof(player));
 		_combat = combat ?? throw new ArgumentNullException(nameof(combat));
 
-		GD.Print($"[CombatUI] 初始化 — 玩家生命 {combat.PlayerHero.CurrentHealth}/{combat.PlayerHero.MaxHealth}，" +
-				  $"敌方生命 {combat.EnemyHero.CurrentHealth}/{combat.EnemyHero.MaxHealth}");
+        GD.Print($"[CombatUI] 初始化 — 玩家生命 {combat.PlayerHero.CurrentHealth}/{combat.PlayerHero.MaxHealth}，" +
+                  $"敌方生命 {combat.EnemyUnits[0].Body.CurrentHealth}/{combat.EnemyUnits[0].Body.MaxHealth}");
 
 		// 伤害跳字层（介于棋盘效果层和拖拽层之间，Layer=15）
 		var damageNumberLayer = new CanvasLayer { Name = "DamageNumberLayer", Layer = 15 };
@@ -627,7 +642,20 @@ public partial class CombatUI : Control
 	/// </summary>
 	public override void _ExitTree()
 	{
-		GameManager.Instance.LanguageChanged -= OnLanguageChanged;
+		if (UIScaler.Instance != null)
+		{
+			UIScaler.Instance.OnResolutionChanged -= OnResolutionChanged;
+		}
+
+		foreach (var unsubscribe in _unsubscribeActions)
+		{
+			unsubscribe();
+		}
+		_unsubscribeActions.Clear();
+		UnsubscribeAllDamageEvents();
+
+		if (GameManager.Instance != null)
+			GameManager.Instance.LanguageChanged -= OnLanguageChanged;
 	}
 
 	/// <summary>
@@ -673,7 +701,7 @@ public partial class CombatUI : Control
 		};
 
 		// 移动端安全区域边距（补偿刘海屏和手势导航栏）
-		if (MobileInputHelper.IsMobile)
+		if (MobileInputRouter.IsMobile)
 		{
 			root.OffsetLeft = 24;
 			root.OffsetRight = -24;
@@ -1577,92 +1605,119 @@ public partial class CombatUI : Control
 	{
 		// 棋盘槽位点击
 		_boardUI.OnSlotClicked += OnBoardSlotClicked;
+		_unsubscribeActions.Add(() => _boardUI.OnSlotClicked -= OnBoardSlotClicked);
 
 		// 棋盘槽位右键（取消攻击选择）
 		_boardUI.OnSlotRightClicked += OnBoardSlotRightClicked;
+		_unsubscribeActions.Add(() => _boardUI.OnSlotRightClicked -= OnBoardSlotRightClicked);
 
 		// 手牌卡牌选中
 		_handUI.OnCardSelectedForPlay += OnCardSelectedFromHand;
+		_unsubscribeActions.Add(() => _handUI.OnCardSelectedForPlay -= OnCardSelectedFromHand);
 
 		// 手牌取消（右键）
 		_handUI.OnCardCancelled += OnCardDragCancelled;
+		_unsubscribeActions.Add(() => _handUI.OnCardCancelled -= OnCardDragCancelled);
 
 		// 回合结束按钮
 		_endTurnButton.Pressed += OnEndTurnPressed;
+		_unsubscribeActions.Add(() => _endTurnButton.Pressed -= OnEndTurnPressed);
 
 		// 攻击敌方英雄按钮
 		_enemyHeroAttackButton.Pressed += OnEnemyHeroAttackPressed;
+		_unsubscribeActions.Add(() => _enemyHeroAttackButton.Pressed -= OnEnemyHeroAttackPressed);
 
 		// 对敌方英雄施法按钮
 		_enemyHeroSpellButton.Pressed += OnEnemyHeroSpellTarget;
+		_unsubscribeActions.Add(() => _enemyHeroSpellButton.Pressed -= OnEnemyHeroSpellTarget);
 
 		// 对己方英雄施法按钮
 		_playerHeroSpellButton.Pressed += OnPlayerHeroSpellTarget;
+		_unsubscribeActions.Add(() => _playerHeroSpellButton.Pressed -= OnPlayerHeroSpellTarget);
 
 		// 武器攻击按钮
 		_weaponAttackButton.Pressed += OnWeaponAttackPressed;
+		_unsubscribeActions.Add(() => _weaponAttackButton.Pressed -= OnWeaponAttackPressed);
 
 		// 武器主动技能按钮
 		_weaponActiveSkillButton.Pressed += OnWeaponActiveSkillPressed;
+		_unsubscribeActions.Add(() => _weaponActiveSkillButton.Pressed -= OnWeaponActiveSkillPressed);
 
 		// 牌堆/手牌状态变化 → 自动刷新 UI
 		_combat.PlayerHero.DeckState.OnDrawPileChanged += UpdateDeckCounts;
+		_unsubscribeActions.Add(() => _combat.PlayerHero.DeckState.OnDrawPileChanged -= UpdateDeckCounts);
 		_combat.PlayerHero.DeckState.OnDiscardPileChanged += UpdateDeckCounts;
-		_combat.PlayerHero.DeckState.OnHandChanged += () => _handUI.RefreshHand();
+		_unsubscribeActions.Add(() => _combat.PlayerHero.DeckState.OnDiscardPileChanged -= UpdateDeckCounts);
+		_combat.PlayerHero.DeckState.OnHandChanged += OnHandChanged;
+		_unsubscribeActions.Add(() => _combat.PlayerHero.DeckState.OnHandChanged -= OnHandChanged);
 
 		// 法力值变化 → 自动更新显示
-		_combat.PlayerHero.OnManaChanged += (_, _) => UpdateManaDisplay();
+		_combat.PlayerHero.OnManaChanged += OnManaChanged;
+		_unsubscribeActions.Add(() => _combat.PlayerHero.OnManaChanged -= OnManaChanged);
 
 		// 敌方意图变化 → 更新意图显示和箭头
-		_combat.OnCombatStateChanged += () =>
-		{
-			RefreshIntentDisplay();
-			RefreshIntentArrows();
-		};
+		_combat.OnCombatStateChanged += OnCombatStateChangedRefresh;
+		_unsubscribeActions.Add(() => _combat.OnCombatStateChanged -= OnCombatStateChangedRefresh);
 
 		// 发现选牌阶段切换
 		_combat.OnCombatStateChanged += OnCombatStateChangedForDiscover;
+		_unsubscribeActions.Add(() => _combat.OnCombatStateChanged -= OnCombatStateChangedForDiscover);
 
 		// 游戏结束 → 显示弹窗
 		_combat.OnGameOver += ShowGameOverPopup;
+		_unsubscribeActions.Add(() => _combat.OnGameOver -= ShowGameOverPopup);
 
 		// 随从伤害跳字 — 随从放置时通过闭包捕获 minion 引用订阅事件
-		_board.OnMinionPlaced += (minion, _) =>
-		{
-			var capturedMinion = minion;
-			capturedMinion.OnDamageTaken += (info, source) =>
-			{
-				var pos = GetMinionScreenCenter(capturedMinion);
-				if (pos != Vector2.Zero)
-					FloatingDamageNumber.CreateDamage(info, pos, _damageNumberContainer);
-			};
-			capturedMinion.OnHealed += (amount) =>
-			{
-				var pos = GetMinionScreenCenter(capturedMinion);
-				if (pos != Vector2.Zero)
-					FloatingDamageNumber.CreateHeal(amount, pos, _damageNumberContainer);
-			};
-		};
+		_board!.OnMinionPlaced += OnBoardMinionPlacedSubscribeDamage;
+		_unsubscribeActions.Add(() => _board.OnMinionPlaced -= OnBoardMinionPlacedSubscribeDamage);
+		_board.OnMinionRemoved += OnBoardMinionRemovedUnsubscribeDamage;
+		_unsubscribeActions.Add(() => _board.OnMinionRemoved -= OnBoardMinionRemovedUnsubscribeDamage);
 
 		// 随从死亡飞行动画 — 在槽位清空前获取屏幕坐标
-		_board.OnMinionPreRemove += (minion, slotIndex, isPlayerSide) =>
-		{
-			// 仅玩家方随从死亡时播放飞行特效
-			if (!isPlayerSide) return;
+		_board.OnMinionPreRemove += OnBoardMinionPreRemove;
+		_unsubscribeActions.Add(() => _board.OnMinionPreRemove -= OnBoardMinionPreRemove);
+	}
 
-			var cardPos = _boardUI.GetSlotScreenCenter(slotIndex, isPlayerSide);
-			if (cardPos == Vector2.Zero) return;
+	private void OnHandChanged()
+	{
+		_handUI.RefreshHand();
+	}
 
-			// 创建临时展示用 CardUI（不参与交互，动画结束后自毁）
-			var cardUI = new CardUI { DisplayOnly = true };
-			cardUI.SetCard(minion.ToRuntimeCard());
-			cardUI.GlobalPosition = cardPos;
+	private void OnManaChanged(int currentMana, int maxMana)
+	{
+		UpdateManaDisplay();
+	}
 
-			// 轮战 → 抽牌堆，否则 → 弃牌堆
-			bool toDrawPile = minion.HasRecycle;
-			Vector2 targetPos = toDrawPile ? GetDrawPileCenter() : GetDiscardPileCenter();
-			CardFlyVfx.PlayToDiscard(cardUI, targetPos, _cardFlyLayer);
-		};
+	private void OnCombatStateChangedRefresh()
+	{
+		RefreshIntentDisplay();
+		RefreshIntentArrows();
+	}
+
+	private void OnBoardMinionPlacedSubscribeDamage(Minion minion, int slotIndex)
+	{
+		SubscribeMinionDamageEvents(minion);
+	}
+
+	private void OnBoardMinionRemovedUnsubscribeDamage(Minion minion)
+	{
+		UnsubscribeMinionDamageEvents(minion);
+	}
+
+	private void OnBoardMinionPreRemove(Minion minion, int slotIndex, bool isPlayerSide)
+	{
+		if (!isPlayerSide) return;
+
+		var cardPos = _boardUI.GetSlotScreenCenter(slotIndex, isPlayerSide);
+		if (cardPos == Vector2.Zero) return;
+
+		var cardUI = new CardUI { DisplayOnly = true };
+		cardUI.SetCard(minion.ToRuntimeCard());
+		cardUI.GlobalPosition = cardPos;
+
+		bool toDrawPile = minion.HasRecycle;
+		Vector2 targetPos = toDrawPile ? GetDrawPileCenter() : GetDiscardPileCenter();
+		CardFlyVfx.PlayToDiscard(cardUI, targetPos, _cardFlyLayer);
 	}
 
 	/// <summary>
@@ -1672,19 +1727,71 @@ public partial class CombatUI : Control
 	/// <param name="enemyIndex">敌方英雄索引（玩家英雄传 -1）</param>
 	private void SubscribeHeroDamageEvents(Hero hero, int enemyIndex)
 	{
-		hero.OnDamageTaken += (info, source) =>
+		Action<DamageEventInfo, IDamageSource?> onDamage = (info, source) =>
 		{
 			var pos = ResolveTargetScreenPos(hero);
 			if (pos != Vector2.Zero)
 				FloatingDamageNumber.CreateDamage(info, pos, _damageNumberContainer);
 		};
 
-		hero.OnHealed += (amount) =>
+		Action<int> onHeal = amount =>
 		{
 			var pos = ResolveTargetScreenPos(hero);
 			if (pos != Vector2.Zero)
 				FloatingDamageNumber.CreateHeal(amount, pos, _damageNumberContainer);
 		};
+
+		hero.OnDamageTaken += onDamage;
+		hero.OnHealed += onHeal;
+		_heroDamageHandlers[hero] = (onDamage, onHeal);
+	}
+
+	private void SubscribeMinionDamageEvents(Minion minion)
+	{
+		if (_minionDamageHandlers.ContainsKey(minion)) return;
+
+		Action<DamageEventInfo, IDamageSource?> onDamage = (info, source) =>
+		{
+			var pos = GetMinionScreenCenter(minion);
+			if (pos != Vector2.Zero)
+				FloatingDamageNumber.CreateDamage(info, pos, _damageNumberContainer);
+		};
+
+		Action<int> onHeal = amount =>
+		{
+			var pos = GetMinionScreenCenter(minion);
+			if (pos != Vector2.Zero)
+				FloatingDamageNumber.CreateHeal(amount, pos, _damageNumberContainer);
+		};
+
+		minion.OnDamageTaken += onDamage;
+		minion.OnHealed += onHeal;
+		_minionDamageHandlers[minion] = (onDamage, onHeal);
+	}
+
+	private void UnsubscribeMinionDamageEvents(Minion minion)
+	{
+		if (!_minionDamageHandlers.TryGetValue(minion, out var handlers)) return;
+		minion.OnDamageTaken -= handlers.Damage;
+		minion.OnHealed -= handlers.Heal;
+		_minionDamageHandlers.Remove(minion);
+	}
+
+	private void UnsubscribeAllDamageEvents()
+	{
+		foreach (var (hero, handlers) in _heroDamageHandlers)
+		{
+			hero.OnDamageTaken -= handlers.Damage;
+			hero.OnHealed -= handlers.Heal;
+		}
+		_heroDamageHandlers.Clear();
+
+		foreach (var (minion, handlers) in _minionDamageHandlers)
+		{
+			minion.OnDamageTaken -= handlers.Damage;
+			minion.OnHealed -= handlers.Heal;
+		}
+		_minionDamageHandlers.Clear();
 	}
 
 	// ===== 刷新方法 =====
@@ -2276,7 +2383,7 @@ public partial class CombatUI : Control
 		var cardUI = _handUI.GetCardUIFor(card);
 		if (cardUI != null)
 		{
-			bool isMobileDrag = MobileInputHelper.IsMobile && cardUI.IsDragging;
+			bool isMobileDrag = MobileInputRouter.IsMobile && cardUI.IsDragging;
 
 			_handUI.StopLayoutControl(cardUI);
 
@@ -3441,7 +3548,7 @@ public partial class CombatUI : Control
 	{
 		if (_mobileCancelButton == null) return;
 
-		bool shouldShow = MobileInputHelper.IsMobile
+		bool shouldShow = MobileInputRouter.IsMobile
 			&& (_selectionMode != SelectionMode.Normal || _isHandSelecting);
 		_mobileCancelButton.Visible = shouldShow;
 	}

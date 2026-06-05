@@ -3,7 +3,6 @@ using Godot;
 using OdysseyCards.AI.Intents;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
-using OdysseyCards.Core;
 
 namespace OdysseyCards.UI;
 
@@ -278,6 +277,7 @@ public partial class EnemyIdentityCard : Panel
             int typeId = AbstractIntent.GetIconTypeId(intent.Type);
             string label = intent.GetIntentLabel(combat);
             int value = (intent is AttackIntent atk) ? atk.GetSingleDamage(combat) : 0;
+            var tip = intent.GetHoverTip(combat);
 
             IntentIcon icon;
             if (i < currentCount)
@@ -294,6 +294,10 @@ public partial class EnemyIdentityCard : Panel
                 icon.OnUnhovered += OnIntentIconUnhovered;
                 _intentIconContainer.AddChild(icon);
             }
+
+            icon.SetMeta("tip_title", tip.Title ?? label);
+            icon.SetMeta("tip_desc", tip.Description);
+            icon.SetMeta("tip_is_debuff", tip.IsDebuff);
         }
     }
 
@@ -307,11 +311,12 @@ public partial class EnemyIdentityCard : Panel
         var tipLayer = root.FindChild("IntentTooltipLayer", recursive: true, owned: false) as Control;
         if (tipLayer == null) return;
 
-        string title = icon.GetLabelText();
-        string desc = $"Type: {icon.GetIntentTypeId()}, Value: {icon.GetValue()}";
+        string title = icon.GetMeta("tip_title", icon.GetLabelText()).AsString();
+        string desc = icon.GetMeta("tip_desc", "").AsString();
+        bool isDebuff = icon.GetMeta("tip_is_debuff", false).AsBool();
         var color = IntentTooltip.GetAccentColor(icon.GetIntentTypeId());
 
-        IntentTooltip.Show(tipLayer, icon.GlobalPosition, title, desc, false, color);
+        IntentTooltip.Show(tipLayer, icon.GlobalPosition, title, desc, isDebuff, color);
     }
 
     private void OnIntentIconUnhovered(IntentIcon icon)

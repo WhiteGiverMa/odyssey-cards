@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using Godot;
@@ -15,13 +16,15 @@ namespace OdysseyCards.UI;
 /// </summary>
 public partial class HandUI : Control
 {
+	private bool _wasMobileTouchActive;
+
 	/// <summary>
 	/// 卡牌折叠态可见部分（设计单位）。90 设计单位 ≈ 50% 卡牌高度（考虑 BASE_SCALE=0.85 后的视觉效果）。
 	/// 实际像素 = 90 * UIScaler.CurrentScale。
 	/// </summary>
 	public const float COLLAPSED_VISIBLE = 90f;
 
-	[Export] public PackedScene CardScene { get; set; }
+	[Export] public PackedScene? CardScene { get; set; }
 
 	public event Action<Card.Card>? OnCardSelectedForPlay;
 	public event Action<Card.Card, ICommander>? OnCardPlayRequested;
@@ -116,7 +119,7 @@ public partial class HandUI : Control
 		if (SceneLifecycleGuard.ShouldSkip(this)) return;
 		if (_cardSlots.Count == 0) return;
 
-		if (MobileInputHelper.IsMobile)
+		if (MobileInputRouter.IsMobile)
 		{
 			MobileProcess();
 			return;
@@ -188,7 +191,8 @@ public partial class HandUI : Control
 		if (_tappedSlot == null) return;
 
 		// 检测触控松手是否发生在手牌区域外
-		if (MobileInputHelper.HasTouchRelease)
+		var router = MobileInputRouter.Instance;
+		if (_wasMobileTouchActive && !router.IsTouchActive)
 		{
 			// 确认没有任何卡牌正在拖拽（拖拽中的触控由 CardUI 内部处理）
 			bool anyCardDragging = false;
@@ -203,7 +207,7 @@ public partial class HandUI : Control
 
 			if (!anyCardDragging)
 			{
-				Vector2 releasePos = MobileInputHelper.TouchReleasePosition;
+				Vector2 releasePos = router.TouchReleasePosition;
 				Rect2 handRect = new Rect2(GlobalPosition, Size);
 
 				if (!handRect.HasPoint(releasePos))
@@ -212,6 +216,8 @@ public partial class HandUI : Control
 				}
 			}
 		}
+
+		_wasMobileTouchActive = router.IsTouchActive;
 	}
 
 	// ============================================================
@@ -482,7 +488,7 @@ public partial class HandUI : Control
 	private void OnCardRightClicked(CardUI cardUI)
 	{
 		// 移动端快速点击（非拖拽）后重新施加展开效果
-		if (MobileInputHelper.IsMobile)
+		if (MobileInputRouter.IsMobile)
 		{
 			if (_tappedSlot?.CardUI == cardUI)
 			{
@@ -516,7 +522,7 @@ public partial class HandUI : Control
 		if (cardUI.Card == null) return;
 
 		// 移动端触控：首次点击展开预览，拖拽出牌，不保留二次点击选中
-		if (MobileInputHelper.IsMobile)
+		if (MobileInputRouter.IsMobile)
 		{
 			if (_tappedSlot?.CardUI == cardUI)
 			{
