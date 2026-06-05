@@ -5,7 +5,7 @@
 类炉石传说的回合制卡牌对战 Roguelite 游戏 — Godot 4.6 + C#
 
 > **分支:** `main` | **状态:** 能玩MVP
-> 78 个 .cs 文件，约 20,100 行代码。完整回合制战斗循环可运行，含卡牌收藏、地图路线、存档系统。
+> 133 个 .cs 文件，约 24,000 行代码。完整回合制战斗循环可运行，含卡牌收藏、地图路线、存档系统。
 
 ## 核心系统
 
@@ -33,7 +33,7 @@
 
 ### 伤害计算
 
-三阶段管线：`ADDITIVE → MULTIPLICATIVE → CAPPING`（DamageResolver），Clamp 最小伤害为 1。
+四阶段管线：`ADDITIVE → MULTIPLICATIVE → HEAT → CAPPING`（DamageResolver），Clamp 最小伤害为 1。
 
 ### AI 系统
 
@@ -59,7 +59,7 @@ YAML-based 本地化系统（`Scripts/Localization/`），中文/英文双语支
 
 ### 开发者控制台
 
-`DevConsole`（Autoload 单例）— 按 `` ` `` 键呼出，支持 11+ 命令：`/damage`、`/draw`、`/mana`、`/heal`、`/armor`、`/end` 等，用于快速测试和调试。
+`DevConsole`（Autoload 单例）— 按 `` ` `` 键呼出，支持 25 条命令，含 QA 表面、Tab 补全、↑↓ 历史导航。架构：`DevConsole`(UI壳) → `DevConsoleEngine`(纯C#引擎) → `Commands/*`(独立命令类)。AI 可通过 `game_call_method` 远程调用。
 
 ### 暂停菜单
 
@@ -73,22 +73,22 @@ SaveDataManager + GameSaveData 提供游戏进度持久化。
 
 - **引擎**: Godot 4.6
 - **语言**: C# (.NET 8.0, Godot.NET.Sdk/4.6.2)
-- **测试**: xunit（4 个测试文件，303 行）
+- **测试**: xunit（8 个测试文件，其中 6 个 Unit + 2 个 Integration）
 - **平台**: Windows
 
 ## 项目结构
 
 ```
 Scripts/
-├── Core/ (25)           # CardData, DamageResolver, GameManager(Autoload), Keyword, CardType, SaveDataManager…
-├── UI/ (18)             # CombatUI, BoardUI, HandUI, CardUI, CollectionUI, MapUI, PauseMenu, DiscoverUI, RewardUI…
+├── Core/ (27)           # CardData, DamageResolver, GameManager(Autoload), Keyword, CardType, SaveDataManager…
+├── UI/ (26)             # CombatUI, BoardUI, HandUI, CardUI, CollectionUI, MapUI, PauseMenu, DiscoverUI, RewardUI, IntentIcon, IntentTooltip…
 ├── Card/ (10)           # Card, Minion, Spell, Hero, Weapon, WeaponSkill, ActiveDomain, StatusEffect (纯 C#)
 ├── Character/ (5)       # Player, CommanderCore, Deck, CombatDeckState, ICommander
-├── Combat/ (4)          # CombatManager(1740行), Board, EnemyUnit, GameState (纯 C#)
-├── AI/ (7)              # IntentAI, EnemyRegistry, MechanicalRoachBrain, ZhangLang, ShanHu, DefaultAttackMinionBrain
+├── Combat/ (7)          # CombatManager, Board, EnemyUnit, GameState, CardEffectDispatcher, DomainTriggerManager, CombatRuntimeQa (纯 C#)
+├── AI/ (25)             # Intents/(18): AbstractIntent类体系+MoveState; IntentAI, EnemyRegistry, MechanicalRoachBrain, ZhangLang, ShanHu…
 ├── Roguelike/ (3)       # EventSelector, RoomData, GameRunState
 ├── Localization/ (5)    # YAML-based 多语言系统（LocalStr/ConcatLocalStr/ILocalizable/YamlParser）
-└── Infrastructure/ (12)  # DevConsole (Autoload), DevConsoleEngine, Commands/ (7 命令组)
+└── Infrastructure/ (16)  # DevConsole (Autoload), DevConsoleEngine, Commands/ (7 命令组), MobileInputRouter(Autoload), MobileInputHelper
 Resources/Cards/         # 32 张卡牌数据 .tres（法术15 + 随从11 + 领域6）
 Resources/Localization/  # zh.yaml / en.yaml 翻译文件
 Scenes/                  # Main.tscn, Combat.tscn, Collection.tscn, Map.tscn（4 个场景）
@@ -135,14 +135,16 @@ dotnet test
 
 - **GameManager** (`Scripts/Core/GameManager.cs`) — 全局状态，跨战斗持久化，语言切换
 - **UIScaler** (`Scripts/UI/UIScaler.cs`) — UI 缩放，基准分辨率 1152×648
-- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — 开发者控制台，`` ` `` 键呼出，23+ 命令，命令系统架构，AI 可远程调用
+- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — 开发者控制台，`` ` `` 键呼出，25 条命令，命令系统架构，AI 可远程调用
+- **MobileInputRouter** (`Scripts/Infrastructure/MobileInputRouter.cs`) — 移动端触控路由，桌面端透传
+- **MobileInputHelper** (`Scripts/Infrastructure/MobileInputHelper.cs`) — 旧版触控辅助（逐步废弃）
 
 ## 已知限制
 
 - ⚠️ **Spell.cs 从未实例化** — CombatManager 对所有卡牌使用 Card 基类（死代码）
 - ⚠️ **EventSelector 未接线** — 战后奖励逻辑完整但无调用入口
 - ⚠️ **英雄技能未实现** — IHeroPower 接口为空
-- ⚠️ **手牌无上限 / 无疲劳** — 抽牌堆耗尽未处理
+- ⚠️ **无疲劳机制** — 抽牌堆耗尽后仅有手牌上限封顶
 
 ## 许可
 

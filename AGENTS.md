@@ -1,7 +1,7 @@
 # OdysseyCards — Godot 4.6 C# · 类炉石 Roguelite 卡牌
 
-**Branch:** `main` · **Commit:** `394871f` · **Updated:** 2026-06-03
-**Scale:** 98 `.cs` (Scripts/) · ~22,500 行 · 32 `.tres` 卡牌 · 4 `.tscn` 场景
+**Branch:** `main` · **Commit:** `394871f` · **Updated:** 2026-06-06
+**Scale:** 133 `.cs` (Scripts/) · ~24,000 行 · 32 `.tres` 卡牌 · 4 `.tscn` 场景
 
 ## Start
 
@@ -13,15 +13,15 @@
 
 ```
 Scripts/
-├── Core/ (25)      # CardData, GameManager(Autoload), DamageResolver, Keyword, SaveDataManager…
-├── UI/ (20)        # CombatUI, BoardUI, HandUI, CardUI, CollectionUI, MapUI, DiscoverUI, RewardUI, IntentIcon, IntentTooltip…
+├── Core/ (27)      # CardData, GameManager(Autoload), DamageResolver, Keyword, SaveDataManager…
+├── UI/ (26)        # CombatUI, BoardUI, HandUI, CardUI, CollectionUI, MapUI, DiscoverUI, RewardUI, IntentIcon, IntentTooltip…
 ├── Card/ (10)      # Card, Minion, Spell, Hero, Weapon, ActiveDomain, StatusEffect (纯 C#，不继承 Node)
 ├── Character/ (5)  # Player, CommanderCore, Deck, CombatDeckState
-├── Combat/ (4)     # CombatManager(1740+行), Board, EnemyUnit, GameState (纯 C#)
+├── Combat/ (7)     # CombatManager, Board, EnemyUnit, GameState, CardEffectDispatcher, DomainTriggerManager, CombatRuntimeQa
 ├── AI/ (25)         # Intents/(18): AbstractIntent类体系+MoveState; IntentAI, EnemyRegistry, MechanicalRoachBrain, ZhangLang, ShanHu…
 ├── Roguelike/ (3)  # EventSelector, RoomData, GameRunState
 ├── Localization/ (5)# YAML 多语言 (LocalStr, ConcatLocalStr, ILocalizable, YamlParser)
-└── Infrastructure/ (12, 含 Commands/) # DevConsole (Autoload), DevConsoleEngine, DevConsoleCommand, 7 命令组
+└── Infrastructure/ (16, 含 Commands/7) # DevConsole (Autoload), DevConsoleEngine, DevConsoleCommand, MobileInputRouter(Autoload), MobileInputHelper
 Resources/Cards/    # 32 卡牌 .tres (法术15 + 随从11 + 领域6)
 Resources/Localization/ # zh.yaml / en.yaml
 Scenes/             # Main.tscn, Combat.tscn, Collection.tscn, Map.tscn
@@ -34,7 +34,7 @@ dotnet build                  # 调试构建
 dotnet build -c Release       # 发布构建
 dotnet format OdysseyCards.sln --verify-no-changes  # CI 格式检查
 dotnet format OdysseyCards.sln # 自动格式化
-dotnet test                   # xunit (4 测试文件, tests/csharp/)
+dotnet test                   # xunit (8 测试文件, tests/csharp/，其中 6 个 Unit + 2 个 Integration[Skip])
 ```
 
 ## Autoload
@@ -44,6 +44,8 @@ dotnet test                   # xunit (4 测试文件, tests/csharp/)
 | `GameManager` | `Scripts/Core/GameManager.cs` | 全局状态、卡牌注册表、语言切换、跨战斗持久化 |
 | `UIScaler` | `Scripts/UI/UIScaler.cs` | UI 缩放，基准 1152×648 |
 | `DevConsole` | `Scripts/Infrastructure/DevConsole.cs` | 开发者控制台，`` ` `` 呼出 |
+| `MobileInputRouter` | `Scripts/Infrastructure/MobileInputRouter.cs` | 移动端触控路由（手势所有权 + 模态栈），桌面端透传 |
+| `MobileInputHelper` | `Scripts/Infrastructure/MobileInputHelper.cs` | 旧版触控辅助（已逐步废弃，新代码用 Router） |
 
 ## WHERE TO LOOK
 
@@ -51,13 +53,13 @@ dotnet test                   # xunit (4 测试文件, tests/csharp/)
 |--------|------|------|
 | 卡牌数据 | `Core/CardData.cs` | Godot Resource, `[Export]` |
 | 卡牌运行时 | `Card/Card.cs` → `Minion.cs` | **纯 C#，不继承 Node** |
-| 战斗主循环 | `Combat/CombatManager.cs` | 1740+行，PlayMinion/PlaySpell/MinionAttack/EndPlayerTurn/ExecuteEnemyTurn |
+| 战斗主循环 | `Combat/CombatManager.cs` | ~2400 行，回合流转 + 玩家操作入口。效果分发在 `CardEffectDispatcher`，领域触在 `DomainTriggerManager` |
 | 棋盘 | `Combat/Board.cs` | 2×5 槽位，嘲讽检测，C# event |
 | 回合/法力 | `Combat/GameState.cs` | 纯 C#，法力上限 10，CombatPhase 枚举 |
 | 敌方单位 | `Combat/EnemyUnit.cs` | 纯 C#，Hero 身体 + EnemyEncounter 大脑 |
 | 英雄/护甲 | `Card/Hero.cs` | 纯 C#，包装 CommanderCore，Heal/GainArmor/WeaponSlot |
 | 武器 | `Card/Weapon.cs` / `WeaponSkill.cs` | 纯 C#，被动/主动技能 |
-| 伤害计算 | `Core/DamageResolver.cs` | 三阶段：ADDITIVE→MULTIPLICATIVE→CAPPING，Clamp≥0 |
+| 伤害计算 | `Core/DamageResolver.cs` | 四阶段管线：ADDITIVE→MULTIPLICATIVE→HEAT→CAPPING，Clamp≥0 |
 | 敌人 AI | `AI/IntentAI.cs` / `AI/EnemyRegistry.cs` | 多种敌人 + 多种 Brain |
 | 意图数据模型 | `AI/Intents/AbstractIntent.cs` | 15 种意图类型类继承体系，纯 C#，MoveState 多意图支持 |
 | 意图图标 | `UI/IntentIcon.cs` | 代码绘制几何图标，bob 浮动动画，冻结态 |
@@ -75,6 +77,10 @@ dotnet test                   # xunit (4 测试文件, tests/csharp/)
 | 存档 | `Core/SaveDataManager.cs` | user://save.json 持久化 |
 | 本地化 | `Localization/Localization.cs` | YAML 加载，DirAccess→硬编码回退 |
 | 控制台 | `Infrastructure/DevConsole.cs` → `DevConsoleEngine.cs` → `Commands/` | `` ` `` 呼出，命令系统架构，AI 可调 |
+| 效果分发 | `Combat/CardEffectDispatcher.cs` | EffectType→Handler 注册表，从 CombatManager 拆出的规则分发器 |
+| 领域触发 | `Combat/DomainTriggerManager.cs` | 部署/回合/受击时机的领域行为，从 CombatManager 拆出 |
+| 运行时QA | `Combat/CombatRuntimeQa.cs` | `/qa_bait_tactics` `/qa_new_cards` 等 QA 场景，与生产逻辑分离 |
+| 移动端输入 | `Infrastructure/MobileInputRouter.cs` | 战斗表面触控已迁移至此；桌面端 IsMobile=false 时透传 |
 
 ## Architecture Rules
 
@@ -84,10 +90,10 @@ dotnet test                   # xunit (4 测试文件, tests/csharp/)
 - `CombatManager` 是唯一跨两层的中介。
 
 ### 伤害管线
-- 三阶段可插拔：`ADDITIVE`(+防御力调整等) → `MULTIPLICATIVE`(×脆弱/抵抗) → `CAPPING`(伤害上限，如固璋) → `Clamp(0)`。
+- 四阶段可插拔：`ADDITIVE`(+防御力调整等) → `MULTIPLICATIVE`(×脆弱/抵抗) → `HEAT`(×热力值倍率) → `CAPPING`(伤害上限，如固璋) → `Clamp(0)`。
 - 每个阶段挂载 0..N 个 `IDamageModifier`。
 - 意图伤害预览走 `DamageResolver.ResolvePreviewDamage()`。
-- 护甲吸收在 DamageResolver **之前**——有护甲时不走伤害管线。
+- 护甲吸收在 DamageResolver **之后**——先走管线计算最终伤害，剩余伤害由护甲吸收。Hero 和 Minion 统一此顺序。
 - Cap 阶段：伤害上限（如 Intangible≤1）；Multiplicative 阶段：条件性倍率（如有易伤→×0.5）。
 
 ### 意图系统
@@ -184,7 +190,7 @@ dotnet test                   # xunit (4 测试文件, tests/csharp/)
 
 AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", args=["/damage 10"])`
 
-架构：`DevConsole`(薄 UI 壳) → `DevConsoleEngine`(纯 C# 引擎) → `Commands/*`(23 条独立命令类，继承 `DevConsoleCommand`)。
+架构：`DevConsole`(薄 UI 壳) → `DevConsoleEngine`(纯 C# 引擎) → `Commands/*`(25 条独立命令类，继承 `DevConsoleCommand`)。
 新增命令只需写一个 `DevConsoleCommand` 子类并在 `RegisterAllCommands()` 注册一行。
 `/help` 自动从命令元数据生成。历史记录持久化到 `user://console_history.log`（↑↓ 导航）。
 
@@ -212,6 +218,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 | `/intent_debug` | 显示当前敌方意图目标（QA） |
 | `/qa_tombstone` | 验证墓碑伤害结算（QA） |
 | `/qa_bait_tactics` | 验证诱饵战术双阵营触发（QA） |
+| `/qa_new_cards` | 验证近期新卡核心规则（QA） |
 | `/unlock_all` | 解锁全部卡牌 |
 | `/tags` | 显示所有卡牌标签分布（QA） |
 | `/help` | 显示帮助 |
@@ -261,13 +268,14 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - ✅ 多敌人 AI：IntentAI + MechanicalRoachBrain + DefaultAttackMinionBrain + EnemyRegistry。
 - ✅ 意图系统升级：15 种意图类型类继承体系（`AI/Intents/`），MoveState 多意图支持，IntentIcon 代码绘制图标 + bob 动画，IntentTooltip 悬停详情面板。向后兼容旧敌人。
 - ✅ 暂停 ESC 全屏覆盖。`IsInsideTree()` 守卫。
-- ✅ DevConsole v2 命令系统重构：`DevConsoleEngine` + `DevConsoleCommand` 抽象 + 23 条独立命令类 + 历史持久化。
+- ✅ DevConsole v2 命令系统重构：`DevConsoleEngine` + `DevConsoleCommand` 抽象 + 25 条独立命令类 + 历史持久化。
+- ✅ Phase 3-4 重构收口：`CardEffectDispatcher`/`DomainTriggerManager`/`CombatRuntimeQa` 已拆出；张郎/珊胡已迁移到 MoveState 图标路径；CombatUI 增加统一解绑；战斗表面改走 `MobileInputRouter` 触控状态。
 - ⚠️ `Spell.cs` 从未实例化（死代码）。
 - ⚠️ `EventSelector` 未接线（RewardUI 自包含洗牌）。
 - ⚠️ 英雄技能未实现（`IHeroPower` 空接口）。
 - ⚠️ 手牌无上限 + 无疲劳。
 - ⚠️ `CardEffectData.GetDescription()` 26 debug 字符串未本地化（低优）。
-- ⚠️ DevConsole `/help` 已从命令元数据自动生成，不再有硬编码文本。
+- `/help` 已从命令元数据自动生成，不再有硬编码文本。
 - `.godot/` 删除后编辑器重生成 UID，异常先查 .tscn 引用。
 - `.cs` ↔ `.uid` 配对，重命名/移动同步处理。
 - 端口冲突→旧 Godot 进程残留→手动 Stop-Process。
