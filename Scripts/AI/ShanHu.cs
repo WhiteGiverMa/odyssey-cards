@@ -116,6 +116,7 @@ public class ShanHu : EnemyEncounter
         for (int i = 0; i < hits; i++)
         {
             if (self.IsDead) break;
+            GD.Print($"[珊胡] 多段攻击 {i + 1}/{hits}：{intent.Description}");
             if (target is Minion m)
             {
                 combat.TriggerBaitTacticsOnAttacked(m);
@@ -126,7 +127,7 @@ public class ShanHu : EnemyEncounter
                 self.TakeDamage(m.Attack, m);
                 self.SuppressWeaponCounter = false;
                 if (ambush && self.IsDead) return;
-                m.TakeDamage(perHit + Attack, null);
+                m.TakeDamage(perHit + Attack, self);
             }
             else if (target is Hero h)
             {

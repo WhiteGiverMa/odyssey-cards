@@ -426,7 +426,7 @@ public abstract class EnemyEncounter
     {
         var intent = GetCurrentIntent(combat, self);
         var target = intent.GetTarget(combat);
-        int effectiveDmg = intent.GetEffectiveDamage(combat);
+        int rawDmg = intent.Value + Attack;
 
         if (target is Minion minionTarget)
         {
@@ -450,14 +450,14 @@ public abstract class EnemyEncounter
                 return;
             }
 
-            // 敌方英雄对随从造成伤害
-            minionTarget.TakeDamage(effectiveDmg, null);
-            GD.Print($"[{Name}] 攻击 {minionTarget.CardName}，造成 {effectiveDmg} 伤害");
+            // 敌方英雄对随从造成伤害（source=self 使热力值在 DamageResolver 中生效一次）
+            minionTarget.TakeDamage(rawDmg, self);
+            GD.Print($"[{Name}] 攻击 {minionTarget.CardName}，造成 {rawDmg} 伤害");
         }
         else
         {
             // 敌方英雄攻击玩家英雄（或其他非随从目标）
-            target?.TakeDamage(effectiveDmg, self);
+            target?.TakeDamage(rawDmg, self);
         }
     }
 

@@ -296,7 +296,8 @@ public class Hero : IDamageTarget, IDamageSource
 
         // Step 1: ALWAYS go through DamageResolver first (Defense modifier applies here)
         int resolvedDamage = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
-        GD.Print($"[Hero.TakeDamage] base={baseDamage} → resolved={resolvedDamage} (kind={kind})");
+        string who = IsPlayerSide ? "玩家英雄" : "敌方英雄";
+        GD.Print($"[Hero:{who}] base={baseDamage} → resolved={resolvedDamage} (kind={kind})");
         int armorAbsorbed = 0;
 
         // Step 2: Armor absorbs remaining damage AFTER defense
@@ -306,7 +307,7 @@ public class Hero : IDamageTarget, IDamageSource
             CurrentArmor -= armorAbsorbed;
             resolvedDamage -= armorAbsorbed;
 
-            GD.Print($"[Hero] 护甲吸收了 {armorAbsorbed} 点伤害（防御力调整后），剩余护甲：{CurrentArmor}");
+            GD.Print($"[Hero:{who}] 护甲吸收了 {armorAbsorbed} 点伤害（防御力调整后），剩余护甲：{CurrentArmor}");
 
             if (resolvedDamage <= 0)
             {
@@ -396,7 +397,7 @@ public class Hero : IDamageTarget, IDamageSource
     public void ApplyDamage(int finalDamage, IDamageSource source)
     {
         _core.ApplyDamage(finalDamage);
-        GD.Print($"[Hero] 受到 {finalDamage} 点伤害，剩余生命值：{CurrentHealth}");
+        GD.Print($"[Hero:{(IsPlayerSide ? "玩家英雄" : "敌方英雄")}] 受到 {finalDamage} 点伤害，剩余生命值：{CurrentHealth}");
     }
 
     /// <summary>
