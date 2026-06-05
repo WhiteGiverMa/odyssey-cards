@@ -392,6 +392,7 @@ public partial class DevConsole : Node
         _engine.Register(new Commands.ClearCommand());
         _engine.Register(new Commands.UnlockAllCommand());
         _engine.Register(new Commands.TagsCommand());
+        _engine.Register(new Commands.EmoteCommand());
         _engine.Register(new Commands.HelpCommand());
 
         Commands.HelpCommand.AllCommands = _engine.Commands;
