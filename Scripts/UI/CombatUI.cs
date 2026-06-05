@@ -76,6 +76,16 @@ public partial class CombatUI : Control
 	private EffectBar _enemyEffectBar = null!;
 
 	/// <summary>
+	/// 热力值 UI 条——战斗界面全局位置，显示当前热力值百分比。
+	/// </summary>
+	private UI.HeatBar _heatBar = null!;
+
+	/// <summary>
+	/// 藏品栏——显示当前持有的藏品图标列表。
+	/// </summary>
+	private UI.RelicBar _relicBar = null!;
+
+	/// <summary>
 	/// 玩家法力值显示——底部中央，格式「3/3」。
 	/// </summary>
 	private Label _playerManaLabel = null!;
@@ -367,6 +377,27 @@ public partial class CombatUI : Control
 	}
 
 	/// <summary>
+	/// 右键取消——必须在 _Input 层处理。BoardSlot/CardUI 的 _GuiInput.AcceptEvent()
+	/// 会吞噬右键事件，导致 _UnhandledInput 永远收不到右键。
+	/// </summary>
+	public override void _Input(InputEvent @event)
+	{
+		if (!MobileInputHelper.IsMobile && @event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Right && mb.Pressed)
+		{
+			if (_selectionMode == SelectionMode.SelectingAttackTarget)
+			{
+				GD.Print("[CombatUI] 右键取消攻击选择");
+				ResetSelection();
+				_handUI.RefreshHand();
+			}
+			else if (_selectionMode == SelectionMode.DevDamageTargeting)
+			{
+				ExitDevDamageMode();
+			}
+		}
+	}
+
+	/// <summary>
 	/// 全局输入处理——ESC 暂停/恢复 + 桌面端右键取消（移动端使用专用取消按钮替代右键）。
 	/// </summary>
 	public override void _UnhandledInput(InputEvent @event)
@@ -566,6 +597,8 @@ public partial class CombatUI : Control
 		CreateDeckButtons();
 		CreateWeaponUI();
 		CreateStatusEffectUI();
+		CreateHeatBar();
+		CreateRelicBar();
 		CreateEnemyCards();
 		CreateGameOverPopup();
 		CreatePlayZonePanel();
@@ -1431,6 +1464,33 @@ public partial class CombatUI : Control
 	}
 
 	/// <summary>
+	/// 创建热力值 UI 条——放在法力值占位区域。
+	/// </summary>
+	private void CreateHeatBar()
+	{
+		_heatBar = new UI.HeatBar { Name = "HeatBar" };
+		var manaPlaceholder = GetNodeOrNull<CenterContainer>("CombatRoot/PlayerArea/PlayerManaPlaceholder");
+		manaPlaceholder?.AddChild(_heatBar);
+
+		if (_combat.Heat != null)
+			_heatBar.Bind(_combat.Heat);
+	}
+
+	/// <summary>
+	/// 创建藏品栏——放在玩家区域顶部。
+	/// </summary>
+	private void CreateRelicBar()
+	{
+		_relicBar = new UI.RelicBar { Name = "RelicBar" };
+		var playerArea = GetNodeOrNull<HBoxContainer>("CombatRoot/PlayerArea");
+		playerArea?.AddChild(_relicBar);
+		playerArea?.MoveChild(_relicBar, 0);
+
+		if (_combat.Relics != null)
+			_relicBar.Bind(_combat.Relics);
+	}
+
+	/// <summary>
 	/// 弹出牌堆查看窗口，以列表形式展示所有卡牌名称和费用。
 	/// 复用同一个弹窗实例，点击关闭按钮或 OK 即可关闭。
 	/// </summary>
@@ -1646,6 +1706,8 @@ public partial class CombatUI : Control
 			UpdateDeckCounts();
 			UpdateWeaponDisplay();
 			UpdateStatusEffectDisplay();
+			UpdateHeatDisplay();
+			UpdateRelicDisplay();
 
 			// 手牌选择模式下，额外更新卡牌高亮状态
 			if (_isHandSelecting)
@@ -1681,6 +1743,8 @@ public partial class CombatUI : Control
 
 		UpdateWeaponDisplay();
 		UpdateStatusEffectDisplay();
+		UpdateHeatDisplay();
+		UpdateRelicDisplay();
 
 		// 游戏结束时禁用操作
 		if (_combat.State.IsGameOver)
@@ -2271,10 +2335,15 @@ public partial class CombatUI : Control
 				}
 				break;
 
-			case CardType.Domain:
-				// 领域牌：进入拖拽播放模式（类 STS2 风格，拖到中央打出）
-				EnterNoTargetPlayMode(card);
-				break;
+		case CardType.Domain:
+			// 领域牌：进入拖拽播放模式（类 STS2 风格，拖到中央打出）
+			EnterNoTargetPlayMode(card);
+			break;
+
+		case CardType.Status:
+			// 状态牌：进入无目标播放模式（自动以玩家英雄为目标）
+			EnterNoTargetPlayMode(card);
+			break;
 
 			default:
 				GD.Print($"[CombatUI] 未知卡牌类型：{card.Type}");
@@ -2781,6 +2850,9 @@ public partial class CombatUI : Control
 			_enemyEffectBar.Populate(_combat.EnemyHero.GetDisplayableEffects());
 		}
 	}
+
+	private void UpdateHeatDisplay() => _heatBar?.Refresh();
+	private void UpdateRelicDisplay() => _relicBar?.Refresh();
 
 	// ===== 事件处理——敌方英雄攻击 =====
 
@@ -3785,10 +3857,14 @@ public partial class CombatUI : Control
 		bool success;
 		switch (_selectedCard.Type)
 		{
-			case CardType.Spell:
-				success = _combat.PlaySpell(_selectedCard, _combat.PlayerHero);
-				break;
-			case CardType.Domain:
+		case CardType.Spell:
+			success = _combat.PlaySpell(_selectedCard, _combat.PlayerHero);
+			break;
+		case CardType.Status:
+			// 状态牌：自动以玩家英雄为目标
+			success = _combat.PlaySpell(_selectedCard, _combat.PlayerHero);
+			break;
+		case CardType.Domain:
 				success = _combat.PlayDomain(_selectedCard);
 				break;
 			default:
