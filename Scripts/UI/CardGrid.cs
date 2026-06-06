@@ -518,7 +518,7 @@ namespace OdysseyCards.UI
             }
         }
 
-        private void GoToPreviousPage()
+        public void GoToPreviousPage()
         {
             if (_currentPage > 0)
             {
@@ -527,12 +527,76 @@ namespace OdysseyCards.UI
             }
         }
 
-        private void GoToNextPage()
+        public void GoToNextPage()
         {
             if (_currentPage < _totalPages - 1)
             {
                 _currentPage++;
                 RenderCurrentPage();
+            }
+        }
+
+        /// <summary>
+        /// 当前页展示的卡牌数量。
+        /// </summary>
+        public int CurrentPageCardCount
+        {
+            get
+            {
+                int start = _currentPage * CardsPerPage;
+                if (start >= _filteredCards.Count) return 0;
+                return Mathf.Min(CardsPerPage, _filteredCards.Count - start);
+            }
+        }
+
+        /// <summary>
+        /// 获取当前页中指定索引的卡牌数据。索引 0 对应当前页第一张卡牌。
+        /// </summary>
+        public CardData? GetCardDataAt(int index)
+        {
+            int start = _currentPage * CardsPerPage;
+            int globalIndex = start + index;
+            if (globalIndex < 0 || globalIndex >= _filteredCards.Count) return null;
+            return _filteredCards[globalIndex];
+        }
+
+        /// <summary>
+        /// 设置当前页中指定索引卡牌的高亮状态，同时清除其余卡牌的高亮。
+        /// 用于键盘焦点指示器。仅当 HotkeyManager 报告最近有键盘操作时显示。
+        /// </summary>
+        public void SetCardHighlight(int index)
+        {
+            var children = _flowContainer.GetChildren();
+            for (int i = 0; i < children.Count; i++)
+            {
+                if (children[i] is Control ctrl)
+                {
+                    ctrl.SelfModulate = (i == index) ? new Color(1.2f, 1.2f, 0.85f, 1) : Colors.White;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 清除当前页所有卡牌的高亮。
+        /// </summary>
+        public void ClearCardHighlights()
+        {
+            SetCardHighlight(-1);
+        }
+
+        /// <summary>
+        /// 估算当前 FlowContainer 每行列数。
+        /// 用于键盘方向键上/下导航。
+        /// </summary>
+        public int EstimatedColumns
+        {
+            get
+            {
+                float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+                float cardSlotWidth = (CardWidth + GridSpacing) * s;
+                float containerWidth = _flowContainer.Size.X;
+                if (containerWidth <= 0) containerWidth = Size.X; // 回退到 CardGrid 自身宽度
+                return Mathf.Max(1, Mathf.FloorToInt(containerWidth / cardSlotWidth));
             }
         }
 

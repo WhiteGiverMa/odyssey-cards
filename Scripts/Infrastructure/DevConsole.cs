@@ -57,6 +57,9 @@ public partial class DevConsole : Node
     private RichTextLabel _completionLabel = null!;
     private bool _visible;
 
+    /// <summary>控制台当前是否可见（供 InputManager/HotkeyManager 检查）。</summary>
+    public bool IsVisible => _visible;
+
     // ===== 补全状态 =====
 
     private readonly List<CompletionCandidate> _completionCandidates = new();

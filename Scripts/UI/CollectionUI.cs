@@ -82,7 +82,24 @@ public partial class CollectionUI : Control
 
     private bool _isExportMode;
 
+    // ===== 键盘导航 =====
+
+    /// <summary>键盘焦点卡牌索引（当前页内，-1 表示无焦点）。</summary>
+    private int _focusedCardIndex = -1;
+
+    /// <summary>热键回调引用（用于注销时精确移除）。</summary>
+    private Action? _leftAction, _rightAction, _upAction, _downAction;
+    private Action? _acceptAction, _cancelAction;
+    private Action? _pageUpAction, _pageDownAction;
+    private Action? _filterAllAction, _filterMinionAction, _filterSpellAction, _filterDomainAction;
+
     // ===== 生命周期 =====
+
+    public override void _EnterTree()
+    {
+        base._EnterTree();
+        RegisterHotkeyBindings();
+    }
 
     public override void _Ready()
     {
@@ -130,6 +147,9 @@ public partial class CollectionUI : Control
     public override void _ExitTree()
     {
         SceneLifecycleGuard.OnExitTree(this);
+
+        // 注销键盘热键绑定
+        UnregisterHotkeyBindings();
 
         // 释放所有移动端 TouchZone 注册
         foreach (var token in _zoneTokens)
@@ -185,6 +205,224 @@ public partial class CollectionUI : Control
         _zoneTokens.Add(router.RegisterTapZone(_importButton,
             _importButton.GetGlobalRect(),
             priority: 400, onTap: () => OnImportPressed()));
+    }
+
+    // ===== 键盘导航 — HotkeyManager 注册/注销 =====
+
+    /// <summary>
+    /// 注册所有键盘热键绑定到 HotkeyManager。
+    /// 方向键导航卡牌网格，Enter 确认选中，Escape 返回，
+    /// PageUp/PageDown 翻页，数字键 1~4 切换过滤标签。
+    /// </summary>
+    private void RegisterHotkeyBindings()
+    {
+        var hm = HotkeyManager.Instance;
+        if (hm == null) return;
+
+        // 方向键 — 网格导航
+        _leftAction = () => NavigateCardFocus(-1, 0);
+        _rightAction = () => NavigateCardFocus(1, 0);
+        _upAction = () => NavigateCardFocus(0, -1);
+        _downAction = () => NavigateCardFocus(0, 1);
+        hm.PushPressedBinding(OdysseyInput.Left, _leftAction);
+        hm.PushPressedBinding(OdysseyInput.Right, _rightAction);
+        hm.PushPressedBinding(OdysseyInput.Up, _upAction);
+        hm.PushPressedBinding(OdysseyInput.Down, _downAction);
+
+        // 确认 / 取消
+        _acceptAction = AcceptFocusedCard;
+        _cancelAction = HandleKeyboardCancel;
+        hm.PushPressedBinding(OdysseyInput.Accept, _acceptAction);
+        hm.PushPressedBinding(OdysseyInput.Cancel, _cancelAction);
+
+        // 翻页
+        _pageUpAction = PrevPage;
+        _pageDownAction = NextPage;
+        hm.PushPressedBinding(OdysseyInput.PageUp, _pageUpAction);
+        hm.PushPressedBinding(OdysseyInput.PageDown, _pageDownAction);
+
+        // 数字键 1~4 — 过滤标签切换
+        _filterAllAction = () => SetFilterByNumber(1);
+        _filterMinionAction = () => SetFilterByNumber(2);
+        _filterSpellAction = () => SetFilterByNumber(3);
+        _filterDomainAction = () => SetFilterByNumber(4);
+        hm.PushPressedBinding(OdysseyInput.SelectCard1, _filterAllAction);
+        hm.PushPressedBinding(OdysseyInput.SelectCard2, _filterMinionAction);
+        hm.PushPressedBinding(OdysseyInput.SelectCard3, _filterSpellAction);
+        hm.PushPressedBinding(OdysseyInput.SelectCard4, _filterDomainAction);
+
+        // 键盘焦点超时事件 — 超时后清除焦点指示器
+        hm.KeyboardFocusChanged += OnKeyboardFocusChanged;
+    }
+
+    /// <summary>
+    /// 注销所有键盘热键绑定。
+    /// </summary>
+    private void UnregisterHotkeyBindings()
+    {
+        var hm = HotkeyManager.Instance;
+        if (hm == null) return;
+
+        hm.KeyboardFocusChanged -= OnKeyboardFocusChanged;
+
+        if (_leftAction != null) { hm.RemovePressedBinding(OdysseyInput.Left, _leftAction); _leftAction = null; }
+        if (_rightAction != null) { hm.RemovePressedBinding(OdysseyInput.Right, _rightAction); _rightAction = null; }
+        if (_upAction != null) { hm.RemovePressedBinding(OdysseyInput.Up, _upAction); _upAction = null; }
+        if (_downAction != null) { hm.RemovePressedBinding(OdysseyInput.Down, _downAction); _downAction = null; }
+        if (_acceptAction != null) { hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
+        if (_cancelAction != null) { hm.RemovePressedBinding(OdysseyInput.Cancel, _cancelAction); _cancelAction = null; }
+        if (_pageUpAction != null) { hm.RemovePressedBinding(OdysseyInput.PageUp, _pageUpAction); _pageUpAction = null; }
+        if (_pageDownAction != null) { hm.RemovePressedBinding(OdysseyInput.PageDown, _pageDownAction); _pageDownAction = null; }
+        if (_filterAllAction != null) { hm.RemovePressedBinding(OdysseyInput.SelectCard1, _filterAllAction); _filterAllAction = null; }
+        if (_filterMinionAction != null) { hm.RemovePressedBinding(OdysseyInput.SelectCard2, _filterMinionAction); _filterMinionAction = null; }
+        if (_filterSpellAction != null) { hm.RemovePressedBinding(OdysseyInput.SelectCard3, _filterSpellAction); _filterSpellAction = null; }
+        if (_filterDomainAction != null) { hm.RemovePressedBinding(OdysseyInput.SelectCard4, _filterDomainAction); _filterDomainAction = null; }
+    }
+
+    // ===== 键盘导航 — 业务方法 =====
+
+    /// <summary>
+    /// 方向键导航：在卡牌网格中按方向移动焦点。
+    /// dx: 水平偏移（-1 左, +1 右）
+    /// dy: 垂直偏移（-1 上, +1 下）
+    /// </summary>
+    private void NavigateCardFocus(int dx, int dy)
+    {
+        if (SceneLifecycleGuard.ShouldSkip(this)) return;
+        int count = _cardGrid.CurrentPageCardCount;
+        if (count <= 0) return;
+
+        int columns = _cardGrid.EstimatedColumns;
+        if (dx != 0)
+        {
+            // 水平移动：线性 +1/-1，到达行尾/首时自动换行
+            if (_focusedCardIndex < 0)
+            {
+                _focusedCardIndex = (dx > 0) ? 0 : count - 1;
+            }
+            else
+            {
+                _focusedCardIndex += dx;
+                // 换行边界处理
+                if (_focusedCardIndex >= count) _focusedCardIndex = 0;
+                if (_focusedCardIndex < 0) _focusedCardIndex = count - 1;
+            }
+        }
+        else if (dy != 0)
+        {
+            // 垂直移动：按估算列数跳转
+            if (_focusedCardIndex < 0)
+            {
+                _focusedCardIndex = (dy > 0) ? 0 : count - 1;
+            }
+            else
+            {
+                int currentRow = _focusedCardIndex / columns;
+                int currentCol = _focusedCardIndex % columns;
+                int newRow = currentRow + dy;
+                if (newRow < 0) newRow = (count - 1) / columns;
+                int maxRow = (count - 1) / columns;
+                if (newRow > maxRow) newRow = 0;
+                int newIndex = newRow * columns + currentCol;
+                if (newIndex >= count) newIndex = count - 1;
+                _focusedCardIndex = newIndex;
+            }
+        }
+
+        UpdateCardFocus();
+    }
+
+    /// <summary>
+    /// 刷新键盘焦点高亮。仅当 HotkeyManager 记录到近期键盘活动时显示。
+    /// </summary>
+    private void UpdateCardFocus()
+    {
+        int count = _cardGrid.CurrentPageCardCount;
+        if (_focusedCardIndex >= 0 && _focusedCardIndex < count
+            && HotkeyManager.Instance.LastKeyboardActivityMsec > 0)
+        {
+            _cardGrid.SetCardHighlight(_focusedCardIndex);
+        }
+        else
+        {
+            _cardGrid.ClearCardHighlights();
+        }
+    }
+
+    /// <summary>
+    /// Enter 键：确认选中当前键盘焦点的卡牌（触发点击行为）。
+    /// </summary>
+    private void AcceptFocusedCard()
+    {
+        if (SceneLifecycleGuard.ShouldSkip(this)) return;
+        int count = _cardGrid.CurrentPageCardCount;
+        if (_focusedCardIndex < 0 || _focusedCardIndex >= count) return;
+
+        var cardData = _cardGrid.GetCardDataAt(_focusedCardIndex);
+        if (cardData != null)
+        {
+            OnCardGridCardClicked(cardData);
+        }
+    }
+
+    /// <summary>
+    /// Escape 键：返回。
+    /// </summary>
+    private void HandleKeyboardCancel()
+    {
+        if (SceneLifecycleGuard.ShouldSkip(this)) return;
+        OnBackPressed();
+    }
+
+    /// <summary>
+    /// PageUp 键：上一页。
+    /// </summary>
+    private void PrevPage()
+    {
+        if (SceneLifecycleGuard.ShouldSkip(this)) return;
+        _cardGrid.GoToPreviousPage();
+        _focusedCardIndex = 0;
+        UpdateCardFocus();
+    }
+
+    /// <summary>
+    /// PageDown 键：下一页。
+    /// </summary>
+    private void NextPage()
+    {
+        if (SceneLifecycleGuard.ShouldSkip(this)) return;
+        _cardGrid.GoToNextPage();
+        _focusedCardIndex = 0;
+        UpdateCardFocus();
+    }
+
+    /// <summary>
+    /// 数字键切换过滤标签：1=全部, 2=随从, 3=法术, 4=领域。
+    /// </summary>
+    private void SetFilterByNumber(int n)
+    {
+        if (SceneLifecycleGuard.ShouldSkip(this)) return;
+        switch (n)
+        {
+            case 1: _cardGrid.SetTypeFilter(null); break;
+            case 2: _cardGrid.SetTypeFilter(CardType.Minion); break;
+            case 3: _cardGrid.SetTypeFilter(CardType.Spell); break;
+            case 4: _cardGrid.SetTypeFilter(CardType.Domain); break;
+        }
+        _focusedCardIndex = 0;
+        UpdateCardFocus();
+    }
+
+    /// <summary>
+    /// HotkeyManager 键盘焦点超时事件：超时后清除焦点指示器。
+    /// </summary>
+    private void OnKeyboardFocusChanged(bool active)
+    {
+        if (!active)
+        {
+            _focusedCardIndex = -1;
+            _cardGrid.ClearCardHighlights();
+        }
     }
 
     // ===== 快照/还原 =====

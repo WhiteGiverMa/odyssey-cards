@@ -60,6 +60,19 @@ public partial class HandUI : Control
 	/// <summary>移动端点击展开的卡槽（非 hover，手动维持）</summary>
 	private CardSlot? _tappedSlot;
 
+	/// <summary>键盘焦点卡牌索引（-1 = 无焦点）。方向键导航或数字键直选时更新。</summary>
+	private int _focusedCardIndex = -1;
+
+	/// <summary>当前正在显示键盘焦点视觉的 CardUI。用于清除旧焦点时重置 SelfModulate。</summary>
+	private CardUI? _keyboardFocusedCardUI;
+
+	/// <summary>缓存的 HotkeyManager 回调委托——用于 Push/Remove 配对，保证引用相等。</summary>
+	private Action[]? _cardSelectActions;
+	private Action? _leftAction;
+	private Action? _rightAction;
+	private Action? _acceptAction;
+	private Action? _cancelAction;
+
 	/// <summary>
 	/// 存储每张卡牌在其父容器中的"静止位置"（不含 OffsetTop），
 	/// 用于悬停检测——始终基于静止位置判断鼠标是否在卡牌区域内，
@@ -112,6 +125,19 @@ public partial class HandUI : Control
 			};
 			AddChild(_cardContainer);
 		}
+	}
+
+	public override void _EnterTree()
+	{
+		base._EnterTree();
+		RegisterHotkeyBindings();
+	}
+
+	public override void _ExitTree()
+	{
+		SceneLifecycleGuard.OnExitTree(this);
+		UnregisterHotkeyBindings();
+		base._ExitTree();
 	}
 
 	public override void _Process(double delta)
@@ -242,6 +268,7 @@ public partial class HandUI : Control
 	{
 		ClearHoverState();
 		ClearTapExpansion();
+		ClearKeyboardFocus();
 		foreach (var slot in _cardSlots)
 			slot.CardUI.QueueFree();
 		_cardSlots.Clear();
@@ -436,6 +463,9 @@ public partial class HandUI : Control
 			AnimateCardPosition(cardUI, targetPos, targetScale);
 			_restingPositions[cardUI] = targetPos;
 		}
+
+		// 键盘焦点视觉指示器
+		ApplyKeyboardFocusVisual();
 	}
 
 	/// <summary>
@@ -616,6 +646,226 @@ public partial class HandUI : Control
 				return slot;
 		}
 		return null;
+	}
+
+	// ============================================================
+	// 键盘交互 — HotkeyManager 回调注册/注销
+	// ============================================================
+
+	/// <summary>
+	/// 注册所有键盘热键绑定到 HotkeyManager。
+	/// 数字键 1~0 直选手牌，方向键左右切换焦点，Enter 确认，Escape 取消。
+	/// </summary>
+	private void RegisterHotkeyBindings()
+	{
+		var hm = HotkeyManager.Instance;
+		if (hm == null) return;
+
+		// 数字键 1~10 对应手牌第 1~10 张
+		_cardSelectActions = new Action[10];
+		for (int i = 0; i < 10; i++)
+		{
+			int capturedIndex = i;
+			_cardSelectActions[i] = () => SelectCardByIndex(capturedIndex);
+			hm.PushPressedBinding(OdysseyInput.SelectCardActions[i], _cardSelectActions[i]);
+		}
+
+		// 方向键导航
+		_leftAction = () => CycleFocus(-1);
+		_rightAction = () => CycleFocus(1);
+		hm.PushPressedBinding(OdysseyInput.Left, _leftAction);
+		hm.PushPressedBinding(OdysseyInput.Right, _rightAction);
+
+		// 确认 / 取消
+		_acceptAction = AcceptFocusedCard;
+		_cancelAction = CancelKeyboardSelection;
+		hm.PushPressedBinding(OdysseyInput.Accept, _acceptAction);
+		hm.PushPressedBinding(OdysseyInput.Cancel, _cancelAction);
+
+		// 监听键盘焦点超时事件——超时后清除焦点指示器
+		hm.KeyboardFocusChanged += OnKeyboardFocusChanged;
+	}
+
+	/// <summary>
+	/// 注销所有键盘热键绑定。
+	/// </summary>
+	private void UnregisterHotkeyBindings()
+	{
+		var hm = HotkeyManager.Instance;
+		if (hm == null) return;
+
+		hm.KeyboardFocusChanged -= OnKeyboardFocusChanged;
+
+		if (_cardSelectActions != null)
+		{
+			for (int i = 0; i < 10; i++)
+				hm.RemovePressedBinding(OdysseyInput.SelectCardActions[i], _cardSelectActions[i]);
+			_cardSelectActions = null;
+		}
+
+		if (_leftAction != null) { hm.RemovePressedBinding(OdysseyInput.Left, _leftAction); _leftAction = null; }
+		if (_rightAction != null) { hm.RemovePressedBinding(OdysseyInput.Right, _rightAction); _rightAction = null; }
+		if (_acceptAction != null) { hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
+		if (_cancelAction != null) { hm.RemovePressedBinding(OdysseyInput.Cancel, _cancelAction); _cancelAction = null; }
+	}
+
+	// ============================================================
+	// 键盘交互 — 业务方法
+	// ============================================================
+
+	/// <summary>
+	/// 数字键直选：选择手牌中指定索引的卡牌并立即触发打出/选中。
+	/// 索引 0 对应最左侧（第一张）卡牌。
+	/// </summary>
+	private void SelectCardByIndex(int index)
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this)) return;
+		if (_cardSlots.Count == 0) return;
+
+		index = Mathf.Clamp(index, 0, _cardSlots.Count - 1);
+		_focusedCardIndex = index;
+
+		var cardUI = _cardSlots[index].CardUI;
+		if (cardUI.Card == null) return;
+
+		if (HandSelectMode)
+		{
+			// 手牌选择模式：切换该卡牌的选中状态
+			OnCardSelectionToggled?.Invoke(cardUI.Card, true);
+		}
+		else
+		{
+			// 正常出牌模式：模拟点击该卡牌
+			OnCardClicked(cardUI);
+		}
+
+		RefreshLayout();
+	}
+
+	/// <summary>
+	/// 方向键导航：循环切换键盘焦点到上一张（direction=-1）或下一张（direction=+1）卡牌。
+	/// 仅移动焦点指示器，不触发打出或选中。
+	/// </summary>
+	private void CycleFocus(int direction)
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this)) return;
+		if (_cardSlots.Count == 0) return;
+
+		if (_focusedCardIndex < 0 || _focusedCardIndex >= _cardSlots.Count)
+		{
+			// 无焦点时，从边界开始
+			_focusedCardIndex = direction > 0 ? 0 : _cardSlots.Count - 1;
+		}
+		else
+		{
+			_focusedCardIndex += direction;
+			if (_focusedCardIndex >= _cardSlots.Count)
+				_focusedCardIndex = 0;
+			else if (_focusedCardIndex < 0)
+				_focusedCardIndex = _cardSlots.Count - 1;
+		}
+
+		RefreshLayout();
+	}
+
+	/// <summary>
+	/// Enter 键确认：打出/选中当前键盘焦点所在的卡牌。
+	/// 无焦点时默认选中第一张。
+	/// </summary>
+	private void AcceptFocusedCard()
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this)) return;
+		if (_cardSlots.Count == 0) return;
+
+		int index = _focusedCardIndex >= 0 && _focusedCardIndex < _cardSlots.Count
+			? _focusedCardIndex : 0;
+		_focusedCardIndex = index;
+
+		var cardUI = _cardSlots[index].CardUI;
+		if (cardUI.Card == null) return;
+
+		OnCardClicked(cardUI);
+		RefreshLayout();
+	}
+
+	/// <summary>
+	/// Escape 键取消：取消当前选中卡牌的选中状态，重置键盘焦点。
+	/// </summary>
+	private void CancelKeyboardSelection()
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this)) return;
+
+		_focusedCardIndex = -1;
+
+		if (_selectedCard != null)
+		{
+			DeselectCard();
+			OnCardCancelled?.Invoke();
+		}
+
+		ClearHoverState();
+		ClearKeyboardFocus();
+		RefreshLayout();
+	}
+
+	/// <summary>
+	/// HotkeyManager 键盘焦点超时回调。
+	/// 键盘闲置 3 秒后自动清除焦点指示器。
+	/// </summary>
+	private void OnKeyboardFocusChanged(bool active)
+	{
+		if (!active)
+		{
+			_focusedCardIndex = -1;
+			ClearKeyboardFocus();
+		}
+	}
+
+	// ============================================================
+	// 键盘交互 — 视觉指示器
+	// ============================================================
+
+	/// <summary>
+	/// 给当前键盘焦点的卡牌施加蓝色调 SelfModulate 指示器。
+	/// 从所有其他卡牌清除键盘焦点视觉。
+	/// 仅当 HotkeyManager 记录到近期键盘活动时才显示。
+	/// </summary>
+	private void ApplyKeyboardFocusVisual()
+	{
+		bool shouldShowFocus = _focusedCardIndex >= 0
+			&& _focusedCardIndex < _cardSlots.Count
+			&& HotkeyManager.Instance.LastKeyboardActivityMsec > 0;
+
+		// 先清除所有卡牌的键盘焦点视觉
+		if (_keyboardFocusedCardUI != null)
+		{
+			if (GodotObject.IsInstanceValid(_keyboardFocusedCardUI))
+				_keyboardFocusedCardUI.SelfModulate = Colors.White;
+			_keyboardFocusedCardUI = null;
+		}
+
+		if (!shouldShowFocus) return;
+
+		var cardUI = _cardSlots[_focusedCardIndex].CardUI;
+		if (cardUI == null || !GodotObject.IsInstanceValid(cardUI)) return;
+
+		// 蓝色调指示器（通过 SelfModulate 叠加，不影响 CardUI 自身的 Modulate）
+		cardUI.SelfModulate = new Color(0.72f, 0.85f, 1f, 1f);
+		_keyboardFocusedCardUI = cardUI;
+	}
+
+	/// <summary>
+	/// 清除所有卡牌的键盘焦点视觉，重置 _focusedCardIndex。
+	/// </summary>
+	private void ClearKeyboardFocus()
+	{
+		_focusedCardIndex = -1;
+		if (_keyboardFocusedCardUI != null)
+		{
+			if (GodotObject.IsInstanceValid(_keyboardFocusedCardUI))
+				_keyboardFocusedCardUI.SelfModulate = Colors.White;
+			_keyboardFocusedCardUI = null;
+		}
 	}
 
 	// ============================================================

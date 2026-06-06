@@ -41,6 +41,27 @@ public partial class RewardUI : Control
     /// </summary>
     private const ulong ClickProtectionMs = 350;
 
+    // ===== 键盘导航 =====
+
+    /// <summary>HotkeyManager 按下回调数组（索引 0=第1个奖励包，对应 SelectCard1）。</summary>
+    private Action?[] _selectActions = Array.Empty<Action>();
+
+    /// <summary>Enter 确认回调。</summary>
+    private Action? _acceptAction;
+
+    /// <summary>Escape/Backspace 跳过回调。</summary>
+    private Action? _skipAction;
+
+    /// <summary>方向键导航回调。</summary>
+    private Action? _leftAction;
+    private Action? _rightAction;
+
+    /// <summary>当前键盘焦点所在的奖励包索引（-1 = 无焦点）。</summary>
+    private int _focusedBundleIndex = -1;
+
+    /// <summary>当前受键盘高亮的 CardUI 引用（用于清除视觉）。</summary>
+    private CardUI? _keyboardFocusedCardUI;
+
     // ===== 公开 API =====
 
     /// <summary>
@@ -214,6 +235,9 @@ public partial class RewardUI : Control
         _skipButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(16 * s));
         _skipButton.Pressed += OnSkipPressed;
         center.AddChild(_skipButton);
+
+        // 注册键盘热键绑定
+        RegisterHotkeyBindings();
     }
 
     // ===== 入场动画 =====
@@ -348,6 +372,184 @@ public partial class RewardUI : Control
     public override void _ExitTree()
     {
         GameManager.Instance.LanguageChanged -= OnLanguageChanged;
+        UnregisterHotkeyBindings();
+    }
+
+    // ===== 键盘导航 — HotkeyManager 绑定 =====
+
+    /// <summary>
+    /// 注册键盘热键绑定到 HotkeyManager。
+    /// 数字键 1~N 直选奖励包，Enter 确认，Escape/Backspace 跳过。
+    /// </summary>
+    private void RegisterHotkeyBindings()
+    {
+        // 先清理旧绑定
+        UnregisterHotkeyBindings();
+
+        var hm = HotkeyManager.Instance;
+        if (hm == null) return;
+
+        int bundleCount = _bundles.Count;
+
+        // 数字键 1~N 直选奖励包
+        _selectActions = new Action[bundleCount];
+        for (int i = 0; i < bundleCount; i++)
+        {
+            int capturedIndex = i;
+            _selectActions[i] = () => SelectBundleByIndex(capturedIndex);
+            hm.PushPressedBinding(OdysseyInput.SelectCardActions[i], _selectActions[i]);
+        }
+
+        // Enter 确认
+        _acceptAction = AcceptFocusedBundle;
+        hm.PushPressedBinding(OdysseyInput.Accept, _acceptAction);
+
+        // Escape/Backspace 跳过
+        _skipAction = OnSkipPressed;
+        hm.PushPressedBinding(OdysseyInput.Skip, _skipAction);
+        hm.PushPressedBinding(OdysseyInput.Cancel, _skipAction);
+
+        // 方向键导航（左右切换焦点奖励包）
+        _leftAction = () => CycleBundleFocus(-1);
+        _rightAction = () => CycleBundleFocus(1);
+        hm.PushPressedBinding(OdysseyInput.Left, _leftAction);
+        hm.PushPressedBinding(OdysseyInput.Right, _rightAction);
+
+        // 监听键盘焦点超时事件
+        hm.KeyboardFocusChanged += OnKeyboardFocusChanged;
+    }
+
+    /// <summary>
+    /// 注销所有键盘热键绑定。
+    /// </summary>
+    private void UnregisterHotkeyBindings()
+    {
+        var hm = HotkeyManager.Instance;
+        if (hm == null) return;
+
+        hm.KeyboardFocusChanged -= OnKeyboardFocusChanged;
+
+        if (_selectActions != null)
+        {
+            for (int i = 0; i < _selectActions.Length; i++)
+            {
+                if (_selectActions[i] != null)
+                    hm.RemovePressedBinding(OdysseyInput.SelectCardActions[i], _selectActions[i]);
+            }
+            _selectActions = Array.Empty<Action>();
+        }
+
+        if (_acceptAction != null) { hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
+        if (_skipAction != null)
+        {
+            hm.RemovePressedBinding(OdysseyInput.Skip, _skipAction);
+            hm.RemovePressedBinding(OdysseyInput.Cancel, _skipAction);
+            _skipAction = null;
+        }
+        if (_leftAction != null) { hm.RemovePressedBinding(OdysseyInput.Left, _leftAction); _leftAction = null; }
+        if (_rightAction != null) { hm.RemovePressedBinding(OdysseyInput.Right, _rightAction); _rightAction = null; }
+    }
+
+    /// <summary>
+    /// 数字键直选：选择指定索引的奖励包并确认。
+    /// </summary>
+    private void SelectBundleByIndex(int index)
+    {
+        if (!_isShowing) return;
+        if (index < 0 || index >= _bundles.Count) return;
+
+        // 350ms 点击保护
+        if (Time.GetTicksMsec() - _openedTicks < ClickProtectionMs) return;
+
+        // 更新键盘焦点
+        _focusedBundleIndex = index;
+
+        var bundle = _bundles[index];
+        OnCardClicked(bundle.CardUI);
+    }
+
+    /// <summary>
+    /// 方向键导航：循环切换键盘焦点到上一个/下一个奖励包。
+    /// </summary>
+    private void CycleBundleFocus(int direction)
+    {
+        if (!_isShowing) return;
+        if (_bundles.Count == 0) return;
+
+        if (_focusedBundleIndex < 0 || _focusedBundleIndex >= _bundles.Count)
+            _focusedBundleIndex = direction > 0 ? 0 : _bundles.Count - 1;
+        else
+        {
+            _focusedBundleIndex += direction;
+            if (_focusedBundleIndex >= _bundles.Count)
+                _focusedBundleIndex = 0;
+            else if (_focusedBundleIndex < 0)
+                _focusedBundleIndex = _bundles.Count - 1;
+        }
+
+        ApplyKeyboardFocusVisual();
+    }
+
+    /// <summary>
+    /// Enter 键：确认当前焦点所在的奖励包。
+    /// </summary>
+    private void AcceptFocusedBundle()
+    {
+        if (!_isShowing) return;
+        if (_bundles.Count == 0) return;
+
+        if (_focusedBundleIndex < 0 || _focusedBundleIndex >= _bundles.Count)
+            _focusedBundleIndex = 0;
+
+        var bundle = _bundles[_focusedBundleIndex];
+        OnCardClicked(bundle.CardUI);
+    }
+
+    /// <summary>
+    /// HotkeyManager 键盘焦点超时回调。
+    /// </summary>
+    private void OnKeyboardFocusChanged(bool active)
+    {
+        if (!active)
+        {
+            _focusedBundleIndex = -1;
+            ClearKeyboardFocusVisual();
+        }
+    }
+
+    /// <summary>
+    /// 给当前键盘焦点的奖励包卡牌施加蓝色调 SelfModulate 指示器。
+    /// </summary>
+    private void ApplyKeyboardFocusVisual()
+    {
+        bool shouldShowFocus = _focusedBundleIndex >= 0
+            && _focusedBundleIndex < _bundles.Count
+            && HotkeyManager.Instance.LastKeyboardActivityMsec > 0;
+
+        // 先清除旧焦点视觉
+        ClearKeyboardFocusVisual();
+
+        if (!shouldShowFocus) return;
+
+        var cardUI = _bundles[_focusedBundleIndex].CardUI;
+        if (cardUI == null || !GodotObject.IsInstanceValid(cardUI)) return;
+
+        // 蓝色调指示器
+        cardUI.SelfModulate = new Color(0.72f, 0.85f, 1f, 1f);
+        _keyboardFocusedCardUI = cardUI;
+    }
+
+    /// <summary>
+    /// 清除当前卡牌的键盘焦点视觉。
+    /// </summary>
+    private void ClearKeyboardFocusVisual()
+    {
+        if (_keyboardFocusedCardUI != null)
+        {
+            if (GodotObject.IsInstanceValid(_keyboardFocusedCardUI))
+                _keyboardFocusedCardUI.SelfModulate = Colors.White;
+            _keyboardFocusedCardUI = null;
+        }
     }
 
     /// <summary>

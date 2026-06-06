@@ -29,6 +29,19 @@ public partial class MapUI : Control
 
     private GameRunState _runState = null!;
 
+    /// <summary>当前层可选房间列表（用于键盘导航索引映射）。</summary>
+    private System.Collections.Generic.IReadOnlyList<RoomDefinition> _currentRoomChoices
+        = Array.Empty<RoomDefinition>();
+
+    // ===== 键盘导航 =====
+
+    /// <summary>键盘焦点房间索引（-1 表示无焦点）。</summary>
+    private int _focusedRoomIndex = -1;
+
+    /// <summary>热键回调引用（用于注销时精确移除）。</summary>
+    private Action? _leftAction, _rightAction, _upAction, _downAction;
+    private Action? _acceptAction, _cancelAction;
+
     // ===== MobileInputRouter zone 令牌（_ExitTree 时统一释放） =====
 
     private IDisposable? _quitZoneToken;
@@ -60,6 +73,12 @@ public partial class MapUI : Control
     };
 
     // ===== Godot 生命周期 =====
+
+    public override void _EnterTree()
+    {
+        base._EnterTree();
+        RegisterHotkeyBindings();
+    }
 
     public override void _Ready()
     {
@@ -96,6 +115,9 @@ public partial class MapUI : Control
     public override void _ExitTree()
     {
         SceneLifecycleGuard.OnExitTree(this);
+
+        // 注销键盘热键绑定
+        UnregisterHotkeyBindings();
 
         // 释放所有触控分区令牌
         _quitZoneToken?.Dispose();
@@ -321,6 +343,7 @@ public partial class MapUI : Control
 
         // 获取当前层可选房间
         var choices = _runState.GetCurrentLayerChoices();
+        _currentRoomChoices = choices;
 
         if (choices.Count == 0)
         {
@@ -340,6 +363,7 @@ public partial class MapUI : Control
         }
 
         // 创建房间卡片
+        _focusedRoomIndex = -1;
         foreach (var room in choices)
         {
             var card = CreateRoomCard(room);
@@ -394,6 +418,145 @@ public partial class MapUI : Control
         else
         {
             card.Pressed += () => HandleRoomSelected(room);
+        }
+    }
+
+    // ===== 键盘导航 — HotkeyManager 注册/注销 =====
+
+    /// <summary>
+    /// 注册所有键盘热键绑定到 HotkeyManager。
+    /// 方向键导航房间列表，Enter 确认选择，Escape 返回。
+    /// </summary>
+    private void RegisterHotkeyBindings()
+    {
+        var hm = HotkeyManager.Instance;
+        if (hm == null) return;
+
+        // 方向键 — 房间导航
+        _leftAction = () => NavigateRoomFocus(-1);
+        _rightAction = () => NavigateRoomFocus(1);
+        _upAction = () => NavigateRoomFocus(-1);
+        _downAction = () => NavigateRoomFocus(1);
+        hm.PushPressedBinding(OdysseyInput.Left, _leftAction);
+        hm.PushPressedBinding(OdysseyInput.Right, _rightAction);
+        hm.PushPressedBinding(OdysseyInput.Up, _upAction);
+        hm.PushPressedBinding(OdysseyInput.Down, _downAction);
+
+        // 确认 / 取消
+        _acceptAction = AcceptFocusedRoom;
+        _cancelAction = HandleKeyboardCancel;
+        hm.PushPressedBinding(OdysseyInput.Accept, _acceptAction);
+        hm.PushPressedBinding(OdysseyInput.Cancel, _cancelAction);
+
+        // 键盘焦点超时事件 — 超时后清除焦点指示器
+        hm.KeyboardFocusChanged += OnKeyboardFocusChanged;
+    }
+
+    /// <summary>
+    /// 注销所有键盘热键绑定。
+    /// </summary>
+    private void UnregisterHotkeyBindings()
+    {
+        var hm = HotkeyManager.Instance;
+        if (hm == null) return;
+
+        hm.KeyboardFocusChanged -= OnKeyboardFocusChanged;
+
+        if (_leftAction != null) { hm.RemovePressedBinding(OdysseyInput.Left, _leftAction); _leftAction = null; }
+        if (_rightAction != null) { hm.RemovePressedBinding(OdysseyInput.Right, _rightAction); _rightAction = null; }
+        if (_upAction != null) { hm.RemovePressedBinding(OdysseyInput.Up, _upAction); _upAction = null; }
+        if (_downAction != null) { hm.RemovePressedBinding(OdysseyInput.Down, _downAction); _downAction = null; }
+        if (_acceptAction != null) { hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
+        if (_cancelAction != null) { hm.RemovePressedBinding(OdysseyInput.Cancel, _cancelAction); _cancelAction = null; }
+    }
+
+    // ===== 键盘导航 — 业务方法 =====
+
+    /// <summary>
+    /// 方向键导航：在房间列表中按方向移动焦点。
+    /// direction: -1 上/左, +1 下/右。
+    /// </summary>
+    private void NavigateRoomFocus(int direction)
+    {
+        if (SceneLifecycleGuard.ShouldSkip(this)) return;
+        int count = _currentRoomChoices.Count;
+        if (count <= 0) return;
+
+        if (_focusedRoomIndex < 0)
+        {
+            _focusedRoomIndex = (direction > 0) ? 0 : count - 1;
+        }
+        else
+        {
+            _focusedRoomIndex += direction;
+            if (_focusedRoomIndex >= count) _focusedRoomIndex = 0;
+            if (_focusedRoomIndex < 0) _focusedRoomIndex = count - 1;
+        }
+
+        UpdateRoomFocus();
+    }
+
+    /// <summary>
+    /// 刷新房间焦点高亮。仅当 HotkeyManager 记录到近期键盘活动时显示。
+    /// </summary>
+    private void UpdateRoomFocus()
+    {
+        var children = _choicesContainer.GetChildren();
+        for (int i = 0; i < children.Count; i++)
+        {
+            if (children[i] is Button btn)
+            {
+                bool shouldHighlight = (i == _focusedRoomIndex)
+                    && HotkeyManager.Instance.LastKeyboardActivityMsec > 0;
+                btn.SelfModulate = shouldHighlight
+                    ? new Color(1.2f, 1.2f, 0.85f, 1)
+                    : Colors.White;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Enter 键：确认选择当前键盘焦点的房间。
+    /// </summary>
+    private void AcceptFocusedRoom()
+    {
+        if (SceneLifecycleGuard.ShouldSkip(this)) return;
+        if (_focusedRoomIndex < 0 || _focusedRoomIndex >= _currentRoomChoices.Count) return;
+
+        var room = _currentRoomChoices[_focusedRoomIndex];
+        HandleRoomSelected(room);
+    }
+
+    /// <summary>
+    /// Escape 键：返回（放弃冒险）。
+    /// </summary>
+    private void HandleKeyboardCancel()
+    {
+        if (SceneLifecycleGuard.ShouldSkip(this)) return;
+        OnQuitPressed();
+    }
+
+    /// <summary>
+    /// HotkeyManager 键盘焦点超时事件：超时后清除房间焦点指示器。
+    /// </summary>
+    private void OnKeyboardFocusChanged(bool active)
+    {
+        if (!active)
+        {
+            _focusedRoomIndex = -1;
+            ClearRoomFocus();
+        }
+    }
+
+    /// <summary>
+    /// 清除所有房间按钮的焦点高亮。
+    /// </summary>
+    private void ClearRoomFocus()
+    {
+        foreach (var child in _choicesContainer.GetChildren())
+        {
+            if (child is Button btn)
+                btn.SelfModulate = Colors.White;
         }
     }
 

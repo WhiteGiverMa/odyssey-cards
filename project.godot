@@ -37,6 +37,8 @@ UIScaler="*res://Scripts/UI/UIScaler.cs"
 DevConsole="*res://Scripts/Infrastructure/DevConsole.cs"
 MobileInputHelper="*res://Scripts/Infrastructure/MobileInputHelper.cs"
 MobileInputRouter="*res://Scripts/Infrastructure/MobileInputRouter.cs"
+InputManager="*res://Scripts/Infrastructure/InputManager.cs"
+HotkeyManager="*res://Scripts/Infrastructure/HotkeyManager.cs"
 
 [display]
 
@@ -69,3 +71,114 @@ rendering_device/driver.windows="d3d12"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
+
+[input]
+
+ui_up={
+"deadzone": 0.5,
+"events": []
+}
+ui_down={
+"deadzone": 0.5,
+"events": []
+}
+ui_left={
+"deadzone": 0.5,
+"events": []
+}
+ui_right={
+"deadzone": 0.5,
+"events": []
+}
+ui_accept={
+"deadzone": 0.5,
+"events": []
+}
+ui_cancel={
+"deadzone": 0.5,
+"events": []
+}
+ui_select={
+"deadzone": 0.5,
+"events": []
+}
+ui_focus_next={
+"deadzone": 0.5,
+"events": []
+}
+ui_focus_prev={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_select_card_1={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_select_card_2={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_select_card_3={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_select_card_4={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_select_card_5={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_select_card_6={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_select_card_7={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_select_card_8={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_select_card_9={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_select_card_10={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_tab_target={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_end_turn={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_pause={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_view_deck={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_view_discard={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_page_up={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_page_down={
+"deadzone": 0.5,
+"events": []
+}
+odyssey_skip={
+"deadzone": 0.5,
+"events": []
+}

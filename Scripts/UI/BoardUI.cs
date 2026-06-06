@@ -46,6 +46,10 @@ public partial class BoardUI : Control
     private static readonly Color _textDim = new(0.5f, 0.5f, 0.5f);
     private static readonly Color _textBright = new(0.9f, 0.9f, 0.9f);
 
+    // 键盘焦点高亮颜色
+    private static readonly Color _keyboardFocusBorder = new(1f, 0.85f, 0.2f, 0.8f);
+    private static readonly Color _keyboardFocusBg = new(0.35f, 0.3f, 0.1f, 0.5f);
+
     // 费用/行动花费颜色（与 CardUI 一致）
     private static readonly Color _costBlue = new("#4488cc");
     private static readonly Color _actionCostRed = new("#cc3333");
@@ -90,6 +94,26 @@ public partial class BoardUI : Control
     /// 敌方效果图标栏（每个槽位下方）。
     /// </summary>
     private readonly EffectBar[] _enemyEffectBars = new EffectBar[Board.MaxSlotsPerSide];
+
+    // ===== 键盘目标选择 =====
+
+    /// <summary>键盘目标选择是否已启用。</summary>
+    private bool _keyboardTargetingEnabled;
+
+    /// <summary>是否允许选择玩家方槽位。</summary>
+    private bool _keyboardTargetingPlayerSlots;
+
+    /// <summary>是否允许选择敌方槽位。</summary>
+    private bool _keyboardTargetingEnemySlots;
+
+    /// <summary>当前键盘焦点的槽位索引。</summary>
+    private int _keyboardFocusedSlotIndex;
+
+    /// <summary>当前键盘焦点槽位是否为玩家方。</summary>
+    private bool _keyboardFocusedIsPlayerSide;
+
+    /// <summary>焦点视觉指示器是否当前可见。</summary>
+    private bool _keyboardFocusIndicatorVisible;
 
     // ===== 容器引用 =====
 
@@ -161,6 +185,14 @@ public partial class BoardUI : Control
             _playerEffectBars[i] = playerEffectBar;
             effectLayer.AddChild(playerEffectBar);
         }
+    }
+
+    /// <summary>
+    /// 退出场景树时清除所有 HotkeyManager 绑定。
+    /// </summary>
+    public override void _ExitTree()
+    {
+        DisableKeyboardTargeting();
     }
 
     // ===== 公开方法 =====
@@ -304,6 +336,349 @@ public partial class BoardUI : Control
         var slots = isPlayerSide ? _playerSlots : _enemySlots;
         if (slotIndex >= 0 && slotIndex < slots.Length)
             slots[slotIndex].SetIntentText(text);
+    }
+
+    // ===== 键盘目标选择（公开 API） =====
+
+    /// <summary>
+    /// 启用键盘目标选择——注册 HotkeyManager 热键回调，
+    /// 使玩家可以使用 Tab/方向键/回车/ESC 在合法目标槽位间导航。
+    /// CombatUI 在进入需要目标选择的模式时调用此方法。
+    /// </summary>
+    /// <param name="includePlayerSlots">是否允许选择玩家方槽位</param>
+    /// <param name="includeEnemySlots">是否允许选择敌方槽位</param>
+    public void EnableKeyboardTargeting(bool includePlayerSlots, bool includeEnemySlots)
+    {
+        DisableKeyboardTargeting();
+
+        _keyboardTargetingEnabled = true;
+        _keyboardTargetingPlayerSlots = includePlayerSlots;
+        _keyboardTargetingEnemySlots = includeEnemySlots;
+
+        // 查找第一个合法槽位作为初始焦点
+        if (!TryFindFirstValidSlot(out _keyboardFocusedSlotIndex, out _keyboardFocusedIsPlayerSide))
+        {
+            // 没有合法目标——不启用
+            _keyboardTargetingEnabled = false;
+            return;
+        }
+
+        var hm = HotkeyManager.Instance;
+        if (hm == null) return;
+
+        hm.PushPressedBinding(OdysseyInput.TabTarget, OnKeyboardTabTarget);
+        hm.PushPressedBinding(OdysseyInput.Left, OnKeyboardLeft);
+        hm.PushPressedBinding(OdysseyInput.Right, OnKeyboardRight);
+        hm.PushPressedBinding(OdysseyInput.Up, OnKeyboardUp);
+        hm.PushPressedBinding(OdysseyInput.Down, OnKeyboardDown);
+        hm.PushPressedBinding(OdysseyInput.Accept, OnKeyboardAccept);
+        hm.PushPressedBinding(OdysseyInput.Cancel, OnKeyboardCancel);
+
+        // 订阅键盘焦点变化事件——用于显示/隐藏焦点指示器
+        hm.KeyboardFocusChanged += OnKeyboardFocusChanged;
+
+        // 若键盘最近被使用过，立即显示焦点指示器
+        if (hm.LastKeyboardActivityMsec > 0)
+            ApplyKeyboardFocus(true);
+    }
+
+    /// <summary>
+    /// 禁用键盘目标选择——移除所有 HotkeyManager 热键回调并清除焦点。
+    /// CombatUI 在退出目标选择模式时调用此方法。
+    /// </summary>
+    public void DisableKeyboardTargeting()
+    {
+        if (!_keyboardTargetingEnabled) return;
+        _keyboardTargetingEnabled = false;
+
+        ClearKeyboardFocus();
+
+        var hm = HotkeyManager.Instance;
+        if (hm == null) return;
+
+        hm.KeyboardFocusChanged -= OnKeyboardFocusChanged;
+
+        hm.RemovePressedBinding(OdysseyInput.TabTarget, OnKeyboardTabTarget);
+        hm.RemovePressedBinding(OdysseyInput.Left, OnKeyboardLeft);
+        hm.RemovePressedBinding(OdysseyInput.Right, OnKeyboardRight);
+        hm.RemovePressedBinding(OdysseyInput.Up, OnKeyboardUp);
+        hm.RemovePressedBinding(OdysseyInput.Down, OnKeyboardDown);
+        hm.RemovePressedBinding(OdysseyInput.Accept, OnKeyboardAccept);
+        hm.RemovePressedBinding(OdysseyInput.Cancel, OnKeyboardCancel);
+    }
+
+    // ===== 键盘热键回调 =====
+
+    /// <summary>
+    /// Tab 键——循环切换至下一个合法目标槽位（环绕）。
+    /// </summary>
+    private void OnKeyboardTabTarget()
+    {
+        if (!_keyboardTargetingEnabled || !IsInsideTree()) return;
+        if (!TryFindNextValidSlot(_keyboardFocusedSlotIndex, _keyboardFocusedIsPlayerSide,
+                out int nextIndex, out bool nextIsPlayer))
+            return;
+
+        ClearKeyboardFocus();
+        _keyboardFocusedSlotIndex = nextIndex;
+        _keyboardFocusedIsPlayerSide = nextIsPlayer;
+        ApplyKeyboardFocus(true);
+    }
+
+    /// <summary>
+    /// 左箭头——在同一行内向左移动（环绕）。
+    /// </summary>
+    private void OnKeyboardLeft()
+    {
+        if (!_keyboardTargetingEnabled || !IsInsideTree()) return;
+        NavigateHorizontal(-1);
+    }
+
+    /// <summary>
+    /// 右箭头——在同一行内向右移动（环绕）。
+    /// </summary>
+    private void OnKeyboardRight()
+    {
+        if (!_keyboardTargetingEnabled || !IsInsideTree()) return;
+        NavigateHorizontal(+1);
+    }
+
+    /// <summary>
+    /// 上箭头——从玩家行切换到敌方行同一索引。
+    /// </summary>
+    private void OnKeyboardUp()
+    {
+        if (!_keyboardTargetingEnabled || !IsInsideTree()) return;
+        NavigateVertical(toPlayerSide: false);
+    }
+
+    /// <summary>
+    /// 下箭头——从敌方行切换到玩家行同一索引。
+    /// </summary>
+    private void OnKeyboardDown()
+    {
+        if (!_keyboardTargetingEnabled || !IsInsideTree()) return;
+        NavigateVertical(toPlayerSide: true);
+    }
+
+    /// <summary>
+    /// 回车键——确认选择当前焦点槽位（模拟鼠标左键点击）。
+    /// </summary>
+    private void OnKeyboardAccept()
+    {
+        if (!_keyboardTargetingEnabled || !IsInsideTree()) return;
+
+        var slot = GetFocusedSlot();
+        if (slot != null)
+            NotifySlotClicked(slot.SlotIndex, slot.IsPlayerSide);
+    }
+
+    /// <summary>
+    /// ESC 键——取消目标选择（模拟鼠标右键点击）。
+    /// 由 CombatUI.OnBoardSlotRightClicked 负责执行实际的取消逻辑。
+    /// </summary>
+    private void OnKeyboardCancel()
+    {
+        if (!_keyboardTargetingEnabled || !IsInsideTree()) return;
+
+        var slot = GetFocusedSlot();
+        if (slot != null)
+            NotifySlotRightClicked(slot.SlotIndex, slot.IsPlayerSide);
+        else
+            // 回退：任意槽位触发右键
+            NotifySlotRightClicked(0, true);
+    }
+
+    // ===== 键盘焦点视觉 =====
+
+    /// <summary>
+    /// HotkeyManager 键盘焦点变化回调——控制焦点指示器的显示/隐藏。
+    /// </summary>
+    private void OnKeyboardFocusChanged(bool active)
+    {
+        if (!_keyboardTargetingEnabled || !IsInsideTree()) return;
+        if (active != _keyboardFocusIndicatorVisible)
+            ApplyKeyboardFocus(active);
+    }
+
+    /// <summary>
+    /// 设置当前焦点槽位的键盘焦点视觉指示器。
+    /// </summary>
+    /// <param name="active">true 显示焦点，false 隐藏</param>
+    private void ApplyKeyboardFocus(bool active)
+    {
+        _keyboardFocusIndicatorVisible = active;
+
+        var slot = GetFocusedSlot();
+        slot?.SetKeyboardFocused(active);
+    }
+
+    /// <summary>
+    /// 清除当前键盘焦点（从槽位移除焦点指示器）。
+    /// </summary>
+    private void ClearKeyboardFocus()
+    {
+        if (_keyboardFocusIndicatorVisible)
+        {
+            var slot = GetFocusedSlot();
+            slot?.SetKeyboardFocused(false);
+            _keyboardFocusIndicatorVisible = false;
+        }
+    }
+
+    /// <summary>
+    /// 获取当前焦点槽位引用。
+    /// </summary>
+    private BoardSlot? GetFocusedSlot()
+    {
+        var slots = _keyboardFocusedIsPlayerSide ? _playerSlots : _enemySlots;
+        if (_keyboardFocusedSlotIndex < 0 || _keyboardFocusedSlotIndex >= slots.Length)
+            return null;
+        return slots[_keyboardFocusedSlotIndex];
+    }
+
+    // ===== 键盘导航辅助 =====
+
+    /// <summary>
+    /// 水平导航——在当前行内向左（-1）或向右（+1）移动，遇到合法槽位则停。
+    /// 无合法槽位时保持原位。
+    /// </summary>
+    private void NavigateHorizontal(int direction)
+    {
+        int start = _keyboardFocusedSlotIndex;
+        for (int i = 1; i <= Board.MaxSlotsPerSide; i++)
+        {
+            int candidate = (start + direction * i + Board.MaxSlotsPerSide) % Board.MaxSlotsPerSide;
+            if (IsSlotValidTarget(candidate, _keyboardFocusedIsPlayerSide))
+            {
+                ClearKeyboardFocus();
+                _keyboardFocusedSlotIndex = candidate;
+                ApplyKeyboardFocus(true);
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 垂直导航——在玩家行和敌方行之间切换（保持相同槽位索引）。
+    /// </summary>
+    private void NavigateVertical(bool toPlayerSide)
+    {
+        // 目标行是否已启用
+        if (toPlayerSide && !_keyboardTargetingPlayerSlots) return;
+        if (!toPlayerSide && !_keyboardTargetingEnemySlots) return;
+
+        if (IsSlotValidTarget(_keyboardFocusedSlotIndex, toPlayerSide))
+        {
+            ClearKeyboardFocus();
+            _keyboardFocusedIsPlayerSide = toPlayerSide;
+            ApplyKeyboardFocus(true);
+        }
+    }
+
+    /// <summary>
+    /// 检查指定槽位是否为合法的键盘可选目标。
+    /// 槽位必须在启用的阵营方内，且处于高亮（合法目标）状态。
+    /// </summary>
+    private bool IsSlotValidTarget(int slotIndex, bool isPlayerSide)
+    {
+        if (isPlayerSide && !_keyboardTargetingPlayerSlots) return false;
+        if (!isPlayerSide && !_keyboardTargetingEnemySlots) return false;
+
+        var slots = isPlayerSide ? _playerSlots : _enemySlots;
+        if (slotIndex < 0 || slotIndex >= slots.Length) return false;
+
+        return slots[slotIndex].IsHighlighted;
+    }
+
+    /// <summary>
+    /// 查找第一个合法槽位作为初始焦点。
+    /// 优先敌方行（上方），再玩家行（下方）。
+    /// </summary>
+    private bool TryFindFirstValidSlot(out int slotIndex, out bool isPlayerSide)
+    {
+        if (_keyboardTargetingEnemySlots)
+        {
+            for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+            {
+                if (_enemySlots[i].IsHighlighted)
+                {
+                    slotIndex = i;
+                    isPlayerSide = false;
+                    return true;
+                }
+            }
+        }
+
+        if (_keyboardTargetingPlayerSlots)
+        {
+            for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+            {
+                if (_playerSlots[i].IsHighlighted)
+                {
+                    slotIndex = i;
+                    isPlayerSide = true;
+                    return true;
+                }
+            }
+        }
+
+        slotIndex = 0;
+        isPlayerSide = false;
+        return false;
+    }
+
+    /// <summary>
+    /// 查找下一个合法槽位（Tab 循环），从当前位置之后开始搜索，支持环绕。
+    /// </summary>
+    private bool TryFindNextValidSlot(int currentIndex, bool currentIsPlayer,
+        out int nextIndex, out bool nextIsPlayer)
+    {
+        // 在当前行从当前位置之后开始搜索
+        int startRowIndex = currentIndex;
+        bool startRowSide = currentIsPlayer;
+
+        // 先尝试当前行剩余槽位
+        for (int i = startRowIndex + 1; i < Board.MaxSlotsPerSide; i++)
+        {
+            if (IsSlotValidTarget(i, startRowSide))
+            {
+                nextIndex = i;
+                nextIsPlayer = startRowSide;
+                return true;
+            }
+        }
+
+        // 切换到另一行
+        bool otherSide = !startRowSide;
+        if ((otherSide && _keyboardTargetingPlayerSlots) || (!otherSide && _keyboardTargetingEnemySlots))
+        {
+            for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+            {
+                if (IsSlotValidTarget(i, otherSide))
+                {
+                    nextIndex = i;
+                    nextIsPlayer = otherSide;
+                    return true;
+                }
+            }
+        }
+
+        // 环绕：从当前行开头重新搜索
+        for (int i = 0; i <= startRowIndex; i++)
+        {
+            if (IsSlotValidTarget(i, startRowSide))
+            {
+                nextIndex = i;
+                nextIsPlayer = startRowSide;
+                return true;
+            }
+        }
+
+        // 没有其他合法槽位，返回当前
+        nextIndex = currentIndex;
+        nextIsPlayer = currentIsPlayer;
+        return true; // 至少当前槽位是合法的
     }
 
     // ===== 内部方法 =====
@@ -682,6 +1057,38 @@ public partial class BoardUI : Control
             {
                 ApplyBackgroundColor();
                 ApplyTextColor();
+            }
+        }
+
+        /// <summary>
+        /// 设置键盘焦点指示器——在槽位边框上显示醒目的金色高亮，
+        /// 用于标识当前键盘导航选中的目标槽位。
+        /// 不影响 <see cref="IsHighlighted"/> 状态。
+        /// </summary>
+        /// <param name="focused">是否聚焦</param>
+        public void SetKeyboardFocused(bool focused)
+        {
+            if (focused)
+            {
+                _borderRect.Color = _keyboardFocusBorder;
+                _background.Color = _keyboardFocusBg;
+                _contentLabel.AddThemeColorOverride("font_color", _textBright);
+            }
+            else
+            {
+                // 恢复为正常状态（高亮 > 暗化 > 悬停 > 普通）
+                if (IsHighlighted)
+                {
+                    _borderRect.Color = _borderHighlight;
+                    _background.Color = _bgHighlight;
+                    _contentLabel.AddThemeColorOverride("font_color", _textBright);
+                }
+                else
+                {
+                    _borderRect.Color = _borderNormal;
+                    ApplyBackgroundColor();
+                    ApplyTextColor();
+                }
             }
         }
 

@@ -1,7 +1,7 @@
 # OdysseyCards — Godot 4.6 C# · 类炉石 Roguelite 卡牌
 
 **Branch:** `main` · **Commit:** `394871f` · **Updated:** 2026-06-06
-**Scale:** 133 `.cs` (Scripts/) · ~24,000 行 · 32 `.tres` 卡牌 · 4 `.tscn` 场景
+**Scale:** 136 `.cs` (Scripts/) · ~26,000 行 · 32 `.tres` 卡牌 · 4 `.tscn` 场景
 
 ## Start
 
@@ -21,20 +21,10 @@ Scripts/
 ├── AI/ (25)         # Intents/(18): AbstractIntent类体系+MoveState; IntentAI, EnemyRegistry, MechanicalRoachBrain, ZhangLang, ShanHu…
 ├── Roguelike/ (3)  # EventSelector, RoomData, GameRunState
 ├── Localization/ (5)# YAML 多语言 (LocalStr, ConcatLocalStr, ILocalizable, YamlParser)
-└── Infrastructure/ (16, 含 Commands/7) # DevConsole (Autoload), DevConsoleEngine, DevConsoleCommand, MobileInputRouter(Autoload), MobileInputHelper
+└── Infrastructure/ (19, 含 Commands/7) # DevConsole (Autoload), DevConsoleEngine, DevConsoleCommand, MobileInputRouter(Autoload), MobileInputHelper, InputManager(Autoload), HotkeyManager(Autoload), OdysseyInput
 Resources/Cards/    # 32 卡牌 .tres (法术15 + 随从11 + 领域6)
 Resources/Localization/ # zh.yaml / en.yaml
 Scenes/             # Main.tscn, Combat.tscn, Collection.tscn, Map.tscn
-```
-
-## Commands
-
-```bash
-dotnet build                  # 调试构建
-dotnet build -c Release       # 发布构建
-dotnet format OdysseyCards.sln --verify-no-changes  # CI 格式检查
-dotnet format OdysseyCards.sln # 自动格式化
-dotnet test                   # xunit (8 测试文件, tests/csharp/，其中 6 个 Unit + 2 个 Integration[Skip])
 ```
 
 ## Autoload
@@ -46,6 +36,8 @@ dotnet test                   # xunit (8 测试文件, tests/csharp/，其中 6 
 | `DevConsole` | `Scripts/Infrastructure/DevConsole.cs` | 开发者控制台，`` ` `` 呼出 |
 | `MobileInputRouter` | `Scripts/Infrastructure/MobileInputRouter.cs` | 移动端触控路由（手势所有权 + 模态栈），桌面端透传 |
 | `MobileInputHelper` | `Scripts/Infrastructure/MobileInputHelper.cs` | 旧版触控辅助（已逐步废弃，新代码用 Router） |
+| `InputManager` | `Scripts/Infrastructure/InputManager.cs` | 键盘键位映射（物理键→逻辑动作），多套配置持久化 |
+| `HotkeyManager` | `Scripts/Infrastructure/HotkeyManager.cs` | 键盘动作→回调分发（栈式绑定），AddBlockingScreen 输入拦截 |
 
 ## WHERE TO LOOK
 
@@ -81,6 +73,8 @@ dotnet test                   # xunit (8 测试文件, tests/csharp/，其中 6 
 | 领域触发 | `Combat/DomainTriggerManager.cs` | 部署/回合/受击时机的领域行为，从 CombatManager 拆出 |
 | 运行时QA | `Combat/CombatRuntimeQa.cs` | `/qa_bait_tactics` `/qa_new_cards` 等 QA 场景，与生产逻辑分离 |
 | 移动端输入 | `Infrastructure/MobileInputRouter.cs` | 战斗表面触控已迁移至此；桌面端 IsMobile=false 时透传 |
+| 键盘输入 | `Infrastructure/InputManager.cs` → `HotkeyManager.cs` → 各场景 UI | 三层架构：物理键→动作名→回调。键位定义在 `OdysseyInput.cs` |
+| 键位配置 | `Infrastructure/InputManager.cs` | 多套配置持久化（`user://keybindings/profiles.json`），默认对齐 STS2 |
 
 ## Architecture Rules
 
@@ -245,6 +239,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - **禁止** 用 `GetGlobalMousePosition()` 替代 `InputEventMouseButton.GlobalPosition` 做点击初始坐标。
 - **禁止** 新增卡牌不同步 `CardResourcePaths[]` → 导出无法加载。
 - **禁止** 新增语言不同步 `TryLoadTranslationsViaDirAccess()` 回退。
+- **禁止** 用 `_Input` 的原始 `Key.` 枚举处理新功能 → 必须通过 `OdysseyInput` 常量 + `HotkeyManager`。
 - **禁止** 同一栈帧内 `QueueFree` + `AddChild` 混用 → 批处理 deferred 重建。
 
 ## Unique Styles
@@ -261,6 +256,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 
 ## State
 
+- ✅ 全面键盘支持：三层架构（InputManager→HotkeyManager→各场景），对齐 STS2 键位。6 个场景 + 3 个基础设施文件。
 - ✅ 本地化全场景接线。10 处硬编码已修复 + 12 YAML key。
 - ✅ 导出兼容：DirAccess 回退 + YAML include_filter。
 - ✅ 卡牌选中/拖拽已修复：多选归位、点击跟随、拖拽追踪。
@@ -279,3 +275,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - `.godot/` 删除后编辑器重生成 UID，异常先查 .tscn 引用。
 - `.cs` ↔ `.uid` 配对，重命名/移动同步处理。
 - 端口冲突→旧 Godot 进程残留→手动 Stop-Process。
+
+# 杂项
+
+- **必须** 在 `_ExitTree` 中注销 `_EnterTree` 注册的所有 HotkeyManager 绑定 → 用 `PushPressedBinding`/`RemovePressedBinding` 配对。

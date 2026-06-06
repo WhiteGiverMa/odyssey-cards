@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
@@ -52,6 +53,24 @@ public partial class PauseMenu : Control
     private HSlider _emoteVarMaxSlider = null!;
     private Label _emoteVarMaxValueLabel = null!;
 
+    // ===== 键盘导航 =====
+
+    /// <summary>当前键盘焦点所在的按钮索引（-1 = 无焦点）。</summary>
+    private int _focusedButtonIndex = -1;
+
+    /// <summary>当前受键盘高亮的按钮引用（用于清除视觉）。</summary>
+    private Button? _keyboardFocusedButton;
+
+    /// <summary>HotkeyManager 回调引用（用于注销）。</summary>
+    private Action? _upAction;
+    private Action? _downAction;
+    private Action? _acceptAction;
+    private Action? _cancelAction;
+
+    /// <summary>当前页面的可聚焦按钮列表。</summary>
+    private List<Button> _mainMenuButtonList = null!;
+    private List<Button> _settingsButtonList = null!;
+
     // ===== 事件 =====
 
     /// <summary>「继续」按钮点击——关闭暂停菜单。</summary>
@@ -101,11 +120,15 @@ public partial class PauseMenu : Control
 
         // 订阅语言变更
         GameManager.Instance.LanguageChanged += OnLanguageChanged;
+
+        // 注册键盘热键绑定
+        RegisterHotkeyBindings();
     }
 
     public override void _ExitTree()
     {
         GameManager.Instance.LanguageChanged -= OnLanguageChanged;
+        UnregisterHotkeyBindings();
     }
 
     // ===== 主菜单构建 =====
@@ -141,6 +164,12 @@ public partial class PauseMenu : Control
 
         _quickSlBtn = CreateMenuButton("ui.pause.quick_sl", "快速SL（重打这场战斗）", () => OnQuickSL?.Invoke());
         _mainContainer.AddChild(_quickSlBtn);
+
+        // 构建主菜单按钮导航列表（用于键盘 Up/Down）
+        _mainMenuButtonList = new List<Button>
+        {
+            _continueBtn, _settingsBtn, _saveExitBtn, _quickSlBtn,
+        };
     }
 
     /// <summary>
@@ -388,6 +417,9 @@ public partial class PauseMenu : Control
         _emoteIdleTimeSlider.ValueChanged += OnEmoteIdleTimeChanged;
         _emoteVarMinSlider.ValueChanged += OnEmoteVarMinChanged;
         _emoteVarMaxSlider.ValueChanged += OnEmoteVarMaxChanged;
+
+        // 构建设置页按钮导航列表（仅「返回」按钮）
+        _settingsButtonList = new List<Button> { _settingsBackBtn };
     }
 
     // ===== 设置页面——数据加载 =====
@@ -545,6 +577,178 @@ public partial class PauseMenu : Control
     {
         _settingsContainer.Visible = false;
         _mainContainer.Visible = true;
+    }
+
+    // ===== 键盘导航 — HotkeyManager 绑定 =====
+
+    /// <summary>
+    /// 注册键盘热键绑定到 HotkeyManager。
+    /// Up/Down 循环切换焦点按钮，Enter 激活，Escape 关闭暂停菜单。
+    /// 与 _Input 中的 ESC 处理并行工作（_Input 先触发，HotkeyManager 延迟一帧回调）。
+    /// </summary>
+    private void RegisterHotkeyBindings()
+    {
+        var hm = HotkeyManager.Instance;
+        if (hm == null) return;
+
+        _upAction = CycleButtonFocusUp;
+        _downAction = CycleButtonFocusDown;
+        _acceptAction = ActivateFocusedButton;
+        _cancelAction = HotkeyCancelPause;
+
+        hm.PushPressedBinding(OdysseyInput.Up, _upAction);
+        hm.PushPressedBinding(OdysseyInput.Down, _downAction);
+        hm.PushPressedBinding(OdysseyInput.Accept, _acceptAction);
+        hm.PushPressedBinding(OdysseyInput.Cancel, _cancelAction);
+
+        // 监听键盘焦点超时事件——超时后清除焦点指示器
+        hm.KeyboardFocusChanged += OnKeyboardFocusChanged;
+    }
+
+    /// <summary>
+    /// 注销所有键盘热键绑定。
+    /// </summary>
+    private void UnregisterHotkeyBindings()
+    {
+        var hm = HotkeyManager.Instance;
+        if (hm == null) return;
+
+        hm.KeyboardFocusChanged -= OnKeyboardFocusChanged;
+
+        if (_upAction != null) { hm.RemovePressedBinding(OdysseyInput.Up, _upAction); _upAction = null; }
+        if (_downAction != null) { hm.RemovePressedBinding(OdysseyInput.Down, _downAction); _downAction = null; }
+        if (_acceptAction != null) { hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
+        if (_cancelAction != null) { hm.RemovePressedBinding(OdysseyInput.Cancel, _cancelAction); _cancelAction = null; }
+    }
+
+    /// <summary>
+    /// 获取当前可见页面的按钮列表。
+    /// </summary>
+    private List<Button> GetCurrentButtonList()
+    {
+        return _settingsContainer.Visible ? _settingsButtonList : _mainMenuButtonList;
+    }
+
+    /// <summary>
+    /// Up 键：将焦点移动到上一个按钮（循环）。
+    /// </summary>
+    private void CycleButtonFocusUp()
+    {
+        var buttons = GetCurrentButtonList();
+        if (buttons.Count == 0) return;
+
+        if (_focusedButtonIndex < 0 || _focusedButtonIndex >= buttons.Count)
+            _focusedButtonIndex = buttons.Count - 1;
+        else
+            _focusedButtonIndex = (_focusedButtonIndex - 1 + buttons.Count) % buttons.Count;
+
+        ApplyKeyboardFocusVisual();
+    }
+
+    /// <summary>
+    /// Down 键：将焦点移动到下一个按钮（循环）。
+    /// </summary>
+    private void CycleButtonFocusDown()
+    {
+        var buttons = GetCurrentButtonList();
+        if (buttons.Count == 0) return;
+
+        if (_focusedButtonIndex < 0 || _focusedButtonIndex >= buttons.Count)
+            _focusedButtonIndex = 0;
+        else
+            _focusedButtonIndex = (_focusedButtonIndex + 1) % buttons.Count;
+
+        ApplyKeyboardFocusVisual();
+    }
+
+    /// <summary>
+    /// Enter 键：激活当前焦点所在的按钮。
+    /// </summary>
+    private void ActivateFocusedButton()
+    {
+        var buttons = GetCurrentButtonList();
+        if (buttons.Count == 0) return;
+
+        if (_focusedButtonIndex < 0 || _focusedButtonIndex >= buttons.Count)
+            _focusedButtonIndex = 0;
+
+        var btn = buttons[_focusedButtonIndex];
+        if (btn == null || !GodotObject.IsInstanceValid(btn)) return;
+
+        // 通过 EmitSignal 触发按钮的 Pressed 信号，复用已有的事件处理逻辑
+        btn.EmitSignal(BaseButton.SignalName.Pressed);
+    }
+
+    /// <summary>
+    /// Escape 键（HotkeyManager 回调）：关闭设置子页面或退出暂停。
+    /// 与 _Input 中的 ESC 处理并行——_Input 先触发，此回调作为延迟冗余保证。
+    /// </summary>
+    private void HotkeyCancelPause()
+    {
+        if (!IsInsideTree()) return;
+
+        if (_settingsContainer.Visible)
+        {
+            HideSettings();
+            // 切换到主菜单后重置焦点
+            _focusedButtonIndex = -1;
+            ClearKeyboardFocusVisual();
+        }
+        else
+        {
+            OnContinue?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// HotkeyManager 键盘焦点超时回调。
+    /// 键盘闲置 3 秒后自动清除焦点指示器。
+    /// </summary>
+    private void OnKeyboardFocusChanged(bool active)
+    {
+        if (!active)
+        {
+            _focusedButtonIndex = -1;
+            ClearKeyboardFocusVisual();
+        }
+    }
+
+    /// <summary>
+    /// 给当前键盘焦点的按钮施加蓝色调 SelfModulate 指示器。
+    /// 清除之前焦点的视觉。
+    /// 仅当 HotkeyManager 记录到近期键盘活动时才显示。
+    /// </summary>
+    private void ApplyKeyboardFocusVisual()
+    {
+        bool shouldShowFocus = HotkeyManager.Instance.LastKeyboardActivityMsec > 0;
+
+        // 先清除旧焦点视觉
+        ClearKeyboardFocusVisual();
+
+        if (!shouldShowFocus) return;
+
+        var buttons = GetCurrentButtonList();
+        if (_focusedButtonIndex < 0 || _focusedButtonIndex >= buttons.Count) return;
+
+        var btn = buttons[_focusedButtonIndex];
+        if (btn == null || !GodotObject.IsInstanceValid(btn)) return;
+
+        // 蓝色调指示器（通过 SelfModulate 叠加）
+        btn.SelfModulate = new Color(0.72f, 0.85f, 1f, 1f);
+        _keyboardFocusedButton = btn;
+    }
+
+    /// <summary>
+    /// 清除当前按钮的键盘焦点视觉。
+    /// </summary>
+    private void ClearKeyboardFocusVisual()
+    {
+        if (_keyboardFocusedButton != null)
+        {
+            if (GodotObject.IsInstanceValid(_keyboardFocusedButton))
+                _keyboardFocusedButton.SelfModulate = Colors.White;
+            _keyboardFocusedButton = null;
+        }
     }
 
     // ===== 语言变更 =====
