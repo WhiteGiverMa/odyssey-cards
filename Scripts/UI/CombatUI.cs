@@ -2435,9 +2435,19 @@ public partial class CombatUI : Control
 
 		// 将卡牌 UI 从 HandUI 移到 DragLayer，脱离 HBoxContainer 布局约束
 		var cardUI = _handUI.GetCardUIFor(card);
+		bool isKeyboardSel = _handUI.IsKeyboardSelection;
+		Vector2 savedGlobalPos = Vector2.Zero;
+		Vector2 savedSize = Vector2.Zero;
+		Vector2 savedScale = Vector2.Zero;
+
 		if (cardUI != null)
 		{
 			bool isMobileDrag = MobileInputRouter.IsMobile && cardUI.IsDragging;
+
+			// 在 StopLayoutControl / Offset 清除之前保存全局位置——之后会变
+			savedGlobalPos = cardUI.GlobalPosition;
+			savedSize = cardUI.Size;
+			savedScale = cardUI.Scale;
 
 			_handUI.StopLayoutControl(cardUI);
 
@@ -2452,22 +2462,20 @@ public partial class CombatUI : Control
 				// 移动端纯拖拽：卡牌已在跟随手指移动，用 Reparent 保持当前位置
 				cardUI.Reparent(_dragLayer);
 			}
-			else if (_handUI.IsKeyboardSelection)
+			else if (isKeyboardSel)
 			{
-				// 键盘选牌：从卡牌在手中的位置开始动画（不要跳到鼠标位置）
-				Vector2 cardGlobalPos = cardUI.GlobalPosition;
-				Vector2 cardSize = cardUI.Size * cardUI.Scale;
-				Vector2 cardCenter = cardGlobalPos + cardSize * 0.5f;
+				// 键盘选牌：将卡牌中心对齐到选牌前它在手牌中的全局位置
+				Vector2 preSize = savedSize * savedScale;
+				Vector2 halfSize = preSize * 0.5f;
 				cardUI.GetParent()?.RemoveChild(cardUI);
 				_dragLayer.AddChild(cardUI);
-				cardUI.Position = cardCenter - _dragLayer.GlobalPosition - cardSize * 0.5f;
+				cardUI.Position = (savedGlobalPos + halfSize) - _dragLayer.GlobalPosition - halfSize;
 			}
 			else
 			{
 				Vector2 mousePosition = cardUI.LastClickGlobalPosition;
-				Vector2 preSize = cardUI.Size;
-				Vector2 preScale = cardUI.Scale;
-				Vector2 halfSize = preSize * preScale * 0.5f;
+				Vector2 preSize = savedSize * savedScale;
+				Vector2 halfSize = preSize * 0.5f;
 				cardUI.GetParent()?.RemoveChild(cardUI);
 				_dragLayer.AddChild(cardUI);
 				cardUI.Position = mousePosition - halfSize - _dragLayer.GetGlobalRect().Position;
@@ -2519,6 +2527,13 @@ public partial class CombatUI : Control
 			default:
 				GD.Print($"[CombatUI] 未知卡牌类型：{card.Type}");
 				break;
+		}
+
+		// 键盘选牌 → 无目标卡牌（领域/无目标法术/状态牌）需启动拖拽使其跟随鼠标
+		if (isKeyboardSel && _selectionMode == SelectionMode.PlayingNoTargetCard && _dragCardUI != null)
+		{
+			Vector2 clickCenter = savedGlobalPos + savedSize * savedScale * 0.5f;
+			_dragCardUI.BeginDragFrom(clickCenter);
 		}
 	}
 

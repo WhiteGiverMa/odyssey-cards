@@ -609,8 +609,23 @@ public partial class CardUI : Control
         MouseFilter = MouseFilterEnum.Ignore;
         _isHoverEffectActive = false;
         KillHoverTween();
-        // 不要在此设 OffsetTop：DragLayer 是手动布局，OffsetTop 会触发
-        // Godot 非锚定控件的布局重算，导致 Position.Y 清零（瞬移到屏幕最上方）。
+        FlashHighlight();
+    }
+
+    /// <summary>
+    /// 从指定全局位置启动拖拽（用于键盘快捷键选牌）。
+    /// 模拟鼠标点击在该位置，后续 _Process 会自动跟随鼠标。
+    /// </summary>
+    /// <param name="globalPosition">「虚拟点击」的全局屏幕坐标</param>
+    public void BeginDragFrom(Vector2 globalPosition)
+    {
+        _isDragging = true;
+        _hasDragged = false;
+        _dragOffset = globalPosition - GlobalPosition;
+        _dragStartScreenPos = globalPosition;
+        MouseFilter = MouseFilterEnum.Ignore;
+        _isHoverEffectActive = false;
+        KillHoverTween();
         FlashHighlight();
     }
 
