@@ -63,6 +63,9 @@ public partial class HandUI : Control
 	/// <summary>键盘焦点卡牌索引（-1 = 无焦点）。方向键导航或数字键直选时更新。</summary>
 	private int _focusedCardIndex = -1;
 
+	/// <summary>当前选牌是否由键盘快捷键触发（供 CombatUI 调整动画起点）。</summary>
+	public bool IsKeyboardSelection { get; private set; }
+
 	/// <summary>当前正在显示键盘焦点视觉的 CardUI。用于清除旧焦点时重置 SelfModulate。</summary>
 	private CardUI? _keyboardFocusedCardUI;
 
@@ -730,13 +733,15 @@ public partial class HandUI : Control
 
 		if (HandSelectMode)
 		{
-			// 手牌选择模式：切换该卡牌的选中状态
 			OnCardSelectionToggled?.Invoke(cardUI.Card, true);
 		}
 		else
 		{
-			// 正常出牌模式：模拟点击该卡牌
+			// 标记为键盘选牌——CombatUI 将从卡牌在手中的位置开始动画，
+			// 而非跳到屏幕左上角（LastClickGlobalPosition 在未点击时为过期值）
+			IsKeyboardSelection = true;
 			OnCardClicked(cardUI);
+			IsKeyboardSelection = false;
 		}
 
 		RefreshLayout();
@@ -784,7 +789,9 @@ public partial class HandUI : Control
 		var cardUI = _cardSlots[index].CardUI;
 		if (cardUI.Card == null) return;
 
+		IsKeyboardSelection = true;
 		OnCardClicked(cardUI);
+		IsKeyboardSelection = false;
 		RefreshLayout();
 	}
 

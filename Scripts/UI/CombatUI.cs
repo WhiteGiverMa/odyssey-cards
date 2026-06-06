@@ -2187,35 +2187,35 @@ public partial class CombatUI : Control
 		}
 	}
 
-    /// <summary>
-    /// 槽位右键点击回调——在目标选择模式下取消当前选择（等效 ESC）。
-    /// 处理所有需要目标选择的模式：攻击、武器、法术、放置等。
-    /// </summary>
-    private void OnBoardSlotRightClicked(int slotIndex, bool isPlayerSide)
-    {
-        if (_combat.State.IsGameOver) return;
+	/// <summary>
+	/// 槽位右键点击回调——在目标选择模式下取消当前选择（等效 ESC）。
+	/// 处理所有需要目标选择的模式：攻击、武器、法术、放置等。
+	/// </summary>
+	private void OnBoardSlotRightClicked(int slotIndex, bool isPlayerSide)
+	{
+		if (_combat.State.IsGameOver) return;
 
-        // 开发者伤害模式——退出
-        if (_selectionMode == SelectionMode.DevDamageTargeting)
-        {
-            ExitDevDamageMode();
-            return;
-        }
+		// 开发者伤害模式——退出
+		if (_selectionMode == SelectionMode.DevDamageTargeting)
+		{
+			ExitDevDamageMode();
+			return;
+		}
 
-        // 攻击/武器/法术目标选择模式——重置选择
-        if (_selectionMode == SelectionMode.SelectingAttackTarget
-            || _selectionMode == SelectionMode.SelectingWeaponTarget
-            || _selectionMode == SelectionMode.SelectingActiveSkillTarget
-            || _selectionMode == SelectionMode.TargetingSpell
-            || _selectionMode == SelectionMode.PlacingMinion
-            || _selectionMode == SelectionMode.PlayingNoTargetCard)
-        {
-            GD.Print("[CombatUI] 槽位右键→取消目标选择");
-            ResetSelection();
-            _handUI.RefreshHand();
-            return;
-        }
-    }
+		// 攻击/武器/法术目标选择模式——重置选择
+		if (_selectionMode == SelectionMode.SelectingAttackTarget
+			|| _selectionMode == SelectionMode.SelectingWeaponTarget
+			|| _selectionMode == SelectionMode.SelectingActiveSkillTarget
+			|| _selectionMode == SelectionMode.TargetingSpell
+			|| _selectionMode == SelectionMode.PlacingMinion
+			|| _selectionMode == SelectionMode.PlayingNoTargetCard)
+		{
+			GD.Print("[CombatUI] 槽位右键→取消目标选择");
+			ResetSelection();
+			_handUI.RefreshHand();
+			return;
+		}
+	}
 
 	// ----- 普通模式下的槽位点击 -----
 
@@ -2245,13 +2245,13 @@ public partial class CombatUI : Control
 		_attackDragHasMoved = false;
 		_attackDragStartPos = GetInputPosition();
 
-        GD.Print($"[CombatUI] 选中己方随从 {minion.CardName} 准备攻击");
+		GD.Print($"[CombatUI] 选中己方随从 {minion.CardName} 准备攻击");
 
-        // 高亮合法攻击目标
-        HighlightValidAttackTargets();
+		// 高亮合法攻击目标
+		HighlightValidAttackTargets();
 
-        // 启用键盘目标选择（仅敌方槽位）
-        _boardUI.EnableKeyboardTargeting(includePlayerSlots: false, includeEnemySlots: true);
+		// 启用键盘目标选择（仅敌方槽位）
+		_boardUI.EnableKeyboardTargeting(includePlayerSlots: false, includeEnemySlots: true);
 	}
 
 	// ----- 随从放置 -----
@@ -2451,6 +2451,16 @@ public partial class CombatUI : Control
 			{
 				// 移动端纯拖拽：卡牌已在跟随手指移动，用 Reparent 保持当前位置
 				cardUI.Reparent(_dragLayer);
+			}
+			else if (_handUI.IsKeyboardSelection)
+			{
+				// 键盘选牌：从卡牌在手中的位置开始动画（不要跳到鼠标位置）
+				Vector2 cardGlobalPos = cardUI.GlobalPosition;
+				Vector2 cardSize = cardUI.Size * cardUI.Scale;
+				Vector2 cardCenter = cardGlobalPos + cardSize * 0.5f;
+				cardUI.GetParent()?.RemoveChild(cardUI);
+				_dragLayer.AddChild(cardUI);
+				cardUI.Position = cardCenter - _dragLayer.GlobalPosition - cardSize * 0.5f;
 			}
 			else
 			{
@@ -2766,19 +2776,19 @@ public partial class CombatUI : Control
 			}
 		}
 
-        if (validSlots.Count > 0)
-        {
-            _boardUI.HighlightSlots(validSlots, isPlayerSide: true, highlight: true);
-            GD.Print($"[CombatUI] 随从放置模式——可放置槽位：{string.Join(", ", validSlots)}");
-        }
-        else
-        {
-            GD.Print("[CombatUI] 随从放置模式——无可用槽位（战场已满）");
-        }
+		if (validSlots.Count > 0)
+		{
+			_boardUI.HighlightSlots(validSlots, isPlayerSide: true, highlight: true);
+			GD.Print($"[CombatUI] 随从放置模式——可放置槽位：{string.Join(", ", validSlots)}");
+		}
+		else
+		{
+			GD.Print("[CombatUI] 随从放置模式——无可用槽位（战场已满）");
+		}
 
-        // 启用键盘目标选择（仅玩家方空槽位）
-        _boardUI.EnableKeyboardTargeting(includePlayerSlots: true, includeEnemySlots: false);
-    }
+		// 启用键盘目标选择（仅玩家方空槽位）
+		_boardUI.EnableKeyboardTargeting(includePlayerSlots: true, includeEnemySlots: false);
+	}
 
 	/// <summary>
 	/// 进入法术目标选择模式——根据卡牌的 TargetFilter 过滤合法目标。
@@ -2827,15 +2837,15 @@ public partial class CombatUI : Control
 		_playerHeroSpellButton.Visible = TargetTagsHelper.IsValidTarget(
 			_combat.PlayerHero.GetTargetTags(), require, exclude);
 
-        GD.Print($"[CombatUI] 法术目标模式——{_selectedCard.CardName}（require={require} exclude={exclude}，" +
-                  $"敌方随从 {enemyTargets.Count} + 己方随从 {friendlyTargets.Count} + " +
-                  $"{(enemyTargets.Count > 0 || friendlyTargets.Count > 0 ? " + 英雄" : "")}）");
+		GD.Print($"[CombatUI] 法术目标模式——{_selectedCard.CardName}（require={require} exclude={exclude}，" +
+				  $"敌方随从 {enemyTargets.Count} + 己方随从 {friendlyTargets.Count} + " +
+				  $"{(enemyTargets.Count > 0 || friendlyTargets.Count > 0 ? " + 英雄" : "")}）");
 
-        // 启用键盘目标选择（根据高亮的阵营方）
-        _boardUI.EnableKeyboardTargeting(
-            includePlayerSlots: friendlyTargets.Count > 0,
-            includeEnemySlots: enemyTargets.Count > 0);
-    }
+		// 启用键盘目标选择（根据高亮的阵营方）
+		_boardUI.EnableKeyboardTargeting(
+			includePlayerSlots: friendlyTargets.Count > 0,
+			includeEnemySlots: enemyTargets.Count > 0);
+	}
 
 	/// <summary>
 	/// 进入无目标卡牌播放模式——显示播放区域指示器，等待玩家拖拽到播放区域松手打出。
@@ -3102,17 +3112,17 @@ public partial class CombatUI : Control
 		if (weapon == null || weapon.IsDisabled) return;
 		if (!_combat.PlayerHero.CanSpendMana(weapon.AttackCost)) return;
 
-        GD.Print($"[CombatUI] 进入武器攻击目标选择模式 — {weapon.Name}");
+		GD.Print($"[CombatUI] 进入武器攻击目标选择模式 — {weapon.Name}");
 
-        _selectionMode = SelectionMode.SelectingWeaponTarget;
-        _selectedAttacker = null;
-        _selectedCard = null;
+		_selectionMode = SelectionMode.SelectingWeaponTarget;
+		_selectedAttacker = null;
+		_selectedCard = null;
 
-        // 高亮合法攻击目标
-        HighlightWeaponTargets();
+		// 高亮合法攻击目标
+		HighlightWeaponTargets();
 
-        // 启用键盘目标选择（仅敌方槽位）
-        _boardUI.EnableKeyboardTargeting(includePlayerSlots: false, includeEnemySlots: true);
+		// 启用键盘目标选择（仅敌方槽位）
+		_boardUI.EnableKeyboardTargeting(includePlayerSlots: false, includeEnemySlots: true);
 	}
 
 	/// <summary>
@@ -3127,16 +3137,16 @@ public partial class CombatUI : Control
 		if (weapon?.ActiveSkill == null) return;
 		if (!weapon.ActiveSkill.CanUse(_combat.PlayerHero)) return;
 
-        GD.Print($"[CombatUI] 进入主动技能目标选择模式 — {weapon.ActiveSkill.Name}");
+		GD.Print($"[CombatUI] 进入主动技能目标选择模式 — {weapon.ActiveSkill.Name}");
 
-        _selectionMode = SelectionMode.SelectingActiveSkillTarget;
-        _selectedAttacker = null;
-        _selectedCard = null;
+		_selectionMode = SelectionMode.SelectingActiveSkillTarget;
+		_selectedAttacker = null;
+		_selectedCard = null;
 
-        HighlightActiveSkillTargets();
+		HighlightActiveSkillTargets();
 
-        // 启用键盘目标选择（仅敌方槽位）
-        _boardUI.EnableKeyboardTargeting(includePlayerSlots: false, includeEnemySlots: true);
+		// 启用键盘目标选择（仅敌方槽位）
+		_boardUI.EnableKeyboardTargeting(includePlayerSlots: false, includeEnemySlots: true);
 	}
 
 	/// <summary>
@@ -3526,24 +3536,24 @@ public partial class CombatUI : Control
 			var em = _combat.Board.GetMinionAt(i, isPlayerSide: false);
 			if (em != null && !em.IsDead) enemySlots.Add(i);
 		}
-        _boardUI.HighlightSlots(playerSlots, isPlayerSide: true, highlight: true);
-        _boardUI.HighlightSlots(enemySlots, isPlayerSide: false, highlight: true);
+		_boardUI.HighlightSlots(playerSlots, isPlayerSide: true, highlight: true);
+		_boardUI.HighlightSlots(enemySlots, isPlayerSide: false, highlight: true);
 
-        // 敌方英雄按钮
-        _enemyHeroSpellButton.Text = $"⚡ 对敌方英雄造成 {damageAmount} 点伤害";
-        _enemyHeroSpellButton.Visible = true;
+		// 敌方英雄按钮
+		_enemyHeroSpellButton.Text = $"⚡ 对敌方英雄造成 {damageAmount} 点伤害";
+		_enemyHeroSpellButton.Visible = true;
 
-        // 启用键盘目标选择（双方槽位）
-        _boardUI.EnableKeyboardTargeting(includePlayerSlots: true, includeEnemySlots: true);
+		// 启用键盘目标选择（双方槽位）
+		_boardUI.EnableKeyboardTargeting(includePlayerSlots: true, includeEnemySlots: true);
 
-        GD.Print($"[CombatUI] 开发者伤害模式 — 点击目标造成 {damageAmount} 点伤害（右键取消）");
+		GD.Print($"[CombatUI] 开发者伤害模式 — 点击目标造成 {damageAmount} 点伤害（右键取消）");
 	}
 
-    private void ExitDevDamageMode()
-    {
-        _boardUI.DisableKeyboardTargeting();
+	private void ExitDevDamageMode()
+	{
+		_boardUI.DisableKeyboardTargeting();
 
-        _boardUI.ClearHighlights();
+		_boardUI.ClearHighlights();
 		_enemyHeroSpellButton.Visible = false;
 		_playerHeroSpellButton.Visible = false;
 		_selectionMode = SelectionMode.Normal;
@@ -3671,11 +3681,11 @@ public partial class CombatUI : Control
 	/// <summary>
 	/// 重置所有选择状态——取消卡牌选中、攻击方选中、清除高亮、重置模式。
 	/// </summary>
-    private void ResetSelection()
-    {
-        _boardUI.DisableKeyboardTargeting();
+	private void ResetSelection()
+	{
+		_boardUI.DisableKeyboardTargeting();
 
-        _arrowRenderer?.RemoveArrow("attack_select");
+		_arrowRenderer?.RemoveArrow("attack_select");
 		_selectionMode = SelectionMode.Normal;
 		_selectedCard = null;
 		_selectedAttacker = null;

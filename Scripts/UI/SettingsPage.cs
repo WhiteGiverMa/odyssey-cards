@@ -2,6 +2,7 @@ using Godot;
 using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
 using OdysseyCards.Localization;
+using System;
 using System.Collections.Generic;
 
 namespace OdysseyCards.UI;
@@ -42,6 +43,9 @@ public partial class SettingsPage : Control
     private Label _emoteVarMaxValueLabel = null!;
 
     // ===== 键位设置控件 =====
+
+    /// <summary>子菜单栈返回回调（Set by SubmenuStack）。为 null 时走默认 QueueFree 路径。</summary>
+    public Action? OnBack { get; set; }
 
     private StringName? _listeningAction;
     private Button? _listeningButton;
@@ -681,6 +685,12 @@ public partial class SettingsPage : Control
 
     private void OnBackPressed()
     {
+        if (OnBack != null)
+        {
+            OnBack();
+            return;
+        }
+
         if (GetParent() is Core.MainMenu mainMenu)
             mainMenu.ShowMainMenu();
         QueueFree();
