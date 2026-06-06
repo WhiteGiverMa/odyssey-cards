@@ -24,6 +24,9 @@ ui:
     emote_idle_time: "Emote Idle Time"
     emote_variation_min: "Variation Min"
     emote_variation_max: "Variation Max"
+keybind_profile: "Key Profile"
+keybind_hint: "Click a key button then press a new key to rebind"
+reset_defaults: "Reset to Defaults"
   combat:
     end_turn: "End Turn"
     player_turn: "Player Turn"

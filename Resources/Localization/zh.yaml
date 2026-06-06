@@ -24,6 +24,9 @@ ui:
     emote_idle_time: "表情空闲时间"
     emote_variation_min: "随机最小倍率"
     emote_variation_max: "随机最大倍率"
+    keybind_profile: "键位配置"
+    keybind_hint: "点击键位按钮后按下新按键即可重新绑定"
+    reset_defaults: "重置为默认键位"
   combat:
     end_turn: "结束回合"
     player_turn: "玩家回合"
