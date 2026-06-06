@@ -75,6 +75,7 @@ Scenes/             # Main.tscn, Combat.tscn, Collection.tscn, Map.tscn
 | 移动端输入 | `Infrastructure/MobileInputRouter.cs` | 战斗表面触控已迁移至此；桌面端 IsMobile=false 时透传 |
 | 键盘输入 | `Infrastructure/InputManager.cs` → `HotkeyManager.cs` → 各场景 UI | 三层架构：物理键→动作名→回调。键位定义在 `OdysseyInput.cs` |
 | 键位配置 | `Infrastructure/InputManager.cs` | 多套配置持久化（`user://keybindings/profiles.json`），默认对齐 STS2 |
+| 键位设置 UI | `UI/SettingsPage.cs` 键位标签页 | 23 个可重绑定动作，监听模式（点击→按键→保存），多配置管理 |
 
 ## Architecture Rules
 
@@ -256,7 +257,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 
 ## State
 
-- ✅ 全面键盘支持：三层架构（InputManager→HotkeyManager→各场景），对齐 STS2 键位。6 个场景 + 3 个基础设施文件。
+- ✅ 全面键盘支持：三层架构（InputManager→HotkeyManager→各场景），对齐 STS2 键位。7 个场景 + 3 个基础设施文件。
 - ✅ 本地化全场景接线。10 处硬编码已修复 + 12 YAML key。
 - ✅ 导出兼容：DirAccess 回退 + YAML include_filter。
 - ✅ 卡牌选中/拖拽已修复：多选归位、点击跟随、拖拽追踪。
