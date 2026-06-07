@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using OdysseyCards.Character;
 using OdysseyCards.Combat;
@@ -37,6 +38,8 @@ public partial class HandUI : Control
 		HandSelectMode = enabled;
 		foreach (var slot in _cardSlots)
 		{
+			if (slot.CardUI == null) continue;
+
 			slot.CardUI.PreventDrag = enabled;
 			if (enabled)
 				slot.CardUI.RemoveHoverEffect();
@@ -156,7 +159,7 @@ public partial class HandUI : Control
 
 		// 拖拽中或选择模式下不触发悬停
 		if (HandSelectMode) return;
-		if (_cardSlots.Exists(s => s.CardUI.IsDragging)) return;
+		if (_cardSlots.Exists(s => s.CardUI?.IsDragging == true)) return;
 
 		var mousePos = GetGlobalMousePosition();
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
@@ -170,6 +173,7 @@ public partial class HandUI : Control
 
 		foreach (var slot in _cardSlots)
 		{
+			if (slot.CardUI == null) continue;
 			if (slot.CardUI.IsSelected) continue;
 
 			if (!_restingPositions.TryGetValue(slot.CardUI, out var restingPos))
@@ -204,9 +208,9 @@ public partial class HandUI : Control
 
 		if (bestSlot != _hoveredSlot)
 		{
-			_hoveredSlot?.CardUI.RemoveHoverEffect();
+			_hoveredSlot?.CardUI?.RemoveHoverEffect();
 			_hoveredSlot = bestSlot;
-			_hoveredSlot?.CardUI.ApplyHoverEffect();
+			_hoveredSlot?.CardUI?.ApplyHoverEffect();
 			RefreshLayout();
 		}
 	}
@@ -227,7 +231,7 @@ public partial class HandUI : Control
 			bool anyCardDragging = false;
 			foreach (var slot in _cardSlots)
 			{
-				if (slot.CardUI.IsDragging)
+				if (slot.CardUI?.IsDragging == true)
 				{
 					anyCardDragging = true;
 					break;
@@ -273,7 +277,7 @@ public partial class HandUI : Control
 		ClearTapExpansion();
 		ClearKeyboardFocus();
 		foreach (var slot in _cardSlots)
-			slot.CardUI.QueueFree();
+			slot.CardUI?.QueueFree();
 		_cardSlots.Clear();
 		_restingPositions.Clear();
 		_selectedCard = null;
@@ -298,7 +302,7 @@ public partial class HandUI : Control
 		{
 			foreach (var slot in _cardSlots)
 			{
-				if (slot.CardUI.Card == _selectedCard)
+				if (slot.Card == _selectedCard && slot.CardUI != null)
 				{
 					slot.CardUI.Deselect();
 					break;
@@ -312,7 +316,9 @@ public partial class HandUI : Control
 	{
 		ClearLayoutTween(cardUI);
 
-		_cardSlots.RemoveAll(s => s.CardUI == cardUI);
+		var slot = GetSlotFor(cardUI);
+		if (slot != null)
+			slot.DetachVisual();
 		_restingPositions.Remove(cardUI);
 		if (_selectedCard == cardUI.Card)
 			_selectedCard = null;
@@ -347,8 +353,11 @@ public partial class HandUI : Control
 	{
 		if (card == null) return;
 		var cardUI = CreateCardUI(card);
-		var slot = new CardSlot(cardUI);
-		_cardSlots.Add(slot);
+		var placeholder = _cardSlots.FirstOrDefault(s => s.Card == card && s.CardUI == null);
+		if (placeholder != null)
+			placeholder.AttachVisual(cardUI);
+		else
+			_cardSlots.Add(new CardSlot(cardUI));
 		_cardContainer.AddChild(cardUI);
 		RefreshLayout();
 	}
@@ -383,7 +392,7 @@ public partial class HandUI : Control
 	{
 		foreach (var slot in _cardSlots)
 		{
-			if (slot.CardUI.Card == card)
+			if (slot.Card == card && slot.CardUI != null)
 				return slot.CardUI;
 		}
 		return null;
@@ -425,6 +434,7 @@ public partial class HandUI : Control
 		for (int i = 0; i < count; i++)
 		{
 			var cardUI = _cardSlots[i].CardUI;
+			if (cardUI == null) continue;
 
 			// 拖拽中的卡牌位置由 CardUI._Process 控制，布局系统不应干预
 			if (cardUI.IsDragging) continue;
@@ -602,13 +612,16 @@ public partial class HandUI : Control
 	{
 		for (int i = _cardSlots.Count - 1; i >= 0; i--)
 		{
-			if (_cardSlots[i].CardUI.Card == card)
+			if (_cardSlots[i].Card == card)
 			{
 				var cardUI = _cardSlots[i].CardUI;
-				cardUI.QueueFree();
+				if (cardUI != null)
+				{
+					cardUI.QueueFree();
+					_restingPositions.Remove(cardUI);
+					_positionTweens.Remove(cardUI);
+				}
 				_cardSlots.RemoveAt(i);
-				_restingPositions.Remove(cardUI);
-				_positionTweens.Remove(cardUI);
 				break;
 			}
 		}
@@ -620,7 +633,7 @@ public partial class HandUI : Control
 	{
 		if (_hoveredSlot != null)
 		{
-			_hoveredSlot.CardUI.RemoveHoverEffect();
+			_hoveredSlot.CardUI?.RemoveHoverEffect();
 			_hoveredSlot = null;
 		}
 	}
@@ -632,7 +645,7 @@ public partial class HandUI : Control
 	{
 		if (_tappedSlot != null)
 		{
-			_tappedSlot.CardUI.RemoveHoverEffect();
+			_tappedSlot.CardUI?.RemoveHoverEffect();
 			_tappedSlot = null;
 			RefreshLayout();
 		}
@@ -729,6 +742,7 @@ public partial class HandUI : Control
 		_focusedCardIndex = index;
 
 		var cardUI = _cardSlots[index].CardUI;
+		if (cardUI == null) return;
 		if (cardUI.Card == null) return;
 
 		if (HandSelectMode)
@@ -787,6 +801,7 @@ public partial class HandUI : Control
 		_focusedCardIndex = index;
 
 		var cardUI = _cardSlots[index].CardUI;
+		if (cardUI == null) return;
 		if (cardUI.Card == null) return;
 
 		IsKeyboardSelection = true;
@@ -881,7 +896,23 @@ public partial class HandUI : Control
 
 	private sealed class CardSlot
 	{
-		public CardUI CardUI { get; }
-		public CardSlot(CardUI cardUI) => CardUI = cardUI;
+		public Card.Card Card { get; }
+		public CardUI? CardUI { get; private set; }
+
+		public CardSlot(CardUI cardUI)
+		{
+			CardUI = cardUI;
+			Card = cardUI.Card ?? throw new InvalidOperationException("CardSlot 不能绑定空卡牌 UI");
+		}
+
+		public void DetachVisual()
+		{
+			CardUI = null;
+		}
+
+		public void AttachVisual(CardUI cardUI)
+		{
+			CardUI = cardUI;
+		}
 	}
 }

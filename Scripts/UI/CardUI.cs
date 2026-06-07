@@ -166,6 +166,8 @@ public partial class CardUI : Control
     private bool _hasDragged;
     /// <summary>点击选中模式：用户快速点击（松手无拖拽位移）后进入，卡片跟随鼠标但不响应松手掉落。</summary>
     private bool _clickSelectMode;
+    /// <summary>点击选中跟随鼠标时，是否仍向外广播移动事件（无目标牌需要用它更新播放区高亮）。</summary>
+    private bool _emitMoveWhileClickFollowing;
     private const float DragThresholdDesktop = 10f;
     private const float DragThresholdMobile = 20f;
     private float DragThreshold => MobileInputRouter.IsMobile ? DragThresholdMobile : DragThresholdDesktop;
@@ -588,18 +590,18 @@ public partial class CardUI : Control
 
 			LastClickGlobalPosition = mb.GlobalPosition;
 
-			// 先通知 HandUI 完成选中/取消选中（此时 _isDragging 未设，Select 正常执行），
-			// 再进入拖拽状态接管位置控制。
+			// 先通知 HandUI/CombatUI 完成选中与表现切换。
+			// 后续是进入无目标跟随、还是进入目标展示态，由 CombatUI 统一决定。
+			// 这里不能再无条件 StartDragState，否则会把目标牌重新打回“跟随鼠标”的拖拽态。
 			OnCardClicked?.Invoke(this);
-			StartDragState();
 			AcceptEvent();
 		}
 	}
 
-    /// <summary>
-    /// 进入拖拽状态：计算偏移量、设为鼠标穿透、清除旧偏移。
-    /// 不再调用 OnCardClicked——点击已在 OnGuiInputHandler 中先行处理。
-    /// </summary>
+	/// <summary>
+	/// 进入基础拖拽状态：计算偏移量、设为鼠标穿透、清除旧偏移。
+	/// 仅保留给未来显式调用；当前战斗手牌路径统一由 CombatUI 决定是否进入拖拽/展示态。
+	/// </summary>
     private void StartDragState()
     {
         _isDragging = true;
@@ -613,20 +615,42 @@ public partial class CardUI : Control
     }
 
     /// <summary>
-    /// 从指定全局位置启动拖拽（用于键盘快捷键选牌）。
-    /// 模拟鼠标点击在该位置，后续 _Process 会自动跟随鼠标。
+    /// 进入无目标卡牌的指针跟随表现。
+    /// 鼠标按住拖拽时继续使用拖拽阈值；键盘快捷键进入时直接变成点击跟随态。
     /// </summary>
-    /// <param name="globalPosition">「虚拟点击」的全局屏幕坐标</param>
-    public void BeginDragFrom(Vector2 globalPosition)
+    /// <param name="globalAnchor">指针与卡牌之间保持不变的锚点</param>
+    /// <param name="startAsClickFollow">是否直接进入点击跟随态</param>
+    public void BeginPointerFollowFrom(Vector2 globalAnchor, bool startAsClickFollow)
     {
         _isDragging = true;
         _hasDragged = false;
-        _dragOffset = globalPosition - GlobalPosition;
-        _dragStartScreenPos = globalPosition;
+        _clickSelectMode = startAsClickFollow;
+        _emitMoveWhileClickFollowing = true;
+        _dragOffset = globalAnchor - GlobalPosition;
+        _dragStartScreenPos = globalAnchor;
         MouseFilter = MouseFilterEnum.Ignore;
         _isHoverEffectActive = false;
         KillHoverTween();
         FlashHighlight();
+    }
+
+    /// <summary>
+    /// 进入目标选择展示态：卡牌不再跟随鼠标，移动到统一的展示位置。
+    /// </summary>
+    public void PresentForTargeting(Vector2 globalCenter, float targetScale)
+    {
+        CancelDragSilent();
+        MouseFilter = MouseFilterEnum.Ignore;
+        ZIndex = 10;
+
+        Vector2 targetSize = Size * targetScale;
+        Vector2 targetTopLeft = globalCenter - targetSize * 0.5f;
+        Scale = Vector2.One * targetScale;
+
+        var tween = CreateTween();
+        tween.SetTrans(Tween.TransitionType.Cubic);
+        tween.SetEase(Tween.EaseType.Out);
+        tween.TweenProperty(this, "global_position", targetTopLeft, 0.12f);
     }
 
     /// <summary>
@@ -638,6 +662,7 @@ public partial class CardUI : Control
         _isDragging = false;
         _hasDragged = false;
         _clickSelectMode = false;
+        _emitMoveWhileClickFollowing = false;
         _isHoverEffectActive = false;
         KillHoverTween();
         MouseFilter = MouseFilterEnum.Stop;
@@ -680,13 +705,8 @@ public partial class CardUI : Control
 		}
 
 		// ==================== 桌面端鼠标拖拽逻辑 ====================
-
-        // 右键取消（等效：拖拽中松手在无效区域）
-        if (Input.IsMouseButtonPressed(MouseButton.Right))
-        {
-            CancelDrag();
-            return;
-        }
+		// 右键取消统一由 CombatUI 在场景级输入层处理。
+		// CardUI 只负责视觉跟随与左键松手掉落，避免 HandUI/CombatUI 双重取消链留下幽灵卡。
 
 		bool leftDown = Input.IsMouseButtonPressed(MouseButton.Left);
 		Vector2 mousePosition = GetGlobalMousePosition();
@@ -711,6 +731,8 @@ public partial class CardUI : Control
 		{
 			// 点击选中模式：卡牌跟随鼠标，但不发送 OnDragMove（无拖拽）。
 			GlobalPosition = mousePosition - _dragOffset;
+			if (_emitMoveWhileClickFollowing)
+				OnDragMove?.Invoke(this, mousePosition);
 		}
 
 		// 左键松开处理
@@ -723,6 +745,7 @@ public partial class CardUI : Control
 				_isDragging = false;
 				_hasDragged = false;
 				_clickSelectMode = false;
+				_emitMoveWhileClickFollowing = false;
 				MouseFilter = MouseFilterEnum.Stop;
                 OnCardDropped?.Invoke(this, dropScreenPos);
             }
@@ -779,6 +802,7 @@ public partial class CardUI : Control
 			_isDragging = false;
 			_hasDragged = false;
 			_clickSelectMode = false;
+			_emitMoveWhileClickFollowing = false;
 			_isHoverEffectActive = false;
 			KillHoverTween();
 			MouseFilter = MouseFilterEnum.Stop;

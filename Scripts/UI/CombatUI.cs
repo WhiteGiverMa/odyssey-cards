@@ -200,6 +200,12 @@ public partial class CombatUI : Control
 	/// 当前正在拖拽的卡牌 UI。
 	/// </summary>
 	private CardUI? _dragCardUI;
+	private const string CardTargetArrowKey = "card_target_select";
+	private const float TargetingCardScale = 0.75f;
+	private const float CardTargetDragThreshold = 10f;
+	private bool _isCardTargetDragPressed;
+	private bool _cardTargetDragHasMoved;
+	private Vector2 _cardTargetDragStartPos;
 
 	// ===== 外部引用 =====
 
@@ -404,6 +410,14 @@ public partial class CombatUI : Control
 			{
 				ExitDevDamageMode();
 			}
+			else if (_selectionMode == SelectionMode.PlacingMinion
+				|| _selectionMode == SelectionMode.TargetingSpell
+				|| _selectionMode == SelectionMode.PlayingNoTargetCard)
+			{
+				GD.Print("[CombatUI] 右键取消卡牌打出选择");
+				OnCardDragCancelled();
+				GetViewport().SetInputAsHandled();
+			}
 		}
 	}
 
@@ -487,6 +501,7 @@ public partial class CombatUI : Control
 	public override void _Process(double delta)
 	{
 		if (SceneLifecycleGuard.ShouldSkip(this)) return;
+
 		// --- 攻击选择箭头 ---
 		if (_selectionMode == SelectionMode.SelectingAttackTarget && _selectedAttacker != null && _arrowRenderer != null)
 		{
@@ -497,6 +512,42 @@ public partial class CombatUI : Control
 		else if (_arrowRenderer != null && _arrowRenderer.HasArrow("attack_select"))
 		{
 			_arrowRenderer.RemoveArrow("attack_select");
+		}
+
+		// --- 卡牌目标选择箭头（随从放置 / 单目标法术） ---
+		if ((_selectionMode == SelectionMode.PlacingMinion || _selectionMode == SelectionMode.TargetingSpell)
+			&& _dragCardUI != null && _arrowRenderer != null)
+		{
+			Vector2 sourcePos = _dragCardUI.GlobalPosition + _dragCardUI.Size * _dragCardUI.Scale * 0.5f;
+			_arrowRenderer.AddArrow(CardTargetArrowKey, sourcePos, GetInputPosition(), ArrowRenderer.AttackSelectColor);
+		}
+		else if (_arrowRenderer != null && _arrowRenderer.HasArrow(CardTargetArrowKey))
+		{
+			_arrowRenderer.RemoveArrow(CardTargetArrowKey);
+		}
+
+		// --- 卡牌目标拖拽追踪：目标型牌居中展示，CombatUI 负责松手解析目标 ---
+		if (_isCardTargetDragPressed)
+		{
+			Vector2 inputPos = GetInputPosition();
+			if (!_cardTargetDragHasMoved && inputPos.DistanceTo(_cardTargetDragStartPos) > CardTargetDragThreshold)
+			{
+				_cardTargetDragHasMoved = true;
+			}
+
+			bool released = !Input.IsMouseButtonPressed(MouseButton.Left);
+			if (released)
+			{
+				_isCardTargetDragPressed = false;
+				if (_cardTargetDragHasMoved)
+				{
+					if (_selectionMode == SelectionMode.PlacingMinion)
+						HandleMinionDrop(inputPos);
+					else if (_selectionMode == SelectionMode.TargetingSpell)
+						HandleSpellDrop(inputPos);
+				}
+				// 快速点击未拖拽：保持选择状态，等待第二击目标。
+			}
 		}
 
 		// --- 攻击拖拽追踪（双交互模式：点击选中→第二击攻击 / 按住拖动→松手攻击） ---
@@ -2438,7 +2489,8 @@ public partial class CombatUI : Control
 		bool isKeyboardSel = _handUI.IsKeyboardSelection;
 		Vector2 savedGlobalPos = Vector2.Zero;
 		Vector2 savedSize = Vector2.Zero;
-		Vector2 savedScale = Vector2.Zero;
+		Vector2 savedScale = Vector2.One;
+		bool startedWithPointerDown = false;
 
 		if (cardUI != null)
 		{
@@ -2462,24 +2514,15 @@ public partial class CombatUI : Control
 				// 移动端纯拖拽：卡牌已在跟随手指移动，用 Reparent 保持当前位置
 				cardUI.Reparent(_dragLayer);
 			}
-			else if (isKeyboardSel)
-			{
-				// 键盘选牌：将卡牌中心对齐到选牌前它在手牌中的全局位置
-				Vector2 preSize = savedSize * savedScale;
-				Vector2 halfSize = preSize * 0.5f;
-				cardUI.GetParent()?.RemoveChild(cardUI);
-				_dragLayer.AddChild(cardUI);
-				cardUI.Position = (savedGlobalPos + halfSize) - _dragLayer.GlobalPosition - halfSize;
-			}
 			else
 			{
-				Vector2 mousePosition = cardUI.LastClickGlobalPosition;
-				Vector2 preSize = savedSize * savedScale;
-				Vector2 halfSize = preSize * 0.5f;
+				// 鼠标/键盘都先保持卡牌在手牌中的视觉位置，随后由统一表现方法决定跟随或居中。
 				cardUI.GetParent()?.RemoveChild(cardUI);
 				_dragLayer.AddChild(cardUI);
-				cardUI.Position = mousePosition - halfSize - _dragLayer.GetGlobalRect().Position;
+				cardUI.GlobalPosition = savedGlobalPos;
 			}
+
+			startedWithPointerDown = !isKeyboardSel && !MobileInputRouter.IsMobile && Input.IsMouseButtonPressed(MouseButton.Left);
 
 			_dragCardUI = cardUI;
 
@@ -2529,11 +2572,47 @@ public partial class CombatUI : Control
 				break;
 		}
 
-		// 键盘选牌 → 无目标卡牌（领域/无目标法术/状态牌）需启动拖拽使其跟随鼠标
-		if (isKeyboardSel && _selectionMode == SelectionMode.PlayingNoTargetCard && _dragCardUI != null)
+		PresentSelectedCardForPlay(card, isKeyboardSel, startedWithPointerDown, savedGlobalPos, savedSize, savedScale);
+	}
+
+	private static bool IsCardTargetSelectionCard(Card.Card card)
+	{
+		return card.Type == CardType.Minion || (card.Type == CardType.Spell && card.Data.RequiresTarget);
+	}
+
+	private void PresentSelectedCardForPlay(
+		Card.Card card,
+		bool startedByKeyboard,
+		bool startedWithPointerDown,
+		Vector2 originalGlobalPos,
+		Vector2 originalSize,
+		Vector2 originalScale)
+	{
+		if (_dragCardUI == null) return;
+
+		if (IsCardTargetSelectionCard(card))
 		{
-			Vector2 clickCenter = savedGlobalPos + savedSize * savedScale * 0.5f;
-			_dragCardUI.BeginDragFrom(clickCenter);
+			Vector2 viewportSize = GetViewportRect().Size;
+			Vector2 center = new(viewportSize.X * 0.5f, viewportSize.Y - _dragCardUI.Size.Y * TargetingCardScale * 0.5f);
+			_dragCardUI.PresentForTargeting(center, TargetingCardScale);
+
+			_isCardTargetDragPressed = startedWithPointerDown;
+			_cardTargetDragHasMoved = false;
+			_cardTargetDragStartPos = startedByKeyboard
+				? originalGlobalPos + originalSize * originalScale * 0.5f
+				: _dragCardUI.LastClickGlobalPosition;
+			return;
+		}
+
+		_isCardTargetDragPressed = false;
+		_cardTargetDragHasMoved = false;
+
+		if (_selectionMode == SelectionMode.PlayingNoTargetCard)
+		{
+			Vector2 anchor = startedByKeyboard
+				? originalGlobalPos + originalSize * originalScale * 0.5f
+				: _dragCardUI.LastClickGlobalPosition;
+			_dragCardUI.BeginPointerFollowFrom(anchor, startAsClickFollow: startedByKeyboard || !startedWithPointerDown);
 		}
 	}
 
@@ -3701,6 +3780,7 @@ public partial class CombatUI : Control
 		_boardUI.DisableKeyboardTargeting();
 
 		_arrowRenderer?.RemoveArrow("attack_select");
+		_arrowRenderer?.RemoveArrow(CardTargetArrowKey);
 		_selectionMode = SelectionMode.Normal;
 		_selectedCard = null;
 		_selectedAttacker = null;
@@ -3716,6 +3796,10 @@ public partial class CombatUI : Control
 		// 清除攻击拖拽状态
 		_isAttackDragPressed = false;
 		_attackDragHasMoved = false;
+
+		// 清除卡牌目标拖拽状态
+		_isCardTargetDragPressed = false;
+		_cardTargetDragHasMoved = false;
 	}
 
 	/// <summary>
