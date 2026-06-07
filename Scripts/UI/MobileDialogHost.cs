@@ -43,12 +43,13 @@ public static class MobileDialogHost
     {
         var router = MobileInputRouter.Instance;
 
-        // 弹窗外层
-        var dialog = new Panel
-        {
-            Name = "MobileDialog",
-            MouseFilter = Control.MouseFilterEnum.Stop,
-        };
+		// 弹窗外层 — 必须全屏铺满父控件，否则遮罩和弹窗都会蜷缩在左上角 (0,0)
+		var dialog = new Panel
+		{
+			Name = "MobileDialog",
+			MouseFilter = Control.MouseFilterEnum.Stop,
+		};
+		dialog.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
 
         // 半透明遮罩背景（全屏）
         var bg = new ColorRect
@@ -59,10 +60,15 @@ public static class MobileDialogHost
         bg.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         dialog.AddChild(bg);
 
-        // 居中容器
-        var centerContainer = new CenterContainer();
-        centerContainer.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        dialog.AddChild(centerContainer);
+		// 居中容器（手动设 anchors，不用 SetAnchorsAndOffsetsPreset 避免覆盖 Container 布局模式）
+		var centerContainer = new CenterContainer
+		{
+			AnchorLeft = 0,
+			AnchorTop = 0,
+			AnchorRight = 1,
+			AnchorBottom = 1,
+		};
+		dialog.AddChild(centerContainer);
 
         // 弹窗面板
         var panel = new Panel

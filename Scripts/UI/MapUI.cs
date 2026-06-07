@@ -1,5 +1,6 @@
 using Godot;
 using OdysseyCards.Core;
+using OdysseyCards.Relic;
 using OdysseyCards.Roguelike;
 using OdysseyCards.Localization;
 using OdysseyCards.Infrastructure;
@@ -80,31 +81,52 @@ public partial class MapUI : Control
         RegisterHotkeyBindings();
     }
 
-    public override void _Ready()
-    {
-        if (SceneLifecycleGuard.ShouldSkip(this)) return;
+	public override void _Ready()
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this)) return;
 
-        GD.Print("[MapUI] _Ready — 初始化地图界面");
+		GD.Print("[MapUI] _Ready — 初始化地图界面");
 
-        var gm = GameManager.Instance;
-        _runState = gm?.RunState;
-        if (_runState == null)
-        {
-            GD.PrintErr("[MapUI] RunState 为 null！回退创建新冒险...");
-            gm?.StartNewRun();
-            _runState = gm?.RunState;
-            if (_runState == null)
-            {
-                ShowErrorAndQuit(Localization.Localization.T("ui.map.init_error", "无法初始化冒险数据"));
-                return;
-            }
-        }
+		var gm = GameManager.Instance;
+		_runState = gm?.RunState;
+		if (_runState == null)
+		{
+			GD.PrintErr("[MapUI] RunState 为 null！回退创建新冒险...");
+			gm?.StartNewRun();
+			_runState = gm?.RunState;
+			if (_runState == null)
+			{
+				// ShowErrorAndQuit 内部用 MobileDialogHost，延迟执行
+				CallDeferred(nameof(ShowInitError));
+				return;
+			}
+		}
 
-        SetupUI();
-        RefreshRoomChoices();
+		// 延迟到下一帧构建 UI。若在 _Ready 同步构建，viewport 可能尚未确定最终尺寸，
+		// 导致容器布局塌陷到 (0,0)，所有按钮挤在左上角。
+		CallDeferred(nameof(DeferredSetupUI));
 
-        GameManager.Instance.LanguageChanged += OnLanguageChanged;
-    }
+		GameManager.Instance.LanguageChanged += OnLanguageChanged;
+	}
+
+	/// <summary>
+	/// 延迟 UI 构建入口——viewport 尺寸就绪后再建布局。
+	/// </summary>
+	private void DeferredSetupUI()
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this)) return;
+		SetupUI();
+		RefreshRoomChoices();
+	}
+
+	/// <summary>
+	/// 延迟显示初始化错误（当 RunState 为 null 时）。
+	/// </summary>
+	private void ShowInitError()
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this)) return;
+		ShowErrorAndQuit(Localization.Localization.T("ui.map.init_error", "无法初始化冒险数据"));
+	}
 
     public override void _Input(InputEvent @event)
     {
@@ -149,14 +171,19 @@ public partial class MapUI : Control
         bg.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(bg);
 
-        // 根容器 — 全屏 VBox
-        var root = new VBoxContainer
-        {
-            Name = "RootContainer",
-        };
-        root.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        root.AddThemeConstantOverride("separation", 0);
-        AddChild(root);
+		// 根容器 — 全屏 VBox
+		// 注意：不能用 SetAnchorsAndOffsetsPreset（会覆盖 VBoxContainer 的 LayoutMode=Container，
+		// 导致子控件无法正确布局）。改为手动设 anchors。
+		var root = new VBoxContainer
+		{
+			Name = "RootContainer",
+			AnchorLeft = 0,
+			AnchorTop = 0,
+			AnchorRight = 1,
+			AnchorBottom = 1,
+		};
+		root.AddThemeConstantOverride("separation", 0);
+		AddChild(root);
 
         // ===== 顶部区域 =====
         var topSection = new VBoxContainer
@@ -614,21 +641,59 @@ public partial class MapUI : Control
         GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
     }
 
-    /// <summary>
-    /// 显示奖励房间——使用 EventSelector 提供 3 选 1 卡牌奖励。
-    /// </summary>
-    private void ShowTreasureRoom(RoomDefinition room)
-    {
-        GD.Print($"[MapUI] 进入奖励房间：{room.DisplayName}");
+	/// <summary>
+	/// 显示奖励房间——随机获得一个正面藏品。
+	/// </summary>
+	private void ShowTreasureRoom(RoomDefinition room)
+	{
+		GD.Print($"[MapUI] 进入奖励房间：{room.DisplayName}");
 
-        var rewardUI = new RewardPopup();
-        rewardUI.OnRewardCompleted += () =>
-        {
-            CompleteRoomAndAdvance();
-        };
-        AddChild(rewardUI);
-        rewardUI.ShowRewards();
-    }
+		// 可用正面藏品池
+		var pool = new AbstractRelic[]
+		{
+			new GoodDreamPillowRelic(),
+			new SmallFanRelic(),
+		};
+
+		var random = new Random();
+		var relic = pool[random.Next(pool.Length)];
+
+		GameManager.Instance?.Relics.AddRelic(relic);
+		GD.Print($"[MapUI] 获得正面藏品：{relic.Name}（{relic.Id}）");
+
+		// 直接用 MobileDialogHost 弹窗（不经 RewardPopup 中间层，避免嵌套 Control 尺寸问题）
+		var (dialog, content, buttonRow) = MobileDialogHost.CreateDialog(
+			this,
+			$"{GetRoomIcon(room.Type)} {room.DisplayName}",
+			width: 450);
+
+		var nameLabel = new Label
+		{
+			Text = relic.Name,
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		nameLabel.AddThemeFontSizeOverride("font_size", 28);
+		nameLabel.AddThemeColorOverride("font_color", new Color(1, 0.85f, 0.3f, 1));
+		content.AddChild(nameLabel);
+
+		var descLabel = new Label
+		{
+			Text = relic.Description,
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		descLabel.AddThemeFontSizeOverride("font_size", 16);
+		descLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.8f, 0.9f, 1));
+		content.AddChild(descLabel);
+
+		var btn = MobileDialogHost.CreateDialogButton(
+			Localization.Localization.T("ui.map.continue_button", "继续"));
+		btn.Pressed += () =>
+		{
+			MobileDialogHost.CloseDialog(dialog, this);
+			CompleteRoomAndAdvance();
+		};
+		buttonRow.AddChild(btn);
+	}
 
     /// <summary>
     /// 显示占位符房间——使用 MobileDialogHost 弹窗。
@@ -777,113 +842,5 @@ public partial class MapUI : Control
         GD.Print("[MapUI] 玩家放弃冒险");
         _runState?.Reset();
         GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
-    }
-}
-
-/// <summary>
-/// 奖励选择弹窗——战后 3 选 1 卡牌奖励。
-/// 使用 MobileDialogHost 统一弹窗样式，替换原来的 AcceptDialog。
-/// </summary>
-internal partial class RewardPopup : Control
-{
-    /// <summary>
-    /// 奖励选择完成回调。
-    /// </summary>
-    public event Action? OnRewardCompleted;
-
-    private EventSelector _eventSelector = null!;
-    private Control _dialog = null!;
-    private VBoxContainer _content = null!;
-    private HBoxContainer _buttonRow = null!;
-    private List<(CardData Card, int CopyCount)> _choices = null!;
-
-    public override void _Ready()
-    {
-        _eventSelector = new EventSelector();
-    }
-
-    /// <summary>
-    /// 显示奖励选择界面（MobileDialogHost 弹窗）。
-    /// </summary>
-    public void ShowRewards()
-    {
-        _choices = _eventSelector.GenerateRewardBundles(3);
-
-        (_dialog, _content, _buttonRow) = MobileDialogHost.CreateDialog(
-            this,
-            Localization.Localization.T("ui.map.reward_title", "选择一张奖励卡牌"),
-            width: 600);
-
-        var headerLabel = new Label
-        {
-            Text = Localization.Localization.T("ui.map.reward_prompt", "选择一张卡牌加入你的牌堆："),
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        headerLabel.AddThemeFontSizeOverride("font_size", 18);
-        _content.AddChild(headerLabel);
-
-        foreach (var (card, _) in _choices)
-        {
-            _content.AddChild(CreateCardButton(card));
-        }
-    }
-
-    /// <summary>
-    /// 为一张奖励卡牌创建选择按钮（移动端触控高度 60px）。
-    /// </summary>
-    private Button CreateCardButton(CardData card)
-    {
-        string cardType = card.Type == CardType.Minion
-            ? Localization.Localization.T("ui.map.card_type_minion", "随从")
-            : Localization.Localization.T("ui.map.card_type_spell", "法术");
-        string keywords = card.Keywords?.Count > 0
-            ? $" [{string.Join(", ", card.Keywords)}]"
-            : "";
-
-        string btnText = card.Type == CardType.Minion
-            ? Localization.Localization.T("ui.map.reward_minion_format", "{name} [{type}] {atk}/{hp}{keywords}\n{desc}")
-                .Replace("{name}", card.GetLocalizedName())
-                .Replace("{type}", cardType)
-                .Replace("{atk}", card.Attack.ToString())
-                .Replace("{hp}", card.Health.ToString())
-                .Replace("{keywords}", keywords)
-                .Replace("{desc}", card.GetLocalizedDescription())
-            : Localization.Localization.T("ui.map.reward_card_format", "{name} [{type}] 费用{cost}\n{desc}")
-                .Replace("{name}", card.GetLocalizedName())
-                .Replace("{type}", cardType)
-                .Replace("{cost}", card.Cost.ToString())
-                .Replace("{desc}", card.GetLocalizedDescription());
-
-        var btn = MobileDialogHost.CreateDialogButton(btnText, minHeight: 60);
-        btn.Pressed += () => OnCardSelected(card, btn);
-        return btn;
-    }
-
-    /// <summary>
-    /// 玩家选择了一张卡牌。
-    /// </summary>
-    private void OnCardSelected(CardData chosen, Button clickedBtn)
-    {
-        // 禁用所有按钮防止重复选择
-        foreach (var child in _content.GetChildren())
-        {
-            if (child is Button b) b.Disabled = true;
-        }
-
-        GameManager.Instance?.AddCardToDeckInCombat(chosen);
-        GameManager.Instance?.SaveToDisk();
-
-        GD.Print($"[RewardPopup] 选择了奖励：{chosen.CardName}");
-
-        // 延迟关闭弹窗
-        var timer = new Timer { WaitTime = 1.0f, OneShot = true };
-        timer.Timeout += () =>
-        {
-            MobileDialogHost.CloseDialog(_dialog, this);
-            QueueFree();
-            OnRewardCompleted?.Invoke();
-        };
-        AddChild(timer);
-        timer.Start();
     }
 }
