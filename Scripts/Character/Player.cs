@@ -98,7 +98,7 @@ public partial class Player : Node, ICommander
     public void ResetMana() => _core.ResetMana();
     public void SetMana(int current, int max) => _core.SetMana(current, max);
     public bool CanSpendMana(int amount) => _core.CanSpendMana(amount);
-    public void DrawCards(int count) => _core.DrawCards(count);
+    public IReadOnlyList<OdysseyCards.Card.Card> DrawCards(int count) => _core.DrawCards(count);
     public void DiscardCard(OdysseyCards.Card.Card card) => _core.DiscardCard(card);
     public void RemoveFromHand(OdysseyCards.Card.Card card) => _core.RemoveFromHand(card);
     public void ReturnToDrawPile(OdysseyCards.Card.Card card) => _core.ReturnToDrawPile(card);

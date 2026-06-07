@@ -117,6 +117,13 @@ public partial class CombatManager : Node
     /// </summary>
     public event Action<string>? OnEnemyEmote;
 
+    /// <summary>
+    /// 抽牌动画事件——每次抽牌完成后触发，参数为实际抽到的卡牌列表。
+    /// CombatUI 订阅此事件播放卡牌从抽牌堆飞入手牌的装饰动画。
+    /// 事件触发时卡牌已进入手牌数据模型（不影响游戏状态时序）。
+    /// </summary>
+    public event Action<IReadOnlyList<Card.Card>>? OnCardsDrawAnimation;
+
     // ===== 表情系统（私有字段） =====
 
     /// <summary>空闲计时器——玩家不出牌超时后触发敌人嘲讽。</summary>
@@ -636,8 +643,9 @@ public partial class CombatManager : Node
         State.StartGame();
 
         // 玩家始终先手，发 5 张起始手牌
-        PlayerHero.DrawCards(5);
+        var initialDraw = PlayerHero.DrawCards(5);
         GD.Print($"[CombatManager] 起手抽 5 张牌 → 共 {_playerCore.Hand.Count} 张手牌");
+        OnCardsDrawAnimation?.Invoke(initialDraw);
 
         // 藏品 — 战斗开始时触发（需在发牌之后，以便好梦抱枕等操作抽牌堆）
         _relicManager.TriggerBattleStart(this);
@@ -663,7 +671,8 @@ public partial class CombatManager : Node
         _relicManager.TriggerTurnStart(this);
 
         // 回合开始抽 1 张牌
-        PlayerHero.DrawCards(1);
+        var turnDraw = PlayerHero.DrawCards(1);
+        OnCardsDrawAnimation?.Invoke(turnDraw);
 
         // 重置随从攻击状态
         ResetAttackTracking();
@@ -2225,8 +2234,9 @@ public partial class CombatManager : Node
             }
             else GD.PrintErr("[CombatManager] 刀盾危机：无法加载我的刀盾Token卡牌");
 
-            PlayerHero.DrawCards(discarded);
+            var redrawn = PlayerHero.DrawCards(discarded);
             GD.Print($"[CombatManager] ◆ 刀盾危机完成：弃{discarded}张，抽{discarded}张");
+            OnCardsDrawAnimation?.Invoke(redrawn);
         }
 
         _pendingDiscoverOptions = null;
@@ -2304,8 +2314,9 @@ public partial class CombatManager : Node
             }
             else GD.PrintErr("[CombatManager] 刀盾危机：无法加载我的刀盾Token卡牌");
 
-            PlayerHero.DrawCards(discarded);
+            var redrawn = PlayerHero.DrawCards(discarded);
             GD.Print($"[CombatManager] ◆ 刀盾危机完成：弃{discarded}张，抽{discarded}张");
+            OnCardsDrawAnimation?.Invoke(redrawn);
         }
         else
         {

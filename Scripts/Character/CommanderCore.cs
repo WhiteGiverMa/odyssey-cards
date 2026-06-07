@@ -171,9 +171,9 @@ public class CommanderCore
 
     // ===== 牌堆操作 =====
 
-    public void DrawCards(int count)
+    public IReadOnlyList<OdysseyCards.Card.Card> DrawCards(int count)
     {
-        CombatDeckState.DrawCards(count);
+        return CombatDeckState.DrawCards(count);
     }
 
     public void DiscardCard(OdysseyCards.Card.Card card)

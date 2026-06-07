@@ -467,7 +467,7 @@ public class Hero : IDamageTarget, IDamageSource
     /// 抽指定数量的卡牌。
     /// </summary>
     /// <param name="count">抽牌数量</param>
-    public void DrawCards(int count) => _core.DrawCards(count);
+    public IReadOnlyList<OdysseyCards.Card.Card> DrawCards(int count) => _core.DrawCards(count);
 
     /// <summary>
     /// 弃掉指定卡牌。

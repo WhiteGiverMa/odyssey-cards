@@ -36,7 +36,7 @@ public interface ICommander
     void GainMana(int amount);
     void ResetMana();
     void SetMana(int current, int max);
-    void DrawCards(int count);
+    IReadOnlyList<OdysseyCards.Card.Card> DrawCards(int count);
     void DiscardCard(OdysseyCards.Card.Card card);
     void RemoveFromHand(OdysseyCards.Card.Card card);
     void ReturnToDrawPile(OdysseyCards.Card.Card card);

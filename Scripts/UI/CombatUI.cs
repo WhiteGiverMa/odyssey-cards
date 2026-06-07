@@ -1718,10 +1718,14 @@ public partial class CombatUI : Control
 		_board.OnMinionPreRemove += OnBoardMinionPreRemove;
 		_unsubscribeActions.Add(() => _board.OnMinionPreRemove -= OnBoardMinionPreRemove);
 
-		// 敌方表情 — 空闲超时或 DevConsole 触发
-		_combat.OnEnemyEmote += OnEnemyEmote;
-		_unsubscribeActions.Add(() => _combat.OnEnemyEmote -= OnEnemyEmote);
-	}
+        // 敌方表情 — 空闲超时或 DevConsole 触发
+        _combat.OnEnemyEmote += OnEnemyEmote;
+        _unsubscribeActions.Add(() => _combat.OnEnemyEmote -= OnEnemyEmote);
+
+        // 抽牌动画 — 每次抽牌后装饰性飞卡
+        _combat.OnCardsDrawAnimation += OnCardsDrawAnimation;
+        _unsubscribeActions.Add(() => _combat.OnCardsDrawAnimation -= OnCardsDrawAnimation);
+    }
 
 	/// <summary>
 	/// 注册热键回调——通过 HotkeyManager 将键盘输入映射到 UI 操作。
@@ -2849,12 +2853,41 @@ public partial class CombatUI : Control
 	}
 
 	/// <summary>
-	/// 获取抽牌堆按钮中心点的屏幕位置，用于轮战卡牌飞行动画。
-	/// </summary>
-	private Vector2 GetDrawPileCenter()
-	{
-		return _drawPileBtn.GlobalPosition + _drawPileBtn.Size / 2f;
-	}
+    /// 获取抽牌堆按钮中心点的屏幕位置，用于轮战卡牌飞行动画。
+    /// </summary>
+    private Vector2 GetDrawPileCenter()
+    {
+        return _drawPileBtn.GlobalPosition + _drawPileBtn.Size / 2f;
+    }
+
+    /// <summary>
+    /// 抽牌动画回调——CombatManager 每次抽牌后触发。
+    /// 对每张抽到的牌创建临时装饰卡牌，从抽牌堆飞到估算的手牌位置。
+    /// </summary>
+    private void OnCardsDrawAnimation(IReadOnlyList<Card.Card> drawnCards)
+    {
+        if (drawnCards.Count == 0) return;
+        if (_cardFlyLayer == null) return;
+
+        Vector2 fromPos = GetDrawPileCenter();
+        float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+        float cardWidth = CardUI.DESIGN_WIDTH * s;
+        float viewportWidth = GetViewportRect().Size.X;
+        float viewportBottom = GetViewportRect().Size.Y;
+
+        // 估算手牌区域中心 Y：屏幕底部手牌区域上方
+        float handY = viewportBottom - HandUI.COLLAPSED_VISIBLE * s - CardUI.DESIGN_HEIGHT * s * 0.5f;
+
+        for (int i = 0; i < drawnCards.Count; i++)
+        {
+            // 错开每张卡的目标位置，模拟手牌风扇效果
+            float t = drawnCards.Count > 1 ? (float)i / (drawnCards.Count - 1) : 0.5f;
+            float targetX = viewportWidth * 0.3f + viewportWidth * 0.4f * t;
+            Vector2 toPos = new(targetX, handY);
+
+            CardFlyVfx.PlayDrawToHand(drawnCards[i], fromPos, toPos, _cardFlyLayer);
+        }
+    }
 
 	/// <summary>
 	/// 获取玩家效果栏中心点的屏幕位置，用于领域卡牌飞行动画。

@@ -32,9 +32,10 @@ public class CombatDeckState
         _onFatigueDamage = callback;
     }
 
-    public void DrawCards(int count)
+    public IReadOnlyList<OdysseyCards.Card.Card> DrawCards(int count)
     {
         int cardsToDraw = Mathf.Min(count, MaxHandSize - Hand.Count);
+        var drawn = new List<OdysseyCards.Card.Card>();
 
         for (int i = 0; i < cardsToDraw; i++)
         {
@@ -50,11 +51,17 @@ public class CombatDeckState
                 var card = DrawPile[0];
                 DrawPile.RemoveAt(0);
                 Hand.Add(card);
+                drawn.Add(card);
             }
         }
 
-        OnHandChanged?.Invoke();
-        OnDrawPileChanged?.Invoke();
+        if (drawn.Count > 0)
+        {
+            OnHandChanged?.Invoke();
+            OnDrawPileChanged?.Invoke();
+        }
+
+        return drawn;
     }
 
     public void DiscardCard(OdysseyCards.Card.Card card)

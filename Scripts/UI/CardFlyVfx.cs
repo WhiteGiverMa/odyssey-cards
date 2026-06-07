@@ -40,20 +40,43 @@ public partial class CardFlyVfx : Control
 
 	// ===== 静态工厂 =====
 
-	/// <summary>
-	/// 将卡牌从当前位置飞向弃牌堆按钮中心，动画结束后自动销毁。
-	/// 调用方负责提前取消卡牌的事件订阅（OnCardDropped、OnDragMove）并调用 CancelDragSilent()。
-	/// </summary>
-	/// <param name="card">要动画的卡牌 UI（会被 reparent 到此 VFX 节点下）</param>
-	/// <param name="targetPos">弃牌堆按钮的屏幕中心位置（GlobalPosition）</param>
-	/// <param name="parent">VFX 容器节点</param>
-	public static void PlayToDiscard(CardUI card, Vector2 targetPos, Node parent)
-	{
-		var vfx = new CardFlyVfx();
-		// 必须先加入场景树再初始化（Initialize 中调用 GetViewportRect 需要 is_inside_tree）
-		parent.AddChild(vfx);
-		vfx.Initialize(card, targetPos);
-	}
+    /// <summary>
+    /// 将卡牌从当前位置飞向弃牌堆按钮中心，动画结束后自动销毁。
+    /// 调用方负责提前取消卡牌的事件订阅（OnCardDropped、OnDragMove）并调用 CancelDragSilent()。
+    /// </summary>
+    /// <param name="card">要动画的卡牌 UI（会被 reparent 到此 VFX 节点下）</param>
+    /// <param name="targetPos">弃牌堆按钮的屏幕中心位置（GlobalPosition）</param>
+    /// <param name="parent">VFX 容器节点</param>
+    public static void PlayToDiscard(CardUI card, Vector2 targetPos, Node parent)
+    {
+        var vfx = new CardFlyVfx();
+        // 必须先加入场景树再初始化（Initialize 中调用 GetViewportRect 需要 is_inside_tree）
+        parent.AddChild(vfx);
+        vfx.Initialize(card, targetPos);
+    }
+
+    /// <summary>
+    /// 纯装饰性抽牌动画：在 fromPos 处生成一张临时卡牌，沿贝塞尔曲线飞到 toPos，
+    /// 到达后缩小淡出并自动销毁。不影响手牌数据模型。
+    /// </summary>
+    /// <param name="card">要展示的卡牌数据（仅用于渲染，不操作数据）</param>
+    /// <param name="fromPos">抽牌堆按钮的屏幕中心位置</param>
+    /// <param name="toPos">目标手牌位置的屏幕中心</param>
+    /// <param name="parent">VFX 容器节点</param>
+    public static void PlayDrawToHand(Card.Card card, Vector2 fromPos, Vector2 toPos, Node parent)
+    {
+        var tempCardUI = new CardUI();
+        tempCardUI.SetCard(card);
+        tempCardUI.MouseFilter = MouseFilterEnum.Ignore;
+        // 放在 fromPos
+        Vector2 cardSize = new(CardUI.DESIGN_WIDTH, CardUI.DESIGN_HEIGHT);
+        tempCardUI.Position = fromPos - cardSize * 0.5f;
+        tempCardUI.Scale = new Vector2(0.6f, 0.6f);
+
+        var vfx = new CardFlyVfx();
+        parent.AddChild(vfx);
+        vfx.InitializeDrawAnimation(tempCardUI, fromPos, toPos);
+    }
 
 	// ===== 初始化 =====
 
@@ -142,6 +165,64 @@ public partial class CardFlyVfx : Control
 		fadeTween.TweenProperty(_card, "scale", new Vector2(0.2f, 0.2f), FlyDuration)
 		         .SetEase(Tween.EaseType.Out)
 		         .SetTrans(Tween.TransitionType.Cubic);
+	}
+
+	/// <summary>
+	/// 抽牌动画初始化：将临时卡牌加入 VFX 容器，从 fromPos 沿贝塞尔曲线飞到 toPos。
+	/// 到达后卡牌缩小淡出并自毁。
+	/// </summary>
+	private void InitializeDrawAnimation(CardUI tempCard, Vector2 fromPos, Vector2 toPos)
+	{
+		_card = tempCard;
+		MouseFilter = MouseFilterEnum.Ignore;
+		SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		AddChild(_card);
+
+		// 贝塞尔控制点：向屏幕上方拱起
+		Vector2 ctrlPos = new(
+			(fromPos.X + toPos.X) / 2f,
+			Mathf.Min(fromPos.Y, toPos.Y) - 180f
+		);
+
+		var tween = CreateTween();
+
+		// 缩放弹入（0.6 → 1.0）
+		tween.TweenProperty(_card, "scale", new Vector2(0.85f, 0.85f), 0.3)
+		     .SetEase(Tween.EaseType.Out)
+		     .SetTrans(Tween.TransitionType.Back);
+
+		// 沿贝塞尔曲线飞行
+		_frameCounter = 0;
+		tween.TweenMethod(
+			Callable.From<float>(t =>
+			{
+				Vector2 pos = QuadraticBezier(t, fromPos, toPos, ctrlPos);
+				_card.Position = pos;
+
+				_frameCounter++;
+				if (_frameCounter >= TrailSpawnEveryNFrames)
+				{
+					_frameCounter = 0;
+					SpawnTrailParticle(pos);
+				}
+			}),
+			0f, 1f, 0.45f
+		).SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
+
+		// 到达后缩小淡出自毁
+		var fadeTween = CreateTween();
+		fadeTween.TweenInterval(0.48f);
+		fadeTween.SetParallel(true);
+		fadeTween.TweenProperty(_card, "modulate", new Color(1f, 1f, 1f, 0f), 0.2f)
+		         .SetEase(Tween.EaseType.In);
+		fadeTween.TweenProperty(_card, "scale", new Vector2(0.3f, 0.3f), 0.2f)
+		         .SetEase(Tween.EaseType.In);
+
+		tween.Finished += () =>
+		{
+			_card.QueueFree();
+			QueueFree();
+		};
 	}
 
 	// ===== 尾迹粒子（五毛占位特效） =====
