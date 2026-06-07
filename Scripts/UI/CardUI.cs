@@ -616,22 +616,34 @@ public partial class CardUI : Control
 
     /// <summary>
     /// 进入无目标卡牌的指针跟随表现。
-    /// 鼠标按住拖拽时继续使用拖拽阈值；键盘快捷键进入时直接变成点击跟随态。
+    /// 鼠标按住拖拽时直接进入拖拽跟随态；键盘/点击时进入点击跟随态。
     /// </summary>
     /// <param name="globalAnchor">指针与卡牌之间保持不变的锚点</param>
-    /// <param name="startAsClickFollow">是否直接进入点击跟随态</param>
+    /// <param name="startAsClickFollow">true=直接进入点击跟随态（键盘/松开后）；false=进入拖拽态（鼠标按住中）</param>
     public void BeginPointerFollowFrom(Vector2 globalAnchor, bool startAsClickFollow)
     {
         _isDragging = true;
-        _hasDragged = false;
-        _clickSelectMode = startAsClickFollow;
-        _emitMoveWhileClickFollowing = true;
         _dragOffset = globalAnchor - GlobalPosition;
         _dragStartScreenPos = globalAnchor;
         MouseFilter = MouseFilterEnum.Ignore;
         _isHoverEffectActive = false;
         KillHoverTween();
         FlashHighlight();
+
+        if (startAsClickFollow)
+        {
+            // 点击/键盘路径：进入点击选中跟随态，不判定拖拽距离
+            _hasDragged = false;
+            _clickSelectMode = true;
+            _emitMoveWhileClickFollowing = true;
+        }
+        else
+        {
+            // 鼠标按住拖拽路径：直接标记已拖拽，跳过距离阈值
+            _hasDragged = true;
+            _clickSelectMode = false;
+            _emitMoveWhileClickFollowing = false;
+        }
     }
 
     /// <summary>

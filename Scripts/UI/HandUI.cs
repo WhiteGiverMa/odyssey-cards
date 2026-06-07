@@ -388,15 +388,37 @@ public partial class HandUI : Control
 		RefreshHand();
 	}
 
-	public CardUI? GetCardUIFor(Card.Card card)
-	{
-		foreach (var slot in _cardSlots)
-		{
-			if (slot.Card == card && slot.CardUI != null)
-				return slot.CardUI;
-		}
-		return null;
-	}
+    public CardUI? GetCardUIFor(Card.Card card)
+    {
+        foreach (var slot in _cardSlots)
+        {
+            if (slot.Card == card && slot.CardUI != null)
+                return slot.CardUI;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 返回手牌区域中目标位置的全局中心坐标，供抽牌飞行动画使用。
+    /// </summary>
+    /// <param name="handIndex">卡牌在手牌中的索引（0=最左），用于风扇错开</param>
+    /// <param name="totalCards">手牌总张数，用于确定水平居中范围</param>
+    public Vector2 GetHandCardGlobalCenter(int handIndex, int totalCards)
+    {
+        float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+        float cardWidth = CardUI.DESIGN_WIDTH * s;
+        float cardHeight = CardUI.DESIGN_HEIGHT * s;
+        float scaledWidth = cardWidth * BASE_SCALE;
+        float stepX = scaledWidth * OVERLAP_FACTOR;
+        float totalSpread = stepX * Mathf.Max(totalCards - 1, 0);
+        float containerWidth = GetContainerWidth();
+        float startX = (containerWidth - totalSpread) / 2f;
+        float centerX = startX + handIndex * stepX + scaledWidth * 0.5f;
+
+        // 手牌区域在屏幕底部，卡牌静止时 Y ≈ 0（HandUI 局部坐标）
+        Vector2 localCenter = new(centerX, cardHeight * BASE_SCALE * 0.5f);
+        return GlobalPosition + localCenter;
+    }
 
 	// ============================================================
 	// 布局计算 —— STS2 风扇交叠风格
