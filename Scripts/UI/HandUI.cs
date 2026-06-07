@@ -20,6 +20,12 @@ public partial class HandUI : Control
 	private bool _wasMobileTouchActive;
 
 	/// <summary>
+	/// 防止 RefreshHand 被快速多次调用时排队多个 RebuildHandCards deferred 回调，
+	/// 导致手牌卡牌 UI 重复叠加。
+	/// </summary>
+	private bool _rebuildHandPending;
+
+	/// <summary>
 	/// 卡牌折叠态可见部分（设计单位）。90 设计单位 ≈ 50% 卡牌高度（考虑 BASE_SCALE=0.85 后的视觉效果）。
 	/// 实际像素 = 90 * UIScaler.CurrentScale。
 	/// </summary>
@@ -269,19 +275,39 @@ public partial class HandUI : Control
 	}
 
 	/// <summary>
-	/// 重建手牌——销毁旧卡牌 UI，创建新的，延迟一帧布局以等待容器尺寸就绪。
+	/// 重建手牌——销毁旧卡牌 UI，创建新的。
+	/// QueueFree（帧末生效）与 AddChild 分离到不同帧，避免同栈帧混用导致 Sig11。
 	/// </summary>
 	public void RefreshHand()
 	{
 		ClearHoverState();
 		ClearTapExpansion();
 		ClearKeyboardFocus();
+		// 帧1：仅 QueueFree 旧节点（标记帧末销毁），不 AddChild
 		foreach (var slot in _cardSlots)
 			slot.CardUI?.QueueFree();
 		_cardSlots.Clear();
 		_restingPositions.Clear();
 		_selectedCard = null;
 
+		if (_player == null) return;
+
+		// 帧2：等旧节点真正释放后，再创建新卡牌 UI 并 AddChild
+		// 防重入：多次调用 RefreshHand 只排队一次 RebuildHandCards
+		if (!_rebuildHandPending)
+		{
+			_rebuildHandPending = true;
+			CallDeferred(nameof(RebuildHandCards));
+		}
+	}
+
+	/// <summary>
+	/// 由 RefreshHand 延迟调用——在旧卡牌 UI 被 QueueFree 释放后，
+	/// 根据当前手牌数据模型重建所有 CardUI 并布局。
+	/// </summary>
+	private void RebuildHandCards()
+	{
+		_rebuildHandPending = false;
 		if (_player == null) return;
 
 		foreach (var card in _combat!.PlayerHero.Hand)
