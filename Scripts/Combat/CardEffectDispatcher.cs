@@ -384,6 +384,7 @@ internal sealed class CardEffectDispatcher
                         EffectType = CardEffectType.DrawCards,
                         Value = 1,
                     });
+                    _notifyCombatStateChanged();
                     GD.Print($"[CardEffectDispatcher] 敌意：{animosityTarget.CardName} 获得嘲讽、伤害翻倍（玩家阵营）和亡语抽牌");
                 }
                 else
