@@ -380,23 +380,23 @@ public partial class CombatUI : Control
 	/// </summary>
 	private bool _playZonePanelConnected;
 
-    /// <summary>
-    /// 播放区域 Y 坐标阈值比例（屏幕高度的百分比，从顶部算起）。
-    /// 鼠标 Y 小于此阈值即认为卡牌在播放区域内。STS2 基准 75%，本项目用 60% 以适应较小的棋盘布局。
-    /// </summary>
-    private const float PlayZoneBaseRatio = 0.60f;
+	/// <summary>
+	/// 播放区域 Y 坐标阈值比例（屏幕高度的百分比，从顶部算起）。
+	/// 鼠标 Y 小于此阈值即认为卡牌在播放区域内。STS2 基准 75%，本项目用 60% 以适应较小的棋盘布局。
+	/// </summary>
+	private const float PlayZoneBaseRatio = 0.60f;
 
-    /// <summary>
-    /// 取消区域比例——拖拽回到底部此比例以下视为取消（STS2 基准 95%）。
-    /// 必须曾离开过取消区域（上滑进入播放区）再回来才触发，防止开局误触。
-    /// </summary>
-    private const float CancelZoneScreenProportion = 0.95f;
+	/// <summary>
+	/// 取消区域比例——拖拽回到底部此比例以下视为取消（STS2 基准 95%）。
+	/// 必须曾离开过取消区域（上滑进入播放区）再回来才触发，防止开局误触。
+	/// </summary>
+	private const float CancelZoneScreenProportion = 0.95f;
 
-    /// <summary>进入无目标模式时的拖拽起始 Y 坐标（用于计算自适应 PlayZone 阈值）。</summary>
-    private float _playZoneDragStartY;
+	/// <summary>进入无目标模式时的拖拽起始 Y 坐标（用于计算自适应 PlayZone 阈值）。</summary>
+	private float _playZoneDragStartY;
 
-    /// <summary>是否曾离开过取消区域（必须上滑过才能触发取消，防止开局误触）。</summary>
-    private bool _hasLeftCancelZone;
+	/// <summary>是否曾离开过取消区域（必须上滑过才能触发取消，防止开局误触）。</summary>
+	private bool _hasLeftCancelZone;
 
 	// ===== Godot 生命周期 =====
 
@@ -2651,17 +2651,17 @@ public partial class CombatUI : Control
 			return;
 		}
 
-        if (_selectionMode == SelectionMode.PlayingNoTargetCard)
-        {
-            Vector2 anchor = startedByKeyboard
-                ? originalGlobalPos + originalSize * originalScale * 0.5f
-                : _dragCardUI.LastClickGlobalPosition;
-            _dragCardUI.BeginPointerFollowFrom(anchor, startAsClickFollow: startedByKeyboard || !startedWithPointerDown);
+		if (_selectionMode == SelectionMode.PlayingNoTargetCard)
+		{
+			Vector2 anchor = startedByKeyboard
+				? originalGlobalPos + originalSize * originalScale * 0.5f
+				: _dragCardUI.LastClickGlobalPosition;
+			_dragCardUI.BeginPointerFollowFrom(anchor, startAsClickFollow: startedByKeyboard || !startedWithPointerDown);
 
-            // 记录拖拽起始 Y（用于动态 PlayZone 阈值）
-            _playZoneDragStartY = anchor.Y;
-            _hasLeftCancelZone = false;
-        }
+			// 记录拖拽起始 Y（用于动态 PlayZone 阈值）
+			_playZoneDragStartY = anchor.Y;
+			_hasLeftCancelZone = false;
+		}
 	}
 
 	/// <summary>
@@ -2895,22 +2895,22 @@ public partial class CombatUI : Control
 	/// 抽牌动画回调——CombatManager 每次抽牌后触发。
 	/// 对每张抽到的牌创建临时装饰卡牌，从抽牌堆飞到估算的手牌位置。
 	/// </summary>
-    private void OnCardsDrawAnimation(IReadOnlyList<Card.Card> drawnCards)
-    {
-        if (drawnCards.Count == 0) return;
-        if (_cardFlyLayer == null || _handUI == null) return;
+	private void OnCardsDrawAnimation(IReadOnlyList<Card.Card> drawnCards)
+	{
+		if (drawnCards.Count == 0) return;
+		if (_cardFlyLayer == null || _handUI == null) return;
 
-        Vector2 fromPos = GetDrawPileCenter();
-        // 抽牌后手牌数量 = 原有 + 新增（卡已进入数据层）
-        int totalAfterDraw = _combat?.PlayerHero.DeckState.Hand.Count ?? drawnCards.Count;
-        int firstNewIndex = totalAfterDraw - drawnCards.Count;
+		Vector2 fromPos = GetDrawPileCenter();
+		// 抽牌后手牌数量 = 原有 + 新增（卡已进入数据层）
+		int totalAfterDraw = _combat?.PlayerHero.DeckState.Hand.Count ?? drawnCards.Count;
+		int firstNewIndex = totalAfterDraw - drawnCards.Count;
 
-        for (int i = 0; i < drawnCards.Count; i++)
-        {
-            Vector2 toPos = _handUI.GetHandCardGlobalCenter(firstNewIndex + i, totalAfterDraw);
-            CardFlyVfx.PlayDrawToHand(drawnCards[i], fromPos, toPos, _cardFlyLayer);
-        }
-    }
+		for (int i = 0; i < drawnCards.Count; i++)
+		{
+			Vector2 toPos = _handUI.GetHandCardGlobalCenter(firstNewIndex + i, totalAfterDraw);
+			CardFlyVfx.PlayDrawToHand(drawnCards[i], fromPos, toPos, _cardFlyLayer);
+		}
+	}
 
 	/// <summary>
 	/// 获取玩家效果栏中心点的屏幕位置，用于领域卡牌飞行动画。
@@ -4007,128 +4007,128 @@ public partial class CombatUI : Control
 
 	// ===== 手牌选择模式（STS2 风格） =====
 
-    /// <summary>
-    /// 进入手牌选择模式（STS2 SimpleSelect 风格）。
-    /// 半透明遮罩覆盖全屏，已选卡牌从手牌取出放到上方展示容器，
-    /// 未选卡牌留在原处可继续点击选择。
-    /// </summary>
-    private void EnterHandSelectionMode()
-    {
-        if (_isHandSelecting) return;
-        _isHandSelecting = true;
-        _selectedHandCards.Clear();
-        _selectedHandCardUIs.Clear();
+	/// <summary>
+	/// 进入手牌选择模式（STS2 SimpleSelect 风格）。
+	/// 半透明遮罩覆盖全屏，已选卡牌从手牌取出放到上方展示容器，
+	/// 未选卡牌留在原处可继续点击选择。
+	/// </summary>
+	private void EnterHandSelectionMode()
+	{
+		if (_isHandSelecting) return;
+		_isHandSelecting = true;
+		_selectedHandCards.Clear();
+		_selectedHandCardUIs.Clear();
 
-        _endTurnButton.Disabled = true;
-        HidePlayZonePanel();
+		_endTurnButton.Disabled = true;
+		HidePlayZonePanel();
 
-        float scale = UIScaler.Instance?.GetScaleFactor() ?? 1f;
-        var viewportSize = GetViewport().GetVisibleRect().Size;
+		float scale = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+		var viewportSize = GetViewport().GetVisibleRect().Size;
 
-        // === 半透明遮罩 ===
-        _handSelectMask = new ColorRect
-        {
-            Name = "HandSelectMask",
-            Color = new Color(0, 0, 0, 0.6f),
-            MouseFilter = MouseFilterEnum.Ignore,
-        };
-        _handSelectMask.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        AddChild(_handSelectMask);
+		// === 半透明遮罩 ===
+		_handSelectMask = new ColorRect
+		{
+			Name = "HandSelectMask",
+			Color = new Color(0, 0, 0, 0.6f),
+			MouseFilter = MouseFilterEnum.Ignore,
+		};
+		_handSelectMask.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		AddChild(_handSelectMask);
 
-        // 遮罩淡入
-        var maskTween = CreateTween();
-        maskTween.TweenProperty(_handSelectMask, "color:a", 0.6f, 0.2);
+		// 遮罩淡入
+		var maskTween = CreateTween();
+		maskTween.TweenProperty(_handSelectMask, "color:a", 0.6f, 0.2);
 
-        // === 已选卡牌展示容器（手牌上方） ===
-        _selectedHandCardContainer = new Control
-        {
-            Name = "SelectedHandCardContainer",
-            MouseFilter = MouseFilterEnum.Ignore,
-            CustomMinimumSize = new Vector2(0, CardUI.DESIGN_HEIGHT * scale * 0.85f + 20f),
-        };
-        _selectedHandCardContainer.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        AddChild(_selectedHandCardContainer);
+		// === 已选卡牌展示容器（手牌上方） ===
+		_selectedHandCardContainer = new Control
+		{
+			Name = "SelectedHandCardContainer",
+			MouseFilter = MouseFilterEnum.Ignore,
+			CustomMinimumSize = new Vector2(0, CardUI.DESIGN_HEIGHT * scale * 0.85f + 20f),
+		};
+		_selectedHandCardContainer.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		AddChild(_selectedHandCardContainer);
 
-        // === HandUI 选择模式 ===
-        _handUI.SetHandSelectionMode(true);
-        _handUI.OnCardSelectionToggled += OnHandCardSelectionToggled;
+		// === HandUI 选择模式 ===
+		_handUI.SetHandSelectionMode(true);
+		_handUI.OnCardSelectionToggled += OnHandCardSelectionToggled;
 
-        // === 头部提示标签 ===
-        string headerText;
-        if (_combat.HandSelectMin == _combat.HandSelectMax)
-            headerText = Loc.T("ui.combat.discard_select_format", "选择 {count} 张手牌弃掉")
-                .Replace("{count}", _combat.HandSelectMax.ToString());
-        else
-            headerText = Loc.T("ui.combat.discard_select_format_blade", "选择最多 {count} 张手牌弃掉")
-                .Replace("{count}", _combat.HandSelectMax.ToString());
+		// === 头部提示标签 ===
+		string headerText;
+		if (_combat.HandSelectMin == _combat.HandSelectMax)
+			headerText = Loc.T("ui.combat.discard_select_format", "选择 {count} 张手牌弃掉")
+				.Replace("{count}", _combat.HandSelectMax.ToString());
+		else
+			headerText = Loc.T("ui.combat.discard_select_format_blade", "选择最多 {count} 张手牌弃掉")
+				.Replace("{count}", _combat.HandSelectMax.ToString());
 
-        _handSelectHeaderLabel = new Label
-        {
-            Name = "HandSelectHeader",
-            Text = headerText,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            CustomMinimumSize = new Vector2(400, 36),
-            ZIndex = 10,
-        };
-        _handSelectHeaderLabel.AddThemeColorOverride("font_color", new Color(1f, 0.85f, 0.3f));
-        _handSelectHeaderLabel.AddThemeFontSizeOverride("font_size", 20);
-        AddChild(_handSelectHeaderLabel);
+		_handSelectHeaderLabel = new Label
+		{
+			Name = "HandSelectHeader",
+			Text = headerText,
+			HorizontalAlignment = HorizontalAlignment.Center,
+			CustomMinimumSize = new Vector2(400, 36),
+			ZIndex = 10,
+		};
+		_handSelectHeaderLabel.AddThemeColorOverride("font_color", new Color(1f, 0.85f, 0.3f));
+		_handSelectHeaderLabel.AddThemeFontSizeOverride("font_size", 20);
+		AddChild(_handSelectHeaderLabel);
 
-        float headerY = viewportSize.Y - 210 * scale;
-        _handSelectHeaderLabel.Position = new Vector2((viewportSize.X - 400) / 2, headerY);
+		float headerY = viewportSize.Y - 210 * scale;
+		_handSelectHeaderLabel.Position = new Vector2((viewportSize.X - 400) / 2, headerY);
 
-        // === 确认按钮 ===
-        _handSelectConfirmBtn = new Button
-        {
-            Name = "HandSelectConfirmBtn",
-            Text = Loc.T("ui.hand_select.confirm", "确认"),
-            CustomMinimumSize = new Vector2(120, 40),
-            Visible = false,
-            Disabled = true,
-            ZIndex = 10,
-        };
-        _handSelectConfirmBtn.Pressed += OnHandSelectConfirmPressed;
-        AddChild(_handSelectConfirmBtn);
+		// === 确认按钮 ===
+		_handSelectConfirmBtn = new Button
+		{
+			Name = "HandSelectConfirmBtn",
+			Text = Loc.T("ui.hand_select.confirm", "确认"),
+			CustomMinimumSize = new Vector2(120, 40),
+			Visible = false,
+			Disabled = true,
+			ZIndex = 10,
+		};
+		_handSelectConfirmBtn.Pressed += OnHandSelectConfirmPressed;
+		AddChild(_handSelectConfirmBtn);
 
-        float btnY = headerY + 44 * scale;
-        _handSelectConfirmBtn.Position = new Vector2((viewportSize.X - 120) / 2, btnY);
+		float btnY = headerY + 44 * scale;
+		_handSelectConfirmBtn.Position = new Vector2((viewportSize.X - 120) / 2, btnY);
 
-        GD.Print("[CombatUI] 进入手牌选择模式");
-    }
+		GD.Print("[CombatUI] 进入手牌选择模式");
+	}
 
-    /// <summary>
-    /// 退出手牌选择模式——清理 UI，恢复正常状态。
-    /// </summary>
-    private void ExitHandSelectionMode()
-    {
-        _isHandSelecting = false;
-        _selectedHandCards.Clear();
+	/// <summary>
+	/// 退出手牌选择模式——清理 UI，恢复正常状态。
+	/// </summary>
+	private void ExitHandSelectionMode()
+	{
+		_isHandSelecting = false;
+		_selectedHandCards.Clear();
 
-        // 归还展示容器内的卡牌回手牌
-        foreach (var cardUI in _selectedHandCardUIs)
-        {
-            if (cardUI.Card != null && GodotObject.IsInstanceValid(cardUI))
-                cardUI.QueueFree();
-        }
-        _selectedHandCardUIs.Clear();
+		// 归还展示容器内的卡牌回手牌
+		foreach (var cardUI in _selectedHandCardUIs)
+		{
+			if (cardUI.Card != null && GodotObject.IsInstanceValid(cardUI))
+				cardUI.QueueFree();
+		}
+		_selectedHandCardUIs.Clear();
 
-        // 清理遮罩
-        _handSelectMask?.QueueFree();
-        _handSelectMask = null;
+		// 清理遮罩
+		_handSelectMask?.QueueFree();
+		_handSelectMask = null;
 
-        // 清理展示容器
-        _selectedHandCardContainer?.QueueFree();
-        _selectedHandCardContainer = null;
+		// 清理展示容器
+		_selectedHandCardContainer?.QueueFree();
+		_selectedHandCardContainer = null;
 
-        // 移除头部标签和确认按钮
-        _handSelectHeaderLabel?.QueueFree();
-        _handSelectHeaderLabel = null;
-        if (_handSelectConfirmBtn != null)
-        {
-            _handSelectConfirmBtn.Pressed -= OnHandSelectConfirmPressed;
-            _handSelectConfirmBtn.QueueFree();
-            _handSelectConfirmBtn = null;
-        }
+		// 移除头部标签和确认按钮
+		_handSelectHeaderLabel?.QueueFree();
+		_handSelectHeaderLabel = null;
+		if (_handSelectConfirmBtn != null)
+		{
+			_handSelectConfirmBtn.Pressed -= OnHandSelectConfirmPressed;
+			_handSelectConfirmBtn.QueueFree();
+			_handSelectConfirmBtn = null;
+		}
 
 		// 恢复 HandUI 正常模式
 		_handUI.HandSelectMode = false;
@@ -4143,79 +4143,79 @@ public partial class CombatUI : Control
 		GD.Print("[CombatUI] 退出手牌选择模式");
 	}
 
-    /// <summary>
-    /// 手牌选择模式：点击卡牌切换选中/取消。
-    /// 选中时将 CardUI reparent 到上方展示容器，取消时放回手牌。
-    /// </summary>
-    private void OnHandCardSelectionToggled(Card.Card card, bool toggled)
-    {
-        if (_selectedHandCards.Contains(card))
-        {
-            // 取消选中
-            _selectedHandCards.Remove(card);
-            var cardUI = _handUI.GetCardUIFor(card);
-            if (cardUI != null)
-            {
-                cardUI.SetHandSelectionHighlight(false);
-            }
-            // 尝试从展示容器移除
-            var selectedUI = _selectedHandCardUIs.Find(c => c.Card == card);
-            if (selectedUI != null)
-            {
-                _selectedHandCardUIs.Remove(selectedUI);
-                _handUI.AddCardBack(card);
-                // AddCardBack 创建了新 CardUI，销毁旧的
-                selectedUI.QueueFree();
-            }
-        }
-        else
-        {
-            // 选中：从手牌取出，放到上方展示容器
-            _selectedHandCards.Add(card);
-            var cardUI = _handUI.GetCardUIFor(card);
-            if (cardUI != null && _selectedHandCardContainer != null)
-            {
-                _handUI.StopLayoutControl(cardUI);
-                _handUI.DetachCardFromList(cardUI);
-                cardUI.GetParent()?.RemoveChild(cardUI);
-                cardUI.OffsetTop = 0;
-                cardUI.OffsetBottom = 0;
-                cardUI.OffsetLeft = 0;
-                cardUI.OffsetRight = 0;
-                cardUI.SetHandSelectionHighlight(true);
-                cardUI.PreventDrag = true;
-                _selectedHandCardContainer.AddChild(cardUI);
-                _selectedHandCardUIs.Add(cardUI);
-            }
-        }
+	/// <summary>
+	/// 手牌选择模式：点击卡牌切换选中/取消。
+	/// 选中时将 CardUI reparent 到上方展示容器，取消时放回手牌。
+	/// </summary>
+	private void OnHandCardSelectionToggled(Card.Card card, bool toggled)
+	{
+		if (_selectedHandCards.Contains(card))
+		{
+			// 取消选中
+			_selectedHandCards.Remove(card);
+			var cardUI = _handUI.GetCardUIFor(card);
+			if (cardUI != null)
+			{
+				cardUI.SetHandSelectionHighlight(false);
+			}
+			// 尝试从展示容器移除
+			var selectedUI = _selectedHandCardUIs.Find(c => c.Card == card);
+			if (selectedUI != null)
+			{
+				_selectedHandCardUIs.Remove(selectedUI);
+				_handUI.AddCardBack(card);
+				// AddCardBack 创建了新 CardUI，销毁旧的
+				selectedUI.QueueFree();
+			}
+		}
+		else
+		{
+			// 选中：从手牌取出，放到上方展示容器
+			_selectedHandCards.Add(card);
+			var cardUI = _handUI.GetCardUIFor(card);
+			if (cardUI != null && _selectedHandCardContainer != null)
+			{
+				_handUI.StopLayoutControl(cardUI);
+				_handUI.DetachCardFromList(cardUI);
+				cardUI.GetParent()?.RemoveChild(cardUI);
+				cardUI.OffsetTop = 0;
+				cardUI.OffsetBottom = 0;
+				cardUI.OffsetLeft = 0;
+				cardUI.OffsetRight = 0;
+				cardUI.SetHandSelectionHighlight(true);
+				cardUI.PreventDrag = true;
+				_selectedHandCardContainer.AddChild(cardUI);
+				_selectedHandCardUIs.Add(cardUI);
+			}
+		}
 
-        // 重新排列展示容器内的卡片
-        ArrangeSelectedHandCards();
-        UpdateHandSelectConfirmButton();
-    }
+		// 重新排列展示容器内的卡片
+		ArrangeSelectedHandCards();
+		UpdateHandSelectConfirmButton();
+	}
 
-    /// <summary>
-    /// 将展示容器内已选卡牌水平居中排列。
-    /// </summary>
-    private void ArrangeSelectedHandCards()
-    {
-        if (_selectedHandCardContainer == null || _selectedHandCardUIs.Count == 0) return;
+	/// <summary>
+	/// 将展示容器内已选卡牌水平居中排列。
+	/// </summary>
+	private void ArrangeSelectedHandCards()
+	{
+		if (_selectedHandCardContainer == null || _selectedHandCardUIs.Count == 0) return;
 
-        float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
-        float cardW = CardUI.DESIGN_WIDTH * s * 0.85f;
-        float spacing = 20f * s;
-        float totalW = cardW * _selectedHandCardUIs.Count + spacing * (_selectedHandCardUIs.Count - 1);
-        float viewportW = GetViewportRect().Size.X;
-        float startX = (viewportW - totalW) / 2f;
-        float y = _selectedHandCardContainer.Size.Y * 0.5f - CardUI.DESIGN_HEIGHT * s * 0.85f * 0.5f;
+		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+		float cardW = CardUI.DESIGN_WIDTH * s * 0.85f;
+		float spacing = 20f * s;
+		float totalW = cardW * _selectedHandCardUIs.Count + spacing * (_selectedHandCardUIs.Count - 1);
+		float viewportW = GetViewportRect().Size.X;
+		float startX = (viewportW - totalW) / 2f;
+		float y = _selectedHandCardContainer.Size.Y * 0.5f - CardUI.DESIGN_HEIGHT * s * 0.85f * 0.5f;
 
-        for (int i = 0; i < _selectedHandCardUIs.Count; i++)
-        {
-            var cardUI = _selectedHandCardUIs[i];
-            cardUI.Scale = new Vector2(0.85f, 0.85f);
-            cardUI.Position = new Vector2(startX + i * (cardW + spacing), y);
-        }
-    }
+		for (int i = 0; i < _selectedHandCardUIs.Count; i++)
+		{
+			var cardUI = _selectedHandCardUIs[i];
+			cardUI.Scale = new Vector2(0.85f, 0.85f);
+			cardUI.Position = new Vector2(startX + i * (cardW + spacing), y);
+		}
+	}
 
 	/// <summary>
 	/// 刷新手牌选择模式下的卡牌高亮（用于 RefreshAll 中）。
@@ -4260,41 +4260,41 @@ public partial class CombatUI : Control
 
 	// ===== 播放区域（类 STS2 风格） =====
 
-    /// <summary>
-    /// 判断屏幕坐标是否在播放区域内（STS2 动态阈值风格）。
-    /// 阈值随拖拽起始位置自适应：起始越高阈值越紧，起始越低阈值越宽。
-    /// 键盘启动时额外放宽 100px（更难误触）。
-    /// </summary>
-    private bool IsInPlayZone(Vector2 screenPos)
-    {
-        float viewportH = GetViewport().GetVisibleRect().Size.Y;
-        float baseThreshold = viewportH * PlayZoneBaseRatio;
+	/// <summary>
+	/// 判断屏幕坐标是否在播放区域内（STS2 动态阈值风格）。
+	/// 阈值随拖拽起始位置自适应：起始越高阈值越紧，起始越低阈值越宽。
+	/// 键盘启动时额外放宽 100px（更难误触）。
+	/// </summary>
+	private bool IsInPlayZone(Vector2 screenPos)
+	{
+		float viewportH = GetViewport().GetVisibleRect().Size.Y;
+		float baseThreshold = viewportH * PlayZoneBaseRatio;
 
-        // STS2 自适应公式
-        float threshold;
-        if (_playZoneDragStartY > baseThreshold)
-            threshold = Mathf.Max(baseThreshold, _playZoneDragStartY - 100f);  // 底部拖拽放宽
-        else
-            threshold = Mathf.Min(baseThreshold, _playZoneDragStartY - 50f);   // 顶部拖拽收紧
+		// STS2 自适应公式
+		float threshold;
+		if (_playZoneDragStartY > baseThreshold)
+			threshold = Mathf.Max(baseThreshold, _playZoneDragStartY - 100f);  // 底部拖拽放宽
+		else
+			threshold = Mathf.Min(baseThreshold, _playZoneDragStartY - 50f);   // 顶部拖拽收紧
 
-        return screenPos.Y < threshold;
-    }
+		return screenPos.Y < threshold;
+	}
 
-    /// <summary>
-    /// 判断当前输入位置是否触发取消（STS2 CancelZone 风格）。
-    /// 必须曾离开过取消区域（上滑进入播放区）再回到底部 95% 才触发。
-    /// </summary>
-    private bool IsInCancelZone(Vector2 screenPos)
-    {
-        float viewportH = GetViewport().GetVisibleRect().Size.Y;
-        float cancelThreshold = viewportH * CancelZoneScreenProportion;
+	/// <summary>
+	/// 判断当前输入位置是否触发取消（STS2 CancelZone 风格）。
+	/// 必须曾离开过取消区域（上滑进入播放区）再回到底部 95% 才触发。
+	/// </summary>
+	private bool IsInCancelZone(Vector2 screenPos)
+	{
+		float viewportH = GetViewport().GetVisibleRect().Size.Y;
+		float cancelThreshold = viewportH * CancelZoneScreenProportion;
 
-        // 离开取消区一次后永久标记
-        if (screenPos.Y <= cancelThreshold)
-            _hasLeftCancelZone = true;
+		// 离开取消区一次后永久标记
+		if (screenPos.Y <= cancelThreshold)
+			_hasLeftCancelZone = true;
 
-        return _hasLeftCancelZone && screenPos.Y > cancelThreshold;
-    }
+		return _hasLeftCancelZone && screenPos.Y > cancelThreshold;
+	}
 
 	/// <summary>
 	/// 创建播放区域视觉指示器——半透明面板 + 提示文字。
@@ -4349,8 +4349,8 @@ public partial class CombatUI : Control
 	{
 		if (_playZonePanel == null) return;
 
-        var viewport = GetViewport().GetVisibleRect().Size;
-        float threshold = viewport.Y * PlayZoneBaseRatio;
+		var viewport = GetViewport().GetVisibleRect().Size;
+		float threshold = viewport.Y * PlayZoneBaseRatio;
 		float panelH = 80f * (UIScaler.Instance?.GetScaleFactor() ?? 1f);
 		float margin = 20f;
 
@@ -4442,18 +4442,18 @@ public partial class CombatUI : Control
 	/// <summary>
 	/// 拖拽卡牌逐帧位置更新回调——检查是否进入/离开播放区域并更新视觉反馈。
 	/// </summary>
-    private void OnDragMoveForPlayZone(CardUI cardUI, Vector2 screenPos)
-    {
-        if (_selectionMode != SelectionMode.PlayingNoTargetCard) return;
+	private void OnDragMoveForPlayZone(CardUI cardUI, Vector2 screenPos)
+	{
+		if (_selectionMode != SelectionMode.PlayingNoTargetCard) return;
 
-        bool inZone = IsInPlayZone(screenPos);
-        cardUI.SetPlayZoneHighlight(inZone);
+		bool inZone = IsInPlayZone(screenPos);
+		cardUI.SetPlayZoneHighlight(inZone);
 
-        // STS2 CancelZone：拖回底部 95% 且曾离开取消区 → 自动取消
-        if (IsInCancelZone(screenPos))
-        {
-            GD.Print("[CombatUI] 拖入取消区域 → 自动取消");
-            OnCardDragCancelled();
-        }
-    }
+		// STS2 CancelZone：拖回底部 95% 且曾离开取消区 → 自动取消
+		if (IsInCancelZone(screenPos))
+		{
+			GD.Print("[CombatUI] 拖入取消区域 → 自动取消");
+			OnCardDragCancelled();
+		}
+	}
 }
