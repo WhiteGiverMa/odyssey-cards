@@ -179,6 +179,12 @@ public partial class CardUI : Control
     private bool _wasMobileTouchActive;
     /// <summary>上一帧左键是否按下——用于检测松手事件（clickSelectMode 中松手通知 CombatUI）。</summary>
     private bool _wasLeftDownLastFrame;
+    /// <summary>上一帧右键是否按下——用于桌面端拖拽中右键取消（MouseFilter=Ignore 时 GuiInput 不可达）。</summary>
+    private bool _wasRightDownLastFrame;
+    /// <summary>卡牌从拾取位置移动超过 5px 后置 true——区分点击选中（不触发掉落）与拖拽松手（触发掉落）。</summary>
+    private bool _hasMovedFromOrigin;
+    /// <summary>BeginPointerFollowFrom 调用时的卡牌位置——用于移动追踪比较基准。</summary>
+    private Vector2 _pointerFollowStartPos;
     private Tween? _hoverTween;
 	private bool _isHoverEffectActive;
 	private bool _built;
@@ -638,6 +644,8 @@ public partial class CardUI : Control
             _hasDragged = false;
             _clickSelectMode = true;
             _emitMoveWhileClickFollowing = true;
+            _pointerFollowStartPos = GlobalPosition;
+            _hasMovedFromOrigin = false;
         }
         else
         {
@@ -645,6 +653,7 @@ public partial class CardUI : Control
             _hasDragged = true;
             _clickSelectMode = false;
             _emitMoveWhileClickFollowing = false;
+            _hasMovedFromOrigin = true; // 拖拽路径始终视为已移动
         }
     }
 
@@ -720,18 +729,34 @@ public partial class CardUI : Control
 
 		// ==================== 桌面端鼠标交互（STS2 对齐） ====================
 		// 核心原则：不使用像素距离阈值区分点击/拖拽。
-		// 卡牌始终保持在 click-select 跟随状态——跟随鼠标，点击目标/播放区域打出，右键取消。
+		// 用 _hasMovedFromOrigin 区分「点击选中」（卡牌未移动→不触发掉落）与「拖拽松手」（卡牌移动过→触发掉落）。
 		// 每次松手都通知 CombatUI，由它根据落点决定打出/取消/忽略（对齐 STS2）。
 
 		bool leftDown = Input.IsMouseButtonPressed(MouseButton.Left);
 		bool leftReleasedThisFrame = _wasLeftDownLastFrame && !leftDown;
 		_wasLeftDownLastFrame = leftDown;
+
+		// 右键取消（桌面端安全网：MouseFilter=Ignore 时 GuiInput 不可达，轮询处理）
+		bool rightDown = Input.IsMouseButtonPressed(MouseButton.Right);
+		if (!_wasRightDownLastFrame && rightDown)
+		{
+			CancelDrag();
+			_wasRightDownLastFrame = true;
+			return;
+		}
+		_wasRightDownLastFrame = rightDown;
+
 		Vector2 mousePosition = GetGlobalMousePosition();
 
-		// 卡牌跟随鼠标
+		// 卡牌跟随鼠标 + 移动追踪
 		if (_clickSelectMode || _hasDragged)
 		{
-			GlobalPosition = mousePosition - _dragOffset;
+			Vector2 newPos = mousePosition - _dragOffset;
+			if (!_hasMovedFromOrigin && newPos.DistanceSquaredTo(_pointerFollowStartPos) > 25f) // 5px² 阈值
+			{
+				_hasMovedFromOrigin = true;
+			}
+			GlobalPosition = newPos;
 			OnDragMove?.Invoke(this, mousePosition);
 		}
 
@@ -753,9 +778,9 @@ public partial class CardUI : Control
 				_clickSelectMode = true;
 				_emitMoveWhileClickFollowing = true;
 			}
-			else if (leftReleasedThisFrame)
+			else if (leftReleasedThisFrame && _hasMovedFromOrigin)
 			{
-				// clickSelectMode 中松手 → 通知 CombatUI 根据落点处理
+				// clickSelectMode 中松手（卡牌已移动）→ 通知 CombatUI 根据落点处理
 				OnCardDropped?.Invoke(this, mousePosition);
 			}
 		}

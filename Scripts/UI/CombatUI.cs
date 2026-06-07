@@ -2715,6 +2715,7 @@ public partial class CombatUI : Control
 
 	/// <summary>
 	/// 随从放置模式下的松手处理：检查落点是否在玩家方槽位上。
+	/// 命中己方槽位→放置随从；无效位置→取消（仅拖拽松手会触发此方法，点击选中已由 _hasMovedFromOrigin 过滤）。
 	/// </summary>
 	private void HandleMinionDrop(Vector2 screenPos)
 	{
@@ -2728,14 +2729,15 @@ public partial class CombatUI : Control
 		else
 		{
 			GD.Print(hit != null
-				? $"[CombatUI] 命中敌方槽位 {hit.Value.slotIndex}，但随从只能放在己方"
-				: "[CombatUI] 未命中任何槽位，拖拽松手无效");
-			// 不取消——卡牌保持 click-select 状态等待点击放置
+				? $"[CombatUI] 命中敌方槽位 {hit.Value.slotIndex}，但随从只能放在己方 — 取消"
+				: "[CombatUI] 未命中任何槽位 — 取消");
+			OnCardDragCancelled();
 		}
 	}
 
 	/// <summary>
 	/// 法术目标模式下的松手处理：检查落点是否在有随从的槽位上。
+	/// 命中有效目标→施放法术；无效位置→取消（仅拖拽松手会触发此方法，点击选中已由 _hasMovedFromOrigin 过滤）。
 	/// </summary>
 	private void HandleSpellDrop(Vector2 screenPos)
 	{
@@ -2767,20 +2769,20 @@ public partial class CombatUI : Control
 			}
 			else
 			{
-				GD.Print("[CombatUI] 法术松手位置无有效随从目标");
-				// 不取消——卡牌保持 click-select 状态等待点击目标
+				GD.Print("[CombatUI] 法术松手位置无有效随从目标 — 取消");
+				OnCardDragCancelled();
 			}
 		}
 		else
 		{
-			GD.Print("[CombatUI] 法术松手位置无效，拖拽松手无目标");
-			// 不取消——卡牌保持 click-select 状态等待点击目标
+			GD.Print("[CombatUI] 法术松手位置无效 — 取消");
+			OnCardDragCancelled();
 		}
 	}
 
 	/// <summary>
 	/// 无目标卡牌播放模式下的松手处理：检查落点是否在播放区域内。
-	/// 在区域内→打出卡牌；在区域外→取消拖拽（等效右键）。
+	/// 在区域内→打出卡牌；不在播放区域→取消（等效右键，卡牌回到手牌）。
 	/// </summary>
 	private void HandleNoTargetCardDrop(Vector2 screenPos)
 	{
@@ -2793,20 +2795,18 @@ public partial class CombatUI : Control
 		}
 
 		bool inZone = IsInPlayZone(screenPos);
-		bool inCancelZone = IsInCancelZone(screenPos);
 		GD.Print($"[CombatUI] 无目标卡牌松手 — {_selectedCard.CardName}，" +
-			$"{(inZone ? "播放区" : inCancelZone ? "取消区" : "无效区")}");
+			$"{(inZone ? "播放区" : "无效区 → 取消")}");
 
 		if (inZone)
 		{
 			PlaySelectedNoTargetCard();
 		}
-		else if (inCancelZone)
+		else
 		{
-			GD.Print("[CombatUI] 松手在取消区域 → 取消");
+			// 不在播放区 → 取消，卡牌回到手牌
 			OnCardDragCancelled();
 		}
-		// 其他位置：不取消，卡牌保持 click-select 状态等待二次点击
 	}
 
 	/// <summary>
