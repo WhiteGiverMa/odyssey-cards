@@ -239,22 +239,32 @@ public partial class DiscoverUI : Control
     // ===== 入场动画 =====
 
     /// <summary>
-    /// 入场动画：背景淡入 + 卡牌依次浮现。
+    /// 入场动画：背景淡入 + 卡牌依次弹入（STS2 NChooseACardSelectionScreen 风格）。
+    /// 背景 0.2s 淡入，卡牌从黑色 ＋ 0.85 缩放弹入，依次错开 0.06s。
     /// </summary>
     private void PlayEntryAnimation()
     {
         var tween = CreateTween();
         tween.SetParallel(true);
 
-        // 背景从透明淡入
-        tween.TweenProperty(_background, "color:a", 0.8f, 0.25);
+        // 背景淡入（STS2: 0.2s）
+        tween.TweenProperty(_background, "color:a", 0.8f, 0.2);
 
-        // 卡牌依次浮现（STS2 风格：从黑色淡入 + 延迟错开）
+        // 卡牌依次弹入：从黑色渐变为白色 + 轻微缩放弹出
         float cardDelay = 0.06f;
         for (int i = 0; i < _cardUIs.Count; i++)
         {
             var card = _cardUIs[i];
-            tween.TweenProperty(card, "modulate:a", 1f, 0.25).SetDelay(cardDelay * i);
+            tween.TweenProperty(card, "modulate", Colors.White, 0.45)
+                .SetDelay(cardDelay * i)
+                .SetEase(Tween.EaseType.Out)
+                .SetTrans(Tween.TransitionType.Expo)
+                .From(Colors.Black);
+            tween.TweenProperty(card, "scale", Vector2.One, 0.45)
+                .SetDelay(cardDelay * i)
+                .SetEase(Tween.EaseType.Out)
+                .SetTrans(Tween.TransitionType.Back)
+                .From(new Vector2(0.85f, 0.85f));
         }
     }
 

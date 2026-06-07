@@ -2590,22 +2590,35 @@ public partial class CombatUI : Control
 	{
 		if (_dragCardUI == null) return;
 
+		_isCardTargetDragPressed = false;
+		_cardTargetDragHasMoved = false;
+
 		if (IsCardTargetSelectionCard(card))
 		{
-			Vector2 viewportSize = GetViewportRect().Size;
-			Vector2 center = new(viewportSize.X * 0.5f, viewportSize.Y - _dragCardUI.Size.Y * TargetingCardScale * 0.5f);
-			_dragCardUI.PresentForTargeting(center, TargetingCardScale);
+			if (startedWithPointerDown)
+			{
+				// 鼠标按住拖拽路径（ReleaseMouseToTarget）：
+				// 卡牌跟随鼠标，松手到有效目标即打出。
+				// 释放事件由 CardUI.OnCardDropped → OnCardDroppedHandler 统一处理，
+				// _isCardTargetDragPressed 保持 false 避免双重进入。
+				_dragCardUI.BeginPointerFollowFrom(
+					_dragCardUI.LastClickGlobalPosition,
+					startAsClickFollow: false);
+			}
+			else
+			{
+				// 点击选中 / 键盘快捷键路径（ClickMouseToTarget）：
+				// 卡牌居中展示，仅箭头跟随鼠标，第二击目标确认。
+				Vector2 viewportSize = GetViewportRect().Size;
+				Vector2 center = new(viewportSize.X * 0.5f, viewportSize.Y - _dragCardUI.Size.Y * TargetingCardScale * 0.5f);
+				_dragCardUI.PresentForTargeting(center, TargetingCardScale);
+			}
 
-			_isCardTargetDragPressed = startedWithPointerDown;
-			_cardTargetDragHasMoved = false;
 			_cardTargetDragStartPos = startedByKeyboard
 				? originalGlobalPos + originalSize * originalScale * 0.5f
 				: _dragCardUI.LastClickGlobalPosition;
 			return;
 		}
-
-		_isCardTargetDragPressed = false;
-		_cardTargetDragHasMoved = false;
 
 		if (_selectionMode == SelectionMode.PlayingNoTargetCard)
 		{
