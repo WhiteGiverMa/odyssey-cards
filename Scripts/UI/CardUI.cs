@@ -177,6 +177,8 @@ public partial class CardUI : Control
     /// 用于从 Router 的当前态推导“本帧刚松手”，避免全局共享 release 标记竞争消费。
     /// </summary>
     private bool _wasMobileTouchActive;
+    /// <summary>上一帧左键是否按下——用于检测松手事件（clickSelectMode 中松手通知 CombatUI）。</summary>
+    private bool _wasLeftDownLastFrame;
     private Tween? _hoverTween;
 	private bool _isHoverEffectActive;
 	private bool _built;
@@ -716,35 +718,21 @@ public partial class CardUI : Control
 			return;
 		}
 
-		// ==================== 桌面端鼠标拖拽逻辑 ====================
-		// 右键取消统一由 CombatUI 在场景级输入层处理。
-		// CardUI 只负责视觉跟随与左键松手掉落，避免 HandUI/CombatUI 双重取消链留下幽灵卡。
+		// ==================== 桌面端鼠标交互（STS2 对齐） ====================
+		// 核心原则：不使用像素距离阈值区分点击/拖拽。
+		// 卡牌始终保持在 click-select 跟随状态——跟随鼠标，点击目标/播放区域打出，右键取消。
+		// 每次松手都通知 CombatUI，由它根据落点决定打出/取消/忽略（对齐 STS2）。
 
 		bool leftDown = Input.IsMouseButtonPressed(MouseButton.Left);
+		bool leftReleasedThisFrame = _wasLeftDownLastFrame && !leftDown;
+		_wasLeftDownLastFrame = leftDown;
 		Vector2 mousePosition = GetGlobalMousePosition();
 
-		// 跟踪拖拽距离：只有左键仍按住时才允许从点击态升级为拖拽。
-		// 合成点击/低帧率下可能在下一帧已松手，此时 GetGlobalMousePosition() 不再是本次点击的权威坐标，
-		// 不能用它把一次快速点击误判成拖拽并立即触发 drop。
-		if (leftDown && !_clickSelectMode && !_hasDragged)
+		// 卡牌跟随鼠标
+		if (_clickSelectMode || _hasDragged)
 		{
-			float dist = mousePosition.DistanceTo(_dragStartScreenPos);
-			if (dist > DragThreshold)
-				_hasDragged = true;
-		}
-
-		if (_hasDragged)
-		{
-			// 拖拽模式：卡牌跟随鼠标移动，逐帧通知位置。
 			GlobalPosition = mousePosition - _dragOffset;
 			OnDragMove?.Invoke(this, mousePosition);
-		}
-		else if (_clickSelectMode)
-		{
-			// 点击选中模式：卡牌跟随鼠标，但不发送 OnDragMove（无拖拽）。
-			GlobalPosition = mousePosition - _dragOffset;
-			if (_emitMoveWhileClickFollowing)
-				OnDragMove?.Invoke(this, mousePosition);
 		}
 
 		// 左键松开处理
@@ -752,28 +740,26 @@ public partial class CardUI : Control
 		{
 			if (_hasDragged)
 			{
-				// 拖拽后松手 → 触发 OnCardDropped（由 CombatUI 根据落点决定打出/取消）
-				Vector2 dropScreenPos = mousePosition;
-				_isDragging = false;
+				// 拖拽松手 → 转入 clickSelectMode 并通知 CombatUI
+				Vector2 dropPos = mousePosition;
 				_hasDragged = false;
-				_clickSelectMode = false;
-				_emitMoveWhileClickFollowing = false;
-				MouseFilter = MouseFilterEnum.Stop;
-                OnCardDropped?.Invoke(this, dropScreenPos);
-            }
-            else if (!_clickSelectMode)
-            {
-				// 快速点击（松手时无拖拽位移）→ 进入点击选中模式。
-				// 选中卡保持原位，等待目标点击打出；RightClick 取消。
 				_clickSelectMode = true;
+				_emitMoveWhileClickFollowing = true;
+				OnCardDropped?.Invoke(this, dropPos);
 			}
-            // 已在点击选中模式：等待目标点击，不做任何操作
-        }
-        // leftDown=true 时：
-        //   _clickSelectMode=true 不可能发生（MouseFilter=Ignore 后无法再次接收鼠标按下）
-        //   _hasDragged=false：继续跟踪拖拽距离
-        //   _hasDragged=true：等待松手触发 drop
-    }
+			else if (!_clickSelectMode)
+			{
+				// 首次松手 → 进入点击选中模式
+				_clickSelectMode = true;
+				_emitMoveWhileClickFollowing = true;
+			}
+			else if (leftReleasedThisFrame)
+			{
+				// clickSelectMode 中松手 → 通知 CombatUI 根据落点处理
+				OnCardDropped?.Invoke(this, mousePosition);
+			}
+		}
+	}
 
 	/// <summary>
 	/// 移动端触控拖拽逻辑。

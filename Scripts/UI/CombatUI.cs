@@ -1749,9 +1749,6 @@ public partial class CombatUI : Control
 		_combat.OnEnemyEmote += OnEnemyEmote;
 		_unsubscribeActions.Add(() => _combat.OnEnemyEmote -= OnEnemyEmote);
 
-		// 抽牌动画 — 每次抽牌后装饰性飞卡
-		_combat.OnCardsDrawAnimation += OnCardsDrawAnimation;
-		_unsubscribeActions.Add(() => _combat.OnCardsDrawAnimation -= OnCardsDrawAnimation);
 	}
 
 	/// <summary>
@@ -2628,13 +2625,12 @@ public partial class CombatUI : Control
 		{
 			if (startedWithPointerDown)
 			{
-				// 鼠标按住拖拽路径（ReleaseMouseToTarget）：
-				// 卡牌跟随鼠标，松手到有效目标即打出。
-				// 释放事件由 CardUI.OnCardDropped → OnCardDroppedHandler 统一处理，
-				// _isCardTargetDragPressed 保持 false 避免双重进入。
+				// 鼠标按下路径：以 click-select 模式开始（卡牌跟随鼠标），
+				// 让 CardUI._Process 根据实际拖拽距离决定升级为拖拽松手还是保持选中。
+				// 快速点击→保持选中→点击目标打出；按住拖动>阈值→拖拽松手打出。
 				_dragCardUI.BeginPointerFollowFrom(
 					_dragCardUI.LastClickGlobalPosition,
-					startAsClickFollow: false);
+					startAsClickFollow: true);
 			}
 			else
 			{
@@ -2656,7 +2652,9 @@ public partial class CombatUI : Control
 			Vector2 anchor = startedByKeyboard
 				? originalGlobalPos + originalSize * originalScale * 0.5f
 				: _dragCardUI.LastClickGlobalPosition;
-			_dragCardUI.BeginPointerFollowFrom(anchor, startAsClickFollow: startedByKeyboard || !startedWithPointerDown);
+			// 无目标卡牌始终以 click-select 模式开始，让用户看到播放区域后再决定打出/取消。
+			// 按住拖动超过阈值时 CardUI._Process 会自动升级为拖拽松手模式。
+			_dragCardUI.BeginPointerFollowFrom(anchor, startAsClickFollow: true);
 
 			// 记录拖拽起始 Y（用于动态 PlayZone 阈值）
 			_playZoneDragStartY = anchor.Y;
@@ -2731,8 +2729,8 @@ public partial class CombatUI : Control
 		{
 			GD.Print(hit != null
 				? $"[CombatUI] 命中敌方槽位 {hit.Value.slotIndex}，但随从只能放在己方"
-				: "[CombatUI] 未命中任何槽位，取消拖拽");
-			OnCardDragCancelled();
+				: "[CombatUI] 未命中任何槽位，拖拽松手无效");
+			// 不取消——卡牌保持 click-select 状态等待点击放置
 		}
 	}
 
@@ -2770,13 +2768,13 @@ public partial class CombatUI : Control
 			else
 			{
 				GD.Print("[CombatUI] 法术松手位置无有效随从目标");
-				OnCardDragCancelled();
+				// 不取消——卡牌保持 click-select 状态等待点击目标
 			}
 		}
 		else
 		{
-			GD.Print("[CombatUI] 法术松手位置无效，取消拖拽");
-			OnCardDragCancelled();
+			GD.Print("[CombatUI] 法术松手位置无效，拖拽松手无目标");
+			// 不取消——卡牌保持 click-select 状态等待点击目标
 		}
 	}
 
@@ -2795,15 +2793,20 @@ public partial class CombatUI : Control
 		}
 
 		bool inZone = IsInPlayZone(screenPos);
-		GD.Print($"[CombatUI] 无目标卡牌松手 — {_selectedCard.CardName}，{(inZone ? "在播放区域内" : "不在播放区域内")}");
+		bool inCancelZone = IsInCancelZone(screenPos);
+		GD.Print($"[CombatUI] 无目标卡牌松手 — {_selectedCard.CardName}，" +
+			$"{(inZone ? "播放区" : inCancelZone ? "取消区" : "无效区")}");
 
-		if (!inZone)
+		if (inZone)
 		{
-			OnCardDragCancelled();
-			return;
+			PlaySelectedNoTargetCard();
 		}
-
-		PlaySelectedNoTargetCard();
+		else if (inCancelZone)
+		{
+			GD.Print("[CombatUI] 松手在取消区域 → 取消");
+			OnCardDragCancelled();
+		}
+		// 其他位置：不取消，卡牌保持 click-select 状态等待二次点击
 	}
 
 	/// <summary>
@@ -2889,27 +2892,6 @@ public partial class CombatUI : Control
 	private Vector2 GetDrawPileCenter()
 	{
 		return _drawPileBtn.GlobalPosition + _drawPileBtn.Size / 2f;
-	}
-
-	/// <summary>
-	/// 抽牌动画回调——CombatManager 每次抽牌后触发。
-	/// 对每张抽到的牌创建临时装饰卡牌，从抽牌堆飞到估算的手牌位置。
-	/// </summary>
-	private void OnCardsDrawAnimation(IReadOnlyList<Card.Card> drawnCards)
-	{
-		if (drawnCards.Count == 0) return;
-		if (_cardFlyLayer == null || _handUI == null) return;
-
-		Vector2 fromPos = GetDrawPileCenter();
-		// 抽牌后手牌数量 = 原有 + 新增（卡已进入数据层）
-		int totalAfterDraw = _combat?.PlayerHero.DeckState.Hand.Count ?? drawnCards.Count;
-		int firstNewIndex = totalAfterDraw - drawnCards.Count;
-
-		for (int i = 0; i < drawnCards.Count; i++)
-		{
-			Vector2 toPos = _handUI.GetHandCardGlobalCenter(firstNewIndex + i, totalAfterDraw);
-			CardFlyVfx.PlayDrawToHand(drawnCards[i], fromPos, toPos, _cardFlyLayer);
-		}
 	}
 
 	/// <summary>
