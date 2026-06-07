@@ -1,6 +1,5 @@
 using Godot;
 using OdysseyCards.Core;
-using OdysseyCards.Infrastructure;
 using System;
 using System.Collections.Generic;
 using Loc = OdysseyCards.Localization.Localization;
@@ -8,585 +7,193 @@ using Loc = OdysseyCards.Localization.Localization;
 namespace OdysseyCards.UI;
 
 /// <summary>
-/// 发现（N选1）选牌覆盖层。
-/// 全屏半透明遮罩 + 居中标题 + N张候选卡牌 + 跳过按钮。
+/// 发现（N选1）选牌覆盖层 — 继承 CardSelectionScreen 基类。
+/// 支持单选（N选1）和多选（N选M + 确认按钮）。
 /// 参考炉石「发现」和杀戮尖塔「选牌」界面（STS2 NChooseACardSelectionScreen）。
 /// </summary>
-public partial class DiscoverUI : Control
+public partial class DiscoverUI : CardSelectionScreen
 {
-    // ===== 子控件 =====
-
-    private ColorRect _background = null!;
-    private Label _titleLabel = null!;
-    private HBoxContainer _cardsContainer = null!;
-    private Button? _skipButton;
-    private Button? _confirmButton;
-
-    // ===== 状态 =====
-
-    private readonly List<CardUI> _cardUIs = new();
-    private Action<CardData?>? _onChosen;
-    private Action<IReadOnlyList<Card.Card>>? _onCardsChosen;
-    private readonly List<CardUI> _selectedCardUIs = new();
-    private bool _isShowing;
-    private ulong _openedTicks;
-    private int _pickCount = 1;
-
-    // ===== 键盘导航 =====
-
-    /// <summary>HotkeyManager 按下回调数组（索引 0=第1张牌，对应 SelectCard1）。</summary>
-    private Action?[] _selectActions = Array.Empty<Action>();
-
-    /// <summary>Enter 确认回调。</summary>
-    private Action? _acceptAction;
-
-    /// <summary>Escape/Backspace 跳过回调。</summary>
-    private Action? _skipAction;
-
-    /// <summary>方向键导航回调。</summary>
-    private Action? _leftAction;
-    private Action? _rightAction;
-
-    /// <summary>当前键盘焦点所在的卡牌索引（-1 = 无焦点）。</summary>
-    private int _focusedCardIndex = -1;
-
-    /// <summary>当前受键盘高亮的 CardUI 引用（用于清除视觉）。</summary>
-    private CardUI? _keyboardFocusedCardUI;
-
-    /// <summary>
-    /// STS2 模式：打开后 350ms 内忽略点击，防止误触。
-    /// </summary>
-    private const ulong ClickProtectionMs = 350;
-
-    /// <summary>
-    /// 自定义标题。如果设置了，则覆盖默认的本地化标题。
-    /// 用于弃牌选择等场景（如刀盾危机、主动弃牌）。
-    /// </summary>
-    public string? CustomTitle { get; set; }
-
-    // ===== 公开 API =====
-
-    /// <summary>
-    /// 显示选牌界面。
-    /// </summary>
-    /// <param name="cards">N 张候选卡牌数据</param>
-    /// <param name="canSkip">是否显示「跳过」按钮</param>
-    /// <param name="onChosen">选择回调，null 表示跳过</param>
-    public void ShowCards(IReadOnlyList<CardData> cards, bool canSkip, Action<CardData?> onChosen)
-    {
-        _onChosen = onChosen;
-        _onCardsChosen = null;
-        _pickCount = 1;
-        _isShowing = true;
-        _openedTicks = Time.GetTicksMsec();
-        Show();
-
-        var runtimeCards = new List<Card.Card>();
-        foreach (var cardData in cards)
-            runtimeCards.Add(new Card.Card(cardData));
-
-        BuildLayout(runtimeCards, canSkip);
-        PlayEntryAnimation();
-
-        // 订阅语言变更事件
-        GameManager.Instance.LanguageChanged += OnLanguageChanged;
-    }
-
-    /// <summary>
-    /// 显示可多选的选牌界面。
-    /// </summary>
-    public void ShowCards(IReadOnlyList<Card.Card> cards, int pickCount, bool canSkip, Action<IReadOnlyList<Card.Card>> onChosen)
-    {
-        _onChosen = null;
-        _onCardsChosen = onChosen;
-        _pickCount = Math.Max(1, pickCount);
-        _isShowing = true;
-        _openedTicks = Time.GetTicksMsec();
-        Show();
-
-        BuildLayout(cards, canSkip);
-        PlayEntryAnimation();
-
-        GameManager.Instance.LanguageChanged += OnLanguageChanged;
-    }
-
-    // ===== 布局构建 =====
-
-    private void BuildLayout(IReadOnlyList<Card.Card> cards, bool canSkip)
-    {
-        ClearExistingLayout();
-        float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
-
-        // 全屏覆盖层，拦截所有鼠标事件
-        SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        MouseFilter = MouseFilterEnum.Stop;
-        ZIndex = 200;
-
-        // 半透明暗色背景
-        _background = new ColorRect
-        {
-            Color = new Color(0, 0, 0, 0.8f),
-        };
-        _background.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        _background.MouseFilter = MouseFilterEnum.Ignore;
-        AddChild(_background);
-
-        // 居中根容器（参考 PauseMenu：用 CenterContainer 而非 VBoxContainer 的 Center 预设）
-        var root = new CenterContainer();
-        root.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        root.MouseFilter = MouseFilterEnum.Ignore;
-        AddChild(root);
-
-        // 垂直布局：标题 + 间距 + 卡牌行 + 间距 + 跳过按钮
-        var center = new VBoxContainer();
-        center.Alignment = BoxContainer.AlignmentMode.Center;
-        center.MouseFilter = MouseFilterEnum.Ignore;
-        root.AddChild(center);
-
-        // 标题
-        _titleLabel = new Label
-        {
-            Text = CustomTitle ?? (_pickCount > 1
-                ? Loc.T("ui.discover.pick_count", "选择 {count} 张").Replace("{count}", _pickCount.ToString())
-                : Loc.T("ui.discover.title", "发现")),
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        _titleLabel.AddThemeColorOverride("font_color", new Color(1, 1, 1, 0.9f));
-        _titleLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(28 * s));
-        _titleLabel.MouseFilter = MouseFilterEnum.Ignore;
-        center.AddChild(_titleLabel);
-
-        // 间距
-        var spacer1 = new Control { CustomMinimumSize = new Vector2(0, 24 * s) };
-        spacer1.MouseFilter = MouseFilterEnum.Ignore;
-        center.AddChild(spacer1);
-
-        // 卡牌行（水平居中排列）
-        // 参考 STS2 间距公式：Vector2.Left * (count - 1) * 340f * 0.5f
-        _cardsContainer = new HBoxContainer
-        {
-            Alignment = BoxContainer.AlignmentMode.Center,
-        };
-        _cardsContainer.AddThemeConstantOverride("separation", Mathf.RoundToInt(20 * s));
-        _cardsContainer.MouseFilter = MouseFilterEnum.Ignore;
-        center.AddChild(_cardsContainer);
-
-        foreach (var card in cards)
-        {
-            var cardUI = new CardUI();
-            cardUI.Name = $"DiscoverCard_{card.Id}";
-            cardUI.SetCard(card);
-            cardUI.CustomMinimumSize = new Vector2(130 * s, 195 * s);
-
-            // 入场前透明（动画渐变显示）
-            cardUI.Modulate = new Color(1, 1, 1, 0);
-
-            // 点击选取
-            cardUI.OnCardClicked += OnCardClicked;
-
-            _cardUIs.Add(cardUI);
-            _cardsContainer.AddChild(cardUI);
-        }
-
-        // 间距
-        var spacer2 = new Control { CustomMinimumSize = new Vector2(0, 20 * s) };
-        spacer2.MouseFilter = MouseFilterEnum.Ignore;
-        center.AddChild(spacer2);
-
-        // 跳过按钮
-        // 移动端始终显示跳过按钮（右键无法使用），桌面端仅 canSkip=true 时显示
-        bool showSkip = canSkip || MobileInputHelper.IsMobile;
-        if (showSkip)
-        {
-            _skipButton = new Button
-            {
-                Text = Loc.T("ui.discover.skip", "跳过"),
-                CustomMinimumSize = new Vector2(120 * s, 38 * s),
-            };
-            _skipButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(16 * s));
-            _skipButton.Pressed += OnSkipPressed;
-            center.AddChild(_skipButton);
-        }
-
-        if (_pickCount > 1)
-        {
-            _confirmButton = new Button
-            {
-                Text = Loc.T("ui.discover.confirm", "确认"),
-                CustomMinimumSize = new Vector2(120 * s, 38 * s),
-                Disabled = true,
-            };
-            _confirmButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(16 * s));
-            _confirmButton.Pressed += OnConfirmPressed;
-            center.AddChild(_confirmButton);
-        }
-
-        // 注册键盘热键绑定
-        RegisterHotkeyBindings();
-    }
-
-    private void ClearExistingLayout()
-    {
-        foreach (Node child in GetChildren())
-            child.QueueFree();
-
-        _cardUIs.Clear();
-        _selectedCardUIs.Clear();
-        _skipButton = null;
-        _confirmButton = null;
-    }
-
-    // ===== 入场动画 =====
-
-    /// <summary>
-    /// 入场动画：背景淡入 + 卡牌依次弹入（STS2 NChooseACardSelectionScreen 风格）。
-    /// 背景 0.2s 淡入，卡牌从黑色 ＋ 0.85 缩放弹入，依次错开 0.06s。
-    /// </summary>
-    private void PlayEntryAnimation()
-    {
-        var tween = CreateTween();
-        tween.SetParallel(true);
-
-        // 背景淡入（STS2: 0.2s）
-        tween.TweenProperty(_background, "color:a", 0.8f, 0.2);
-
-        // 卡牌依次弹入：从黑色渐变为白色 + 轻微缩放弹出
-        float cardDelay = 0.06f;
-        for (int i = 0; i < _cardUIs.Count; i++)
-        {
-            var card = _cardUIs[i];
-            tween.TweenProperty(card, "modulate", Colors.White, 0.45)
-                .SetDelay(cardDelay * i)
-                .SetEase(Tween.EaseType.Out)
-                .SetTrans(Tween.TransitionType.Expo)
-                .From(Colors.Black);
-            tween.TweenProperty(card, "scale", Vector2.One, 0.45)
-                .SetDelay(cardDelay * i)
-                .SetEase(Tween.EaseType.Out)
-                .SetTrans(Tween.TransitionType.Back)
-                .From(new Vector2(0.85f, 0.85f));
-        }
-    }
-
-    // ===== 事件处理 =====
-
-    private void OnCardClicked(CardUI cardUI)
-    {
-        if (!_isShowing) return;
-
-        // 立即终止拖拽（CardUI.StartDrag 已将 MouseFilter 设为 Ignore）
-        cardUI.CancelDragSilent();
-
-        // 350ms 点击保护（参考 STS2 NChooseACardSelectionScreen）
-        if (Time.GetTicksMsec() - _openedTicks < ClickProtectionMs)
-        {
-            GD.Print("[DiscoverUI] 点击太快，忽略（350ms 保护）");
-            return;
-        }
-
-        if (_pickCount > 1)
-        {
-            ToggleCardSelection(cardUI);
-            return;
-        }
-
-        var chosen = cardUI.Card?.Data;
-        GD.Print($"[DiscoverUI] 玩家选择了：{chosen?.GetLocalizedName() ?? "(null)"}");
-
-        cardUI.Modulate = new Color(1, 0.85f, 0.3f, 1);
-
-        _isShowing = false;
-        var callback = _onChosen;
-        _onChosen = null;
-        callback?.Invoke(chosen);
-    }
-
-    private void ToggleCardSelection(CardUI cardUI)
-    {
-        if (_selectedCardUIs.Remove(cardUI))
-        {
-            cardUI.Modulate = new Color(1, 1, 1, 1);
-        }
-        else
-        {
-            if (_selectedCardUIs.Count >= _pickCount) return;
-            _selectedCardUIs.Add(cardUI);
-            cardUI.Modulate = new Color(1, 0.85f, 0.3f, 1);
-        }
-
-        if (_confirmButton != null)
-            _confirmButton.Disabled = _selectedCardUIs.Count != _pickCount;
-    }
-
-    private void OnConfirmPressed()
-    {
-        if (!_isShowing || _selectedCardUIs.Count != _pickCount) return;
-
-        var chosenCards = new List<Card.Card>();
-        foreach (var cardUI in _selectedCardUIs)
-        {
-            if (cardUI.Card != null)
-                chosenCards.Add(cardUI.Card);
-        }
-
-        GD.Print($"[DiscoverUI] 玩家确认选择 {chosenCards.Count} 张牌");
-        _isShowing = false;
-        var callback = _onCardsChosen;
-        _onCardsChosen = null;
-        callback?.Invoke(chosenCards);
-    }
-
-    private void OnSkipPressed()
-    {
-        if (!_isShowing) return;
-
-        GD.Print("[DiscoverUI] 玩家跳过选牌");
-
-        _isShowing = false;
-        var callback = _onChosen;
-        var cardsCallback = _onCardsChosen;
-        _onChosen = null;
-        _onCardsChosen = null;
-        callback?.Invoke(null);
-        cardsCallback?.Invoke(Array.Empty<Card.Card>());
-    }
-
-    private void OnLanguageChanged(string lang)
-    {
-        _titleLabel.Text = CustomTitle ?? (_pickCount > 1
-            ? Loc.T("ui.discover.pick_count", "选择 {count} 张").Replace("{count}", _pickCount.ToString())
-            : Loc.T("ui.discover.title", "发现"));
-        if (_skipButton != null)
-            _skipButton.Text = Loc.T("ui.discover.skip", "跳过");
-        if (_confirmButton != null)
-            _confirmButton.Text = Loc.T("ui.discover.confirm", "确认");
-    }
-
-    // ===== 生命周期 =====
-
-    public override void _ExitTree()
-    {
-        GameManager.Instance.LanguageChanged -= OnLanguageChanged;
-        UnregisterHotkeyBindings();
-    }
-
-    // ===== 键盘导航 — HotkeyManager 绑定 =====
-
-    /// <summary>
-    /// 注册键盘热键绑定到 HotkeyManager。
-    /// 数字键 1~N 直选卡牌，Enter 确认，Escape/Backspace 跳过。
-    /// </summary>
-    private void RegisterHotkeyBindings()
-    {
-        // 先清理旧绑定（BuildLayout 可能被多次调用）
-        UnregisterHotkeyBindings();
-
-        var hm = HotkeyManager.Instance;
-        if (hm == null) return;
-
-        int cardCount = _cardUIs.Count;
-
-        // 数字键 1~N 直选卡牌
-        _selectActions = new Action[cardCount];
-        for (int i = 0; i < cardCount; i++)
-        {
-            int capturedIndex = i;
-            _selectActions[i] = () => SelectCardByIndex(capturedIndex);
-            hm.PushPressedBinding(OdysseyInput.SelectCardActions[i], _selectActions[i]);
-        }
-
-        // Enter 确认（多选模式下触发确认；单选模式下激活焦点卡牌）
-        _acceptAction = AcceptFocusedOrConfirm;
-        hm.PushPressedBinding(OdysseyInput.Accept, _acceptAction);
-
-        // Escape/Backspace 跳过
-        _skipAction = OnSkipPressed;
-        hm.PushPressedBinding(OdysseyInput.Skip, _skipAction);
-        hm.PushPressedBinding(OdysseyInput.Cancel, _skipAction);
-
-        // 方向键导航（左右切换焦点卡牌）
-        _leftAction = () => CycleCardFocus(-1);
-        _rightAction = () => CycleCardFocus(1);
-        hm.PushPressedBinding(OdysseyInput.Left, _leftAction);
-        hm.PushPressedBinding(OdysseyInput.Right, _rightAction);
-
-        // 监听键盘焦点超时事件
-        hm.KeyboardFocusChanged += OnKeyboardFocusChanged;
-    }
-
-    /// <summary>
-    /// 注销所有键盘热键绑定。
-    /// </summary>
-    private void UnregisterHotkeyBindings()
-    {
-        var hm = HotkeyManager.Instance;
-        if (hm == null) return;
-
-        hm.KeyboardFocusChanged -= OnKeyboardFocusChanged;
-
-        if (_selectActions != null)
-        {
-            for (int i = 0; i < _selectActions.Length; i++)
-            {
-                if (_selectActions[i] != null)
-                    hm.RemovePressedBinding(OdysseyInput.SelectCardActions[i], _selectActions[i]);
-            }
-            _selectActions = Array.Empty<Action>();
-        }
-
-        if (_acceptAction != null) { hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
-        if (_skipAction != null)
-        {
-            hm.RemovePressedBinding(OdysseyInput.Skip, _skipAction);
-            hm.RemovePressedBinding(OdysseyInput.Cancel, _skipAction);
-            _skipAction = null;
-        }
-
-        if (_leftAction != null) { hm.RemovePressedBinding(OdysseyInput.Left, _leftAction); _leftAction = null; }
-        if (_rightAction != null) { hm.RemovePressedBinding(OdysseyInput.Right, _rightAction); _rightAction = null; }
-    }
-
-    /// <summary>
-    /// 数字键直选：选择指定索引的卡牌。
-    /// 单选模式下直接确认；多选模式下切换选中状态。
-    /// </summary>
-    private void SelectCardByIndex(int index)
-    {
-        if (!_isShowing) return;
-        if (index < 0 || index >= _cardUIs.Count) return;
-
-        // 350ms 点击保护
-        if (Time.GetTicksMsec() - _openedTicks < ClickProtectionMs) return;
-
-        var cardUI = _cardUIs[index];
-
-        // 更新键盘焦点
-        _focusedCardIndex = index;
-
-        if (_pickCount > 1)
-        {
-            ToggleCardSelection(cardUI);
-            ApplyKeyboardFocusVisual();
-        }
-        else
-        {
-            // 单选模式：直接触发选择（复用 OnCardClicked 逻辑）
-            OnCardClicked(cardUI);
-        }
-    }
-
-    /// <summary>
-    /// 方向键导航：循环切换键盘焦点到上一张/下一张卡牌。
-    /// </summary>
-    private void CycleCardFocus(int direction)
-    {
-        if (!_isShowing) return;
-        if (_cardUIs.Count == 0) return;
-
-        if (_focusedCardIndex < 0 || _focusedCardIndex >= _cardUIs.Count)
-            _focusedCardIndex = direction > 0 ? 0 : _cardUIs.Count - 1;
-        else
-        {
-            _focusedCardIndex += direction;
-            if (_focusedCardIndex >= _cardUIs.Count)
-                _focusedCardIndex = 0;
-            else if (_focusedCardIndex < 0)
-                _focusedCardIndex = _cardUIs.Count - 1;
-        }
-
-        ApplyKeyboardFocusVisual();
-    }
-
-    /// <summary>
-    /// Enter 键：多选模式下触发确认；单选模式下激活焦点卡牌。
-    /// </summary>
-    private void AcceptFocusedOrConfirm()
-    {
-        if (!_isShowing) return;
-
-        if (_pickCount > 1)
-        {
-            // 多选模式：触发确认按钮
-            OnConfirmPressed();
-        }
-        else
-        {
-            // 单选模式：激活焦点卡牌
-            if (_focusedCardIndex < 0 || _focusedCardIndex >= _cardUIs.Count)
-                _focusedCardIndex = 0;
-            OnCardClicked(_cardUIs[_focusedCardIndex]);
-        }
-    }
-
-    /// <summary>
-    /// HotkeyManager 键盘焦点超时回调。
-    /// </summary>
-    private void OnKeyboardFocusChanged(bool active)
-    {
-        if (!active)
-        {
-            _focusedCardIndex = -1;
-            ClearKeyboardFocusVisual();
-        }
-    }
-
-    /// <summary>
-    /// 给当前键盘焦点的卡牌施加蓝色调 SelfModulate 指示器。
-    /// </summary>
-    private void ApplyKeyboardFocusVisual()
-    {
-        bool shouldShowFocus = _focusedCardIndex >= 0
-            && _focusedCardIndex < _cardUIs.Count
-            && HotkeyManager.Instance.LastKeyboardActivityMsec > 0;
-
-        // 先清除旧焦点视觉
-        ClearKeyboardFocusVisual();
-
-        if (!shouldShowFocus) return;
-
-        var cardUI = _cardUIs[_focusedCardIndex];
-        if (cardUI == null || !GodotObject.IsInstanceValid(cardUI)) return;
-
-        // 如果卡牌已被选中（多选模式），保留金色调不覆盖
-        if (_selectedCardUIs.Contains(cardUI)) return;
-
-        // 蓝色调指示器
-        cardUI.SelfModulate = new Color(0.72f, 0.85f, 1f, 1f);
-        _keyboardFocusedCardUI = cardUI;
-    }
-
-    /// <summary>
-    /// 清除当前卡牌的键盘焦点视觉。
-    /// </summary>
-    private void ClearKeyboardFocusVisual()
-    {
-        if (_keyboardFocusedCardUI != null)
-        {
-            if (GodotObject.IsInstanceValid(_keyboardFocusedCardUI))
-            {
-                // 如果卡牌被选中，恢复为金色；否则恢复白色
-                if (_selectedCardUIs.Contains(_keyboardFocusedCardUI))
-                    _keyboardFocusedCardUI.SelfModulate = new Color(1, 0.85f, 0.3f, 1);
-                else
-                    _keyboardFocusedCardUI.SelfModulate = Colors.White;
-            }
-            _keyboardFocusedCardUI = null;
-        }
-    }
-
-    /// <summary>
-    /// 右键取消（仅桌面端，移动端使用跳过按钮）。
-    /// </summary>
-    public override void _GuiInput(InputEvent @event)
-    {
-        if (MobileInputHelper.IsMobile) return; // 移动端使用跳过按钮
-
-        if (@event is InputEventMouseButton mb
-            && mb.Pressed
-            && mb.ButtonIndex == MouseButton.Right)
-        {
-            OnSkipPressed();
-            AcceptEvent();
-        }
-    }
+	// ===== 子类特有状态 =====
+
+	private readonly List<CardUI> _selectedCardUIs = new();
+	private IReadOnlyList<Card.Card>? _currentCards;
+	private int _pickCount = 1;
+
+	// ===== 回调 =====
+
+	private Action<CardData?>? _onChosen;
+	private Action<IReadOnlyList<Card.Card>>? _onCardsChosen;
+
+	/// <summary>
+	/// 自定义标题。如果设置了，则覆盖默认的本地化标题。
+	/// 用于弃牌选择等场景（如刀盾危机、主动弃牌）。
+	/// </summary>
+	public string? CustomTitle { get; set; }
+
+	// ===== 基类覆写 =====
+
+	protected override string TitleText =>
+		CustomTitle ?? (_pickCount > 1
+			? Loc.T("ui.discover.pick_count", "选择 {count} 张").Replace("{count}", _pickCount.ToString())
+			: Loc.T("ui.discover.title", "发现"));
+
+	protected override string SkipButtonText => Loc.T("ui.discover.skip", "跳过");
+
+	protected override string? ConfirmButtonText => _pickCount > 1
+		? Loc.T("ui.discover.confirm", "确认")
+		: null;
+
+	protected override int DialogWidth => 600;
+	protected override int OverlayZIndex => 200;
+	protected override bool ShowSkipButton => true;
+
+	protected override bool IsItemSelected(int index)
+	{
+		if (index < 0 || index >= _items.Count) return false;
+		return _selectedCardUIs.Contains(_items[index]);
+	}
+
+	protected override void RefreshLocalizedTexts()
+	{
+		base.RefreshLocalizedTexts();
+	}
+
+	// ===== 公开 API =====
+
+	/// <summary>
+	/// 显示选牌界面——N选1（使用 CardData 列表）。
+	/// </summary>
+	public void ShowCards(IReadOnlyList<CardData> cards, bool canSkip, Action<CardData?> onChosen)
+	{
+		_onChosen = onChosen;
+		_onCardsChosen = null;
+		_pickCount = 1;
+		_selectedCardUIs.Clear();
+
+		var runtimeCards = new List<Card.Card>();
+		foreach (var cardData in cards)
+			runtimeCards.Add(new Card.Card(cardData));
+		_currentCards = runtimeCards;
+
+		_isShowing = true;
+		_openedTicks = Time.GetTicksMsec();
+		Show();
+
+		BuildOverlay();
+		PlayEntryAnimation();
+	}
+
+	/// <summary>
+	/// 显示选牌界面——N选M（使用 Card 运行时实例列表）。
+	/// </summary>
+	public void ShowCards(IReadOnlyList<Card.Card> cards, int pickCount, bool canSkip,
+		Action<IReadOnlyList<Card.Card>> onChosen)
+	{
+		_onChosen = null;
+		_onCardsChosen = onChosen;
+		_pickCount = Math.Max(1, pickCount);
+		_selectedCardUIs.Clear();
+		_currentCards = cards;
+
+		_isShowing = true;
+		_openedTicks = Time.GetTicksMsec();
+		Show();
+
+		BuildOverlay();
+		PlayEntryAnimation();
+	}
+
+	// ===== 卡牌项构建 =====
+
+	protected override void BuildCardItems()
+	{
+		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+
+		if (_currentCards == null) return;
+
+		foreach (var card in _currentCards)
+		{
+			var cardUI = new CardUI
+			{
+				Name = $"DiscoverCard_{card.Id}",
+				CustomMinimumSize = new Vector2(130 * s, 195 * s),
+				Modulate = new Color(1, 1, 1, 0), // 入场前透明，动画控制显示
+			};
+			cardUI.SetCard(card);
+			_cardsContainer.AddChild(cardUI);
+			RegisterItem(cardUI);
+		}
+	}
+
+	// ===== 选择处理 =====
+
+	protected override void OnItemSelected(int index)
+	{
+		var cardUI = _items[index];
+
+		if (_pickCount > 1)
+		{
+			ToggleCardSelection(index, cardUI);
+			return;
+		}
+
+		// 单选模式：直接确认
+		var chosen = cardUI.Card?.Data;
+		GD.Print($"[DiscoverUI] 玩家选择了：{chosen?.GetLocalizedName() ?? "(null)"}");
+
+		cardUI.SelfModulate = SelectedColor;
+
+		_isShowing = false;
+		var callback = _onChosen;
+		_onChosen = null;
+		callback?.Invoke(chosen);
+	}
+
+	protected override void OnSkip()
+	{
+		GD.Print("[DiscoverUI] 玩家跳过选牌");
+
+		var callback = _onChosen;
+		var cardsCallback = _onCardsChosen;
+		_onChosen = null;
+		_onCardsChosen = null;
+		callback?.Invoke(null);
+		cardsCallback?.Invoke(Array.Empty<Card.Card>());
+	}
+
+	protected override void OnConfirm()
+	{
+		if (!_isShowing || _selectedCardUIs.Count != _pickCount) return;
+
+		var chosenCards = new List<Card.Card>();
+		foreach (var cardUI in _selectedCardUIs)
+		{
+			if (cardUI.Card != null)
+				chosenCards.Add(cardUI.Card);
+		}
+
+		GD.Print($"[DiscoverUI] 玩家确认选择 {chosenCards.Count} 张牌");
+		_isShowing = false;
+		var callback = _onCardsChosen;
+		_onCardsChosen = null;
+		callback?.Invoke(chosenCards);
+	}
+
+	// ===== 多选切换 =====
+
+	private void ToggleCardSelection(int index, CardUI cardUI)
+	{
+		if (_selectedCardUIs.Remove(cardUI))
+		{
+			cardUI.SelfModulate = Colors.White;
+		}
+		else
+		{
+			if (_selectedCardUIs.Count >= _pickCount) return;
+			_selectedCardUIs.Add(cardUI);
+			cardUI.SelfModulate = SelectedColor;
+		}
+
+		SetConfirmEnabled(_selectedCardUIs.Count == _pickCount);
+	}
 }
