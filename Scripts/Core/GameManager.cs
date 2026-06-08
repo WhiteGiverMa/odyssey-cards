@@ -740,12 +740,13 @@ public partial class GameManager : Node
 	/// <summary>
 	/// 开始一次新的冒险运行。
 	/// </summary>
-    public void StartNewRun()
-    {
-        GD.Print("[GameManager] 开始新冒险！");
+	public void StartNewRun()
+	{
+		GD.Print("[GameManager] 开始新冒险！");
 
-        CreateNewPlayer();
-        PlayerHealth = 30;
+		CreateNewPlayer();
+		Relics.Clear();
+		PlayerHealth = 30;
         PlayerMaxHealth = 30;
         RunGold = 0;
 
@@ -754,14 +755,82 @@ public partial class GameManager : Node
         RunState.OnRunFailed += () => GD.Print("[GameManager] 冒险失败！");
         RunState.StartNewRun();
 
-        GD.Print($"[GameManager] 冒险已初始化 — {RunState.CurrentPlane?.PlaneName}，" +
-                  $"{RunState.TotalLayers} 层，首层 {RunState.CurrentChoiceCount} 个可选房间");
-    }
+		SaveRun(); // 立即持久化——确保退出后在主菜单可见 Continue
 
-    /// <summary>
-    /// 重置整局游戏。
-    /// </summary>
-    public void ResetRun()
+		GD.Print($"[GameManager] 冒险已初始化 — {RunState.CurrentPlane?.PlaneName}，" +
+				  $"{RunState.TotalLayers} 层，首层 {RunState.CurrentChoiceCount} 个可选房间");
+	}
+
+	/// <summary>
+	/// 继续冒险——从存档恢复跑状态并进入地图。
+	/// </summary>
+	public bool ContinueRun()
+	{
+		if (RunState == null || RunState.IsRunComplete)
+		{
+			GD.Print("[GameManager] ContinueRun 失败 — 没有进行中的冒险");
+			return false;
+		}
+		CreateNewPlayer();
+		// 恢复玩家生命值（覆盖 CreateNewPlayer 的默认30）
+		CurrentPlayer?.InitializeHealth(PlayerMaxHealth, PlayerHealth);
+		GD.Print($"[GameManager] 继续冒险 — {RunState.CurrentPlane?.PlaneName}，层 {RunState.CurrentLayerIndex + 1}");
+		return true;
+	}
+
+	/// <summary>
+	/// 清除进行中的冒险存档（失败或放弃时调用）。
+	/// </summary>
+	public void ClearActiveRun()
+	{
+		RunState = null;
+		PlayerHealth = 30;
+		PlayerMaxHealth = 30;
+		RunGold = 0;
+		Relics.Clear();
+		// 保存清除后的状态
+		var data = new GameSaveData
+		{
+			Version = 2,
+			Language = _currentLanguage,
+			OwnedCardIds = OwnedCardIds.ToList(),
+			Decks = Decks.Select(d => DeckSaveData.FromDeck(d)).ToList(),
+			ActiveDeckIndex = ActiveDeckIndex,
+			EmoteIdleTimeSeconds = EmoteIdleTimeSeconds,
+			EmoteIdleVariationMin = EmoteIdleVariationMin,
+			EmoteIdleVariationMax = EmoteIdleVariationMax,
+			RunGold = 0,
+			ActiveRun = null,
+		};
+		_saveManager.Save(data);
+		GD.Print("[GameManager] 冒险存档已清除");
+	}
+
+	/// <summary>
+	/// 保存当前跑状态（供自动存档钩子调用）。
+	/// </summary>
+	public void SaveRun()
+	{
+		SaveToDisk();
+		GD.Print("[GameManager] 跑状态已自动保存");
+	}
+
+	/// <summary>
+	/// 窗口关闭时自动保存跑状态。
+	/// </summary>
+	public override void _Notification(int what)
+	{
+		if (what == NotificationWMCloseRequest && RunState != null)
+		{
+			SaveRun();
+			GD.Print("[GameManager] 窗口关闭 — 跑状态已保存");
+		}
+	}
+
+	/// <summary>
+	/// 重置整局游戏。
+	/// </summary>
+	public void ResetRun()
     {
         PlayerHealth = 30;
         PlayerMaxHealth = 30;
@@ -834,10 +903,14 @@ public partial class GameManager : Node
             EmoteIdleTimeSeconds = EmoteIdleTimeSeconds,
             EmoteIdleVariationMin = EmoteIdleVariationMin,
             EmoteIdleVariationMax = EmoteIdleVariationMax,
-            RunGold = RunGold,
-        };
+		RunGold = RunGold,
+		};
 
-        _saveManager.Save(data);
+		// 序列化当前跑状态
+		if (RunState != null)
+			data.ActiveRun = RunState.Save();
+
+		_saveManager.Save(data);
     }
 
     /// <summary>
@@ -871,9 +944,27 @@ public partial class GameManager : Node
         EmoteIdleTimeSeconds = data.EmoteIdleTimeSeconds;
         EmoteIdleVariationMin = data.EmoteIdleVariationMin;
         EmoteIdleVariationMax = data.EmoteIdleVariationMax;
-        RunGold = data.RunGold;
+		RunGold = data.RunGold;
 
-        GD.Print($"[GameManager] 存档已加载 — {Decks.Count} 个牌组，" +
+		// 恢复进行中的冒险
+		if (data.ActiveRun != null)
+		{
+			RunState = new GameRunState();
+			RunState.Restore(data.ActiveRun);
+			PlayerHealth = data.ActiveRun.PlayerHealth;
+			PlayerMaxHealth = data.ActiveRun.PlayerMaxHealth;
+			RunGold = data.ActiveRun.RunGold;
+			// 恢复藏品
+			Relics.Clear();
+			foreach (var relicId in data.ActiveRun.RelicIds)
+			{
+				var relic = RelicManager.CreateRelicById(relicId);
+				if (relic != null) Relics.AddRelic(relic);
+			}
+			GD.Print($"[GameManager] 从存档恢复了冒险 — {RunState.CurrentPlane?.PlaneName}，层 {RunState.CurrentLayerIndex + 1}");
+		}
+
+		GD.Print($"[GameManager] 存档已加载 — {Decks.Count} 个牌组，" +
                   $"{OwnedCardIds.Count} 张已解锁");
     }
 
