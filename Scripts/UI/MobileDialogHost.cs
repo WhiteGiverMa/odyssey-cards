@@ -35,8 +35,8 @@ public static class MobileDialogHost
     /// <summary>
     /// 创建一个标准移动端弹窗。
     /// 弹窗本身是 Control 节点，已接入 MobileInputRouter 模态层。
-    /// 返回 (dialog, contentContainer, buttonRow)。
-    /// 调用方负责 AddChild(dialog) 到场景。
+	/// 返回 (dialog, contentContainer, buttonRow)。
+	/// 本方法会直接把 dialog 添加到 parent。
     /// </summary>
     public static (Control dialog, VBoxContainer content, HBoxContainer buttonRow)
         CreateDialog(Control parent, string title, int width = 400)
@@ -70,20 +70,23 @@ public static class MobileDialogHost
 		};
 		dialog.AddChild(centerContainer);
 
-        // 弹窗面板
-        var panel = new Panel
-        {
-            Name = "DialogPanel",
-            CustomMinimumSize = new Vector2(width, 0),
-        };
+		// 弹窗面板
+		var viewportSize = parent.GetViewportRect().Size;
+		var dialogHeight = Mathf.Max(MinTouchTargetHeight * 4f, viewportSize.Y * MaxDialogHeightRatio);
+		var panel = new Panel
+		{
+			Name = "DialogPanel",
+			CustomMinimumSize = new Vector2(width, dialogHeight),
+		};
         panel.AddThemeStyleboxOverride("panel", CreateDialogStylebox());
 
-        var panelVBox = new VBoxContainer
-        {
-            Name = "PanelVBox",
-        };
-        panelVBox.AddThemeConstantOverride("separation", 16);
-        panel.AddChild(panelVBox);
+		var panelVBox = new VBoxContainer
+		{
+			Name = "PanelVBox",
+		};
+		panelVBox.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+		panelVBox.AddThemeConstantOverride("separation", 16);
+		panel.AddChild(panelVBox);
 
         // 标题
         if (!string.IsNullOrEmpty(title))
@@ -105,10 +108,12 @@ public static class MobileDialogHost
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
         };
-        var content = new VBoxContainer
-        {
-            Name = "Content",
-        };
+		var content = new VBoxContainer
+		{
+			Name = "Content",
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			CustomMinimumSize = new Vector2(Mathf.Max(0, width - 48), 0),
+		};
         content.AddThemeConstantOverride("separation", 12);
         scrollContainer.AddChild(content);
         panelVBox.AddChild(scrollContainer);
@@ -164,11 +169,11 @@ public static class MobileDialogHost
     /// </summary>
     public static Button CreateDialogButton(string text, Color? color = null, float minHeight = MinTouchTargetHeight)
     {
-        var btn = new Button
-        {
-            Text = text,
-            CustomMinimumSize = new Vector2(0, minHeight),
-        };
+		var btn = new Button
+		{
+			Text = text,
+			CustomMinimumSize = new Vector2(120, minHeight),
+		};
         btn.AddThemeFontSizeOverride("font_size", 20);
 
         if (color.HasValue)

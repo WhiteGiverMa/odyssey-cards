@@ -47,6 +47,7 @@ public partial class InfoScreen : Control
 	private Control? _runTab;
 	private Control? _deckTab;
 	private Control? _relicTab;
+	private VBoxContainer? _relicList;
 
 	// ===== 状态 =====
 
@@ -339,16 +340,15 @@ public partial class InfoScreen : Control
 		};
 		list.AddThemeConstantOverride("separation", 6);
 		scroll.AddChild(list);
+		_relicList = list;
 	}
 
 	private void RefreshRelicTab()
 	{
-		if (_relicTab == null) return;
-		var list = _relicTab.FindChild("RelicList", recursive: true) as VBoxContainer;
-		if (list == null) return;
+		if (_relicTab == null || _relicList == null) return;
 
 		// 清除旧内容
-		foreach (var child in list.GetChildren())
+		foreach (var child in _relicList.GetChildren())
 			child.QueueFree();
 
 		var relics = GameManager.Instance.Relics.Relics;
@@ -361,14 +361,14 @@ public partial class InfoScreen : Control
 			};
 			emptyLabel.AddThemeFontSizeOverride("font_size", 16);
 			emptyLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.5f, 0.5f));
-			list.AddChild(emptyLabel);
+			_relicList.AddChild(emptyLabel);
 			return;
 		}
 
 		foreach (var relic in relics)
 		{
 			var item = CreateRelicItem(relic);
-			list.AddChild(item);
+			_relicList.AddChild(item);
 		}
 	}
 

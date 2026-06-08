@@ -9,6 +9,30 @@ using System.Linq;
 
 namespace OdysseyCards.Infrastructure.Commands;
 
+internal static class CommandSceneLookup
+{
+	public static MapUI FindMapUI()
+	{
+		var root = GameManager.Instance?.GetTree()?.Root;
+		return root == null ? null : FindMapUIRecursive(root);
+	}
+
+	private static MapUI FindMapUIRecursive(Node node)
+	{
+		if (node is MapUI mapUI)
+			return mapUI;
+
+		foreach (var child in node.GetChildren())
+		{
+			var found = FindMapUIRecursive(child);
+			if (found != null)
+				return found;
+		}
+
+		return null;
+	}
+}
+
 // ===== /end /fight /refresh /intent_debug =====
 
 public class EndCommand : DevConsoleCommand
@@ -137,7 +161,7 @@ public class SkipCommand : DevConsoleCommand
 		}
 
 		// 情况 2：在地图界面 → 直接推进
-		var mapUI = gm?.GetTree()?.Root?.FindChild("MapUI", recursive: true) as UI.MapUI;
+		var mapUI = CommandSceneLookup.FindMapUI();
 		if (mapUI != null)
 		{
 			mapUI.DevForceCompleteRoom();
@@ -242,11 +266,10 @@ public class RoomCommand : DevConsoleCommand
 			return CommandResult.Ok("__ROOM__Map");
 
 		// 已在地图 → 直接触发
-		var mapUI = gm.GetTree()?.Root?.FindChild("MapUI", recursive: true) as UI.MapUI;
+		var mapUI = CommandSceneLookup.FindMapUI();
 		if (mapUI != null)
 		{
-			mapUI.DevForceCompleteRoom(); // 先完成当前房间
-			mapUI.RefreshRoomChoices();   // 触发消费 RoomTypeOverride
+			mapUI.RefreshRoomChoices();   // 触发消费 RoomTypeOverride，直接显示指定房间
 			return CommandResult.Ok($"当前层已覆盖为: {roomType}");
 		}
 
@@ -293,7 +316,7 @@ public class EventCommand : DevConsoleCommand
 		}
 
 		// 情况 2：在地图中 → 直接覆盖当前房间
-		var mapUI = gm?.GetTree()?.Root?.FindChild("MapUI", recursive: true) as UI.MapUI;
+		var mapUI = CommandSceneLookup.FindMapUI();
 		if (mapUI != null)
 		{
 			mapUI.DevShowEvent(eventId);

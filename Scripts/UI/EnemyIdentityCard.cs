@@ -307,8 +307,8 @@ public partial class EnemyIdentityCard : Panel
         var root = GetTree()?.Root;
         if (root == null) return;
 
-        // Look for IntentTooltipLayer
-        var tipLayer = root.FindChild("IntentTooltipLayer", recursive: true, owned: false) as Control;
+		// Look for IntentTooltipContent (Control child of CanvasLayer)
+		var tipLayer = root.FindChild("IntentTooltipContent", recursive: true, owned: false) as Control;
         if (tipLayer == null) return;
 
         string title = icon.GetMeta("tip_title", icon.GetLabelText()).AsString();
