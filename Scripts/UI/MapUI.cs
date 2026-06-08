@@ -25,9 +25,15 @@ public partial class MapUI : Control
     private Label _layerLabel = null!;
     private ScrollContainer _scrollContainer = null!;
     private VBoxContainer _choicesContainer = null!;
-    private Button _quitButton = null!;
+	private Button _quitButton = null!;
 
-    // ===== 状态 =====
+	// ===== 暂停菜单 =====
+
+	private PauseMenu? _pauseMenu;
+	private bool _isPaused;
+	private Action? _pauseAction;
+
+	// ===== 状态 =====
 
     private GameRunState _runState = null!;
 
@@ -111,6 +117,11 @@ public partial class MapUI : Control
 		// 导致容器布局塌陷到 (0,0)，所有按钮挤在左上角。
 		CallDeferred(nameof(DeferredSetupUI));
 
+		// 注册暂停热键（ESC → 暂停菜单，跟随 CombatUI 模式）
+		var hm = HotkeyManager.Instance;
+		_pauseAction = TogglePause;
+		hm.PushPressedBinding(OdysseyInput.Pause, _pauseAction);
+
 		GameManager.Instance.LanguageChanged += OnLanguageChanged;
 	}
 
@@ -152,6 +163,23 @@ public partial class MapUI : Control
         foreach (var token in _roomZoneTokens)
             token.Dispose();
         _roomZoneTokens.Clear();
+
+        // 清理暂停菜单
+        if (_pauseMenu != null)
+        {
+            GetTree().Paused = false;
+            _pauseMenu.OnContinue -= HidePauseMenu;
+            _pauseMenu.QueueFree();
+            _pauseMenu = null;
+        }
+        _isPaused = false;
+
+        // 注销暂停热键
+        if (_pauseAction != null)
+        {
+            HotkeyManager.Instance?.RemovePressedBinding(OdysseyInput.Pause, _pauseAction);
+            _pauseAction = null;
+        }
 
         if (GameManager.Instance != null)
             GameManager.Instance.LanguageChanged -= OnLanguageChanged;
@@ -277,7 +305,7 @@ public partial class MapUI : Control
         _quitButton = new Button
         {
             Name = "QuitButton",
-            Text = Localization.Localization.T("ui.map.abandon", "放弃冒险（返回主菜单）"),
+			Text = Localization.Localization.T("ui.map.return_to_menu", "返回主菜单"),
             CustomMinimumSize = new Vector2(0, 64),
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
         };
@@ -604,14 +632,15 @@ public partial class MapUI : Control
         HandleRoomSelected(room);
     }
 
-    /// <summary>
-    /// Escape 键：返回（放弃冒险）。
-    /// </summary>
-    private void HandleKeyboardCancel()
-    {
-        if (SceneLifecycleGuard.ShouldSkip(this)) return;
-        OnQuitPressed();
-    }
+	/// <summary>
+	/// Escape 键：返回（返回主菜单）。
+	/// 现在 ESC 改为打开暂停菜单，由暂停菜单提供「保存并退出」选项。
+	/// </summary>
+	private void HandleKeyboardCancel()
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this)) return;
+		ShowPauseMenu();
+	}
 
     /// <summary>
     /// HotkeyManager 键盘焦点超时事件：超时后清除房间焦点指示器。
@@ -697,7 +726,8 @@ public partial class MapUI : Control
             }
         }
 
-        GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
+		GameManager.Instance?.SaveRun();
+		GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
     }
 
 	/// <summary>
@@ -875,10 +905,11 @@ public partial class MapUI : Control
 	/// 完成当前房间并推进到下一层。
 	/// </summary>
 	private void CompleteRoomAndAdvance()
-    {
-        _runState.CompleteRoom();
+	{
+		_runState.CompleteRoom();
+		GameManager.Instance?.SaveRun();
 
-        if (_runState.IsRunComplete && !_runState.IsRunFailed)
+		if (_runState.IsRunComplete && !_runState.IsRunFailed)
         {
             ShowRunComplete();
         }
@@ -1011,7 +1042,7 @@ public partial class MapUI : Control
     {
         _titleLabel.Text = _runState?.CurrentPlane?.PlaneName
             ?? Localization.Localization.T("ui.map.title_fallback", "路线选择");
-        _quitButton.Text = Localization.Localization.T("ui.map.abandon", "放弃冒险（返回主菜单）");
+		_quitButton.Text = Localization.Localization.T("ui.map.return_to_menu", "返回主菜单");
 
         if (_runState != null)
         {
@@ -1019,12 +1050,71 @@ public partial class MapUI : Control
         }
     }
 
-    // ===== 退出 =====
+	// ===== 暂停菜单（ESC）=====
+
+	/// <summary>
+	/// 切换暂停菜单显示状态。
+	/// 暂停状态期间会暂停场景树（GetTree().Paused），
+	/// 使 InputManager 停止分发键位，避免 ESC 重复触发。
+	/// PauseMenu 自身 ProcessMode=Always，可正常处理 ESC 关闭。
+	/// </summary>
+	private void TogglePause()
+	{
+		if (_isPaused) return; // 暂停菜单自身处理 ESC 关闭
+		ShowPauseMenu();
+	}
+
+	/// <summary>
+	/// 显示暂停菜单——创建全屏覆盖层，订阅其事件。
+	/// 地图层面无实时战斗，无需 QuickSL；暂停按钮保留但不接线。
+	/// </summary>
+	private void ShowPauseMenu()
+	{
+		if (_pauseMenu != null) return;
+
+		GD.Print("[MapUI] 暂停菜单 — 显示");
+
+		_pauseMenu = new PauseMenu();
+		_pauseMenu.OnContinue += HidePauseMenu;
+		_pauseMenu.OnSaveAndExit += () =>
+		{
+			GameManager.Instance?.SaveRun();
+			GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
+		};
+		// QuickSL 不接线——地图层面无战斗可重启
+
+		AddChild(_pauseMenu);
+		_isPaused = true;
+
+		// 暂停场景树——停止 InputManager 分发热键，
+		// PauseMenu 自身 ProcessMode=Always 仍然处理 _Input
+		GetTree().Paused = true;
+	}
+
+	/// <summary>
+	/// 隐藏暂停菜单——清理覆盖层，恢复场景树处理。
+	/// </summary>
+	private void HidePauseMenu()
+	{
+		if (_pauseMenu == null) return;
+
+		GD.Print("[MapUI] 暂停菜单 — 关闭");
+
+		// 恢复场景树处理
+		GetTree().Paused = false;
+
+		_pauseMenu.OnContinue -= HidePauseMenu;
+		_pauseMenu.QueueFree();
+		_pauseMenu = null;
+		_isPaused = false;
+	}
+
+	// ===== 退出 =====
 
     private void OnQuitPressed()
     {
-        GD.Print("[MapUI] 玩家放弃冒险");
-        _runState?.Reset();
+        GD.Print("[MapUI] 返回主菜单");
+        GameManager.Instance?.SaveRun(); // 保存当前进度，以便主菜单继续
         GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
     }
 }
