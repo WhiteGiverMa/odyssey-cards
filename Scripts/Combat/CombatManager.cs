@@ -373,6 +373,14 @@ public partial class CombatManager : Node
 	/// </summary>
 	private DomainTriggerManager _domainTriggerManager = null!;
 
+	/// <summary>
+	/// 本回合是否已使用过英雄技能。回合开始时重置。
+	/// </summary>
+	private bool _heroPowerUsedThisTurn;
+
+	/// <summary>DevConsole 强制胜利时跳过金币奖励。</summary>
+	private bool _devSkipGoldReward;
+
 	// ===== Godot 生命周期 =====
 
 	/// <summary>
@@ -442,13 +450,26 @@ public partial class CombatManager : Node
 		// 3.5. 保存战斗开始时的牌组快照（用于信息界面"当前卡组"显示）
 		gm.SnapshotCombatStartDeck();
 
-		// 4. 创建敌方英雄和 AI 遭遇（FightOverride 优先 → RunState → 回退）
+		// 4. 创建敌方英雄和 AI 遭遇（FightOverride 优先 → RoomTypeOverride → RunState → 回退）
 		IReadOnlyList<EnemyEncounter> encounters;
 		if (gm.FightOverride is { Count: > 0 })
 		{
 			encounters = gm.FightOverride;
 			gm.FightOverride = null; // 消费后清空
 			GD.Print($"[CombatManager] 从 FightOverride 读取 {encounters.Count} 个敌人 — {string.Join(", ", encounters.Select(e => e.Name))}");
+		}
+		else if (gm.RoomTypeOverride is Roguelike.RoomType roomType &&
+			roomType is Roguelike.RoomType.Monster or Roguelike.RoomType.Elite or Roguelike.RoomType.Boss)
+		{
+			// /room monster 等命令——用覆写的房间类型创建遭遇
+			gm.RoomTypeOverride = null; // 消费后清空
+			gm.RunState?.SelectRoom(new Roguelike.RoomDefinition
+			{
+				Type = roomType,
+				DisplayName = roomType.ToString(),
+			});
+			encounters = gm.RunState!.CreateEncounters();
+			GD.Print($"[CombatManager] 从 RoomTypeOverride 读取 {encounters.Count} 个敌人（{roomType}）");
 		}
 		else if (gm.RunState is { SelectedRoom: not null } runState &&
 			runState.SelectedRoom.Type is RoomType.Monster or RoomType.Elite or RoomType.Boss)
@@ -521,6 +542,14 @@ public partial class CombatManager : Node
 		_playerCore.SetMana(0, 0);
 		_playerCore.MaxHandSize = 10; // 统一手牌上限，覆盖 CombatDeckState 默认值 9
 		PlayerHero = new Hero(_playerCore, true);
+
+		// 从 Player 复制英雄技能设置（由 GameManager.CreateNewPlayer 注入）
+		PlayerHero.HeroPower = Player.HeroPower;
+
+		// 事件驱动胜负判定：任何英雄死亡时自动触发 CheckVictoryOrDefeat
+		PlayerHero.OnDeath += _ => CheckVictoryOrDefeat();
+		foreach (var unit in enemyUnits)
+			unit.Body.OnDeath += _ => CheckVictoryOrDefeat();
 
 		Board = new Board();
 		State = new GameState();
@@ -655,6 +684,9 @@ public partial class CombatManager : Node
 	/// </summary>
 	private void StartPlayerTurn()
 	{
+		// 重置英雄技能使用标记
+		_heroPowerUsedThisTurn = false;
+
 		// 检查英雄是否拥有「无限潜能」领域，决定自然增长上限
 		int growthCap = PlayerHero.ActiveDomains.ContainsKey("unlimited_potential")
 			? GameState.HardMaxManaCap
@@ -962,9 +994,7 @@ public partial class CombatManager : Node
 		// 法术可能造成随从死亡
 		CheckDeaths();
 
-		// 检查胜负
-		CheckVictoryOrDefeat();
-
+		// 攻击完成
 		return true;
 	}
 
@@ -1283,10 +1313,9 @@ public partial class CombatManager : Node
 			_attackCountThisTurn.Remove(attacker);
 		}
 
-		// 全局死亡检查与胜负判定
+		// 全局死亡检查
 		CheckDeaths();
-		CheckVictoryOrDefeat();
-
+		// 胜负判定由 Hero.OnDeath 事件驱动，不再手动调用
 		return true;
 	}
 
@@ -1523,7 +1552,6 @@ public partial class CombatManager : Node
 			if (PlayerHero.IsDead)
 			{
 				GD.Print($"[CombatManager]   ☠ 玩家英雄被 {target.CardName} 伏击击杀，攻击被取消");
-				CheckVictoryOrDefeat();
 				return false;
 			}
 		}
@@ -1559,10 +1587,9 @@ public partial class CombatManager : Node
 			Board.RemoveMinion(target);
 		}
 
-		// 全局死亡检查与胜负判定
+		// 全局死亡检查
 		CheckDeaths();
-		CheckVictoryOrDefeat();
-
+		// 胜负判定由 Hero.OnDeath 事件驱动，不再手动调用
 		return true;
 	}
 
@@ -1788,6 +1815,23 @@ public partial class CombatManager : Node
 			{
 				gm.SavePlayerHealth(PlayerHero.CurrentHealth, PlayerHero.MaxHealth);
 				GD.Print($"[CombatManager] 已保存玩家生命值：{PlayerHero.CurrentHealth}/{PlayerHero.MaxHealth}");
+
+				// 根据房间类型发放金币奖励（DevConsole 强制胜利可跳过）
+				if (!_devSkipGoldReward)
+				{
+					int goldReward = gm.RunState?.SelectedRoom?.Type switch
+				{
+					Roguelike.RoomType.Monster => new System.Random().Next(10, 16),  // 10-15
+					Roguelike.RoomType.Elite => new System.Random().Next(25, 36),     // 25-35
+					Roguelike.RoomType.Boss => 50,                                     // 50
+					_ => 0,
+				};
+				if (goldReward > 0)
+				{
+					gm.AddGold(goldReward);
+					GD.Print($"[CombatManager] 战斗奖励 {goldReward} 金币（当前总金币 {gm.RunGold}）");
+				}
+				}
 			}
 
 			State.SetVictory();
@@ -1902,6 +1946,89 @@ public partial class CombatManager : Node
 
 		// 检查胜负
 		CheckVictoryOrDefeat();
+	}
+
+	/// <summary>
+	/// 尝试使用英雄技能。
+	/// 检查是否玩家回合、未使用过、不在发现阶段、英雄技能可用。
+	/// </summary>
+	/// <returns>成功使用时返回 true</returns>
+	public bool TryUseHeroPower()
+	{
+		if (!State.IsPlayerTurn)
+		{
+			GD.Print("[CombatManager] TryUseHeroPower 失败 — 非玩家回合");
+			return false;
+		}
+
+		if (_heroPowerUsedThisTurn)
+		{
+			GD.Print("[CombatManager] TryUseHeroPower 失败 — 本回合已使用过英雄技能");
+			return false;
+		}
+
+		if (IsDiscovering)
+		{
+			GD.Print("[CombatManager] TryUseHeroPower 失败 — 正在发现选牌阶段");
+			return false;
+		}
+
+		var heroPower = PlayerHero.HeroPower;
+		if (heroPower == null)
+		{
+			GD.Print("[CombatManager] TryUseHeroPower 失败 — 没有英雄技能");
+			return false;
+		}
+
+		if (!heroPower.CanUse(PlayerHero))
+		{
+			GD.Print($"[CombatManager] TryUseHeroPower 失败 — 英雄技能无法使用（法力 {PlayerHero.CurrentMana}，需要 {heroPower.Cost}）");
+			return false;
+		}
+
+		heroPower.Execute(PlayerHero, this);
+		_heroPowerUsedThisTurn = true;
+
+		GD.Print($"[CombatManager] 英雄技能「{heroPower.Name}」使用成功");
+		NotifyCombatStateChanged();
+		return true;
+	}
+
+	/// <summary>
+	/// 本回合是否已使用过英雄技能。供 CombatUI 刷新按钮状态。
+	/// </summary>
+	public bool HeroPowerUsedThisTurn => _heroPowerUsedThisTurn;
+
+	/// <summary>
+	/// DevConsole 强制胜利——瞬间击杀所有敌方单位，触发正常胜利流程。
+	/// 可通过 grantReward 跳过金币奖励。
+	/// </summary>
+	public void ForceVictory(bool grantReward = true)
+	{
+		if (State.IsGameOver) return;
+		_devSkipGoldReward = !grantReward;
+
+		// 击杀所有敌方随从 —— 绕过伤害管线，直接用 ApplyDamage 确保击杀
+		foreach (var minion in Board.GetEnemyMinions())
+		{
+			if (!minion.IsDead)
+				minion.ApplyDamage(minion.CurrentHealth, null);
+		}
+
+		// 击杀所有敌方英雄 —— 绕过伤害管线（CAPPING 会截断大额伤害），
+		// 手动触发 OnDeath 因为 ApplyDamage 不走 TakeDamage 不会自动触发
+		foreach (var unit in EnemyUnits)
+		{
+			if (!unit.Body.IsDead)
+			{
+				unit.Body.ApplyDamage(unit.Body.CurrentHealth, null);
+				unit.Body.InvokeOnDeath();
+			}
+		}
+
+		// 触发胜负判定（含奖励/保存/OnGameOver）
+		CheckVictoryOrDefeat();
+		GD.Print($"[CombatManager] DevConsole 强制胜利（{(grantReward ? "含" : "跳过")}奖励）");
 	}
 
 	/// <summary>
@@ -2136,9 +2263,8 @@ public partial class CombatManager : Node
 		_pendingSelectionMode = PendingSelectionMode.Discover;
 		State.ResumePlayerTurn();
 
-		// 检查死亡和胜负
+		// 检查死亡
 		CheckDeaths();
-		CheckVictoryOrDefeat();
 
 		NotifyCombatStateChanged();
 		GD.Print("[CombatManager] 发现选牌完成，恢复玩家回合");

@@ -37,6 +37,10 @@ public class GameSaveData
     /// <summary>空闲计时器随机浮动的最大倍率。</summary>
     [JsonPropertyName("emote_idle_variation_max")]
     public float EmoteIdleVariationMax { get; set; } = 1.3f;
+
+    /// <summary>当前冒险中的金币数量（每局重置）。用于商店消费。</summary>
+    [JsonPropertyName("run_gold")]
+    public int RunGold { get; set; }
 }
 
 /// <summary>

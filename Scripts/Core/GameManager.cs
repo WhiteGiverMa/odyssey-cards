@@ -69,10 +69,49 @@ public partial class GameManager : Node
     /// </summary>
     public IReadOnlyList<AI.EnemyEncounter>? FightOverride { get; set; }
 
+    /// <summary>
+    /// 房间类型覆盖——由 /room 命令设置，强制当前层使用指定房间类型。
+    /// MapUI 和 CombatManager 优先读取此值。消费后自动清空。
+    /// 参考 STS2 RoomConsoleCmd 模式。
+    /// </summary>
+    public Roguelike.RoomType? RoomTypeOverride { get; set; }
+
+    /// <summary>
+    /// 事件 ID 覆盖——配合 RoomTypeOverride=Event 使用，指定具体叙事事件。
+    /// null 时随机选择。
+    /// </summary>
+    public string? EventIdOverride { get; set; }
+
 	/// <summary>
 	/// 藏品管理器——持有玩家所有藏品的列表，跨战斗持久化。
 	/// </summary>
 	public RelicManager Relics { get; private set; } = new();
+
+	/// <summary>
+	/// 当前冒险中的金币数量。每局重置为0，击败敌人获得，在商店消费。
+	/// </summary>
+	public int RunGold { get; set; }
+
+	/// <summary>
+	/// 获得金币。
+	/// </summary>
+	public void AddGold(int amount)
+	{
+		if (amount <= 0) return;
+		RunGold += amount;
+		GD.Print($"[GameManager] 获得 {amount} 金币（当前 {RunGold}）");
+	}
+
+	/// <summary>
+	/// 消费金币。返回是否成功（余额不足时失败）。
+	/// </summary>
+	public bool SpendGold(int amount)
+	{
+		if (RunGold < amount) return false;
+		RunGold -= amount;
+		GD.Print($"[GameManager] 消费 {amount} 金币（剩余 {RunGold}）");
+		return true;
+	}
 
 	/// <summary>
 	/// 战斗开始时牌组的快照（只读，用于信息界面展示"当前卡组"）。
@@ -672,6 +711,7 @@ public partial class GameManager : Node
         CurrentPlayer.CharacterName = "Ironclad";
         CurrentPlayer.InitializeHealth(30);
         CurrentPlayer.SetMana(0, 3);
+        CurrentPlayer.HeroPower = new Card.HeroPowers.IronWillHeroPower();
 
         var startingDeck = CreateStartingDeck();
         CurrentPlayer.Initialize(startingDeck);
@@ -707,6 +747,7 @@ public partial class GameManager : Node
         CreateNewPlayer();
         PlayerHealth = 30;
         PlayerMaxHealth = 30;
+        RunGold = 0;
 
         RunState = new GameRunState();
         RunState.OnRunCompleted += () => GD.Print("[GameManager] 冒险完成！");
@@ -793,6 +834,7 @@ public partial class GameManager : Node
             EmoteIdleTimeSeconds = EmoteIdleTimeSeconds,
             EmoteIdleVariationMin = EmoteIdleVariationMin,
             EmoteIdleVariationMax = EmoteIdleVariationMax,
+            RunGold = RunGold,
         };
 
         _saveManager.Save(data);
@@ -829,6 +871,7 @@ public partial class GameManager : Node
         EmoteIdleTimeSeconds = data.EmoteIdleTimeSeconds;
         EmoteIdleVariationMin = data.EmoteIdleVariationMin;
         EmoteIdleVariationMax = data.EmoteIdleVariationMax;
+        RunGold = data.RunGold;
 
         GD.Print($"[GameManager] 存档已加载 — {Decks.Count} 个牌组，" +
                   $"{OwnedCardIds.Count} 张已解锁");

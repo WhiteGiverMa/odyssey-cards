@@ -245,6 +245,18 @@ public class Hero : IDamageTarget, IDamageSource
     public bool HasUnbreakable { get; set; }
 
     /// <summary>
+    /// 英雄死亡事件——在 TakeDamage 导致生命值归零时触发。
+    /// CombatManager 订阅此事件以驱动胜负判定，替代手动调用 CheckVictoryOrDefeat()。
+    /// </summary>
+    public event Action<Hero>? OnDeath;
+
+    /// <summary>
+    /// 供 CombatManager.ForceVictory 等 dev 路径使用——
+    /// 绕过伤害管线直接击杀后，手动触发死亡事件。
+    /// </summary>
+    internal void InvokeOnDeath() => OnDeath?.Invoke(this);
+
+    /// <summary>
     /// 重置本回合受伤标记（新回合开始时调用）。
     /// </summary>
     internal void ResetDamageTakenThisTurn()
@@ -324,6 +336,10 @@ public class Hero : IDamageTarget, IDamageSource
 
         // 伤害事件通知（ApplyDamage 之后触发，保证 HP 已减少）
         OnDamageTaken?.Invoke(new DamageEventInfo(resolvedDamage, armorAbsorbed, false), source);
+
+        // 死亡事件——HP 归零时触发，驱动胜负判定
+        if (IsDead)
+            OnDeath?.Invoke(this);
 
         // Step 3: Attack-only side effects after damage is settled.
         ResolveAttackSideEffects(source, kind, resolvedDamage);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using OdysseyCards.Card;
 using OdysseyCards.Core;
 
 namespace OdysseyCards.Character;
@@ -14,6 +15,12 @@ public partial class Player : Node, ICommander
     public static Player Instance { get; private set; }
 
     private readonly CommanderCore _core = new();
+
+    /// <summary>
+    /// 英雄技能。由 GameManager 在创建玩家时设置，
+    /// CombatManager 在初始化时复制到 PlayerHero。
+    /// </summary>
+    public IHeroPower? HeroPower { get; set; }
 
     public int CommanderId => 0;
     public string CharacterName { get; set; } = "Player";
