@@ -112,6 +112,19 @@ reset_defaults: "Reset to Defaults"
     card_type_minion: "Minion"
     card_type_spell: "Spell"
     reward_card_format: "{name} [{type}] Cost {cost}\n{desc}"
+    rest_site:
+      rest_button: "Restore 30% HP"
+      select_blessing: "Choose a Golden Blood Blessing:"
+    shop:
+      buy: "Buy"
+      bought: "Bought"
+      leave: "Leave"
+      gold_display: "Gold: {gold}"
+      gold_cost: "💰{cost}"
+      type_minion: "Minion"
+      type_spell: "Spell"
+      type_domain: "Domain"
+      empty: "No cards available in the shop."
     init_error: "Failed to initialize adventure data"
   board:
     keyword_taunt: "T"
@@ -452,3 +465,67 @@ keyword:
   impact_desc: "Negate all counter-damage when attacking (consumed on use)."
   unbreakable: "Unbreakable"
   unbreakable_desc: "Can only take HP damage once per turn."
+blessing:
+  vigor:
+    name: "Vigor Blessing"
+    desc: "Start combat with +2 Mana (placeholder)"
+  fortitude:
+    name: "Fortitude Blessing"
+    desc: "Gain +3 Max HP (placeholder)"
+  ferocity:
+    name: "Ferocity Blessing"
+    desc: "First attack each turn deals +1 damage (placeholder)"
+
+events:
+  mysterious_merchant:
+    title: "Mysterious Merchant"
+    story: "A masked merchant emerges from the shadows and opens his case..."
+    choice_a: "Buy a random card (50 Gold)"
+    result_a_success: "You acquired a card!"
+    result_a_no_gold: "Not enough gold... the merchant shakes his head."
+    choice_b: "Sell a random card (gain 40 Gold)"
+    result_b: "The merchant leaves satisfied."
+    choice_c: "Refuse to trade and leave"
+    result_c: "You shake your head and move on."
+  ancient_shrine:
+    title: "Ancient Shrine"
+    story: "A faintly glowing shrine stands before you, ancient runes etched into its surface..."
+    choice_a: "Pray (heal 5 HP)"
+    result_a: "Your wounds heal slightly."
+    choice_b: "Sacrifice (lose 3 HP, gain 15 Gold)"
+    result_b: "The shrine flickers for a moment."
+    choice_c: "Ignore it and move on"
+    result_c: "You bypass the shrine without looking back."
+  wandering_smith:
+    title: "Wandering Smith"
+    story: "An old man carrying a massive toolbox stops you, his eyes gleaming like embers..."
+    choice_a: "Reinforce armor (gain 5 Gold as compensation)"
+    result_a: "The smith pats your shoulder — you feel sturdier."
+    choice_b: "Forge a weapon (gain a random relic)"
+    result_b: "You acquired a new piece of equipment!"
+  wheel_of_fate:
+    title: "Wheel of Fate"
+    story: "A giant wheel stands in the middle of the road, its patterns constantly shifting..."
+    choice_a: "Spin the wheel (random outcome)"
+    result_a_nothing: "The wheel slowly stops... nothing happens."
+    result_a_gold_gain: "Gained 20 Gold!"
+    result_a_gold_loss: "Lost 10 Gold..."
+    result_a_heal: "Healed 5 HP!"
+    choice_b: "Cautiously walk around it"
+    result_b: "You play it safe and skirt around the wheel."
+  traveler_campfire:
+    title: "Traveler by the Campfire"
+    story: "A weary traveler sits by a campfire and smiles when they see you..."
+    choice_a: "Share food (lose 15 Gold, gain a random card)"
+    result_a_success: "The traveler gratefully gives you a card."
+    result_a_no_gold: "You check your pockets... not enough. The traveler gives an awkward smile."
+    choice_b: "Listen to their story (nothing happens)"
+    result_b: "It's a great story, but not very useful to you."
+    choice_c: "Rob the traveler (gain 25 Gold, but...)"
+    result_c: "You feel a pang of guilt, but the money will certainly help."
+
+hero_power:
+  iron_will:
+    name: "Iron Will"
+    desc: "Gain 4 Armor"
+  use_button: "Iron Will (2)"

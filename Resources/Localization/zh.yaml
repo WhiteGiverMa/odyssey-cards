@@ -112,6 +112,19 @@ ui:
     card_type_minion: "随从"
     card_type_spell: "法术"
     reward_card_format: "{name} [{type}] 费用{cost}\n{desc}"
+    shop:
+      buy: "购买"
+      bought: "已购买"
+      leave: "离开"
+      gold_display: "金币: {gold}"
+      gold_cost: "💰{cost}"
+      type_minion: "随从"
+      type_spell: "法术"
+      type_domain: "领域"
+      empty: "商店暂时没有可出售的卡牌。"
+    rest_site:
+      rest_button: "回复 30% 生命值"
+      select_blessing: "选择一项金血祝颂："
     init_error: "无法初始化冒险数据"
   board:
     keyword_taunt: "嘲"
@@ -452,3 +465,67 @@ keyword:
   impact_desc: "攻击时抵消所有反击伤害（一次性消耗）。"
   unbreakable: "不破"
   unbreakable_desc: "每回合只能受到一次生命伤害。"
+blessing:
+  vigor:
+    name: "活力祝颂"
+    desc: "战斗开始时获得2点法力（占位符）"
+  fortitude:
+    name: "坚韧祝颂"
+    desc: "获得3点最大生命值（占位符）"
+  ferocity:
+    name: "狂怒祝颂"
+    desc: "每回合首次攻击+1伤害（占位符）"
+
+events:
+  mysterious_merchant:
+    title: "神秘商人"
+    story: "一个戴着面具的商人从阴影中走出，打开了他的箱子……"
+    choice_a: "买一张随机卡牌（50金币）"
+    result_a_success: "你获得了一张卡牌！"
+    result_a_no_gold: "金币不足……商人摇了摇头。"
+    choice_b: "卖一张随机卡牌（获得40金币）"
+    result_b: "商人满意地离开了。"
+    choice_c: "不交易，离开"
+    result_c: "你摇了摇头，继续赶路。"
+  ancient_shrine:
+    title: "古老神龛"
+    story: "一座散发着微光的神龛矗立在前方，上面刻着古老的符文……"
+    choice_a: "祈祷（回复5点生命）"
+    result_a: "你的伤势愈合了些许。"
+    choice_b: "献祭（失去3点生命，获得15金币）"
+    result_b: "神龛的光芒闪烁了一下。"
+    choice_c: "无视，继续前进"
+    result_c: "你绕过神龛，没有回头。"
+  wandering_smith:
+    title: "流浪铁匠"
+    story: "一个背着巨大工具箱的老人拦住了你，他的眼睛闪烁着火光……"
+    choice_a: "强化护甲（获得5金币补偿）"
+    result_a: "铁匠拍了拍你的肩膀，你感觉更结实了。"
+    choice_b: "锻造武器（获得随机藏品）"
+    result_b: "你获得了一件新装备！"
+  wheel_of_fate:
+    title: "命运之轮"
+    story: "一个巨大的转盘出现在路中央，上面的图案不断地变换……"
+    choice_a: "转动转盘（随机结果）"
+    result_a_nothing: "转盘缓缓停下……什么都没有发生。"
+    result_a_gold_gain: "获得 20 金币！"
+    result_a_gold_loss: "损失了 10 金币……"
+    result_a_heal: "恢复了 5 点生命值！"
+    choice_b: "谨慎地绕过去"
+    result_b: "你选择了稳妥，绕过了转盘。"
+  traveler_campfire:
+    title: "篝火旁的旅人"
+    story: "一个疲惫的旅人坐在篝火旁，看到你后露出了微笑……"
+    choice_a: "分享食物（失去15金币，获得随机卡牌）"
+    result_a_success: "旅人感激地送了你一张卡牌。"
+    result_a_no_gold: "你摸了摸口袋……好像不够。旅人尴尬地笑了笑。"
+    choice_b: "聆听故事（无事发生）"
+    result_b: "故事很精彩，但对你没什么实际帮助。"
+    choice_c: "抢劫旅人（获得25金币，但……）"
+    result_c: "你感到一阵内疚，但这笔钱确实有用。"
+
+hero_power:
+  iron_will:
+    name: "铁腕"
+    desc: "获得4点护甲"
+  use_button: "铁腕 (2费)"
