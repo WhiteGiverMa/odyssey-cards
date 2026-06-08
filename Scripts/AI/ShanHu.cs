@@ -77,34 +77,6 @@ public class ShanHu : EnemyEncounter
             new MultiAttackIntent(c => DamageResolver.ResolvePreviewDamage(2 + Attack, self, ResolveAttackTarget(c)), 2));
     }
 
-    public override EnemyIntent GetCurrentIntent(CombatManager combat, Hero self)
-    {
-        if (_dTurnsRemaining <= 0)
-            return new EnemyIntent(IntentType.Defend, 5, "给随机友方 5 点护甲");
-
-        if (_cycleStep == 2)
-            return new EnemyIntent(IntentType.Buff, 2, "武器攻击力 +2");
-
-        _cachedAttackTarget ??= ResolveAttackTarget(combat);
-        var cachedTarget = _cachedAttackTarget;
-
-        if (IsCurrentAttackAMove())
-        {
-            int damage = _currentSingleAttackDamage;
-            return new EnemyIntent(IntentType.Attack, damage, $"造成 {damage} 点伤害")
-            {
-                TargetSelector = _ => cachedTarget,
-                DamageCalc = _ => DamageResolver.ResolvePreviewDamage(damage + Attack, self, cachedTarget),
-            };
-        }
-
-        return new EnemyIntent(IntentType.Attack, 2, "造成 2 点伤害 ×2")
-        {
-            TargetSelector = _ => cachedTarget,
-            DamageCalc = _ => DamageResolver.ResolvePreviewDamage(2 + Attack, self, cachedTarget),
-        };
-    }
-
     public override void ExecuteIntent(CombatManager combat, Hero self)
     {
         _cachedAttackTarget = null;

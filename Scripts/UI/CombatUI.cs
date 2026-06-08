@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OdysseyCards.AI;
+using AIIntents = OdysseyCards.AI.Intents;
 using OdysseyCards.Card;
 using OdysseyCards.Core;
 using OdysseyCards.Character;
@@ -664,6 +665,9 @@ public partial class CombatUI : Control
 
 		// 意图悬浮提示层（Layer=26，高于意图图标）
 		var intentTooltipLayer = new CanvasLayer { Name = "IntentTooltipLayer", Layer = 26 };
+		var tooltipParent = new Control { Name = "IntentTooltipContent", MouseFilter = MouseFilterEnum.Ignore };
+		tooltipParent.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		intentTooltipLayer.AddChild(tooltipParent);
 		AddChild(intentTooltipLayer);
 
 		// 创建并初始化子组件
@@ -2170,10 +2174,16 @@ public partial class CombatUI : Control
 
 			Vector2 sourcePos = _boardUI.GetSlotScreenCenter(slotIndex, isPlayerSide: false);
 
-			// 获取意图：优先使用 IntentBrain，否则默认攻击英雄（遵守嘲讽）
+			// 获取意图：优先使用 MoveState（新系统），否则回退 EnemyIntent（旧系统）
 			EnemyIntent intent;
-			if (minion.IntentBrain != null)
+			if (minion.IntentBrain != null && minion.IntentBrain.HasMoveStates)
 			{
+				// 新系统：从 MoveState.Intents 构建显示
+				intent = BuildIntentFromMoveState(minion.IntentBrain, _combat, minion);
+			}
+			else if (minion.IntentBrain != null)
+			{
+				// 旧系统：直接用 EnemyIntent
 				intent = minion.IntentBrain.GetCurrentIntent(_combat);
 			}
 			else
@@ -2213,6 +2223,41 @@ public partial class CombatUI : Control
 			string desc = intent.GetDisplayDescription(_combat);
 			_boardUI.SetSlotIntentText(slotIndex, isPlayerSide: false, desc);
 		}
+	}
+
+	/// <summary>
+	/// 从 MoveState 的 AbstractIntent 列表构建用于显示/箭头的 EnemyIntent。
+	/// 新系统统一入口：Boss 与随从的意图均通过此方法转为显示格式。
+	/// </summary>
+	private static EnemyIntent BuildIntentFromMoveState(IIntentActor brain, CombatManager combat, Card.Minion minion)
+	{
+		var move = brain.GetCurrentMove(combat);
+		if (move == null || move.Intents.Count == 0)
+			return new EnemyIntent(IntentType.Attack, 0, "—");
+
+		// 取第一个意图（最常见），多意图叠加时取主要意图
+		var primary = move.Intents[0];
+
+		return primary switch
+		{
+			AIIntents.AttackIntent atk => new EnemyIntent(IntentType.Attack,
+				atk.GetTotalDamage(combat),
+				atk.GetIntentLabel(combat))
+			{
+				// 攻击意图：箭头指向目标（英雄或嘲讽随从）
+				TargetSelector = _ =>
+				{
+					var taunts = combat.Board.GetTaunts(ofEnemy: false);
+					return taunts.Count > 0 ? taunts[0] : combat.PlayerHero;
+				}
+			},
+			AIIntents.BuffIntent => new EnemyIntent(IntentType.Buff, 0,
+				primary.GetIntentLabel(combat)),
+			AIIntents.DefendIntent => new EnemyIntent(IntentType.Defend, 0,
+				primary.GetIntentLabel(combat)),
+			_ => new EnemyIntent(IntentType.Attack, 0,
+				primary.GetIntentLabel(combat)),
+		};
 	}
 
 	/// <summary>

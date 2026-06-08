@@ -230,7 +230,7 @@ public abstract class EnemyEncounter
     /// <summary>
     /// 当前 MoveState 在序列中的索引。
     /// </summary>
-    public int CurrentMoveIndex { get; private set; }
+	public int CurrentMoveIndex { get; protected set; }
 
     /// <summary>是否使用了新的 MoveState 意图系统。</summary>
     public bool HasMoveStates => MoveStates != null;
@@ -406,13 +406,13 @@ public abstract class EnemyEncounter
 
     /// <summary>
     /// 执行当前 MoveState 的 OnPerform 回调（若已设置）。
-    /// 用于新意图系统中直接通过回调执行行动逻辑。
+    /// 迁移后所有敌人统一通过此方法执行——Boss 与随从无区别。
     /// </summary>
     /// <param name="combat">战斗管理器</param>
-    /// <param name="self">所属英雄身体</param>
-    protected void ExecuteMove(CombatManager combat, Hero self)
+    /// <param name="self">所属英雄身体（随从时为 null）</param>
+    public void ExecuteMove(CombatManager combat, Hero? self)
     {
-        GetCurrentMove(combat, self).OnPerform?.Invoke(combat, self);
+        GetCurrentMove(combat, self!)?.OnPerform?.Invoke(combat, self);
     }
 
     // ===== 意图执行辅助方法 =====
@@ -461,17 +461,16 @@ public abstract class EnemyEncounter
         }
     }
 
-    // ===== 抽象执行方法 =====
+    // ===== 统一执行方法 =====
 
     /// <summary>
-    /// 执行当前意图的具体行为。
-    /// 由各具体敌人类实现，直接操作 CombatManager 暴露的 Hero 和 Board。
-    /// 调用者应在调用前使用 <see cref="GetCurrentIntent"/> 获取当前意图，
-    /// 调用后使用 <see cref="AdvanceIntent"/> 推进到下一意图。
+    /// 执行当前意图。默认通过 ExecuteMove 委托给 MoveState.OnPerform。
+    /// 子类可重写以添加额外逻辑（如张郎/珊胡的 D-move 处理）。
     /// </summary>
-    /// <param name="combat">战斗管理器，提供 Board 和 PlayerHero 访问</param>
-    /// <param name="self">执行本意图的所属英雄身体</param>
-    public abstract void ExecuteIntent(CombatManager combat, Hero self);
+    public virtual void ExecuteIntent(CombatManager combat, Hero self)
+    {
+        ExecuteMove(combat, self);
+    }
 }
 
 // ====================================================================
@@ -485,37 +484,19 @@ public abstract class EnemyEncounter
 /// </summary>
 public class Cultist : EnemyEncounter
 {
-    /// <summary>
-    /// 创建邪教徒遭遇实例。
-    /// </summary>
-    public Cultist()
-        : base("邪教徒", 20, new EnemyIntent[]
-        {
-            new(IntentType.Attack, 6, "造成 6 点伤害"),
-            new(IntentType.Attack, 6, "造成 6 点伤害"),
-            new(IntentType.Defend, 5, "获得 5 点护甲")
-        })
-    {
-    }
-
-    /// <inheritdoc />
-    public override void ExecuteIntent(CombatManager combat, Hero self)
-    {
-        var intent = GetCurrentIntent(combat, self);
-
-        GD.Print($"[Cultist] 执行意图：{intent.Description}");
-
-        switch (intent.Type)
-        {
-            case IntentType.Attack:
-                ExecuteAttackIntent(combat, self);
-                break;
-
-            case IntentType.Defend:
-                self.GainArmor(intent.Value);
-                break;
-        }
-    }
+	public Cultist()
+		: base("邪教徒", 20, new EnemyIntent[]
+		{
+			new(IntentType.Attack, 0, "") // 占位，实际由 MoveStates 驱动
+		})
+	{
+		MoveStates = new MoveState[]
+		{
+			new("A1", (c, s) => ExecuteAttackIntent(c, s!), new SingleAttackIntent(6)),
+			new("A2", (c, s) => ExecuteAttackIntent(c, s!), new SingleAttackIntent(6)),
+			new("D", (c, s) => s!.GainArmor(5), new DefendIntent()),
+		};
+	}
 }
 
 /// <summary>
@@ -525,45 +506,22 @@ public class Cultist : EnemyEncounter
 /// </summary>
 public class SlimeBoss : EnemyEncounter
 {
-    /// <summary>
-    /// 创建史莱姆首领遭遇实例。
-    /// </summary>
-    public SlimeBoss()
-        : base("史莱姆首领", 40, new EnemyIntent[]
-        {
-            new(IntentType.Attack, 8, "造成 8 点伤害"),
-            new(IntentType.Summon, 1, "召唤 软泥怪 (1/1 闪击)",
-                summonName: "软泥怪", summonAttack: 1, summonHealth: 1, summonHasCharge: true),
-            new(IntentType.Defend, 4, "获得 4 点护甲")
-        })
-    {
-    }
+	public SlimeBoss()
+		: base("史莱姆首领", 40, new EnemyIntent[]
+		{
+			new(IntentType.Attack, 0, "") // 占位
+		})
+	{
+		MoveStates = new MoveState[]
+		{
+			new("A", (c, s) => ExecuteAttackIntent(c, s!), new SingleAttackIntent(8)),
+			new("S", (c, _) => TrySummonSlime(c), new SummonIntent()),
+			new("D", (c, s) => s!.GainArmor(4), new DefendIntent()),
+		};
+	}
 
-    /// <inheritdoc />
-    public override void ExecuteIntent(CombatManager combat, Hero self)
-    {
-        var intent = GetCurrentIntent(combat, self);
-
-        GD.Print($"[SlimeBoss] 执行意图：{intent.Description}");
-
-        switch (intent.Type)
-        {
-            case IntentType.Attack:
-                ExecuteAttackIntent(combat, self);
-                break;
-
-            case IntentType.Summon:
-                TrySummonSlime(combat);
-                break;
-
-            case IntentType.Defend:
-                self.GainArmor(intent.Value);
-                break;
-        }
-    }
-
-    /// <summary>
-        /// 尝试在敌方战场召唤一只 1/1 软泥怪随从（闪击）。
+	/// <summary>
+	/// 尝试在敌方战场召唤一只 1/1 软泥怪随从（闪击）。
     /// 从 .tres 资源加载，与玩家卡牌同源。
     /// 若战场已满则不执行（最佳尝试策略）。
     /// </summary>
@@ -605,31 +563,16 @@ public class SlimeBoss : EnemyEncounter
 /// </summary>
 public class WolfRider : EnemyEncounter
 {
-    /// <summary>
-    /// 创建狼骑兵遭遇实例。
-    /// </summary>
-    public WolfRider()
-        : base("狼骑兵", 12, new EnemyIntent[]
-        {
-            new(IntentType.Attack, 5, "造成 5 点伤害")
-        })
-    {
-    }
-
-    /// <inheritdoc />
-    public override void ExecuteIntent(CombatManager combat, Hero self)
-    {
-        var intent = GetCurrentIntent(combat, self);
-
-        GD.Print($"[WolfRider] 执行意图：{intent.Description}");
-
-        switch (intent.Type)
-        {
-            case IntentType.Attack:
-                ExecuteAttackIntent(combat, self);
-                break;
-        }
-    }
+	public WolfRider()
+		: base("狼骑兵", 12, new EnemyIntent[]
+		{
+			new(IntentType.Attack, 0, "") // 占位
+		})
+	{
+		var attack = new MoveState("A", (c, s) => ExecuteAttackIntent(c, s!), new SingleAttackIntent(5));
+		attack.FollowUpState = attack; // 自循环
+		MoveStates = new[] { attack };
+	}
 }
 
 /// <summary>
@@ -639,71 +582,38 @@ public class WolfRider : EnemyEncounter
 /// </summary>
 public class ApprenticeMechanic : EnemyEncounter
 {
-    private const string MechLancerPath = "res://Resources/Cards/Minion_Mech_Lancer.tres";
+	private const string MechLancerPath = "res://Resources/Cards/Minion_Mech_Lancer.tres";
 
-    /// <summary>自上次召唤以来已执行的增益次数。</summary>
-    private int _buffCountSinceLastSummon;
+	private readonly MoveState _moveSummon;
+	private readonly MoveState _moveBuff;
 
-    /// <summary>当前意图是否为增益（用于 AdvanceIntent 计数追踪）。</summary>
-    private bool _currentIntentIsBuff;
+	public ApprenticeMechanic()
+		: base("实习机械师", 20, new EnemyIntent[]
+		{
+			new(IntentType.Attack, 0, "") // 占位
+		})
+	{
+		Attack = 1;
+		_moveSummon = new MoveState("SUMMON", (c, _) => TrySummonMechLancer(c), new SummonIntent());
+		_moveBuff = new MoveState("BUFF", (c, _) => BuffMechLancer(c), new BuffIntent());
+		_moveSummon.FollowUpState = _moveBuff; // 召完就加护甲
+		_moveBuff.FollowUpState = _moveBuff;   // 自循环，直到随从死亡
+		MoveStates = new[] { _moveSummon, _moveBuff };
+	}
 
-    /// <summary>
-    /// 创建实习机械师遭遇实例。
-    /// </summary>
-    public ApprenticeMechanic()
-        : base("实习机械师", 20, new EnemyIntent[]
-        {
-            new(IntentType.Summon, 1, "召唤 机械静螳 (4/3 嘲讽 伏击)",
-                summonName: "机械静螳", summonAttack: 4, summonHealth: 3)
-        })
-    {
-        Attack = 1; // 棍木武器
-    }
+	public override MoveState GetCurrentMove(CombatManager combat, Hero self)
+	{
+		// 设置 CurrentMoveIndex，让基类 GetCurrentIntent 读取正确的 MoveState
+		CurrentMoveIndex = HasFriendlyMechLancer(combat) ? 1 : 0;
+		return MoveStates![CurrentMoveIndex];
+	}
 
-    /// <inheritdoc />
-    public override EnemyIntent GetCurrentIntent(CombatManager combat, Hero self)
-    {
-        if (HasFriendlyMechLancer(combat))
-        {
-            // 意图 B：增益 — 为机械静螳增加 5 点护甲
-            _currentIntentIsBuff = true;
-            return new EnemyIntent(IntentType.Buff, 5, "使机械静螳获得5点护甲");
-        }
-
-        // 意图 A：召唤 — 机械静螳死亡后重新召唤
-        _currentIntentIsBuff = false;
-        _buffCountSinceLastSummon = 0;
-        return IntentPattern[0];
-    }
-
-    /// <inheritdoc />
-    public override void ExecuteIntent(CombatManager combat, Hero self)
-    {
-        var intent = GetCurrentIntent(combat, self);
-
-        GD.Print($"[ApprenticeMechanic] 执行意图：{intent.Description} （已增益 {_buffCountSinceLastSummon} 次）");
-
-        switch (intent.Type)
-        {
-            case IntentType.Summon:
-                TrySummonMechLancer(combat);
-                break;
-
-            case IntentType.Buff:
-                BuffMechLancer(combat);
-                break;
-        }
-    }
-
-    /// <inheritdoc />
-    public override void AdvanceIntent()
-    {
-        ResetCachedAttackTarget();
-        if (_currentIntentIsBuff)
-        {
-            _buffCountSinceLastSummon++;
-        }
-    }
+	public override void AdvanceMove()
+	{
+		AdvanceIntent(); // 维持 MoveStates 数组索引循环
+		if (MoveStates != null)
+			CurrentMoveIndex = (CurrentMoveIndex + 1) % MoveStates.Length;
+	}
 
     /// <summary>
     /// 检查敌方战场上是否存在存活的我方机械静螳。
@@ -786,35 +696,17 @@ public class ApprenticeMechanic : EnemyEncounter
 /// </summary>
 public class GuardianBoss : EnemyEncounter
 {
-    /// <summary>
-    /// 创建守护者 Boss 遭遇实例。
-    /// </summary>
-    public GuardianBoss()
-        : base("守护者", 60, new EnemyIntent[]
-        {
-            new(IntentType.Attack, 12, "造成 12 点伤害"),
-            new(IntentType.Defend, 8, "获得 8 点护甲"),
-            new(IntentType.Attack, 12, "造成 12 点伤害")
-        })
-    {
-    }
-
-    /// <inheritdoc />
-    public override void ExecuteIntent(CombatManager combat, Hero self)
-    {
-        var intent = GetCurrentIntent(combat, self);
-
-        GD.Print($"[GuardianBoss] 执行意图：{intent.Description}");
-
-        switch (intent.Type)
-        {
-            case IntentType.Attack:
-                ExecuteAttackIntent(combat, self);
-                break;
-
-            case IntentType.Defend:
-                self.GainArmor(intent.Value);
-                break;
-        }
-    }
+	public GuardianBoss()
+		: base("守护者", 60, new EnemyIntent[]
+		{
+			new(IntentType.Attack, 0, "") // 占位
+		})
+	{
+		MoveStates = new MoveState[]
+		{
+			new("A1", (c, s) => ExecuteAttackIntent(c, s!), new SingleAttackIntent(12)),
+			new("D", (c, s) => s!.GainArmor(8), new DefendIntent()),
+			new("A2", (c, s) => ExecuteAttackIntent(c, s!), new SingleAttackIntent(12)),
+		};
+	}
 }

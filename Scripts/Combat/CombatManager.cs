@@ -2104,7 +2104,7 @@ public partial class CombatManager : Node
 	}
 
 	/// <summary>
-	/// 敌方所有随从依次攻击：有嘲讽时攻击嘲讽随从，无嘲讽时攻击玩家英雄。
+	/// 敌方所有随从依次攻击：优先走 MoveState.OnPerform 统一路径，无 MoveState 时回退 ExecuteIntent。
 	/// </summary>
 	private void EnemyMinionsAttack()
 	{
@@ -2124,11 +2124,21 @@ public partial class CombatManager : Node
 			// 确保所有敌方随从有意图大脑（供 UI 意图显示使用）
 			attacker.IntentBrain ??= new DefaultAttackMinionBrain(attacker);
 
-			// 自定义随从大脑？优先使用
+			// 统一执行路径：优先使用 MoveState.OnPerform
 			if (attacker.IntentBrain != null)
 			{
-				attacker.IntentBrain.ExecuteIntent(this);
-				attacker.IntentBrain.AdvanceIntent();
+				var move = attacker.IntentBrain.GetCurrentMove(this);
+				if (move?.OnPerform != null)
+				{
+					// MoveState 统一路径——Boss 与随从使用同一执行入口
+					move.OnPerform(this, null);  // 随从无 Hero 身体
+				}
+				else
+				{
+					// 无 OnPerform → 回退传统 ExecuteIntent
+					attacker.IntentBrain.ExecuteIntent(this);
+				}
+				attacker.IntentBrain.AdvanceMove();
 				continue;
 			}
 

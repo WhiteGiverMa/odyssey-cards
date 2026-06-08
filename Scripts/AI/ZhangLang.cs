@@ -76,38 +76,6 @@ public class ZhangLang : EnemyEncounter
             new MultiAttackIntent(c => DamageResolver.ResolvePreviewDamage(1 + Attack, self, ResolveAttackTarget(c)), 3));
     }
 
-    public override EnemyIntent GetCurrentIntent(CombatManager combat, Hero self)
-    {
-        if (_dTurnsRemaining <= 0)
-        {
-            return new EnemyIntent(
-                IntentType.Summon, 1, "召唤 机械小蠊 (1/3)",
-                summonName: "机械小蠊", summonAttack: 1, summonHealth: 3);
-        }
-
-        if (_cycleStep == 2)
-            return new EnemyIntent(IntentType.Buff, 1, "武器攻击力 +1");
-
-        _cachedAttackTarget ??= ResolveAttackTarget(combat);
-        var cachedTarget = _cachedAttackTarget;
-
-        if (IsCurrentAttackAMove())
-        {
-            int damage = _currentSingleAttackDamage;
-            return new EnemyIntent(IntentType.Attack, damage, $"造成 {damage} 点伤害")
-            {
-                TargetSelector = _ => cachedTarget,
-                DamageCalc = _ => DamageResolver.ResolvePreviewDamage(damage + Attack, self, cachedTarget),
-            };
-        }
-
-        return new EnemyIntent(IntentType.Attack, 1, "造成 1 点伤害 ×3")
-        {
-            TargetSelector = _ => cachedTarget,
-            DamageCalc = _ => DamageResolver.ResolvePreviewDamage(1 + Attack, self, cachedTarget),
-        };
-    }
-
     public override void ExecuteIntent(CombatManager combat, Hero self)
     {
         _cachedAttackTarget = null;
