@@ -29,9 +29,6 @@ config/use_native_file_dialog=true
 
 [autoload]
 
-
-
-
 GameManager="*res://Scripts/Core/GameManager.cs"
 UIScaler="*res://Scripts/UI/UIScaler.cs"
 DevConsole="*res://Scripts/Infrastructure/DevConsole.cs"
@@ -61,24 +58,25 @@ version_control/autoload_on_startup=true
 
 enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg", "res://addons/gut/plugin.cfg")
 
-[physics]
-
-3d/physics_engine="Jolt Physics"
-
-[rendering]
-
-rendering_device/driver.windows="d3d12"
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
-textures/vram_compression/import_etc2_astc=true
-
 [input]
 
-ui_up={
+ui_accept={
 "deadzone": 0.5,
 "events": []
 }
-ui_down={
+ui_select={
+"deadzone": 0.5,
+"events": []
+}
+ui_cancel={
+"deadzone": 0.5,
+"events": []
+}
+ui_focus_next={
+"deadzone": 0.5,
+"events": []
+}
+ui_focus_prev={
 "deadzone": 0.5,
 "events": []
 }
@@ -90,23 +88,11 @@ ui_right={
 "deadzone": 0.5,
 "events": []
 }
-ui_accept={
+ui_up={
 "deadzone": 0.5,
 "events": []
 }
-ui_cancel={
-"deadzone": 0.5,
-"events": []
-}
-ui_select={
-"deadzone": 0.5,
-"events": []
-}
-ui_focus_next={
-"deadzone": 0.5,
-"events": []
-}
-ui_focus_prev={
+ui_down={
 "deadzone": 0.5,
 "events": []
 }
@@ -182,3 +168,14 @@ odyssey_skip={
 "deadzone": 0.5,
 "events": []
 }
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+rendering_device/driver.windows="d3d12"
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
