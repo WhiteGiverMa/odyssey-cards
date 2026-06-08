@@ -195,6 +195,25 @@ reset_defaults: "Reset to Defaults"
     delete_confirm_message: "Delete deck \"{name}\"? ({count} cards)"
     changes_undone: "Changes undone"
     deck_file_filter: "JSON Deck Files"
+  info_screen:
+    title: "Comprehensive Info"
+    tab_run: "Run Info"
+    tab_deck: "Deck"
+    tab_relic: "Relics"
+    run:
+      layer: "Current Layer"
+      room: "Current Room"
+      plane: "Current Plane"
+      no_data: "No run data"
+    deck:
+      current_title: "Current Deck (This Combat)"
+      next_title: "Next Combat"
+      current_empty: "(No snapshot)"
+      count: "{0} cards"
+      add_hint: "Click cards on right to add, click cards on left to remove"
+    relic:
+      empty: "No relics"
+    close: "Close (CapsLock/ESC)"
 
 language:
   name_zh: "中文"

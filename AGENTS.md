@@ -1,7 +1,7 @@
 # OdysseyCards — Godot 4.6 C# · 类炉石 Roguelite 卡牌
 
-**Branch:** `main` · **Commit:** `394871f` · **Updated:** 2026-06-06
-**Scale:** 136 `.cs` (Scripts/) · ~26,000 行 · 32 `.tres` 卡牌 · 4 `.tscn` 场景
+**Branch:** `main` · **Commit:** `394871f` · **Updated:** 2026-06-08
+**Scale:** 137 `.cs` (Scripts/) · ~27,000 行 · 32 `.tres` 卡牌 · 4 `.tscn` 场景
 
 ## Start
 
@@ -14,7 +14,7 @@
 ```
 Scripts/
 ├── Core/ (27)      # CardData, GameManager(Autoload), DamageResolver, Keyword, SaveDataManager…
-├── UI/ (26)        # CombatUI, BoardUI, HandUI, CardUI, CollectionUI, MapUI, DiscoverUI, RewardUI, IntentIcon, IntentTooltip…
+├── UI/ (27)        # CombatUI, BoardUI, HandUI, CardUI, CollectionUI, MapUI, DiscoverUI, RewardUI, InfoScreen, IntentIcon, IntentTooltip…
 ├── Card/ (10)      # Card, Minion, Spell, Hero, Weapon, ActiveDomain, StatusEffect (纯 C#，不继承 Node)
 ├── Character/ (5)  # Player, CommanderCore, Deck, CombatDeckState
 ├── Combat/ (7)     # CombatManager, Board, EnemyUnit, GameState, CardEffectDispatcher, DomainTriggerManager, CombatRuntimeQa
@@ -66,6 +66,7 @@ Scenes/             # Main.tscn, Combat.tscn, Collection.tscn, Map.tscn
 | 效果图标 | `UI/EffectBar.cs` | Emoji+层数，CanvasLayer 独立渲染 |
 | 箭头 | `UI/ArrowRenderer.cs` | `_Draw()` 攻击/意图箭头 |
 | 暂停 | `UI/PauseMenu.cs` | ESC 触发全屏覆盖，内嵌设置 |
+| 综合信息 | `UI/InfoScreen.cs` | CapsLock 触发全屏覆盖，运行信息/卡组编辑/藏品浏览三标签页 |
 | 存档 | `Core/SaveDataManager.cs` | user://save.json 持久化 |
 | 本地化 | `Localization/Localization.cs` | YAML 加载，DirAccess→硬编码回退 |
 | 控制台 | `Infrastructure/DevConsole.cs` → `DevConsoleEngine.cs` → `Commands/` | `` ` `` 呼出，命令系统架构，AI 可调 |
@@ -266,6 +267,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - ✅ 多敌人 AI：IntentAI + MechanicalRoachBrain + DefaultAttackMinionBrain + EnemyRegistry。
 - ✅ 意图系统升级：15 种意图类型类继承体系（`AI/Intents/`），MoveState 多意图支持，IntentIcon 代码绘制图标 + bob 动画，IntentTooltip 悬停详情面板。向后兼容旧敌人。
 - ✅ 暂停 ESC 全屏覆盖。`IsInsideTree()` 守卫。
+- ✅ 综合信息管理界面：CapsLock 触发全屏覆盖，三个标签页——运行信息（层数/房间/位面）、卡组管理（当前卡组只读快照 + 下局生效编辑 + CardGrid 添加）、藏品浏览。牌组修改在下一场战斗生效。CombatUI 和 MapUI 均已接入。
 - ✅ DevConsole v2 命令系统重构：`DevConsoleEngine` + `DevConsoleCommand` 抽象 + 25 条独立命令类 + 历史持久化。
 - ✅ Phase 3-4 重构收口：`CardEffectDispatcher`/`DomainTriggerManager`/`CombatRuntimeQa` 已拆出；张郎/珊胡已迁移到 MoveState 图标路径；CombatUI 增加统一解绑；战斗表面改走 `MobileInputRouter` 触控状态。
 - ⚠️ `Spell.cs` 从未实例化（死代码）。

@@ -195,6 +195,25 @@ ui:
     delete_confirm_message: "确定要删除牌组「{name}」吗？（共 {count} 张卡牌）"
     changes_undone: "已撤销未保存的更改"
     deck_file_filter: "JSON 牌组文件"
+  info_screen:
+    title: "综合信息"
+    tab_run: "运行信息"
+    tab_deck: "卡组"
+    tab_relic: "藏品"
+    run:
+      layer: "当前层数"
+      room: "当前房间"
+      plane: "当前位面"
+      no_data: "暂无运行数据"
+    deck:
+      current_title: "当前卡组（本局）"
+      next_title: "下局生效"
+      current_empty: "（无快照）"
+      count: "{0} 张"
+      add_hint: "点击右侧卡牌添加到牌组，点击左侧卡牌移除"
+    relic:
+      empty: "暂无藏品"
+    close: "关闭 (CapsLock/ESC)"
 
 language:
   name_zh: "中文"
