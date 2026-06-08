@@ -10,12 +10,14 @@ namespace OdysseyCards.Core;
 
 public partial class MainMenu : Control
 {
-    private Button _startButton;
-    private Button _collectionButton;
-    private Button _settingsButton;
-    private Label _titleLabel;
-    private Control _mainMenuContainer;
-    private VBoxContainer _buttonContainer;
+	private Button _startButton;
+	private Button _collectionButton;
+	private Button _continueButton = null!;
+	private Button _settingsButton;
+	private Button _abandonButton = null!;
+	private Label _titleLabel;
+	private Control _mainMenuContainer;
+	private VBoxContainer _buttonContainer;
 
     /// <summary>移动端 TouchZone 注册 token，ExitTree 时释放。</summary>
     private readonly List<IDisposable> _zoneTokens = new();
@@ -55,9 +57,40 @@ public partial class MainMenu : Control
         _buttonContainer.AddChild(_collectionButton);
         _buttonContainer.MoveChild(_collectionButton, settingsIdx);
 
-        _startButton.Pressed += OnStartPressed;
-        _collectionButton.Pressed += OnCollectionPressed;
-        _settingsButton.Pressed += OnSettingsPressed;
+		_startButton.Pressed += OnStartPressed;
+		_collectionButton.Pressed += OnCollectionPressed;
+		_settingsButton.Pressed += OnSettingsPressed;
+
+		// 动态插入「继续冒险」按钮
+		_continueButton = new Button
+		{
+			Name = "ContinueButton",
+			LayoutMode = 2,
+			Text = Localization.Localization.T("ui.menu.continue_run", "继续冒险"),
+		};
+		_continueButton.AddThemeColorOverride("font_color", new Color(1, 0.85f, 0.3f, 1));
+		_continueButton.AddThemeFontSizeOverride("font_size", 24);
+		_continueButton.Pressed += OnContinuePressed;
+		_buttonContainer.AddChild(_continueButton);
+		_buttonContainer.MoveChild(_continueButton, 0); // 插入到第一个按钮位置
+
+		// 动态插入「放弃当前冒险」按钮
+		_abandonButton = new Button
+		{
+			Name = "AbandonButton",
+			LayoutMode = 2,
+			Text = Localization.Localization.T("ui.menu.abandon_run", "放弃当前冒险"),
+		};
+		_abandonButton.AddThemeColorOverride("font_color", new Color(1, 0.4f, 0.4f, 1));
+		_abandonButton.AddThemeFontSizeOverride("font_size", 20);
+		_abandonButton.Pressed += OnAbandonPressed;
+		_buttonContainer.AddChild(_abandonButton);
+		_buttonContainer.MoveChild(_abandonButton, 1); // 插入到第二个按钮位置
+
+		// 根据当前是否有活跃冒险控制 Continue / Abandon 按钮的可见性
+		bool hasActiveRun = GameManager.Instance.RunState != null;
+		_continueButton.Visible = hasActiveRun;
+		_abandonButton.Visible = hasActiveRun;
 
         // 移动端：通过 MobileInputRouter 注册触控区域
         if (MobileInputRouter.IsMobile)
@@ -75,11 +108,19 @@ public partial class MainMenu : Control
     {
         var router = MobileInputRouter.Instance;
 
-        _zoneTokens.Add(router.RegisterTapZone(_startButton,
-            new Rect2(_startButton.GlobalPosition, _startButton.Size),
-            priority: 400, onTap: () => OnStartPressed()));
+		_zoneTokens.Add(router.RegisterTapZone(_startButton,
+			new Rect2(_startButton.GlobalPosition, _startButton.Size),
+			priority: 400, onTap: () => OnStartPressed()));
 
-        _zoneTokens.Add(router.RegisterTapZone(_collectionButton,
+		_zoneTokens.Add(router.RegisterTapZone(_continueButton,
+			new Rect2(_continueButton.GlobalPosition, _continueButton.Size),
+			priority: 400, onTap: () => OnContinuePressed()));
+
+		_zoneTokens.Add(router.RegisterTapZone(_abandonButton,
+			new Rect2(_abandonButton.GlobalPosition, _abandonButton.Size),
+			priority: 400, onTap: () => OnAbandonPressed()));
+
+		_zoneTokens.Add(router.RegisterTapZone(_collectionButton,
             new Rect2(_collectionButton.GlobalPosition, _collectionButton.Size),
             priority: 400, onTap: () => OnCollectionPressed()));
 
@@ -106,7 +147,8 @@ public partial class MainMenu : Control
             return;
         }
 
-        gm?.StartNewRun();
+		gm?.ClearActiveRun();
+		gm?.StartNewRun();
         GetTree().ChangeSceneToFile("res://Scenes/Map.tscn");
     }
 
@@ -139,7 +181,37 @@ public partial class MainMenu : Control
         dialog.PopupCentered();
     }
 
-    private void OnCollectionPressed()
+	private void OnContinuePressed()
+	{
+		GD.Print("[MainMenu] OnContinuePressed");
+		var gm = GameManager.Instance;
+		if (gm != null && gm.ContinueRun())
+		{
+			GetTree().ChangeSceneToFile("res://Scenes/Map.tscn");
+		}
+		else
+		{
+			var dialog = new AcceptDialog
+			{
+				Title = Localization.Localization.T("ui.menu.no_active_run_title", "无法继续"),
+				DialogText = Localization.Localization.T("ui.menu.no_active_run_desc", "未找到进行中的冒险存档。\n请先开始新游戏，或检查存档是否完整。"),
+				OkButtonText = Localization.Localization.T("ui.menu.ok", "确定"),
+				Exclusive = true,
+			};
+			AddChild(dialog);
+			dialog.PopupCentered();
+		}
+	}
+
+	private void OnAbandonPressed()
+	{
+		GD.Print("[MainMenu] OnAbandonPressed");
+		GameManager.Instance?.ClearActiveRun();
+		_continueButton.Visible = false;
+		_abandonButton.Visible = false;
+	}
+
+	private void OnCollectionPressed()
     {
         GD.Print("[MainMenu] OnCollectionPressed → 收藏界面");
         GetTree().ChangeSceneToFile("res://Scenes/Collection.tscn");
@@ -182,10 +254,12 @@ public partial class MainMenu : Control
 
     private void UpdateLabels()
     {
-        _titleLabel.Text = Localization.Localization.T("ui.menu.title", "Odyssey Cards");
-        _startButton.Text = Localization.Localization.T("ui.menu.start_game", "Start Game");
-        _collectionButton.Text = Localization.Localization.T("ui.menu.collection", "我的收藏");
-        _settingsButton.Text = Localization.Localization.T("ui.menu.settings", "Settings");
+		_titleLabel.Text = Localization.Localization.T("ui.menu.title", "Odyssey Cards");
+		_startButton.Text = Localization.Localization.T("ui.menu.start_game", "Start Game");
+		_continueButton.Text = Localization.Localization.T("ui.menu.continue_run", "继续冒险");
+		_abandonButton.Text = Localization.Localization.T("ui.menu.abandon_run", "放弃当前冒险");
+		_collectionButton.Text = Localization.Localization.T("ui.menu.collection", "我的收藏");
+		_settingsButton.Text = Localization.Localization.T("ui.menu.settings", "Settings");
     }
 
     public override void _ExitTree()
@@ -200,9 +274,11 @@ public partial class MainMenu : Control
         _zoneTokens.Clear();
 
         // 置空引用以支持 GC
-        _startButton = null!;
-        _collectionButton = null!;
-        _settingsButton = null!;
+		_startButton = null!;
+		_collectionButton = null!;
+		_continueButton = null!;
+		_abandonButton = null!;
+		_settingsButton = null!;
         _titleLabel = null!;
         _mainMenuContainer = null!;
         _buttonContainer = null!;
