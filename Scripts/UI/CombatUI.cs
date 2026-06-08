@@ -3804,6 +3804,7 @@ public partial class CombatUI : Control
 			gm?.SavePlayerHealth(_combat.PlayerHero.CurrentHealth, _combat.PlayerHero.MaxHealth);
 		}
 
+		GameManager.Instance?.SaveRun();
 		GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
 	}
 

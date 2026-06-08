@@ -1834,6 +1834,7 @@ public partial class CombatManager : Node
 				}
 			}
 
+			GameManager.Instance?.SaveRun();
 			State.SetVictory();
 			CleanupCombat();
 			OnGameOver?.Invoke(true);
@@ -1847,6 +1848,7 @@ public partial class CombatManager : Node
 			// 标记运行失败
 			var gm = GameManager.Instance;
 			gm?.RunState?.FailRun();
+			gm?.SaveRun();
 
 			State.SetDefeat();
 			CleanupCombat();
