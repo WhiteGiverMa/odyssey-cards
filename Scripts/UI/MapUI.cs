@@ -6,6 +6,7 @@ using OdysseyCards.Localization;
 using OdysseyCards.Infrastructure;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace OdysseyCards.UI;
 
@@ -54,7 +55,7 @@ public partial class MapUI : Control
 
     // ===== 房间图标映射 =====
 
-    private static string GetRoomIcon(RoomType type) => type switch
+	internal static string GetRoomIcon(RoomType type) => type switch
     {
         RoomType.Monster => Localization.Localization.T("ui.map.room_battle", "[战斗]"),
         RoomType.Elite => Localization.Localization.T("ui.map.room_elite", "[精英]"),
@@ -336,8 +337,48 @@ public partial class MapUI : Control
     /// 根据 RunState 刷新当前层的可选房间卡片。
     /// 每层显示 1-2 个房间卡片。
     /// </summary>
-    private void RefreshRoomChoices()
+    public void RefreshRoomChoices()
     {
+        // ── RoomTypeOverride 消费（/room 命令从战斗中切回地图时设置）──
+        var gm = GameManager.Instance;
+        var overrideType = gm?.RoomTypeOverride;
+        if (overrideType != null)
+        {
+            gm!.RoomTypeOverride = null; // 消费后清空，防止循环
+
+            var room = new RoomDefinition
+            {
+                Type = overrideType.Value,
+                DisplayName = overrideType.Value switch
+                {
+                    RoomType.Shop => Localization.Localization.T("room.display_name.shop", "商店"),
+                    RoomType.RestSite => Localization.Localization.T("room.display_name.rest", "休息"),
+                    RoomType.Treasure => Localization.Localization.T("room.display_name.treasure", "奖励"),
+                    RoomType.Event => Localization.Localization.T("room.display_name.event", "事件"),
+                    _ => overrideType.Value.ToString(),
+                },
+            };
+            _runState.SelectRoom(room);
+
+            switch (overrideType.Value)
+            {
+                case RoomType.Event:
+                    DevShowEvent(gm.EventIdOverride);
+                    gm.EventIdOverride = null;
+                    break;
+                case RoomType.Shop:
+                    ShowShopRoom(room);
+                    break;
+                case RoomType.RestSite:
+                    ShowRestSiteRoom(room);
+                    break;
+                case RoomType.Treasure:
+                    ShowTreasureRoom(room);
+                    break;
+            }
+            return;
+        }
+
         // 释放旧的房间 zone 令牌
         foreach (var token in _roomZoneTokens)
             token.Dispose();
@@ -619,12 +660,21 @@ public partial class MapUI : Control
                 ShowTreasureRoom(room);
                 break;
 
-            case RoomType.Event:
-            case RoomType.Shop:
-            case RoomType.RestSite:
-            default:
-                ShowPlaceholderRoom(room);
-                break;
+		case RoomType.Shop:
+				ShowShopRoom(room);
+				break;
+
+			case RoomType.RestSite:
+				ShowRestSiteRoom(room);
+				break;
+
+			case RoomType.Event:
+				ShowEventRoom(room);
+				break;
+
+			default:
+				ShowPlaceholderRoom(room);
+				break;
         }
     }
 
@@ -704,10 +754,81 @@ public partial class MapUI : Control
 		buttonRow.AddChild(btn);
 	}
 
-    /// <summary>
-    /// 显示占位符房间——使用 MobileDialogHost 弹窗。
-    /// </summary>
-    private void ShowPlaceholderRoom(RoomDefinition room)
+	/// <summary>
+	/// 显示叙事事件房间——随机抽取一个事件并弹出选择界面。
+	/// </summary>
+	private void ShowEventRoom(RoomDefinition room)
+	{
+		GD.Print($"[MapUI] 进入事件房间：{room.DisplayName}");
+
+		var random = new Random();
+		var eventData = EventPool.All[random.Next(EventPool.All.Length)];
+		GD.Print($"[MapUI] 随机事件：{eventData.Id} — {eventData.Title}");
+
+		// 使用 EventUI 覆盖层（内部处理 MobileDialogHost 弹窗）
+		var eventUI = new EventUI(room, eventData);
+		eventUI.OnEventComplete += () =>
+		{
+			eventUI.QueueFree();
+			CompleteRoomAndAdvance();
+		};
+		AddChild(eventUI);
+	}
+
+	/// <summary>
+	/// DevConsole 强制将当前房间替换为指定事件——效果真实、完成后推进层数。
+	/// 参考 STS2 /event 命令：覆盖当前房间为事件，操作有效，完成后进入下一层。
+	/// 覆盖不持久化——SL 后恢复原房间。
+	/// </summary>
+	/// <param name="eventId">事件 ID，null 则随机</param>
+	public void DevShowEvent(string? eventId)
+	{
+		GD.Print($"[MapUI] DevConsole 覆盖当前房间为事件：{(eventId ?? "随机")}");
+
+		var eventData = eventId != null
+			? EventPool.All.FirstOrDefault(e => e.Id == eventId)
+			: null;
+
+		if (eventData == null)
+		{
+			var random = new Random();
+			eventData = EventPool.All[random.Next(EventPool.All.Length)];
+			GD.Print($"[MapUI] 未找到指定事件，随机选择：{eventData.Id}");
+		}
+
+		// 覆盖当前房间——效果真实，操作有效
+		var room = new RoomDefinition { Type = RoomType.Event, DisplayName = eventData.Title };
+		_runState.SelectRoom(room);
+
+		var eventUI = new EventUI(room, eventData);
+		eventUI.OnEventComplete += () =>
+		{
+			eventUI.QueueFree();
+			CompleteRoomAndAdvance(); // ← 完成后正常推进层数
+		};
+		AddChild(eventUI);
+	}
+
+	/// <summary>
+	/// 显示商店房间——允许玩家花费金币购买卡牌。
+	/// </summary>
+	private void ShowShopRoom(RoomDefinition room)
+	{
+		GD.Print($"[MapUI] 进入商店房间：{room.DisplayName}");
+
+		ShopUI? shop = null;
+		shop = new ShopUI(room, () =>
+		{
+			shop?.QueueFree();
+			CompleteRoomAndAdvance();
+		});
+		AddChild(shop);
+	}
+
+	/// <summary>
+	/// 显示占位符房间——使用 MobileDialogHost 弹窗。
+	/// </summary>
+	private void ShowPlaceholderRoom(RoomDefinition room)
     {
         GD.Print($"[MapUI] 进入占位符房间：{room.DisplayName} ({room.Type})");
 
@@ -733,13 +854,27 @@ public partial class MapUI : Control
             MobileDialogHost.CloseDialog(dialog, this);
             CompleteRoomAndAdvance();
         };
-        buttonRow.AddChild(btn);
-    }
+		buttonRow.AddChild(btn);
+	}
 
-    /// <summary>
-    /// 完成当前房间并推进到下一层。
-    /// </summary>
-    private void CompleteRoomAndAdvance()
+	/// <summary>
+	/// 显示休息站点房间——回复生命值 + 选择金血祝颂。
+	/// </summary>
+	private void ShowRestSiteRoom(RoomDefinition room)
+	{
+		GD.Print($"[MapUI] 进入休息站点：{room.DisplayName}");
+
+		RestSiteUI.Show(this, room, () =>
+		{
+			GD.Print("[MapUI] 休息站点完成——推进冒险");
+			CompleteRoomAndAdvance();
+		});
+	}
+
+	/// <summary>
+	/// 完成当前房间并推进到下一层。
+	/// </summary>
+	private void CompleteRoomAndAdvance()
     {
         _runState.CompleteRoom();
 
@@ -752,6 +887,15 @@ public partial class MapUI : Control
             RefreshRoomChoices();
         }
     }
+
+	/// <summary>
+	/// DevConsole 强制完成当前房间——供 /room 命令调用。
+	/// </summary>
+	public void DevForceCompleteRoom()
+	{
+		GD.Print("[MapUI] DevConsole 强制完成当前房间");
+		CompleteRoomAndAdvance();
+	}
 
     /// <summary>
     /// 显示冒险完成画面——更新背景标签 + 弹出胜利对话框。

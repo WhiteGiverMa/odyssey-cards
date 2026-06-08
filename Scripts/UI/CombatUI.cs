@@ -97,6 +97,11 @@ public partial class CombatUI : Control
 	private Button _endTurnButton = null!;
 
 	/// <summary>
+	/// 英雄技能按钮——位于玩家区域，显示英雄技能名称和费用。
+	/// </summary>
+	private Button _heroPowerButton = null!;
+
+	/// <summary>
 	/// 玩家护甲值显示——生命值条旁，护甲 > 0 时可见。
 	/// </summary>
 	private Label _playerArmorLabel = null!;
@@ -668,6 +673,7 @@ public partial class CombatUI : Control
 		CreateManaLabels();
 		CreateArmorLabels();
 		CreateEndTurnButton();
+		CreateHeroPowerButton();
 		CreatePlayerHeroPanel();
 		CreateDeckButtons();
 		CreateWeaponUI();
@@ -957,6 +963,14 @@ public partial class CombatUI : Control
 		};
 		container.AddChild(deckPlaceholder);
 
+		// 英雄技能区域占位
+		var hpPlaceholder = new CenterContainer
+		{
+			Name = "HeroPowerPlaceholder",
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+		};
+		container.AddChild(hpPlaceholder);
+
 		// 按钮区域占位
 		var buttonPlaceholder = new CenterContainer
 		{
@@ -1198,6 +1212,24 @@ public partial class CombatUI : Control
 
 		var buttonPlaceholder = GetNode<CenterContainer>("CombatRoot/PlayerArea/EndTurnButtonPlaceholder");
 		buttonPlaceholder?.AddChild(_endTurnButton);
+	}
+
+	/// <summary>
+	/// 创建英雄技能按钮——置于玩家区域的 HeroPowerPlaceholder 中。
+	/// 显示英雄技能名称和法力消耗，点击或按 H 键激活。
+	/// </summary>
+	private void CreateHeroPowerButton()
+	{
+		_heroPowerButton = new Button
+		{
+			Name = "HeroPowerButton",
+			Text = Localization.Localization.T("hero_power.use_button", "铁腕 (2费)"),
+			CustomMinimumSize = new Vector2(120, 48),
+			Disabled = true, // 初始禁用，回合开始时启用
+		};
+
+		var hpPlaceholder = GetNode<CenterContainer>("CombatRoot/PlayerArea/HeroPowerPlaceholder");
+		hpPlaceholder?.AddChild(_heroPowerButton);
 	}
 
 	/// <summary>
@@ -1669,6 +1701,43 @@ public partial class CombatUI : Control
 		_discardPileBtn.Text = Localization.Localization.T("ui.combat.discard_pile_format", "弃牌堆 ({count})").Replace("{count}", deckState.DiscardPile.Count.ToString());
 	}
 
+	/// <summary>
+	/// 根据当前战斗状态刷新英雄技能按钮的启用/禁用和文本。
+	/// </summary>
+	private void UpdateHeroPowerButton()
+	{
+		if (_heroPowerButton == null || _combat == null) return;
+
+		var heroPower = _combat.PlayerHero.HeroPower;
+		if (heroPower == null)
+		{
+			_heroPowerButton.Visible = false;
+			return;
+		}
+
+		_heroPowerButton.Visible = true;
+
+		bool isPlayerTurn = _combat.State.IsPlayerTurn;
+		bool alreadyUsed = _combat.HeroPowerUsedThisTurn;
+		bool canAfford = _combat.PlayerHero.CurrentMana >= heroPower.Cost;
+		bool isDiscovering = _combat.IsDiscovering;
+		bool gameOver = _combat.State.IsGameOver;
+
+		bool canUse = isPlayerTurn && !alreadyUsed && canAfford && !isDiscovering && !gameOver;
+
+		_heroPowerButton.Disabled = !canUse;
+
+		// 更新按钮文本：显示技能名称 + 费用 + 状态
+		string name = heroPower.Name;
+		string costStr = heroPower.Cost.ToString();
+		if (alreadyUsed)
+			_heroPowerButton.Text = $"{name} ({costStr}费) [已用]";
+		else if (!canAfford)
+			_heroPowerButton.Text = $"{name} ({costStr}费) [法力不足]";
+		else
+			_heroPowerButton.Text = $"{name} ({costStr}费)";
+	}
+
 	// ===== 事件订阅 =====
 
 	/// <summary>
@@ -1695,6 +1764,10 @@ public partial class CombatUI : Control
 		// 回合结束按钮
 		_endTurnButton.Pressed += OnEndTurnPressed;
 		_unsubscribeActions.Add(() => _endTurnButton.Pressed -= OnEndTurnPressed);
+
+		// 英雄技能按钮
+		_heroPowerButton.Pressed += OnHeroPowerPressed;
+		_unsubscribeActions.Add(() => _heroPowerButton.Pressed -= OnHeroPowerPressed);
 
 		// 攻击敌方英雄按钮
 		_enemyHeroAttackButton.Pressed += OnEnemyHeroAttackPressed;
@@ -1767,6 +1840,9 @@ public partial class CombatUI : Control
 
 		hm.PushPressedBinding(OdysseyInput.EndTurn, TryEndTurn);
 		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.EndTurn, TryEndTurn));
+
+		hm.PushPressedBinding(OdysseyInput.HeroPower, TryHeroPower);
+		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.HeroPower, TryHeroPower));
 
 		hm.PushPressedBinding(OdysseyInput.ViewDeck, ShowDrawPileView);
 		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.ViewDeck, ShowDrawPileView));
@@ -1935,6 +2011,7 @@ public partial class CombatUI : Control
 			UpdateArmorDisplay();
 			UpdateDefenseDisplay();
 			UpdateDeckCounts();
+			UpdateHeroPowerButton();
 			UpdateWeaponDisplay();
 			UpdateStatusEffectDisplay();
 			UpdateHeatDisplay();
@@ -1968,6 +2045,7 @@ public partial class CombatUI : Control
 		UpdateArmorDisplay();
 		UpdateDefenseDisplay();
 		UpdateDeckCounts();
+		UpdateHeroPowerButton();
 
 		// 每次刷新时重置为正常模式（先重置再更新武器，避免显示被覆盖）
 		ResetSelection();
@@ -1981,6 +2059,7 @@ public partial class CombatUI : Control
 		if (_combat.State.IsGameOver)
 		{
 			_endTurnButton.Disabled = true;
+			_heroPowerButton.Disabled = true;
 		}
 	}
 
@@ -3451,6 +3530,33 @@ public partial class CombatUI : Control
 		GD.Print("[CombatUI] 热键结束回合");
 		_combat.EndPlayerTurn();
 		RefreshAll();
+	}
+
+	/// <summary>
+	/// 英雄技能按钮点击处理。
+	/// </summary>
+	private void OnHeroPowerPressed()
+	{
+		TryHeroPower();
+	}
+
+	/// <summary>
+	/// 尝试使用英雄技能（按钮或热键 H 触发）。
+	/// </summary>
+	private void TryHeroPower()
+	{
+		if (_combat == null) return;
+		if (_combat.State.IsGameOver) return;
+		if (_heroPowerButton.Disabled) return;
+		if (_combat.IsDiscovering) return;
+		if (!_combat.State.IsPlayerTurn) return;
+
+		GD.Print("[CombatUI] 热键/按钮 — 尝试使用英雄技能");
+		bool success = _combat.TryUseHeroPower();
+		if (success)
+		{
+			RefreshAll();
+		}
 	}
 
 	/// <summary>

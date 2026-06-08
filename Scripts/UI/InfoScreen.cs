@@ -268,6 +268,12 @@ public partial class InfoScreen : Control
 			return rs?.CurrentPlane?.PlaneName;
 		});
 
+		AddInfoRow(runVBox, "ui.info_screen.run.gold", "金币", () =>
+		{
+			var gm = GameManager.Instance;
+			return gm.RunGold.ToString();
+		});
+
 		// 空状态
 		var noDataLabel = new Label
 		{
@@ -837,6 +843,11 @@ public partial class InfoScreen : Control
 		{
 			var rs = GameManager.Instance.RunState;
 			return rs?.CurrentPlane?.PlaneName;
+		});
+		UpdateInfoRowValue("Value_ui.info_screen.run.gold", () =>
+		{
+			var gm = GameManager.Instance;
+			return gm.RunGold.ToString();
 		});
 	}
 
