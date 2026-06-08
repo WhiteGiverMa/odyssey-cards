@@ -41,6 +41,10 @@ public class GameSaveData
     /// <summary>当前冒险中的金币数量（每局重置）。用于商店消费。</summary>
     [JsonPropertyName("run_gold")]
     public int RunGold { get; set; }
+
+    /// <summary>当前冒险的存档快照。null = 没有进行中的冒险。</summary>
+    [JsonPropertyName("active_run")]
+    public RunSaveData? ActiveRun { get; set; }
 }
 
 /// <summary>

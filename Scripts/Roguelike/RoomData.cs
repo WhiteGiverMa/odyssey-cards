@@ -70,6 +70,9 @@ public class PlaneDefinition
     /// <summary>位面名称（如"第一位面"）。</summary>
     public string PlaneName { get; set; } = "";
 
+    /// <summary>位面唯一标识，用于存档恢复时工厂查找。</summary>
+    public string Id { get; set; } = "";
+
     /// <summary>位面中的层序列（每层包含可选房间）。</summary>
     public List<PlaneLayer> Layers { get; set; } = new();
 
@@ -80,6 +83,7 @@ public class PlaneDefinition
     {
         return new PlaneDefinition
         {
+            Id = "first_plane",
             PlaneName = Localization.Localization.T("plane.first_plane", "第一位面"),
             Layers = new List<PlaneLayer>
             {
@@ -174,17 +178,29 @@ public class PlaneDefinition
 
                 new()
                 {
-                    Choices =
-                    {
-                        new RoomDefinition
-                        {
-                            Type = RoomType.Boss,
-                            DisplayName = Localization.Localization.T("room.display_name.boss", "BOSS"),
-                            Description = Localization.Localization.T("room.description.first_boss", "位面首领——守护者，击败它完成第一位面！")
-                        }
-                    }
-                },
-            }
-        };
-    }
+					Choices =
+					{
+						new RoomDefinition
+						{
+							Type = RoomType.Boss,
+							DisplayName = Localization.Localization.T("room.display_name.boss", "BOSS"),
+							Description = Localization.Localization.T("room.description.first_boss", "位面首领——守护者，击败它完成第一位面！")
+						}
+					}
+				},
+			}
+		};
+	}
+
+	/// <summary>
+	/// 从 ID 字符串工厂创建位面定义（供存档恢复用）。
+	/// </summary>
+	public static PlaneDefinition FromId(string id)
+	{
+		return id switch
+		{
+			"first_plane" => CreateFirstPlane(),
+			_ => CreateFirstPlane(), // 回退到第一位面
+		};
+	}
 }

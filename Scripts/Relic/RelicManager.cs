@@ -28,11 +28,22 @@ public class RelicManager
         _relics.Remove(relic);
     }
 
-    /// <summary>清空所有藏品。</summary>
-    public void Clear()
-    {
-        _relics.Clear();
-    }
+	/// <summary>清空所有藏品。</summary>
+	public void Clear()
+	{
+		_relics.Clear();
+	}
+
+	/// <summary>
+	/// 获取所有藏品的ID列表（供存档序列化）。
+	/// </summary>
+	public List<string> GetRelicIds()
+	{
+		var ids = new List<string>();
+		foreach (var relic in _relics)
+			ids.Add(relic.Id);
+		return ids;
+	}
 
     // ===== 事件分发 =====
 
@@ -103,6 +114,22 @@ public class RelicManager
             var mod = relic.GetEnemyDamageModifier(combat);
             if (mod != null) mods.Add(mod);
         }
-        return mods;
-    }
+		return mods;
+	}
+
+	/// <summary>
+	/// 从ID重建藏品实例（供存档恢复用）。
+	/// </summary>
+	public static AbstractRelic? CreateRelicById(string id)
+	{
+		return id switch
+		{
+			"small_fan" => new SmallFanRelic(),
+			"ice_bag" => new IceBagRelic(),
+			"good_dream_pillow" => new GoodDreamPillowRelic(),
+			"tactical_nuke" => new TacticalNukeRelic(),
+			"intern_badge" => new InternBadgeRelic(),
+			_ => null,
+		};
+	}
 }
