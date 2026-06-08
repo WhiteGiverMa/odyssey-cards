@@ -2,6 +2,7 @@ using Godot;
 using OdysseyCards.AI;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
+using OdysseyCards.Roguelike;
 using OdysseyCards.UI;
 using System;
 using System.Linq;
@@ -111,4 +112,194 @@ public class IntentDebugCommand : DevConsoleCommand
         null => "<none>",
         _ => target.GetType().Name,
     };
+}
+
+// ===== /skip（原名 /room）=====
+
+public class SkipCommand : DevConsoleCommand
+{
+	public override string Name => "skip";
+	public override string[] Aliases => [];
+	public override string Signature => "/skip [--no-reward]";
+	public override string Description => "直接结束当前房间。添加 --no-reward 跳过战斗金币奖励。";
+
+	public override CommandResult Execute(string[] args)
+	{
+		bool grantReward = !args.Contains("--no-reward");
+		var cm = CombatManager.Instance;
+		var gm = GameManager.Instance;
+
+		// 情况 1：在战斗中 → 强制胜利
+		if (cm != null && !cm.State.IsGameOver)
+		{
+			cm.ForceVictory(grantReward);
+			return CommandResult.Ok($"强制结束战斗房间（{(grantReward ? "含金币奖励" : "跳过奖励")}）");
+		}
+
+		// 情况 2：在地图界面 → 直接推进
+		var mapUI = gm?.GetTree()?.Root?.FindChild("MapUI", recursive: true) as UI.MapUI;
+		if (mapUI != null)
+		{
+			mapUI.DevForceCompleteRoom();
+			return CommandResult.Ok("已跳过当前房间，推进到下一层");
+		}
+
+		return CommandResult.Fail("无法找到 MapUI，且不在战斗中。请确认当前处于冒险中。");
+	}
+}
+
+// ===== /room <type>（参考 STS2 RoomConsoleCmd）=====
+
+public class RoomCommand : DevConsoleCommand
+{
+	public override string Name => "room";
+	public override string Signature => "/room <type> [--id <eventId>]";
+	public override string Description => "用指定类型房间覆盖当前层。类型: monster/elite/boss/treasure/shop/event/rest。Event 类型可用 --id 指定事件。";
+
+	public override CompletionCandidate[]? GetArgCandidates(string partialArg)
+	{
+		var types = new[] { "monster", "elite", "boss", "treasure", "shop", "event", "rest" };
+		return types
+			.Where(t => t.StartsWith(partialArg, StringComparison.OrdinalIgnoreCase))
+			.Select(t => new CompletionCandidate(t, t, GetTypeDescription(t)))
+			.ToArray();
+	}
+
+	private static string GetTypeDescription(string type) => type switch
+	{
+		"monster" => "普通怪物战斗",
+		"elite" => "精英怪物战斗",
+		"boss" => "Boss战斗",
+		"treasure" => "奖励房间",
+		"shop" => "商店",
+		"event" => "叙事事件",
+		"rest" => "休息站点",
+		_ => "",
+	};
+
+	public override CommandResult Execute(string[] args)
+	{
+		if (args.Length < 1)
+			return CommandResult.Fail("用法: /room <type>  类型: monster/elite/boss/treasure/shop/event/rest");
+
+		var gm = GameManager.Instance;
+		if (gm?.RunState == null)
+			return CommandResult.Fail("当前不在冒险中");
+
+		var typeStr = args[0].ToLowerInvariant();
+		Roguelike.RoomType? roomType = typeStr switch
+		{
+			"monster" => Roguelike.RoomType.Monster,
+			"elite" => Roguelike.RoomType.Elite,
+			"boss" => Roguelike.RoomType.Boss,
+			"treasure" => Roguelike.RoomType.Treasure,
+			"shop" => Roguelike.RoomType.Shop,
+			"event" => Roguelike.RoomType.Event,
+			"rest" => Roguelike.RoomType.RestSite,
+			_ => null,
+		};
+
+		if (roomType == null)
+			return CommandResult.Fail($"未知房间类型: {typeStr}，可用: monster/elite/boss/treasure/shop/event/rest");
+
+		// 提取 --id 参数（Event 专用）
+		string? eventId = null;
+		for (int i = 1; i < args.Length - 1; i++)
+		{
+			if (args[i] == "--id" && i + 1 < args.Length)
+				eventId = args[i + 1];
+		}
+
+		// 验证事件 ID
+		if (roomType == Roguelike.RoomType.Event && eventId != null)
+		{
+			var found = Roguelike.EventPool.All.Any(e => e.Id.Equals(eventId, StringComparison.OrdinalIgnoreCase));
+			if (!found)
+				return CommandResult.Fail($"未知事件: {eventId}，可用: {string.Join(", ", Roguelike.EventPool.All.Select(e => e.Id))}");
+		}
+
+		// 设置覆写
+		gm.RoomTypeOverride = roomType;
+		gm.EventIdOverride = eventId;
+
+		// 战斗类型 → 切到战斗场景；非战斗 → 切到地图
+		var isCombat = roomType is Roguelike.RoomType.Monster or Roguelike.RoomType.Elite or Roguelike.RoomType.Boss;
+		if (isCombat)
+		{
+			// 在地图外（如已在地图）也需要切场景让 CombatManager 重新读取
+			var cm = CombatManager.Instance;
+			if (cm != null && !cm.State.IsGameOver)
+			{
+				gm.FightOverride = null; // 清掉可能残留的战斗覆写
+				return CommandResult.Ok("__ROOM__Combat");
+			}
+			return CommandResult.Ok("__ROOM__Combat");
+		}
+
+		// 非战斗类型 → 切到地图
+		var cm2 = CombatManager.Instance;
+		if (cm2 != null && !cm2.State.IsGameOver)
+			return CommandResult.Ok("__ROOM__Map");
+
+		// 已在地图 → 直接触发
+		var mapUI = gm.GetTree()?.Root?.FindChild("MapUI", recursive: true) as UI.MapUI;
+		if (mapUI != null)
+		{
+			mapUI.DevForceCompleteRoom(); // 先完成当前房间
+			mapUI.RefreshRoomChoices();   // 触发消费 RoomTypeOverride
+			return CommandResult.Ok($"当前层已覆盖为: {roomType}");
+		}
+
+		return CommandResult.Fail("无法找到地图界面。");
+	}
+}
+
+// ===== /event =====
+
+public class EventCommand : DevConsoleCommand
+{
+	public override string Name => "event";
+	public override string Signature => "/event [id]";
+	public override string Description => "用指定事件覆盖当前房间（效果真实，完成后推进层数）。无参数则随机。";
+
+	public override CompletionCandidate[]? GetArgCandidates(string partialArg)
+	{
+		return Roguelike.EventPool.All
+			.Where(e => e.Id.StartsWith(partialArg, StringComparison.OrdinalIgnoreCase))
+			.Select(e => new CompletionCandidate(e.Id, e.Id, e.Title))
+			.ToArray();
+	}
+
+	public override CommandResult Execute(string[] args)
+	{
+		var gm = GameManager.Instance;
+		string? eventId = args.Length > 0 ? args[0] : null;
+
+		// 验证事件 ID 有效性（非空时）
+		if (eventId != null)
+		{
+			var found = EventPool.All.Any(e => e.Id.Equals(eventId, StringComparison.OrdinalIgnoreCase));
+			if (!found)
+				return CommandResult.Fail($"未知事件: {eventId}，可用: {string.Join(", ", EventPool.All.Select(e => e.Id))}");
+		}
+
+		// 情况 1：已在战斗中 → 设 RoomTypeOverride + 直接切场景
+		var cm = CombatManager.Instance;
+		if (cm != null && !cm.State.IsGameOver)
+		{
+			gm!.RoomTypeOverride = Roguelike.RoomType.Event;
+			gm.EventIdOverride = eventId;
+			return CommandResult.Ok($"__EVENT__{(eventId ?? "随机")}");
+		}
+
+		// 情况 2：在地图中 → 直接覆盖当前房间
+		var mapUI = gm?.GetTree()?.Root?.FindChild("MapUI", recursive: true) as UI.MapUI;
+		if (mapUI != null)
+		{
+			mapUI.DevShowEvent(eventId);
+			return CommandResult.Ok($"当前房间已覆盖为事件：{(eventId ?? "随机")}");
+		}
+
+		return CommandResult.Fail("当前不在冒险中。请先开始一局游戏。");
+	}
 }

@@ -297,6 +297,25 @@ public partial class DevConsole : Node
                 WriteLine($"[color=#66ff66]即将与 {msg[9..]} 战斗…[/color]");
                 GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
             }
+            else if (msg.StartsWith("__ROOM__"))
+            {
+                var target = msg[8..]; // 格式: __ROOM__<scene>
+                if (target == "Combat")
+                {
+                    WriteLine("[color=#66ff66]跳转到战斗房间…[/color]");
+                    GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
+                }
+                else
+                {
+                    WriteLine($"[color=#66ff66]跳转到{target}房间…[/color]");
+                    GetTree().ChangeSceneToFile("res://Scenes/Map.tscn");
+                }
+            }
+            else if (msg.StartsWith("__EVENT__"))
+            {
+                WriteLine($"[color=#66ff66]即将跳转到事件：{msg[9..]}…[/color]");
+                GetTree().ChangeSceneToFile("res://Scenes/Map.tscn");
+            }
             else
             {
                 WriteLine($"[color=#66ff66]{msg}[/color]");
@@ -384,6 +403,9 @@ public partial class DevConsole : Node
         _engine.Register(new Commands.EndCommand());
         _engine.Register(new Commands.FightCommand());
         _engine.Register(new Commands.RefreshCommand());
+        _engine.Register(new Commands.SkipCommand());
+        _engine.Register(new Commands.RoomCommand());
+        _engine.Register(new Commands.EventCommand());
         _engine.Register(new Commands.IntentDebugCommand());
         _engine.Register(new Commands.TokenCommand());
         _engine.Register(new Commands.PlayCommand());

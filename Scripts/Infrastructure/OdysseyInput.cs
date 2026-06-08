@@ -82,6 +82,9 @@ public static class OdysseyInput
 	/// <summary>综合信息管理界面（CapsLock 键）</summary>
 	public static readonly StringName InfoScreen = "odyssey_info_screen";
 
+	/// <summary>使用英雄技能（H 键）</summary>
+	public static readonly StringName HeroPower = "odyssey_hero_power";
+
 	// ===== 所有可被阻塞的动作（AddBlockingScreen 用）=====
 
     /// <summary>阻塞屏幕时拦截的所有动作列表。</summary>
@@ -91,6 +94,6 @@ public static class OdysseyInput
         SelectCard1, SelectCard2, SelectCard3, SelectCard4, SelectCard5,
         SelectCard6, SelectCard7, SelectCard8, SelectCard9, SelectCard10,
 		TabTarget, EndTurn, Pause, ViewDeck, ViewDiscard,
-		PageUp, PageDown, Skip, InfoScreen,
+		PageUp, PageDown, Skip, InfoScreen, HeroPower,
 	];
 }
