@@ -2,49 +2,30 @@ using Godot;
 using OdysseyCards.Core;
 using OdysseyCards.Roguelike;
 using System;
+using System.Collections.Generic;
 
 namespace OdysseyCards.UI;
 
 /// <summary>
-/// 休息站点 UI — 使用 MobileDialogHost 弹窗模式。
+/// 休息站点 UI — 使用 MobileDialogHost 弹窗模式，直接在父控件上创建。
 /// 提供回复生命值 + 选择金血祝颂的功能。
 /// </summary>
-public partial class RestSiteUI : Control
+public static class RestSiteUI
 {
-	private RoomDefinition _room = null!;
-	private Action? _onComplete;
-	private Control? _dialog;
-	private Button? _restButton;
-	private Button? _continueButton;
-	private bool _hasRested;
-	private bool _hasPickedBlessing;
-
 	/// <summary>
 	/// 创建并显示休息站点 UI。
 	/// </summary>
+	/// <param name="parent">父控件（通常是 MapUI）。</param>
+	/// <param name="room">休息站点房间定义。</param>
+	/// <param name="onComplete">完成回调——调用方在此处理 CompleteRoomAndAdvance。</param>
 	public static void Show(Control parent, RoomDefinition room, Action onComplete)
 	{
-		var ui = new RestSiteUI
-		{
-			Name = "RestSiteUI",
-			MouseFilter = MouseFilterEnum.Ignore,
-		};
-		ui.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-		parent.AddChild(ui);
-		ui.Build(room, onComplete);
-	}
-
-	private void Build(RoomDefinition room, Action onComplete)
-	{
-		_room = room;
-		_onComplete = onComplete;
-
 		var title = $"{MapUI.GetRoomIcon(room.Type)} {room.DisplayName}";
-		var (dialog, content, buttonRow) = MobileDialogHost.CreateDialog(
-			this,
-			title,
-			width: 450);
-		_dialog = dialog;
+		var (dialog, content, buttonRow) = MobileDialogHost.CreateDialog(parent, title, width: 450);
+
+		var hasRested = false;
+		var hasPickedBlessing = false;
+		Button? continueBtn = null;
 
 		// 描述文本
 		var descLabel = new Label
@@ -57,10 +38,26 @@ public partial class RestSiteUI : Control
 		content.AddChild(descLabel);
 
 		// === 休息按钮 ===
-		_restButton = MobileDialogHost.CreateDialogButton(
+		var restButton = MobileDialogHost.CreateDialogButton(
 			Localization.Localization.T("ui.rest_site.rest_button", "回复 30% 生命值"));
-		_restButton.Pressed += OnRestPressed;
-		content.AddChild(_restButton);
+		restButton.Pressed += () =>
+		{
+			if (hasRested) return;
+			var gm = GameManager.Instance;
+			if (gm != null)
+			{
+				var healAmount = (int)(gm.PlayerMaxHealth * 0.3f);
+				var newHealth = Mathf.Min(gm.PlayerHealth + healAmount, gm.PlayerMaxHealth);
+				var actualHealed = newHealth - gm.PlayerHealth;
+				gm.PlayerHealth = newHealth;
+				GD.Print($"[RestSiteUI] 回复 {actualHealed} 点生命值（当前 {gm.PlayerHealth}/{gm.PlayerMaxHealth}）");
+			}
+			hasRested = true;
+			restButton.Disabled = true;
+			restButton.Text = $"{restButton.Text} ✓";
+			restButton.AddThemeColorOverride("font_color", new Color(0.5f, 0.8f, 0.5f, 1));
+		};
+		content.AddChild(restButton);
 
 		// === 祝福选择标题 ===
 		var blessingTitle = new Label
@@ -73,120 +70,42 @@ public partial class RestSiteUI : Control
 		content.AddChild(blessingTitle);
 
 		// === 3 个祝福按钮 ===
-		var blessings = BlessingPool.Placeholders;
-		foreach (var blessing in blessings)
+		var blessingButtons = new List<Button>();
+		foreach (var blessing in BlessingPool.Placeholders)
 		{
-			var blessingBtn = CreateBlessingButton(blessing);
-			content.AddChild(blessingBtn);
-		}
-
-		// === 继续按钮 ===
-		_continueButton = MobileDialogHost.CreateDialogButton(
-			Localization.Localization.T("ui.map.continue_button", "继续"));
-		_continueButton.Disabled = true;
-		_continueButton.Pressed += OnContinuePressed;
-		buttonRow.AddChild(_continueButton);
-	}
-
-	/// <summary>
-	/// 创建一个祝福选择按钮。
-	/// </summary>
-	private Button CreateBlessingButton(BlessingData blessing)
-	{
-		var btn = new Button
-		{
-			Text = $"{blessing.Name}\n{blessing.Description}",
-			CustomMinimumSize = new Vector2(0, MobileDialogHost.MinTouchTargetHeight * 1.5f),
-		};
-		btn.AddThemeFontSizeOverride("font_size", 16);
-		btn.AddThemeColorOverride("font_color", new Color(1, 0.85f, 0.3f, 1));
-		btn.Pressed += () =>
-		{
-			if (_hasPickedBlessing)
-				return;
-
-			_hasPickedBlessing = true;
-			ApplyBlessing(blessing);
-
-			// 禁用所有祝福按钮（使用 GetParent 遍历）
-			if (btn.GetParent() is VBoxContainer parentContainer)
+			var btn = new Button
 			{
-				foreach (var child in parentContainer.GetChildren())
+				Text = $"{blessing.Name}\n{blessing.Description}",
+				CustomMinimumSize = new Vector2(0, MobileDialogHost.MinTouchTargetHeight * 1.5f),
+			};
+			btn.AddThemeFontSizeOverride("font_size", 16);
+			btn.AddThemeColorOverride("font_color", new Color(1, 0.85f, 0.3f, 1));
+			btn.Pressed += () =>
+			{
+				if (hasPickedBlessing) return;
+				hasPickedBlessing = true;
+				GD.Print($"[RestSiteUI] 选择了祝福：{blessing.Name}（{blessing.Id}）— 占位符，无实际效果");
+
+				foreach (var b in blessingButtons)
 				{
-					if (child is Button b && b != _restButton && b != btn)
-					{
-						b.Disabled = true;
-						b.AddThemeColorOverride("font_color", new Color(0.5f, 0.5f, 0.5f, 1));
-					}
+					b.Disabled = true;
+					b.AddThemeColorOverride("font_color", new Color(0.5f, 0.5f, 0.5f, 1));
 				}
-			}
-			btn.Disabled = true;
-			btn.AddThemeColorOverride("font_color", new Color(0.5f, 0.5f, 0.5f, 1));
+				if (continueBtn != null) continueBtn.Disabled = false;
+			};
+			blessingButtons.Add(btn);
+			content.AddChild(btn);
+		}
 
-			// 启用继续按钮
-			if (_continueButton != null)
-			{
-				_continueButton.Disabled = false;
-			}
+		// === 继续按钮（初始禁用，选祝福后启用）===
+		continueBtn = MobileDialogHost.CreateDialogButton(
+			Localization.Localization.T("ui.map.continue_button", "继续"));
+		continueBtn.Disabled = true;
+		continueBtn.Pressed += () =>
+		{
+			MobileDialogHost.CloseDialog(dialog, parent);
+			onComplete();
 		};
-		return btn;
-	}
-
-	/// <summary>
-	/// 应用祝福效果。当前为占位符——仅打印日志。
-	/// </summary>
-	private void ApplyBlessing(BlessingData blessing)
-	{
-		GD.Print($"[RestSiteUI] 选择了祝福：{blessing.Name}（{blessing.Id}）— 占位符，无实际效果");
-	}
-
-	/// <summary>
-	/// 休息按钮按下——回复 30% 最大生命值。
-	/// </summary>
-	private void OnRestPressed()
-	{
-		if (_hasRested)
-			return;
-
-		var gm = GameManager.Instance;
-		if (gm != null)
-		{
-			var healAmount = (int)(gm.PlayerMaxHealth * 0.3f);
-			var newHealth = Mathf.Min(gm.PlayerHealth + healAmount, gm.PlayerMaxHealth);
-			var actualHealed = newHealth - gm.PlayerHealth;
-
-			gm.PlayerHealth = newHealth;
-			GD.Print($"[RestSiteUI] 回复 {actualHealed} 点生命值（当前 {gm.PlayerHealth}/{gm.PlayerMaxHealth}）");
-		}
-
-		_hasRested = true;
-		if (_restButton != null)
-		{
-			_restButton.Disabled = true;
-			_restButton.Text = $"{_restButton.Text} ✓";
-			_restButton.AddThemeColorOverride("font_color", new Color(0.5f, 0.8f, 0.5f, 1));
-		}
-	}
-
-	/// <summary>
-	/// 继续按钮按下——关闭弹窗，推进冒险。
-	/// </summary>
-	private void OnContinuePressed()
-	{
-		Close();
-	}
-
-	/// <summary>
-	/// 关闭弹窗并清理自身。
-	/// </summary>
-	private void Close()
-	{
-		if (_dialog != null)
-		{
-			MobileDialogHost.CloseDialog(_dialog, this);
-			_dialog = null;
-		}
-		_onComplete?.Invoke();
-		QueueFree();
+		buttonRow.AddChild(continueBtn);
 	}
 }
