@@ -42,6 +42,10 @@ public partial class MapUI : Control
     /// <summary>热键回调引用（用于注销时精确移除）。</summary>
     private Action? _leftAction, _rightAction, _upAction, _downAction;
     private Action? _acceptAction, _cancelAction;
+    private Action? _infoScreenAction;
+
+    // ===== 综合信息界面 =====
+    private InfoScreen? _infoScreen;
 
     // ===== MobileInputRouter zone 令牌（_ExitTree 时统一释放） =====
 
@@ -469,11 +473,15 @@ public partial class MapUI : Control
         hm.PushPressedBinding(OdysseyInput.Up, _upAction);
         hm.PushPressedBinding(OdysseyInput.Down, _downAction);
 
-        // 确认 / 取消
-        _acceptAction = AcceptFocusedRoom;
-        _cancelAction = HandleKeyboardCancel;
-        hm.PushPressedBinding(OdysseyInput.Accept, _acceptAction);
-        hm.PushPressedBinding(OdysseyInput.Cancel, _cancelAction);
+		// 确认 / 取消
+		_acceptAction = AcceptFocusedRoom;
+		_cancelAction = HandleKeyboardCancel;
+		hm.PushPressedBinding(OdysseyInput.Accept, _acceptAction);
+		hm.PushPressedBinding(OdysseyInput.Cancel, _cancelAction);
+
+		// 综合信息界面
+		_infoScreenAction = ToggleInfoScreen;
+		hm.PushPressedBinding(OdysseyInput.InfoScreen, _infoScreenAction);
 
         // 键盘焦点超时事件 — 超时后清除焦点指示器
         hm.KeyboardFocusChanged += OnKeyboardFocusChanged;
@@ -493,9 +501,10 @@ public partial class MapUI : Control
         if (_rightAction != null) { hm.RemovePressedBinding(OdysseyInput.Right, _rightAction); _rightAction = null; }
         if (_upAction != null) { hm.RemovePressedBinding(OdysseyInput.Up, _upAction); _upAction = null; }
         if (_downAction != null) { hm.RemovePressedBinding(OdysseyInput.Down, _downAction); _downAction = null; }
-        if (_acceptAction != null) { hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
-        if (_cancelAction != null) { hm.RemovePressedBinding(OdysseyInput.Cancel, _cancelAction); _cancelAction = null; }
-    }
+		if (_acceptAction != null) { hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
+		if (_cancelAction != null) { hm.RemovePressedBinding(OdysseyInput.Cancel, _cancelAction); _cancelAction = null; }
+		if (_infoScreenAction != null) { hm.RemovePressedBinding(OdysseyInput.InfoScreen, _infoScreenAction); _infoScreenAction = null; }
+	}
 
     // ===== 键盘导航 — 业务方法 =====
 
@@ -818,7 +827,38 @@ public partial class MapUI : Control
 
     // ===== 语言切换 =====
 
-    private void OnLanguageChanged(string newLanguage)
+	// ===== 综合信息界面 =====
+
+	private void ToggleInfoScreen()
+	{
+		if (_infoScreen != null)
+			HideInfoScreen();
+		else
+			ShowInfoScreen();
+	}
+
+	private void ShowInfoScreen()
+	{
+		if (_infoScreen != null) return;
+
+		GD.Print("[MapUI] 综合信息界面 — 显示");
+
+		_infoScreen = new InfoScreen();
+		_infoScreen.OnClosed += HideInfoScreen;
+		AddChild(_infoScreen);
+		_infoScreen.Open();
+	}
+
+	private void HideInfoScreen()
+	{
+		if (_infoScreen == null) return;
+
+		_infoScreen.OnClosed -= HideInfoScreen;
+		_infoScreen.QueueFree();
+		_infoScreen = null;
+	}
+
+	private void OnLanguageChanged(string newLanguage)
     {
         RefreshLabels();
     }

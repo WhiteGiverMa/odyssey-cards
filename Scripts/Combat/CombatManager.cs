@@ -439,6 +439,9 @@ public partial class CombatManager : Node
 		}
 		GD.Print($"[CombatManager] 牌堆有 {player.Deck.CardCount} 张牌");
 
+		// 3.5. 保存战斗开始时的牌组快照（用于信息界面"当前卡组"显示）
+		gm.SnapshotCombatStartDeck();
+
 		// 4. 创建敌方英雄和 AI 遭遇（FightOverride 优先 → RunState → 回退）
 		IReadOnlyList<EnemyEncounter> encounters;
 		if (gm.FightOverride is { Count: > 0 })

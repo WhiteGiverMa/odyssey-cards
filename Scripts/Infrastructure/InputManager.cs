@@ -81,8 +81,8 @@ public partial class InputManager : Node
         var focusOwner = GetViewport()?.GuiGetFocusOwner();
         if (focusOwner is LineEdit or TextEdit) return;
 
-        bool pressed = keyEvent.Pressed;
-        foreach (var (actionName, mappedKey) in _keyMap)
+		bool pressed = keyEvent.Pressed;
+		foreach (var (actionName, mappedKey) in _keyMap)
         {
             if (keyEvent.Keycode == mappedKey)
             {
@@ -139,13 +139,18 @@ public partial class InputManager : Node
             return;
         }
 
-        ActiveProfileName = profileName;
-        _keyMap.Clear();
-        foreach (var (actionStr, keyStr) in serializedMap)
-        {
-            if (Enum.TryParse<Key>(keyStr, out var key))
-                _keyMap[new StringName(actionStr)] = key;
-        }
+		ActiveProfileName = profileName;
+		_keyMap.Clear();
+
+		// 先应用默认键位，确保新增动作有默认值
+		ApplyDefaults();
+
+		// 再覆盖用户自定义的键位（已保存的配置优先）
+		foreach (var (actionStr, keyStr) in serializedMap)
+		{
+			if (Enum.TryParse<Key>(keyStr, out var key))
+				_keyMap[new StringName(actionStr)] = key;
+		}
 
         GD.Print($"[InputManager] 切换到键位配置: {profileName}");
     }
@@ -327,11 +332,14 @@ public partial class InputManager : Node
         // 目标循环
         _keyMap[OdysseyInput.TabTarget] = Key.Tab;
 
-        // 场景导航
-        _keyMap[OdysseyInput.PageUp] = Key.Pageup;
-        _keyMap[OdysseyInput.PageDown] = Key.Pagedown;
-        _keyMap[OdysseyInput.Skip] = Key.Backspace;
-    }
+		// 场景导航
+		_keyMap[OdysseyInput.PageUp] = Key.Pageup;
+		_keyMap[OdysseyInput.PageDown] = Key.Pagedown;
+		_keyMap[OdysseyInput.Skip] = Key.Backspace;
+
+		// 全局界面
+		_keyMap[OdysseyInput.InfoScreen] = Key.Capslock;
+	}
 
     /// <summary>将当前 _keyMap 序列化为可保存的字典。</summary>
     private Dictionary<string, string> SerializeCurrentMap()

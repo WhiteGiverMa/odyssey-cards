@@ -74,10 +74,15 @@ public static class OdysseyInput
     /// <summary>翻页向下（PageDown）</summary>
     public static readonly StringName PageDown = "odyssey_page_down";
 
-    /// <summary>跳过/放弃（Backspace 键，选牌场景）</summary>
-    public static readonly StringName Skip = "odyssey_skip";
+	/// <summary>跳过/放弃（Backspace 键，选牌场景）</summary>
+	public static readonly StringName Skip = "odyssey_skip";
 
-    // ===== 所有可被阻塞的动作（AddBlockingScreen 用）=====
+	// ===== 全局界面 =====
+
+	/// <summary>综合信息管理界面（CapsLock 键）</summary>
+	public static readonly StringName InfoScreen = "odyssey_info_screen";
+
+	// ===== 所有可被阻塞的动作（AddBlockingScreen 用）=====
 
     /// <summary>阻塞屏幕时拦截的所有动作列表。</summary>
     public static readonly StringName[] AllInputs =
@@ -85,7 +90,7 @@ public static class OdysseyInput
         Up, Down, Left, Right, Accept, Cancel, Select, FocusNext, FocusPrev,
         SelectCard1, SelectCard2, SelectCard3, SelectCard4, SelectCard5,
         SelectCard6, SelectCard7, SelectCard8, SelectCard9, SelectCard10,
-        TabTarget, EndTurn, Pause, ViewDeck, ViewDiscard,
-        PageUp, PageDown, Skip,
-    ];
+		TabTarget, EndTurn, Pause, ViewDeck, ViewDiscard,
+		PageUp, PageDown, Skip, InfoScreen,
+	];
 }

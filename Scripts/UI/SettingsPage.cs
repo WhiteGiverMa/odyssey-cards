@@ -68,11 +68,13 @@ public partial class SettingsPage : Control
         OdysseyInput.SelectCard4, OdysseyInput.SelectCard5, OdysseyInput.SelectCard6,
         OdysseyInput.SelectCard7, OdysseyInput.SelectCard8, OdysseyInput.SelectCard9,
         OdysseyInput.SelectCard10,
-        // 战斗 — 命令
-        OdysseyInput.EndTurn, OdysseyInput.Pause,
-        OdysseyInput.ViewDeck, OdysseyInput.ViewDiscard, OdysseyInput.TabTarget,
-        // 场景导航
-        OdysseyInput.PageUp, OdysseyInput.PageDown, OdysseyInput.Skip,
+		// 战斗 — 命令
+		OdysseyInput.EndTurn, OdysseyInput.Pause,
+		OdysseyInput.ViewDeck, OdysseyInput.ViewDiscard, OdysseyInput.TabTarget,
+		// 战斗 — 其他
+		OdysseyInput.InfoScreen,
+		// 场景导航
+		OdysseyInput.PageUp, OdysseyInput.PageDown, OdysseyInput.Skip,
     };
 
     /// <summary>动作名 → 中文显示名。</summary>
@@ -100,10 +102,11 @@ public partial class SettingsPage : Control
         [OdysseyInput.ViewDeck] = "查看牌库",
         [OdysseyInput.ViewDiscard] = "查看弃牌堆",
         [OdysseyInput.TabTarget] = "切换目标",
-        [OdysseyInput.PageUp] = "上一页",
-        [OdysseyInput.PageDown] = "下一页",
-        [OdysseyInput.Skip] = "跳过",
-    };
+		[OdysseyInput.PageUp] = "上一页",
+		[OdysseyInput.PageDown] = "下一页",
+		[OdysseyInput.Skip] = "跳过",
+		[OdysseyInput.InfoScreen] = "综合信息",
+	};
 
     /// <summary>物理按键 → 显示字符串。</summary>
     private static string KeyToDisplay(Key key) => key switch
@@ -122,8 +125,9 @@ public partial class SettingsPage : Control
         Key.Backspace => "Backspace",
         Key.Shift => "Shift",
         Key.Ctrl => "Ctrl",
-        Key.Alt => "Alt",
-        Key.Key0 => "0",
+		Key.Alt => "Alt",
+		Key.Capslock => "CapsLock",
+		Key.Key0 => "0",
         Key.Key1 => "1",
         Key.Key2 => "2",
         Key.Key3 => "3",

@@ -69,12 +69,19 @@ public partial class GameManager : Node
     /// </summary>
     public IReadOnlyList<AI.EnemyEncounter>? FightOverride { get; set; }
 
-    /// <summary>
-    /// 藏品管理器——持有玩家所有藏品的列表，跨战斗持久化。
-    /// </summary>
-    public RelicManager Relics { get; private set; } = new();
+	/// <summary>
+	/// 藏品管理器——持有玩家所有藏品的列表，跨战斗持久化。
+	/// </summary>
+	public RelicManager Relics { get; private set; } = new();
 
-    // ===== 收藏与持久化 =====
+	/// <summary>
+	/// 战斗开始时牌组的快照（只读，用于信息界面展示"当前卡组"）。
+	/// 此快照在每场战斗开始前由 CombatManager 调用 SnapshotCombatStartDeck() 更新。
+	/// 战斗外为 null。
+	/// </summary>
+	public Deck? CombatStartDeckSnapshot { get; private set; }
+
+	// ===== 收藏与持久化 =====
 
     /// <summary>
     /// 已解锁的卡牌 ID 集合。
@@ -673,9 +680,26 @@ public partial class GameManager : Node
         GD.Print($"[GameManager] Player created: {CurrentPlayer.CharacterName}, deck size: {startingDeck.CardCount}");
     }
 
-    /// <summary>
-    /// 开始一次新的冒险运行。
-    /// </summary>
+	/// <summary>
+	/// 保存当前牌组快照（战斗开始时调用）。
+	/// 深拷贝当前 PlayerDeck 的 CardData 列表，用于信息界面展示"当前卡组"。
+	/// </summary>
+	public void SnapshotCombatStartDeck()
+	{
+		CombatStartDeckSnapshot = _playerDeck?.Clone();
+	}
+
+	/// <summary>
+	/// 清除战斗牌组快照（战斗结束时调用）。
+	/// </summary>
+	public void ClearCombatDeckSnapshot()
+	{
+		CombatStartDeckSnapshot = null;
+	}
+
+	/// <summary>
+	/// 开始一次新的冒险运行。
+	/// </summary>
     public void StartNewRun()
     {
         GD.Print("[GameManager] 开始新冒险！");

@@ -123,6 +123,11 @@ public partial class CombatUI : Control
 	private PauseMenu? _pauseMenu;
 
 	/// <summary>
+	/// 综合信息管理界面——CapsLock 触发。
+	/// </summary>
+	private InfoScreen? _infoScreen;
+
+	/// <summary>
 	/// 暂停菜单是否正在显示。
 	/// </summary>
 	private bool _isPaused;
@@ -1771,6 +1776,9 @@ public partial class CombatUI : Control
 
 		hm.PushPressedBinding(OdysseyInput.Pause, TogglePause);
 		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.Pause, TogglePause));
+
+		hm.PushPressedBinding(OdysseyInput.InfoScreen, ToggleInfoScreen);
+		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.InfoScreen, ToggleInfoScreen));
 
 		hm.PushPressedBinding(OdysseyInput.Cancel, HandleCancel);
 		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.Cancel, HandleCancel));
@@ -3477,6 +3485,9 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void OnGameOverConfirmed()
 	{
+		// 战斗结束，清除牌组快照
+		GameManager.Instance?.ClearCombatDeckSnapshot();
+
 		if (_isVictory)
 		{
 			GD.Print("[CombatUI] 继续冒险 → 路线选择地图");
@@ -3584,6 +3595,54 @@ public partial class CombatUI : Control
 			ShowPauseMenu();
 	}
 
+	// ===== 综合信息界面 =====
+
+	/// <summary>
+	/// 切换综合信息界面（CapsLock 热键触发）。
+	/// 游戏结束、发现选牌或暂停菜单打开时不响应。
+	/// </summary>
+	private void ToggleInfoScreen()
+	{
+		if (!IsInsideTree()) return;
+		if (_combat == null || _combat.State.IsGameOver) return;
+		if (_combat.IsDiscovering) return;
+		if (_isPaused) return; // 暂停菜单打开时不响应
+
+		if (_infoScreen != null)
+			HideInfoScreen();
+		else
+			ShowInfoScreen();
+	}
+
+	/// <summary>
+	/// 显示综合信息界面——创建覆盖层，注册其事件。
+	/// </summary>
+	private void ShowInfoScreen()
+	{
+		if (_infoScreen != null) return;
+
+		GD.Print("[CombatUI] 综合信息界面 — 显示");
+
+		_infoScreen = new InfoScreen();
+		_infoScreen.OnClosed += HideInfoScreen;
+		AddChild(_infoScreen);
+		_infoScreen.Open();
+	}
+
+	/// <summary>
+	/// 隐藏综合信息界面——销毁覆盖层，注销事件。
+	/// </summary>
+	private void HideInfoScreen()
+	{
+		if (_infoScreen == null) return;
+
+		GD.Print("[CombatUI] 综合信息界面 — 关闭");
+
+		_infoScreen.OnClosed -= HideInfoScreen;
+		_infoScreen.QueueFree();
+		_infoScreen = null;
+	}
+
 	/// <summary>
 	/// 全局取消操作（热键 ESC/右键或移动端取消按钮触发）。
 	/// 按优先级依次检查：手牌选择 → 开发者伤害 → 攻击/武器/法术选择。
@@ -3635,6 +3694,7 @@ public partial class CombatUI : Control
 		if (_combat != null)
 		{
 			var gm = GameManager.Instance;
+			gm?.ClearCombatDeckSnapshot();
 			gm?.SavePlayerHealth(_combat.PlayerHero.CurrentHealth, _combat.PlayerHero.MaxHealth);
 		}
 
@@ -3651,6 +3711,9 @@ public partial class CombatUI : Control
 
 		// 切换场景前必须先恢复暂停
 		GetTree().Paused = false;
+
+		// 清除战斗牌组快照（新战斗会重新创建）
+		GameManager.Instance?.ClearCombatDeckSnapshot();
 
 		GetTree().ChangeSceneToFile("res://Scenes/Combat.tscn");
 	}
