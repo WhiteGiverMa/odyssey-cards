@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using OdysseyCards.AI.Intents;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
@@ -7,133 +8,161 @@ using OdysseyCards.Core;
 namespace OdysseyCards.AI;
 
 /// <summary>
-/// 机械小蠊 — 随从意图大脑。
+/// 机械小蠊 — 随从意图大脑。使用 MoveState 动态选择当前意图。
 /// 意图：A.部署回合沉睡 → B.攻击随机敌方目标 → C.友方有空槽时复制自身 → 循环。
-/// "随机敌方目标"使用 TargetTags，目标包括敌方英雄与敌方随从，并遵守嘲讽。
+/// 参考 STS2 SneakyGremlin 的 SPAWNED_MOVE → TACKLE_MOVE 模式。
 /// </summary>
 public class MechanicalRoachBrain : IIntentActor
 {
-    private readonly Minion _body;
-    private int _cycleStep; // 0=sleep, 1=attack, 2=copy (if available)
-    private bool _hasSlept;
-    private IDamageTarget? _cachedTarget;
-    private int _cachedDamage;
+	private readonly Minion _body;
+	private int _cycleStep; // 0=sleep, 1=attack, 2=copy (if available)
+	private bool _hasSlept;
+	private IDamageTarget? _cachedTarget;
+	private int _cachedDamage;
 
-    public Hero? OwnerHero => null;
+	private readonly MoveState _moveSleep;
+	private readonly MoveState _moveAttack;
+	private readonly MoveState _moveCopy;
 
-    /// <summary>
-    /// 创建机械小蠊意图大脑。
-    /// </summary>
-    /// <param name="body">该大脑控制的随从身体</param>
-    public MechanicalRoachBrain(Minion body)
-    {
-        _body = body ?? throw new ArgumentNullException(nameof(body));
-    }
+	public Hero? OwnerHero => null;
+	public bool HasMoveStates => true;
 
-    public EnemyIntent GetCurrentIntent(CombatManager combat)
-    {
-        if (!_hasSlept)
-        {
-            return new EnemyIntent(IntentType.Buff, 0, "沉睡中…");
-        }
+	/// <summary>
+	/// 创建机械小蠊意图大脑。
+	/// </summary>
+	/// <param name="body">该大脑控制的随从身体</param>
+	public MechanicalRoachBrain(Minion body)
+	{
+		_body = body ?? throw new ArgumentNullException(nameof(body));
 
-        if (_cycleStep == 2 && combat.Board.CanPlaceMinion(isPlayerSide: false))
-        {
-            return new EnemyIntent(IntentType.Buff, 1, "分裂复制");
-        }
+		_moveSleep = new MoveState("SLEEP", null, new BuffIntent());
+		_moveAttack = new MoveState("ATTACK", null,
+			new SingleAttackIntent(_ => _body.Attack));
+		_moveCopy = new MoveState("COPY", null, new BuffIntent());
+	}
 
-        // Attack: resolve target
-        var target = ResolveRoachTarget(combat);
-        _cachedTarget = target;
-        _cachedDamage = DamageResolver.ResolvePreviewDamage(_body.Attack, _body, target);
-        string targetName = target switch
-        {
-            Hero => "英雄",
-            Minion m => m.GetLocalizedName(),
-            _ => "目标"
-        };
-        return new EnemyIntent(IntentType.Attack, _cachedDamage, $"攻击 {targetName} 造成 {_cachedDamage} 点伤害");
-    }
+	// ── MoveState 入口（动态选择，参考 ZhangLang.GetCurrentMove 模式）──
 
-    public void ExecuteIntent(CombatManager combat)
-    {
-        if (!_hasSlept)
-        {
-            _hasSlept = true;
-            _cycleStep = 1;
-            GD.Print($"[机械小蠊] 部署回合：沉睡");
-            return;
-        }
+	/// <summary>
+	/// 根据当前步数和棋盘状态动态返回当前 MoveState。
+	/// </summary>
+	public MoveState? GetCurrentMove(CombatManager combat)
+	{
+		if (!_hasSlept)
+			return _moveSleep;
+		if (_cycleStep == 2 && combat.Board.CanPlaceMinion(isPlayerSide: false))
+			return _moveCopy;
+		return _moveAttack;
+	}
 
-        if (_cycleStep == 2 && combat.Board.CanPlaceMinion(isPlayerSide: false))
-        {
-            ExecuteCopy(combat);
-            _cycleStep = 1;
-            return;
-        }
+	public void AdvanceMove()
+	{
+		_cachedTarget = null;
+		_cycleStep = (_cycleStep + 1) % 3;
+	}
 
-        // Attack
-        var target = _cachedTarget ?? ResolveRoachTarget(combat);
-        if (target != null && _body.Attack > 0)
-        {
-            GD.Print($"[机械小蠊] 攻击目标，造成 {_body.Attack} 点伤害");
-            if (target is Hero hero)
-                hero.TakeDamage(_body.Attack, _body);
-            else if (target is Minion minionTarget)
-            {
-                combat.TriggerBaitTacticsOnAttacked(minionTarget);
+	// ── 旧系统兼容（执行逻辑 / 箭头绘制）──
 
-                bool ambush = minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
-                if (ambush) minionTarget.AmbushUsedThisTurn = true;
+	public EnemyIntent GetCurrentIntent(CombatManager combat)
+	{
+		if (!_hasSlept)
+		{
+			return new EnemyIntent(IntentType.Buff, 0, "沉睡中…");
+		}
 
-                if (ambush)
-                {
-                    bool wasSuppressed = _body.IsPlayerSide;
-                    _body.TakeDamage(minionTarget.Attack, minionTarget);
-                }
+		if (_cycleStep == 2 && combat.Board.CanPlaceMinion(isPlayerSide: false))
+		{
+			return new EnemyIntent(IntentType.Buff, 1, "分裂复制");
+		}
 
-                if (_body.IsDead) return;
-                minionTarget.TakeDamage(_body.Attack, _body);
-            }
-        }
-    }
+		// Attack: resolve target
+		var target = ResolveRoachTarget(combat);
+		_cachedTarget = target;
+		_cachedDamage = DamageResolver.ResolvePreviewDamage(_body.Attack, _body, target);
+		string targetName = target switch
+		{
+			Hero => "英雄",
+			Minion m => m.GetLocalizedName(),
+			_ => "目标"
+		};
+		return new EnemyIntent(IntentType.Attack, _cachedDamage, $"攻击 {targetName} 造成 {_cachedDamage} 点伤害");
+	}
 
-    public void AdvanceIntent()
-    {
-        _cachedTarget = null;
-        _cycleStep = (_cycleStep + 1) % 3;
-    }
+	public void ExecuteIntent(CombatManager combat)
+	{
+		if (!_hasSlept)
+		{
+			_hasSlept = true;
+			_cycleStep = 1;
+			GD.Print($"[机械小蠊] 部署回合：沉睡");
+			return;
+		}
 
-    private IDamageTarget ResolveRoachTarget(CombatManager combat)
-    {
-        // 尊重嘲讽：玩家方有嘲讽随从则优先从嘲讽中随机选
-        var playerTaunts = combat.Board.GetTaunts(ofEnemy: false);
-        if (playerTaunts.Count > 0)
-            return playerTaunts[Random.Shared.Next(playerTaunts.Count)];
+		if (_cycleStep == 2 && combat.Board.CanPlaceMinion(isPlayerSide: false))
+		{
+			ExecuteCopy(combat);
+			_cycleStep = 1;
+			return;
+		}
 
-        // 无嘲讽：从玩家英雄 + 玩家随从中随机选
-        var candidates = new System.Collections.Generic.List<IDamageTarget>();
-        candidates.Add(combat.PlayerHero);
-        foreach (var m in combat.Board.GetPlayerMinions())
-        {
-            if (!m.IsDead && !ReferenceEquals(m, _body))
-                candidates.Add(m);
-        }
+		// Attack
+		var target = _cachedTarget ?? ResolveRoachTarget(combat);
+		if (target != null && _body.Attack > 0)
+		{
+			GD.Print($"[机械小蠊] 攻击目标，造成 {_body.Attack} 点伤害");
+			if (target is Hero hero)
+				hero.TakeDamage(_body.Attack, _body);
+			else if (target is Minion minionTarget)
+			{
+				combat.TriggerBaitTacticsOnAttacked(minionTarget);
 
-        if (candidates.Count == 0)
-            return combat.PlayerHero;
+				bool ambush = minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
+				if (ambush) minionTarget.AmbushUsedThisTurn = true;
 
-        return candidates[Random.Shared.Next(candidates.Count)];
-    }
+				if (ambush)
+				{
+					_body.TakeDamage(minionTarget.Attack, minionTarget);
+				}
 
-    private void ExecuteCopy(CombatManager combat)
-    {
-        int slot = combat.Board.GetEmptySlotIndex(isPlayerSide: false);
-        if (slot < 0) return;
+				if (_body.IsDead) return;
+				minionTarget.TakeDamage(_body.Attack, _body);
+			}
+		}
+	}
 
-        // Clone the card data and create a new Minion
-        var clone = new Minion(_body.Data, isPlayerSide: false);
-        combat.Board.PlaceMinion(clone, slot);
-        GD.Print($"[机械小蠊] 在敌方槽位 {slot} 分裂复制！");
-    }
+	public void AdvanceIntent()
+	{
+		_cachedTarget = null;
+		_cycleStep = (_cycleStep + 1) % 3;
+	}
+
+	private IDamageTarget ResolveRoachTarget(CombatManager combat)
+	{
+		var playerTaunts = combat.Board.GetTaunts(ofEnemy: false);
+		if (playerTaunts.Count > 0)
+			return playerTaunts[Random.Shared.Next(playerTaunts.Count)];
+
+		var candidates = new System.Collections.Generic.List<IDamageTarget>();
+		candidates.Add(combat.PlayerHero);
+		foreach (var m in combat.Board.GetPlayerMinions())
+		{
+			if (!m.IsDead && !ReferenceEquals(m, _body))
+				candidates.Add(m);
+		}
+
+		if (candidates.Count == 0)
+			return combat.PlayerHero;
+
+		return candidates[Random.Shared.Next(candidates.Count)];
+	}
+
+	private void ExecuteCopy(CombatManager combat)
+	{
+		int slot = combat.Board.GetEmptySlotIndex(isPlayerSide: false);
+		if (slot < 0) return;
+
+		var clone = new Minion(_body.Data, isPlayerSide: false);
+		combat.Board.PlaceMinion(clone, slot);
+		GD.Print($"[机械小蠊] 在敌方槽位 {slot} 分裂复制！");
+	}
 }
