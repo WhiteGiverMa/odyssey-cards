@@ -22,6 +22,8 @@ public class EnemyUnit : IIntentActor
 
     Hero? IIntentActor.OwnerHero => Body;
 
+    public bool HasMoveStates => Brain.HasMoveStates;
+
     /// <summary>
     /// 创建敌方战斗单位。
     /// </summary>
@@ -50,4 +52,7 @@ public class EnemyUnit : IIntentActor
     /// <returns>当前 MoveState</returns>
     public MoveState? GetCurrentMove(CombatManager combat)
         => Brain.GetCurrentMove(combat, Body);
+
+    public void AdvanceMove()
+        => Brain.AdvanceMove();
 }
