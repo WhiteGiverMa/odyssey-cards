@@ -49,6 +49,9 @@ public enum IntentType
     /// <summary>隐藏意图：意图对玩家不可见。</summary>
     Hidden,
 
+    /// <summary>施法：敌人打出一张具名卡牌/法术（本项目特有，塔2无）。</summary>
+    SpellCast,
+
     /// <summary>未知意图：意图类型尚未确定。</summary>
     Unknown
 }

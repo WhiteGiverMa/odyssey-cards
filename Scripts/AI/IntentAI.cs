@@ -264,10 +264,10 @@ public abstract class EnemyEncounter
     /// <returns>包含动态选择器的意图结构体</returns>
     public virtual EnemyIntent GetCurrentIntent(CombatManager combat, Hero self)
     {
-        // 新系统：从 MoveState 获取意图并转换为旧格式
+        // 新系统：从虚拟方法 GetCurrentMove 获取意图（支持子类动态意图）
         if (MoveStates != null)
         {
-            var move = MoveStates[CurrentMoveIndex];
+            var move = GetCurrentMove(combat, self);
             var abstractIntent = move.Intents.Count > 0
                 ? move.Intents[0]
                 : new OdysseyCards.AI.Intents.UnknownIntent();
@@ -333,8 +333,10 @@ public abstract class EnemyEncounter
                 or OdysseyCards.AI.Intents.IntentType.DeathBlow => IntentType.Attack,
             OdysseyCards.AI.Intents.IntentType.Defend => IntentType.Defend,
             OdysseyCards.AI.Intents.IntentType.Summon => IntentType.Summon,
-            OdysseyCards.AI.Intents.IntentType.Buff => IntentType.Buff,
-            _ => IntentType.Attack // 未知类型降级为攻击
+            OdysseyCards.AI.Intents.IntentType.Buff
+                or OdysseyCards.AI.Intents.IntentType.StatusCard
+                or OdysseyCards.AI.Intents.IntentType.SpellCast => IntentType.Buff,
+            _ => IntentType.Attack
         };
     }
 

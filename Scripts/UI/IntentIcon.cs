@@ -43,7 +43,7 @@ public partial class IntentIcon : Control
 		_intentValue = value;
 
 		CustomMinimumSize = new Vector2(IconSize, IconSize);
-		MouseFilter = MouseFilterEnum.Stop;
+		MouseFilter = MouseFilterEnum.Pass;
 
 		// 数值标签（底端居中）
 		_valueLabel = new Label
@@ -99,8 +99,9 @@ public partial class IntentIcon : Control
 			case 9: DrawEscapeIcon(); break;
 			case 10: DrawStatusCardIcon(); break;
 			case 11: DrawUnknownIcon(); break;
-			case 12: /* Hidden — 不绘制 */ break;
-			default: DrawUnknownIcon(); break;
+		case 12: /* Hidden — 不绘制 */ break;
+		case 13: DrawSpellCastIcon(); break;
+		default: DrawUnknownIcon(); break;
 		}
 	}
 
@@ -386,5 +387,23 @@ public partial class IntentIcon : Control
 		DrawLine(new Vector2(28f, 30f), new Vector2(28f, 37f), c, 3f);
 		// 底部圆点
 		DrawCircle(new Vector2(28f, 41f), 2.5f, c);
+	}
+
+	/// <summary>SpellCast(13)：紫粉色卡牌 + 魔法星芒。</summary>
+	private void DrawSpellCastIcon()
+	{
+		Color c = new(0.9f, 0.3f, 0.85f);
+		DrawBgCircle(c);
+
+		float cx = IconSize * 0.5f;
+		float cy = IconSize * 0.5f;
+		// 小卡牌矩形
+		DrawRect(new Rect2(cx - 10f, cy - 12f, 20f, 24f), c);
+		// 卡牌内星形（魔法符号）
+		DrawCircle(new Vector2(cx, cy - 2f), 6f, new Color(1f, 0.9f, 0.3f));
+		// 星芒四射线
+		float r = 10f;
+		DrawLine(new Vector2(cx, cy - 2f - r), new Vector2(cx, cy - 2f + r), Colors.White, 1.5f);
+		DrawLine(new Vector2(cx - r, cy - 2f), new Vector2(cx + r, cy - 2f), Colors.White, 1.5f);
 	}
 }

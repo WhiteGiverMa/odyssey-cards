@@ -74,6 +74,7 @@ public abstract class AbstractIntent
         IntentType.StatusCard => 10,
         IntentType.Unknown => 11,
         IntentType.Hidden => 12,
+        IntentType.SpellCast => 13,
         _ => 11
     };
 }

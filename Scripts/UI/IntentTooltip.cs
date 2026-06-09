@@ -1,10 +1,14 @@
 using Godot;
+using System.Collections.Generic;
+using OdysseyCards.AI;
+using OdysseyCards.AI.Intents;
 
 namespace OdysseyCards.UI;
 
 /// <summary>
 /// 意图悬浮详情面板——悬停/长按意图图标时弹出，显示意图标题和完整描述（含伤害计算链）。
 /// 不依赖任何游戏逻辑类，只接受原始字符串。自管理单例模式（静态 Show/HideCurrent）。
+/// 支持单意图和多意图（ShowMulti）两种模式。
 /// </summary>
 public partial class IntentTooltip : Panel
 {
@@ -58,6 +62,44 @@ public partial class IntentTooltip : Panel
 		}
 	}
 
+	/// <summary>
+	/// 多意图条目——包含类型ID和悬浮提示数据。
+	/// </summary>
+	public readonly struct MultiIntentEntry
+	{
+		public int TypeId { get; }
+		public IntentHoverTip Tip { get; }
+		public Color AccentColor { get; }
+
+		public MultiIntentEntry(int typeId, IntentHoverTip tip, Color accentColor)
+		{
+			TypeId = typeId;
+			Tip = tip;
+			AccentColor = accentColor;
+		}
+	}
+
+	/// <summary>
+	/// 显示多意图悬浮面板——在一个弹出框中展示 MoveState 的全部意图。
+	/// 每个意图一行：彩色圆点 + 标题 + 描述。
+	/// </summary>
+	/// <param name="parent">父节点（CanvasLayer）</param>
+	/// <param name="position">意图图标区域全局位置</param>
+	/// <param name="entries">多意图条目列表</param>
+	public static IntentTooltip ShowMulti(
+		Control parent,
+		Vector2 position,
+		IReadOnlyList<MultiIntentEntry> entries)
+	{
+		HideCurrent();
+
+		var tooltip = new IntentTooltip(entries);
+		parent.AddChild(tooltip);
+		_current = tooltip;
+		tooltip.ShowAt(position);
+		return tooltip;
+	}
+
 	// ===== 强调色映射 =====
 
 	/// <summary>
@@ -81,6 +123,7 @@ public partial class IntentTooltip : Panel
 			9 => new Color(0.5f, 0.5f, 0.5f),    // Escape - Gray
 			10 => new Color(0.2f, 0.8f, 0.9f),   // StatusCard - Cyan
 			11 => new Color(0.4f, 0.4f, 0.4f),   // Unknown - Gray
+			13 => new Color(0.9f, 0.3f, 0.85f),  // SpellCast - Pink/Purple
 			_ => new Color(0.6f, 0.6f, 0.6f),     // Default - Gray
 		};
 	}
@@ -150,6 +193,92 @@ public partial class IntentTooltip : Panel
 		_descLabel.AddThemeFontSizeOverride("font_size", 12);
 		_descLabel.AddThemeColorOverride("font_color", new Color(0.85f, 0.85f, 0.85f));
 		vbox.AddChild(_descLabel);
+
+		AddChild(vbox);
+	}
+
+	/// <summary>
+	/// 多意图构造器——为每个意图条目创建一行（圆点 + 标题 + 描述）。
+	/// </summary>
+	public IntentTooltip(IReadOnlyList<MultiIntentEntry> entries)
+	{
+		CustomMinimumSize = new Vector2(220, 40);
+		MouseFilter = MouseFilterEnum.Ignore;
+		Visible = false;
+
+		// Panel 样式
+		var styleBox = new StyleBoxFlat
+		{
+			BgColor = new Color(0.08f, 0.08f, 0.12f, 0.92f),
+			BorderColor = new Color(0.5f, 0.5f, 0.5f, 0.6f),
+			BorderWidthLeft = 2,
+			BorderWidthRight = 2,
+			BorderWidthTop = 2,
+			BorderWidthBottom = 2,
+			CornerRadiusTopLeft = 6,
+			CornerRadiusTopRight = 6,
+			CornerRadiusBottomLeft = 6,
+			CornerRadiusBottomRight = 6,
+			ContentMarginLeft = 10,
+			ContentMarginTop = 6,
+			ContentMarginRight = 10,
+			ContentMarginBottom = 6,
+		};
+		AddThemeStyleboxOverride("panel", styleBox);
+
+		var vbox = new VBoxContainer();
+
+		for (int i = 0; i < entries.Count; i++)
+		{
+			var entry = entries[i];
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 6);
+
+			// 彩色类型标记圆点
+			var dot = new ColorRect
+			{
+				CustomMinimumSize = new Vector2(8, 8),
+				Color = entry.AccentColor,
+			};
+			row.AddChild(dot);
+
+			// 标题 + 描述垂直排列
+			var textCol = new VBoxContainer();
+
+			if (!string.IsNullOrEmpty(entry.Tip.Title))
+			{
+				var titleLabel = new Label
+				{
+					Text = entry.Tip.Title,
+				};
+				titleLabel.AddThemeFontSizeOverride("font_size", 13);
+				Color titleColor = entry.Tip.IsDebuff
+					? new Color(1f, 0.3f, 0.3f)
+					: entry.AccentColor;
+				titleLabel.AddThemeColorOverride("font_color", titleColor);
+				textCol.AddChild(titleLabel);
+			}
+
+			var descLabel = new Label
+			{
+				Text = entry.Tip.Description,
+				AutowrapMode = TextServer.AutowrapMode.Word,
+				CustomMinimumSize = new Vector2(240, 0),
+			};
+			descLabel.AddThemeFontSizeOverride("font_size", 11);
+			descLabel.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.75f));
+			textCol.AddChild(descLabel);
+
+			row.AddChild(textCol);
+			vbox.AddChild(row);
+
+			// 意图间分隔线（非最后一项）
+			if (i < entries.Count - 1)
+			{
+				var sep = new HSeparator();
+				vbox.AddChild(sep);
+			}
+		}
 
 		AddChild(vbox);
 	}

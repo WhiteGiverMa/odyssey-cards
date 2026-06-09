@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using Godot;
+using OdysseyCards.AI;
 using OdysseyCards.AI.Intents;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
+using OdysseyCards.Localization;
 
 namespace OdysseyCards.UI;
 
@@ -152,8 +154,9 @@ public partial class EnemyIdentityCard : Panel
         btnRow.AddChild(_spellButton);
         content.AddChild(btnRow);
 
-        // Mouse filter
-        MouseFilter = MouseFilterEnum.Stop;
+        // Mouse filter — Pass to allow combat targeting clicks through
+        // (intent icons and attack buttons handle their own clicks)
+        MouseFilter = MouseFilterEnum.Pass;
     }
 
     /// <summary>攻击按钮点击事件。</summary>
@@ -262,6 +265,16 @@ public partial class EnemyIdentityCard : Panel
         int newCount = intents.Count;
         int currentCount = _intentIconContainer.GetChildCount();
 
+        // Build multi-intent entries for ALL intents (used by tooltip)
+        var allEntries = new System.Collections.Generic.List<IntentTooltip.MultiIntentEntry>();
+        foreach (var intent in intents)
+        {
+            int typeId = AbstractIntent.GetIconTypeId(intent.Type);
+            var tip = intent.GetHoverTip(combat);
+            var color = IntentTooltip.GetAccentColor(typeId);
+            allEntries.Add(new IntentTooltip.MultiIntentEntry(typeId, tip, color));
+        }
+
         // Remove extra icons
         while (_intentIconContainer.GetChildCount() > newCount)
         {
@@ -270,7 +283,7 @@ public partial class EnemyIdentityCard : Panel
             child.QueueFree();
         }
 
-        // Update or create icons
+        // Update or create icons — store ALL intents' entries on each icon
         for (int i = 0; i < newCount; i++)
         {
             var intent = intents[i];
@@ -282,41 +295,80 @@ public partial class EnemyIdentityCard : Panel
             IntentIcon icon;
             if (i < currentCount)
             {
-                // Reuse existing icon
                 icon = (IntentIcon)_intentIconContainer.GetChild(i);
                 icon.UpdateIntent(typeId, label, value);
             }
             else
             {
-                // Create new icon
                 icon = new IntentIcon(typeId, label, value);
                 icon.OnHovered += OnIntentIconHovered;
                 icon.OnUnhovered += OnIntentIconUnhovered;
                 _intentIconContainer.AddChild(icon);
             }
 
+            // Store single-intent data for backward compat
             icon.SetMeta("tip_title", tip.Title ?? label);
             icon.SetMeta("tip_desc", tip.Description);
             icon.SetMeta("tip_is_debuff", tip.IsDebuff);
+
+            // Store ALL intents' data as serialized multi-intent entries
+            icon.SetMeta("multi_count", allEntries.Count);
+            for (int j = 0; j < allEntries.Count; j++)
+            {
+                var entry = allEntries[j];
+                string titleKey = $"multi_title_{j}";
+                string descKey = $"multi_desc_{j}";
+                string debuffKey = $"multi_debuff_{j}";
+                string colorKey = $"multi_color_{j}";
+
+                // Store as string (Godot meta only supports Variant-compatible types)
+                icon.SetMeta(titleKey, entry.Tip.Title ?? "");
+                icon.SetMeta(descKey, entry.Tip.Description);
+                icon.SetMeta(debuffKey, entry.Tip.IsDebuff);
+                // Store color as string "R,G,B,A"
+                icon.SetMeta(colorKey, $"{entry.AccentColor.R},{entry.AccentColor.G},{entry.AccentColor.B},{entry.AccentColor.A}");
+            }
         }
     }
 
     private void OnIntentIconHovered(IntentIcon icon)
     {
-        // Find the tooltip layer on the root
         var root = GetTree()?.Root;
         if (root == null) return;
 
-		// Look for IntentTooltipContent (Control child of CanvasLayer)
-		var tipLayer = root.FindChild("IntentTooltipContent", recursive: true, owned: false) as Control;
+        var tipLayer = root.FindChild("IntentTooltipContent", recursive: true, owned: false) as Control;
         if (tipLayer == null) return;
 
-        string title = icon.GetMeta("tip_title", icon.GetLabelText()).AsString();
-        string desc = icon.GetMeta("tip_desc", "").AsString();
-        bool isDebuff = icon.GetMeta("tip_is_debuff", false).AsBool();
-        var color = IntentTooltip.GetAccentColor(icon.GetIntentTypeId());
+        // Check if multi-intent data is available
+        int multiCount = icon.GetMeta("multi_count", 0).AsInt32();
+        if (multiCount > 1)
+        {
+            // Multi-intent tooltip
+            var entries = new System.Collections.Generic.List<IntentTooltip.MultiIntentEntry>();
+            for (int j = 0; j < multiCount; j++)
+            {
+                string title = icon.GetMeta($"multi_title_{j}", "").AsString();
+                string desc = icon.GetMeta($"multi_desc_{j}", "").AsString();
+                bool isDebuff = icon.GetMeta($"multi_debuff_{j}", false).AsBool();
+                string colorStr = icon.GetMeta($"multi_color_{j}", "1,1,1,1").AsString();
+                var parts = colorStr.Split(',');
+                var color = parts.Length >= 4
+                    ? new Color(float.Parse(parts[0]), float.Parse(parts[1]), float.Parse(parts[2]), float.Parse(parts[3]))
+                    : Colors.White;
 
-        IntentTooltip.Show(tipLayer, icon.GlobalPosition, title, desc, isDebuff, color);
+                entries.Add(new IntentTooltip.MultiIntentEntry(0, new IntentHoverTip(title, desc, isDebuff), color));
+            }
+            IntentTooltip.ShowMulti(tipLayer, icon.GlobalPosition, entries);
+        }
+        else
+        {
+            // Single-intent tooltip (backward compat)
+            string title = icon.GetMeta("tip_title", icon.GetLabelText()).AsString();
+            string desc = icon.GetMeta("tip_desc", "").AsString();
+            bool isDebuff = icon.GetMeta("tip_is_debuff", false).AsBool();
+            var color = IntentTooltip.GetAccentColor(icon.GetIntentTypeId());
+            IntentTooltip.Show(tipLayer, icon.GlobalPosition, title, desc, isDebuff, color);
+        }
     }
 
     private void OnIntentIconUnhovered(IntentIcon icon)
