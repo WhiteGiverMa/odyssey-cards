@@ -32,6 +32,23 @@ public class Card
 	public int Cost => Data.Cost;
 
 	/// <summary>
+	/// 运行时费用调整值（正数=增加费用，负数=减少费用）。
+	/// 由 StatusEffect、ActiveDomain 等系统动态修改。
+	/// 例：「宇宙冷漠」每层使「解释」费用 +1。
+	/// </summary>
+	public int CostModifier { get; set; }
+
+	/// <summary>
+	/// 计算考虑所有运行时修改后的有效费用。
+	/// 最低为 0，不封顶。
+	/// </summary>
+	/// <returns>有效费用</returns>
+	public int GetEffectiveCost()
+	{
+		return System.Math.Max(0, Cost + CostModifier);
+	}
+
+	/// <summary>
 	/// 行动花费——随从攻击时额外消耗的法力值。
 	/// </summary>
 	public int ActionCost => Data.ActionCost;
@@ -50,6 +67,17 @@ public class Card
 	/// 轮战：法术打出后/随从被击败后返回抽牌堆底部，不进入弃牌堆。
 	/// </summary>
 	public bool HasRecycle => Data.HasKeyword(Keyword.Recycle);
+
+	/// <summary>
+	/// 奇巧：被弃掉时自动打出。
+	/// 法术/领域直接打出（0费），随从召唤到最左空槽位。
+	/// </summary>
+	public bool HasQiqiao => Data.HasKeyword(Keyword.Qiqiao);
+
+	/// <summary>
+	/// 不可打出：无法从手牌中主动打出。
+	/// </summary>
+	public bool HasUnplayable => Data.HasKeyword(Keyword.Unplayable);
 
 	/// <summary>
 	/// 「偶像的黄昏」授予的被攻击后成长层数。
@@ -72,6 +100,7 @@ public class Card
 	public void CopyRuntimeModifiersFrom(Card other)
 	{
 		IdolTwilightOnAttackedStacks = other.IdolTwilightOnAttackedStacks;
+		CostModifier = other.CostModifier;
 	}
 
 	/// <summary>
@@ -109,7 +138,7 @@ public class Card
 	/// <returns>费用足够时返回 true</returns>
 	public virtual bool CanPlay(int availableMana)
 	{
-		return availableMana >= Cost;
+		return availableMana >= GetEffectiveCost();
 	}
 
 }

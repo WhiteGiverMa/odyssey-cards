@@ -65,4 +65,12 @@ public enum Keyword
     /// 卡牌在回合结束阶段从手牌中强制消耗，不进入弃牌堆。
     /// </summary>
     Ethereal,
+
+    /// <summary>
+    /// 奇巧：被弃掉时将这张牌打出。
+    /// 若是领域/法术则直接打出（0费），若是随从则召唤到最左侧空余槽位。
+    /// 若没有空余槽位则消失（不进入弃牌堆）。
+    /// 参考 STS2 的 Sly 关键词：CardKeyword.Sly → IsSlyThisTurn → AutoPlay。
+    /// </summary>
+    Qiqiao,
 }

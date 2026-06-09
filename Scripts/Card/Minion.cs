@@ -21,6 +21,21 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// </summary>
     internal readonly List<IDamageModifier> _damageModifiers = new();
 
+	/// <summary>
+	/// 易伤修改器——被攻击时伤害×1.5。由 StatusEffect "vulnerable" 控制激活。
+	/// </summary>
+	internal readonly VulnerableDamageModifier _vulnerableModifier = new();
+
+	/// <summary>
+	/// 虚弱修改器——攻击时伤害×0.75。由 StatusEffect "weak" 控制激活。
+	/// </summary>
+	internal readonly WeakDamageModifier _weakModifier = new();
+
+	/// <summary>
+	/// 脆弱修改器——护甲获得量×0.75。由 StatusEffect "fragile" 控制激活。
+	/// </summary>
+	internal readonly FragileArmorModifier _fragileModifier = new();
+
     /// <summary>
     /// 运行时替换后的亡语效果。null 表示使用 CardData 原始亡语。
     /// </summary>
@@ -78,15 +93,19 @@ public class Minion : Card, IDamageSource, IDamageTarget
     /// 为随从增加护甲值。
     /// </summary>
     /// <param name="amount">护甲增加量</param>
-    public void GainArmor(int amount)
-    {
-        _currentArmor += amount;
-        if (_currentArmor > _maxArmor)
-        {
-            _maxArmor = _currentArmor;
-        }
-        GD.Print($"[Minion:{CardName}] 获得 {amount} 点护甲，当前护甲：{CurrentArmor}");
-    }
+	public void GainArmor(int amount)
+	{
+		// 脆弱：护甲获得量 ×0.75
+		amount = _fragileModifier.ModifyArmorGain(amount);
+		if (amount <= 0) return;
+
+		_currentArmor += amount;
+		if (_currentArmor > _maxArmor)
+		{
+			_maxArmor = _currentArmor;
+		}
+		GD.Print($"[Minion:{CardName}] 获得 {amount} 点护甲，当前护甲：{CurrentArmor}");
+	}
 
     /// <summary>
     /// 修改防御力（正数为增加，负数为减少）。
@@ -335,39 +354,78 @@ public class Minion : Card, IDamageSource, IDamageTarget
         return _statusEffects.ContainsKey(id) && !_statusEffects[id].IsExpired;
     }
 
-    private void ApplyStatusEffectImmediate(StatusEffect effect)
-    {
-        switch (effect.Id)
-        {
-            case "attack_zero":
-                Attack = 0;
-                GD.Print($"[Minion:{CardName}] 攻击力被设为 0");
-                break;
-            case "meltdown":
-                // 熔毁：防御力-1，最多叠加2层
-                int currentStacks = HasStatusEffect("meltdown") ? _statusEffects["meltdown"].Stacks : 0;
-                if (currentStacks <= 2) // 允许第1层和第2层触发
-                {
-                    ModifyDefense(-1);
-                    GD.Print($"[Minion:{CardName}] 熔毁！防御力 {Defense}（已叠{currentStacks}层）");
-                }
-                break;
-        }
-    }
+	private void ApplyStatusEffectImmediate(StatusEffect effect)
+	{
+		switch (effect.Id)
+		{
+			case "attack_zero":
+				Attack = 0;
+				GD.Print($"[Minion:{CardName}] 攻击力被设为 0");
+				break;
+			case "meltdown":
+				// 熔毁：防御力-1，最多叠加2层
+				int currentStacks = HasStatusEffect("meltdown") ? _statusEffects["meltdown"].Stacks : 0;
+				if (currentStacks <= 2) // 允许第1层和第2层触发
+				{
+					ModifyDefense(-1);
+					GD.Print($"[Minion:{CardName}] 熔毁！防御力 {Defense}（已叠{currentStacks}层）");
+				}
+				break;
+			case "vulnerable":
+				_vulnerableModifier.IsActive = true;
+				GD.Print($"[Minion:{CardName}] 获得易伤（受到伤害×1.5）");
+				break;
+			case "weak":
+				_weakModifier.IsActive = true;
+				GD.Print($"[Minion:{CardName}] 获得虚弱（造成伤害×0.75）");
+				break;
+			case "fragile":
+				_fragileModifier.IsActive = true;
+				GD.Print($"[Minion:{CardName}] 获得脆弱（护甲获得×0.75）");
+				break;
+			case "total_observation":
+				// 总观效应：翻倍易伤/虚弱/脆弱效果
+				_vulnerableModifier.ExtraMultiplier = 0.5f;
+				_weakModifier.ExtraMultiplier = -0.25f;
+				_fragileModifier.ExtraMultiplier = -0.25f;
+				GD.Print($"[Minion:{CardName}] 获得总观效应（效果翻倍）");
+				break;
+		}
+	}
 
-    private void OnStatusEffectRemoved(string id)
-    {
-        switch (id)
-        {
-            case "attack_zero":
-                if (!HasStatusEffect("attack_zero"))
-                {
-                    Attack = Data.Attack; // 恢复到原始攻击力
-                    GD.Print($"[Minion:{CardName}] 攻击力已恢复为 {Attack}");
-                }
-                break;
-        }
-    }
+	private void OnStatusEffectRemoved(string id)
+	{
+		switch (id)
+		{
+			case "attack_zero":
+				if (!HasStatusEffect("attack_zero"))
+				{
+					Attack = Data.Attack; // 恢复到原始攻击力
+					GD.Print($"[Minion:{CardName}] 攻击力已恢复为 {Attack}");
+				}
+				break;
+			case "vulnerable":
+				if (!HasStatusEffect("vulnerable"))
+					_vulnerableModifier.IsActive = false;
+				break;
+			case "weak":
+				if (!HasStatusEffect("weak"))
+					_weakModifier.IsActive = false;
+				break;
+			case "fragile":
+				if (!HasStatusEffect("fragile"))
+					_fragileModifier.IsActive = false;
+				break;
+			case "total_observation":
+				if (!HasStatusEffect("total_observation"))
+				{
+					_vulnerableModifier.ExtraMultiplier = 0f;
+					_weakModifier.ExtraMultiplier = 0f;
+					_fragileModifier.ExtraMultiplier = 0f;
+				}
+				break;
+		}
+	}
 
     // ===== 构造函数 =====
 
@@ -389,10 +447,14 @@ public class Minion : Card, IDamageSource, IDamageTarget
         // 复制防御力
         Defense = data.Defense;
 
-        // 注册防御力修改器到 DamageModifiers
-        _damageModifiers.Add(new OdysseyCards.Core.DefenseModifier(() => Defense));
+		// 注册防御力修改器到 DamageModifiers
+		_damageModifiers.Add(new OdysseyCards.Core.DefenseModifier(() => Defense));
 
-        // 注册护甲攻击加成修改器
+		// 注册易伤/虚弱修改器（始终在列表中，由 IsActive 控制激活）
+		_damageModifiers.Add(_vulnerableModifier);
+		_damageModifiers.Add(_weakModifier);
+
+		// 注册护甲攻击加成修改器
         _damageModifiers.Add(new ArmorAttackBonusModifier(this));
 
         if (data.BonusDamageToDefendedTargets != 0)

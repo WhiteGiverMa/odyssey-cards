@@ -27,6 +27,12 @@ public class CombatDeckState
     /// </summary>
     private Action<int> _onFatigueDamage;
 
+    /// <summary>
+    /// 弃牌前回调。参数为被弃的卡牌，返回 true 表示卡牌已被外部处理（如奇巧自动打出），
+    /// 不应再移入弃牌堆；返回 false 表示正常弃牌流程。
+    /// </summary>
+    public Func<OdysseyCards.Card.Card, bool>? OnBeforeDiscard { get; set; }
+
     public void SetFatigueCallback(Action<int> callback)
     {
         _onFatigueDamage = callback;
@@ -67,6 +73,10 @@ public class CombatDeckState
     public void DiscardCard(OdysseyCards.Card.Card card)
     {
         if (!Hand.Contains(card))
+            return;
+
+        // 奇巧回调：如果外部处理了这张牌（自动打出），跳过弃牌
+        if (OnBeforeDiscard != null && OnBeforeDiscard(card))
             return;
 
         Hand.Remove(card);
@@ -199,10 +209,29 @@ public class CombatDeckState
 
     public void DiscardHand()
     {
-        while (Hand.Count > 0)
+        // 先收集需要处理奇巧的卡牌（不能在遍历时修改 Hand）
+        var qiqiaoCards = new List<OdysseyCards.Card.Card>();
+        for (int i = Hand.Count - 1; i >= 0; i--)
         {
-            var card = Hand[0];
-            Hand.RemoveAt(0);
+            var card = Hand[i];
+            if (card.HasQiqiao)
+            {
+                qiqiaoCards.Add(card);
+                continue;
+            }
+            // 正常弃牌
+            Hand.RemoveAt(i);
+            DiscardPile.Add(card);
+        }
+
+        // 处理奇巧卡牌（自动打出）
+        foreach (var card in qiqiaoCards)
+        {
+            if (OnBeforeDiscard != null && OnBeforeDiscard(card))
+                continue; // 已由外部处理（从手牌移除并打出）
+
+            // 回退：如果回调未处理，正常弃牌
+            Hand.Remove(card);
             DiscardPile.Add(card);
         }
 

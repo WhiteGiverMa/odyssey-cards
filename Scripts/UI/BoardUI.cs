@@ -984,7 +984,7 @@ public partial class BoardUI : Control
             }
 
             // 左上角费用+行动花费
-            _costLabel.Text = minion.Cost.ToString();
+            _costLabel.Text = minion.GetEffectiveCost().ToString();
             _costBg.Visible = true;
             _costLabel.Visible = true;
             _actionCostLabel.Text = minion.ActionCost.ToString();

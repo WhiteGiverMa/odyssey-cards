@@ -26,6 +26,11 @@ public static class EffectIconTable
         ["meltdown"] = new() { Icon = "🔥", NameKey = "effect.meltdown", DescKey = "effect.meltdown_desc", IsBuff = false },
         ["weapon_disabled"] = new() { Icon = "⛓", NameKey = "effect.weapon_disabled", DescKey = "effect.weapon_disabled_desc", IsBuff = false },
         ["animosity"] = new() { Icon = "💢", NameKey = "effect.animosity", DescKey = "effect.animosity_desc", IsBuff = false },
+        ["vulnerable"] = new() { Icon = "💔", NameKey = "effect.vulnerable", DescKey = "effect.vulnerable_desc", IsBuff = false },
+        ["weak"] = new() { Icon = "🔽", NameKey = "effect.weak", DescKey = "effect.weak_desc", IsBuff = false },
+        ["fragile"] = new() { Icon = "🛡", NameKey = "effect.fragile", DescKey = "effect.fragile_desc", IsBuff = false },
+        ["total_observation"] = new() { Icon = "👁", NameKey = "effect.total_observation", DescKey = "effect.total_observation_desc", IsBuff = false },
+        ["attack_ban"] = new() { Icon = "🚫", NameKey = "effect.attack_ban", DescKey = "effect.attack_ban_desc", IsBuff = false },
     };
 
     private static readonly Dictionary<string, EffectIconData> _domains = new()

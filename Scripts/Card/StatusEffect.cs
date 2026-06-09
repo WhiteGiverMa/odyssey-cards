@@ -1,4 +1,5 @@
 using Godot;
+using OdysseyCards.Core;
 
 namespace OdysseyCards.Card;
 
@@ -24,8 +25,14 @@ public enum TickTiming
 /// 英雄状态效果（增益/减益）。
 /// 支持同 ID 叠加层数和定时衰减。
 /// 纯 C# 类，不继承 Godot Node。
+/// 实现 <see cref="ITemporaryEffect"/>——随时间衰减，层数归零时自动移除。
+/// 参考 STS2 的 ITemporaryPower（如 VulnerablePower/WeakPower）。
+///
+/// 与 <see cref="ActiveDomain"/> 的区别：
+///   - StatusEffect：临时，TickOn 驱动衰减 → ITemporaryEffect
+///   - ActiveDomain：永久，不衰减，仅通过 Counter 消耗 → IPermanentEffect
 /// </summary>
-public class StatusEffect
+public class StatusEffect : ITemporaryEffect
 {
     /// <summary>
     /// 效果标识符。相同 ID 的效果叠加层数。

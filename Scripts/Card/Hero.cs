@@ -19,6 +19,21 @@ public class Hero : IDamageTarget, IDamageSource
     /// </summary>
     internal readonly List<IDamageModifier> _damageModifiers = new();
 
+	/// <summary>
+	/// 易伤修改器——被攻击时伤害×1.5。由 StatusEffect "vulnerable" 控制激活。
+	/// </summary>
+	internal readonly VulnerableDamageModifier _vulnerableModifier = new();
+
+	/// <summary>
+	/// 虚弱修改器——攻击时伤害×0.75。由 StatusEffect "weak" 控制激活。
+	/// </summary>
+	internal readonly WeakDamageModifier _weakModifier = new();
+
+	/// <summary>
+	/// 脆弱修改器——护甲获得量×0.75。由 StatusEffect "fragile" 控制激活。
+	/// </summary>
+	internal readonly FragileArmorModifier _fragileModifier = new();
+
     /// <summary>
     /// 被包装的指挥官核心。
     /// </summary>
@@ -279,6 +294,10 @@ public class Hero : IDamageTarget, IDamageSource
 
         // 注册防御力修改器
         _damageModifiers.Add(new DefenseModifier(() => Defense));
+
+        // 注册易伤/虚弱修改器（始终在列表中，由 IsActive 控制激活）
+        _damageModifiers.Add(_vulnerableModifier);
+        _damageModifiers.Add(_weakModifier);
     }
 
     // ===== 伤害处理 =====
@@ -422,6 +441,10 @@ public class Hero : IDamageTarget, IDamageSource
     /// <param name="amount">护甲增加量</param>
     public void GainArmor(int amount)
     {
+        // 脆弱：护甲获得量 ×0.75
+        amount = _fragileModifier.ModifyArmorGain(amount);
+        if (amount <= 0) return;
+
         CurrentArmor += amount;
         GD.Print($"[Hero] 获得 {amount} 点护甲，当前护甲：{CurrentArmor}");
     }
@@ -651,6 +674,34 @@ public class Hero : IDamageTarget, IDamageSource
                     GD.Print($"[Hero] 武器「{Weapon.Name}」已被禁用");
                 }
                 break;
+            case "vulnerable":
+                _vulnerableModifier.IsActive = true;
+                GD.Print($"[Hero] 获得易伤（受到伤害×1.5）");
+                break;
+            case "weak":
+                _weakModifier.IsActive = true;
+                GD.Print($"[Hero] 获得虚弱（造成伤害×0.75）");
+                break;
+            case "fragile":
+                _fragileModifier.IsActive = true;
+                GD.Print($"[Hero] 获得脆弱（护甲获得×0.75）");
+                break;
+            case "total_observation":
+                // 总观效应：翻倍易伤/虚弱/脆弱效果
+                // 易伤 1.5→2.0, 虚弱 0.75→0.5, 脆弱 0.75→0.5
+                _vulnerableModifier.ExtraMultiplier = 0.5f;
+                _weakModifier.ExtraMultiplier = -0.25f;
+                _fragileModifier.ExtraMultiplier = -0.25f;
+                GD.Print($"[Hero] 获得总观效应（易伤/虚弱/脆弱效果翻倍）");
+                break;
+            case "attack_ban":
+                // 磁轨锁定：禁用武器攻击1回合
+                if (Weapon != null)
+                {
+                    Weapon.IsDisabled = true;
+                    GD.Print($"[Hero] 被磁轨锁定，武器攻击已禁用");
+                }
+                break;
         }
     }
 
@@ -668,6 +719,33 @@ public class Hero : IDamageTarget, IDamageSource
                 {
                     Weapon.IsDisabled = false;
                     GD.Print($"[Hero] 武器「{Weapon.Name}」已恢复");
+                }
+                break;
+            case "vulnerable":
+                if (!HasStatusEffect("vulnerable"))
+                    _vulnerableModifier.IsActive = false;
+                break;
+            case "weak":
+                if (!HasStatusEffect("weak"))
+                    _weakModifier.IsActive = false;
+                break;
+            case "fragile":
+                if (!HasStatusEffect("fragile"))
+                    _fragileModifier.IsActive = false;
+                break;
+            case "total_observation":
+                if (!HasStatusEffect("total_observation"))
+                {
+                    _vulnerableModifier.ExtraMultiplier = 0f;
+                    _weakModifier.ExtraMultiplier = 0f;
+                    _fragileModifier.ExtraMultiplier = 0f;
+                }
+                break;
+            case "attack_ban":
+                if (!HasStatusEffect("attack_ban") && Weapon != null)
+                {
+                    Weapon.IsDisabled = false;
+                    GD.Print($"[Hero] 磁轨锁定解除，武器攻击已恢复");
                 }
                 break;
         }

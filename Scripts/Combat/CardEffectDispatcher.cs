@@ -406,6 +406,14 @@ internal sealed class CardEffectDispatcher
                 GD.Print($"[CardEffectDispatcher] 刀盾危机：可选最多{Math.Min(maxDiscard, hand.Count)}张手牌弃掉");
                 break;
 
+            case "BoundlessDarkness":
+                HandleBoundlessDarkness(effect);
+                break;
+
+            case "ExplainEffect":
+                HandleExplainEffect(effect, target);
+                break;
+
             default:
                 GD.Print($"[CardEffectDispatcher] 未处理的Custom效果：{effect.CustomEffectName}");
                 break;
@@ -417,6 +425,54 @@ internal sealed class CardEffectDispatcher
         if (card.Type != CardType.Minion) return 0;
         card.GrantIdolTwilightOnAttacked(stacks);
         return 1;
+    }
+
+    /// <summary>
+    /// 「无边黑暗」——所有敌人获得易伤+脆弱。
+    /// </summary>
+    private void HandleBoundlessDarkness(CardEffectData effect)
+    {
+        int stacks = Math.Max(1, effect.Value);
+        // 对玩家英雄
+        _playerHero.AddStatusEffect(new StatusEffect("vulnerable", stacks, TickTiming.EnemyTurnEnd));
+        _playerHero.AddStatusEffect(new StatusEffect("fragile", stacks, TickTiming.EnemyTurnEnd));
+        // 对所有玩家随从
+        foreach (var minion in _board.GetPlayerMinions())
+        {
+            minion.AddStatusEffect(new StatusEffect("vulnerable", stacks, TickTiming.EnemyTurnEnd));
+            minion.AddStatusEffect(new StatusEffect("fragile", stacks, TickTiming.EnemyTurnEnd));
+        }
+        GD.Print($"[CardEffectDispatcher] 无边黑暗：所有敌人获得 {stacks} 层易伤和脆弱");
+        _notifyCombatStateChanged();
+    }
+
+    /// <summary>
+    /// 「解释」——敌方英雄获得总观效应，此牌回到手牌并进入不可打出状态。
+    /// </summary>
+    private void HandleExplainEffect(CardEffectData effect, object target)
+    {
+        // 找到敌方英雄
+        Hero? enemyHero = null;
+        // 通过 target 或从 CombatManager 获取（这里需要外部传入）
+        // 由于 CardEffectDispatcher 没有直接引用敌方英雄，使用 target 参数
+        if (target is Hero hero && !hero.IsPlayerSide)
+            enemyHero = hero;
+
+        if (enemyHero == null)
+        {
+            GD.Print("[CardEffectDispatcher] 解释需要敌方英雄作为目标");
+            return;
+        }
+
+        int stacks = Math.Max(1, effect.Value);
+        // 敌方英雄获得总观效应
+        enemyHero.AddStatusEffect(new StatusEffect("total_observation", stacks, TickTiming.EnemyTurnEnd));
+        GD.Print($"[CardEffectDispatcher] 解释：敌方英雄获得 {stacks} 层总观效应");
+
+        // 将当前打出的卡牌返回手牌（通过 CardEffectDispatcher 无法直接访问当前卡牌）
+        // 此逻辑由 CombatManager.PlaySpell 中的特殊处理完成
+        GD.Print("[CardEffectDispatcher] 解释：此牌将返回手牌（由CombatManager处理）");
+        _notifyCombatStateChanged();
     }
 
     private List<Card.Card> GetRandomCardsFromDiscard(int count)

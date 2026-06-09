@@ -534,7 +534,7 @@ public partial class CardUI : Control
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
 
 		// 法力消耗
-		_manaLabel.Text = card.Cost.ToString();
+		_manaLabel.Text = card.GetEffectiveCost().ToString();
 
 		// 行动花费（随从始终显示，法术隐藏）
 		_actionCostLabel.Text = card.ActionCost.ToString();

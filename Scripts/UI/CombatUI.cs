@@ -1677,7 +1677,7 @@ public partial class CombatUI : Control
 				var cardLabel = new Label
 				{
 					Text = prefix + Localization.Localization.T("ui.combat.card_pile_item", "[{cost}费] {name}")
-						.Replace("{cost}", card.Cost.ToString())
+						.Replace("{cost}", card.GetEffectiveCost().ToString())
 						.Replace("{name}", card.GetLocalizedName()),
 				};
 				cardLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.9f, 0.8f));
@@ -2485,7 +2485,7 @@ public partial class CombatUI : Control
 			return;
 		}
 
-		GD.Print($"[CombatUI] 尝试放置随从 {_selectedCard.CardName}（{_selectedCard.Cost}费）到槽位 {slotIndex}");
+		GD.Print($"[CombatUI] 尝试放置随从 {_selectedCard.CardName}（{_selectedCard.GetEffectiveCost()}费）到槽位 {slotIndex}");
 		bool success = _combat.PlayMinion(_selectedCard, slotIndex);
 		if (success)
 		{

@@ -5,8 +5,10 @@ namespace OdysseyCards.Card;
 /// <summary>
 /// 领域运行时数据。
 /// 表示英雄身上一个展开的持久领域效果，支持同类叠加层数。
+/// 实现 <see cref="IPermanentEffect"/>——不随时间衰减，仅通过 Counter 消耗或主动移除。
+/// 参考 STS2 的 Power（PowerStackType.Counter + 无 AfterSideTurnEnd 衰减）。
 /// </summary>
-public class ActiveDomain
+public class ActiveDomain : IPermanentEffect
 {
     /// <summary>
     /// 领域唯一标识（同名叠加）。

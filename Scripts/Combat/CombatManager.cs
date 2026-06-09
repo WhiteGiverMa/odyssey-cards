@@ -547,6 +547,9 @@ public partial class CombatManager : Node
 		foreach (var unit in enemyUnits)
 			unit.Body.OnDeath += _ => CheckVictoryOrDefeat();
 
+		// 奇巧关键词回调：被弃牌时自动打出
+		_playerCore.CombatDeckState.OnBeforeDiscard = HandleQiqiaoDiscard;
+
 		Board = new Board();
 		State = new GameState();
 
@@ -748,7 +751,7 @@ public partial class CombatManager : Node
 	/// </summary>
 	private int ApplyRelicCostModifiers(Card.Card card)
 	{
-		return _relicManager.ApplyCostModifiers(card, card.Cost);
+		return _relicManager.ApplyCostModifiers(card, card.GetEffectiveCost());
 	}
 
 	// ===== 随从召唤 =====
@@ -980,6 +983,11 @@ public partial class CombatManager : Node
 		{
 			PlayerHero.ReturnToDrawPile(card);
 			GD.Print($"[CombatManager]   ♻ {card.CardName}（轮战）回到抽牌堆底部");
+		}
+		// 「解释」：回到手牌（不进入弃牌堆）
+		else if (card.Id == "spell_explain")
+		{
+			HandleExplainReturnToHand(card);
 		}
 		else
 		{
@@ -2640,5 +2648,135 @@ public partial class CombatManager : Node
 			return require == TargetTags.None && exclude == TargetTags.None;
 
 		return TargetTagsHelper.IsValidTarget(entityTags, require, exclude);
+	}
+
+	/// <summary>
+	/// 奇巧关键词回调——卡牌被弃掉时自动打出。
+	/// 参考 STS2 的 Sly 机制：CardCmd 收集 Sly 卡牌 → AutoPlay(SlyDiscard)。
+	/// 返回 true 表示卡牌已处理（不进入弃牌堆），false 表示正常弃牌。
+	/// </summary>
+	private bool HandleQiqiaoDiscard(OdysseyCards.Card.Card card)
+	{
+		if (!card.HasQiqiao)
+			return false;
+
+		GD.Print($"[CombatManager] ◆ 奇巧触发：自动打出「{card.GetLocalizedName()}」");
+
+		// 从手牌移除（自动打出消耗卡牌）
+		PlayerHero.RemoveFromHand(card);
+
+		switch (card.Type)
+		{
+			case CardType.Minion:
+				AutoSummonQiqiaoMinion(card);
+				break;
+			case CardType.Domain:
+				AutoPlayQiqiaoDomain(card);
+				break;
+			case CardType.Spell:
+			default:
+				AutoPlayQiqiaoSpell(card);
+				break;
+		}
+
+		return true; // 已通过 RemoveFromHand 消耗，不进入弃牌堆
+	}
+
+	/// <summary>
+	/// 奇巧自动召唤随从——放置到友方最左侧空余槽位。
+	/// 若无空余槽位则消失。
+	/// </summary>
+	private void AutoSummonQiqiaoMinion(OdysseyCards.Card.Card card)
+	{
+		if (!Board.CanPlaceMinion(isPlayerSide: true))
+		{
+			GD.Print($"[CombatManager] 奇巧召唤失败——友方战场已满，「{card.CardName}」消失");
+			return;
+		}
+
+		var minion = new Minion(card, isPlayerSide: true);
+		int slot = Board.GetEmptySlotIndex(isPlayerSide: true);
+		Board.PlaceMinion(minion, slot);
+		GD.Print($"[CombatManager] 奇巧召唤「{minion.CardName}」到槽位 {slot}");
+	}
+
+	/// <summary>
+	/// 奇巧自动打出领域——展开领域效果（0费）。
+	/// </summary>
+	private void AutoPlayQiqiaoDomain(OdysseyCards.Card.Card card)
+	{
+		GD.Print($"[CombatManager] 奇巧展开领域「{card.CardName}」");
+		// 遍历效果数据执行
+		foreach (var effect in card.Data.Effects)
+		{
+			// Custom 效果走 Custom handler
+			if (effect.EffectType == CardEffectType.Custom)
+			{
+				_effectDispatcher.ExecuteEffect(effect, PlayerHero, PlayerHero);
+				continue;
+			}
+			_effectDispatcher.ExecuteEffect(effect, PlayerHero, PlayerHero);
+		}
+		NotifyCombatStateChanged();
+	}
+
+	/// <summary>
+	/// 奇巧自动打出法术——执行法术效果（0费，目标为敌方英雄）。
+	/// </summary>
+	private void AutoPlayQiqiaoSpell(OdysseyCards.Card.Card card)
+	{
+		GD.Print($"[CombatManager] 奇巧施放法术「{card.CardName}」");
+		// 默认目标：敌方英雄
+		Hero? target = EnemyUnits.Count > 0 ? EnemyUnits[0].Body : null;
+		if (target == null)
+		{
+			GD.Print($"[CombatManager] 奇巧法术无有效目标");
+			return;
+		}
+
+		foreach (var effect in card.Data.Effects)
+		{
+			if (effect.EffectType == CardEffectType.Custom)
+			{
+				target = DetermineTargetForEffect(effect, target);
+				_effectDispatcher.ExecuteEffect(effect, target, PlayerHero);
+				continue;
+			}
+			_effectDispatcher.ExecuteEffect(effect, target, PlayerHero);
+		}
+		NotifyCombatStateChanged();
+	}
+
+	/// <summary>
+	/// 根据效果类型确定合适的目标。
+	/// </summary>
+	private Hero DetermineTargetForEffect(CardEffectData effect, Hero defaultTarget)
+	{
+		return effect.EffectType switch
+		{
+			CardEffectType.DealDamageToFriendlyHero => PlayerHero,
+			CardEffectType.Heal or CardEffectType.RestoreHealth => PlayerHero,
+			_ => defaultTarget
+		};
+	}
+
+	/// <summary>
+	/// 「解释」打出后回到手牌。
+	/// </summary>
+	private void HandleExplainReturnToHand(OdysseyCards.Card.Card card)
+	{
+		// 从手牌移除，再重新加入（实现"回到手牌"）
+		PlayerHero.RemoveFromHand(card);
+
+		// 直接加入手牌（绕过 RemoveFromHand 的限制）
+		if (PlayerHero.Hand.Count >= PlayerHero.DeckState.MaxHandSize)
+		{
+			GD.Print("[CombatManager] 手牌已满，「解释」被弃掉");
+			PlayerHero.DiscardCard(card);
+			return;
+		}
+
+		PlayerHero.DeckState.AddToHand(card);
+		GD.Print("[CombatManager] 「解释」回到手牌");
 	}
 }
