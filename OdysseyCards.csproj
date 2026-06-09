@@ -8,6 +8,13 @@
         <AnalysisMode>AllEnabledByDefault</AnalysisMode>
         <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
         <RunAnalyzersDuringLiveAnalysis>true</RunAnalyzersDuringLiveAnalysis>
+        <!-- 抑制不适用于 Godot 项目的分析器规则：
+             CA2000/CA2213: Godot 节点生命周期由引擎管理，非 .NET IDisposable
+             CA1003: 项目用 event Action<> 替代 Godot [Signal]，是有意设计
+             CA1305: 游戏项目不需要 IFormatProvider
+             CA5394: 游戏逻辑不需要密码学安全随机
+             CA1002: 返回 List<T> 是有意设计（性能 + 便利） -->
+        <NoWarn>CA2000;CA2213;CA1003;CA1305;CA5394;CA1002</NoWarn>
     </PropertyGroup>
 
     <!-- 排除测试目录 (由 OdysseyCards.Tests.csproj 独立编译) -->

@@ -12,7 +12,7 @@ public class FixedSizedQueue<T> : List<T>
 {
     private readonly int _limit;
 
-    public int Capacity => _limit;
+    public new int Capacity => _limit;
 
     public FixedSizedQueue(int limit)
     {

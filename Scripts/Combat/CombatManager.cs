@@ -95,10 +95,6 @@ public partial class CombatManager : Node
 	public RelicManager Relics => _relicManager;
 
 	/// <summary>
-	/// 敌方意图变化事件（参数为意图描述文本）。
-	/// </summary>
-	public event Action<string>? OnEnemyIntentChanged;
-
 	/// <summary>
 	/// 战斗状态变更事件——在随从部署/移除、英雄受伤等任何可能影响意图显示的
 	/// 状态变更时触发。UI 监听此事件来刷新意图标签和目标高亮。

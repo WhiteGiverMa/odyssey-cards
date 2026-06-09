@@ -1,4 +1,4 @@
-# OdysseyCards — Godot 4.6 C# · 类炉石 Roguelite 卡牌
+# OdysseyCards（少女星途卡牌） — Godot 4.6 C# · 类炉石 Roguelite 卡牌
 
 **Branch:** `main` · **Commit:** `394871f` · **Updated:** 2026-06-08
 **Scale:** 137 `.cs` (Scripts/) · ~27,000 行 · 32 `.tres` 卡牌 · 4 `.tscn` 场景

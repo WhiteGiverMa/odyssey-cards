@@ -71,10 +71,6 @@ public partial class CardUI : Control
 	public bool CanPlay { get; private set; } = true;
 
 	/// <summary>
-	/// 卡牌被选中/取消选中时触发。
-	/// </summary>
-	public event Action<CardUI>? OnCardSelected;
-
 	/// <summary>
 	/// 卡牌被点击（鼠标左键按下）时触发。
 	/// </summary>

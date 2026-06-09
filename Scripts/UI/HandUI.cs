@@ -34,7 +34,6 @@ public partial class HandUI : Control
 	[Export] public PackedScene? CardScene { get; set; }
 
 	public event Action<Card.Card>? OnCardSelectedForPlay;
-	public event Action<Card.Card, ICommander>? OnCardPlayRequested;
 	public event Action? OnCardCancelled;
 
 	public bool HandSelectMode { get; set; }
