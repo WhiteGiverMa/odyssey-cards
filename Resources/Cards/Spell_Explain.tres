@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+CustomEffectName = "ExplainEffect"
+Value = 1
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_explain"
+CardName = "解释"
+Description = "奇巧。打出时使敌方英雄获得1层总观效应。\n回到手牌并进入不可打出状态。\n若友方回合结束时不处于不可打出状态，友方英雄获得1层总观效应。"
+Rarity = 1
+Cost = 2
+Type = 1
+RequiresTarget = false
+Keywords = Array[int]([11])
+Effects = [SubResource("SubResource_1")]

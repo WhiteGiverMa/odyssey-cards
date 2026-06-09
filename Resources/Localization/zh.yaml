@@ -243,10 +243,15 @@ weapon:
     name: "离子手枪"
   rolling_log:
     name: "棍木"
+  rail_pistol:
+    name: "磁轨手枪"
   passive:
     meltdown:
       name: "熔毁"
       desc: "武器攻击或主动技能命中时，目标防御力-1（最多2层）"
+    rail_lock:
+      name: "磁轨锁定"
+      desc: "被此武器攻击的目标1回合内无法攻击"
   skill:
     ion_pulse:
       name: "离子脉冲"
@@ -373,6 +378,16 @@ cards:
     name: "刀盾危机"
     description: "选择并弃掉不大于5张牌，将等量个「我的刀盾」添加到友方棋盘槽处，并抽取等量张牌。"
 
+  spell_what_the_dog_doing:
+    name: "我的刀盾"
+    description: "选择弃掉0-5张牌，每弃1张对敌方英雄造成3点伤害"
+  spell_boundless_darkness:
+    name: "无边黑暗"
+    description: "使所有敌人获得3层易伤和3层脆弱。"
+  spell_explain:
+    name: "解释"
+    description: "奇巧。打出时使敌方英雄获得1层总观效应。\n回到手牌。"
+
 intent:
   attack_format: "对{target}造成 {damage} 点伤害"
   buff_format: "{desc}"
@@ -382,6 +397,17 @@ intent:
   buff_armor_format: "对{target}施加 {amount} 点护甲"
   target_hero: "英雄"
   target_unknown: "目标"
+
+intents:
+  UNKNOWN:
+    title: "未知意图"
+    description: "意图类型尚未确定。"
+  STATUS_CARD:
+    title: "状态牌"
+    description: "向玩家牌堆中加入状态牌。"
+  SPELL_CAST:
+    title: "施法"
+    description: "打出一张法术牌。"
 
 combat:
   victory: "胜利！"
@@ -397,6 +423,8 @@ enemies:
     name: "实习机械师"
   jaw_worm:
     name: "大颚虫"
+  cosmonaut:
+    name: "宇宙员"
 
 collection:
   title: "卡牌收藏"
@@ -439,6 +467,16 @@ effect:
   weapon_disabled_desc: "武器无法使用。"
   animosity: "敌意"
   animosity_desc: "受到来自玩家阵营的伤害翻倍。"
+  vulnerable: "易伤"
+  vulnerable_desc: "受到的攻击伤害×1.5。总观效应下效果翻倍。"
+  weak: "虚弱"
+  weak_desc: "造成的攻击伤害×0.75。总观效应下效果翻倍。"
+  fragile: "脆弱"
+  fragile_desc: "获得的护甲×0.75。总观效应下效果翻倍。"
+  total_observation: "总观效应"
+  total_observation_desc: "易伤、虚弱、脆弱的效果翻倍。"
+  attack_ban: "磁轨锁定"
+  attack_ban_desc: "本回合内无法攻击。"
 
 domain:
   unlimited_potential: "无限潜能"
@@ -471,6 +509,10 @@ keyword:
   impact_desc: "攻击时抵消所有反击伤害（一次性消耗）。"
   unbreakable: "不破"
   unbreakable_desc: "每回合只能受到一次生命伤害。"
+  qiqiao: "奇巧"
+  qiqiao_desc: "被弃掉时将这张牌打出。"
+  unplayable: "不可打出"
+  unplayable_desc: "此牌无法从手牌中主动打出。"
 blessing:
   vigor:
     name: "活力祝颂"

@@ -243,10 +243,15 @@ weapon:
     name: "Ion Pistol"
   rolling_log:
     name: "Stick Wood"
+  rail_pistol:
+    name: "Rail Pistol"
   passive:
     meltdown:
       name: "Meltdown"
       desc: "On weapon hit: target's Defense -1 (max 2 stacks per target)"
+    rail_lock:
+      name: "Rail Lock"
+      desc: "Target attacked by this weapon cannot attack for 1 turn."
   skill:
     ion_pulse:
       name: "Ion Pulse"
@@ -373,6 +378,13 @@ cards:
     name: "Blade Crisis"
     description: "Choose and discard up to 5 cards, add that many What The Dog Doing to friendly board slots, and draw that many cards."
 
+  spell_boundless_darkness:
+    name: "Boundless Darkness"
+    description: "Apply 3 Vulnerable and 3 Fragile to all enemies."
+  spell_explain:
+    name: "Explanation"
+    description: "Qiqiao. Apply 1 Total Observation to the enemy hero.\nReturn to hand."
+
 intent:
   attack_format: "Deal {damage} damage to {target}"
   buff_format: "{desc}"
@@ -383,6 +395,17 @@ intent:
   target_hero: "Hero"
   target_unknown: "Target"
 
+intents:
+  UNKNOWN:
+    title: "Unknown Intent"
+    description: "Intent type is not yet determined."
+  STATUS_CARD:
+    title: "Status Card"
+    description: "Add status cards to the player's deck."
+  SPELL_CAST:
+    title: "Cast"
+    description: "Cast a spell card."
+
 combat:
   victory: "Victory!"
   defeat: "Defeat..."
@@ -390,7 +413,9 @@ combat:
   damage_dealt: "Dealt {amount} damage to {target}"
   block_gained: "Gained {amount} block"
 
-enemies:
+  enemies:
+    cosmonaut:
+      name: "Cosmonaut"
   cultist:
     name: "Cultist"
   apprentice_mechanic:
@@ -439,6 +464,16 @@ effect:
   weapon_disabled_desc: "Weapon cannot be used."
   animosity: "Animosity"
   animosity_desc: "Damage taken from the player's side is doubled."
+  vulnerable: "Vulnerable"
+  vulnerable_desc: "Attack damage taken ×1.5. Doubled by Total Observation."
+  weak: "Weak"
+  weak_desc: "Attack damage dealt ×0.75. Doubled by Total Observation."
+  fragile: "Fragile"
+  fragile_desc: "Armor gained ×0.75. Doubled by Total Observation."
+  total_observation: "Total Observation"
+  total_observation_desc: "Vulnerable, Weak, and Fragile effects are doubled."
+  attack_ban: "Rail Lock"
+  attack_ban_desc: "Cannot attack this turn."
 
 domain:
   unlimited_potential: "Unlimited Potential"
@@ -471,6 +506,10 @@ keyword:
   impact_desc: "Negate all counter-damage when attacking (consumed on use)."
   unbreakable: "Unbreakable"
   unbreakable_desc: "Can only take HP damage once per turn."
+  qiqiao: "Qiqiao"
+  qiqiao_desc: "When discarded, play this card automatically."
+  unplayable: "Unplayable"
+  unplayable_desc: "Cannot be played from hand."
 blessing:
   vigor:
     name: "Vigor Blessing"

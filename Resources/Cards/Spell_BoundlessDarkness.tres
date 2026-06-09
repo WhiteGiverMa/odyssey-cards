@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+CustomEffectName = "BoundlessDarkness"
+Value = 3
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_boundless_darkness"
+CardName = "无边黑暗"
+Description = "使所有敌人获得3层易伤和3层脆弱"
+Rarity = 2
+Cost = 3
+Type = 1
+RequiresTarget = false
+Effects = [SubResource("SubResource_1")]
