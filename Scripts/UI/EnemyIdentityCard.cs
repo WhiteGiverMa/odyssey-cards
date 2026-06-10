@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 using OdysseyCards.AI;
@@ -12,30 +13,42 @@ namespace OdysseyCards.UI;
 /// 敌方英雄身份卡——单个敌人的紧凑信息面板。
 /// 显示名称、HP 条、护甲、防御、武器、状态效果、意图。
 /// 多敌人时 CombatUI 按敌人数量生成一排卡片。
+/// 攻击目标模式下显示绿色边框 + 半透明绿色覆盖层，整个卡片区域可点击攻击。
 /// </summary>
 public partial class EnemyIdentityCard : Panel
 {
-    public int EnemyIndex { get; }
+	public int EnemyIndex { get; }
 
-    private readonly Label _nameLabel;
-    private readonly HealthBar _healthBar;
-    private readonly Label _armorLabel;
-    private readonly Label _defenseLabel;
-    private readonly Label _weaponLabel;
-    private readonly Label _intentLabel;
-    private readonly Button _attackButton;
-    private readonly Button _spellButton;
-    private readonly HBoxContainer _statusContainer;
-    private readonly EffectBar _effectBar;
-    private readonly HBoxContainer _intentIconContainer;
+	private readonly Label _nameLabel;
+	private readonly HealthBar _healthBar;
+	private readonly Label _armorLabel;
+	private readonly Label _defenseLabel;
+	private readonly Label _weaponLabel;
+	private readonly Label _intentLabel;
+	private readonly Button _attackButton;
+	private readonly Button _spellButton;
+	private readonly HBoxContainer _statusContainer;
+	private readonly EffectBar _effectBar;
+	private readonly HBoxContainer _intentIconContainer;
 
-    // Colors
-    private static readonly Color _nameColor = new(1f, 0.5f, 0.5f);
-    private static readonly Color _armorColor = new(0.7f, 0.7f, 0.3f);
-    private static readonly Color _defenseColor = new(0.3f, 0.7f, 1f);
-    private static readonly Color _intentColor = new(1f, 0.4f, 0.4f);
-    private static readonly Color _bgColor = new(0.15f, 0.1f, 0.1f, 0.85f);
-    private static readonly Color _borderColor = new(0.4f, 0.2f, 0.2f, 0.9f);
+	// 攻击目标模式覆盖层 + 边框样式
+	private readonly ColorRect _attackOverlay;
+	private readonly StyleBoxFlat _normalBorderStyle;
+	private readonly StyleBoxFlat _attackBorderStyle;
+	private bool _isAttackTarget;
+
+	/// <summary>攻击目标模式下点击卡片时触发。</summary>
+	public event Action? OnAttackTargetClicked;
+
+	// Colors
+	private static readonly Color _nameColor = new(1f, 0.5f, 0.5f);
+	private static readonly Color _armorColor = new(0.7f, 0.7f, 0.3f);
+	private static readonly Color _defenseColor = new(0.3f, 0.7f, 1f);
+	private static readonly Color _intentColor = new(1f, 0.4f, 0.4f);
+	private static readonly Color _bgColor = new(0.15f, 0.1f, 0.1f, 0.85f);
+	private static readonly Color _borderColor = new(0.4f, 0.2f, 0.2f, 0.9f);
+	private static readonly Color _attackBorderGreen = new(0.2f, 0.85f, 0.2f, 0.95f);
+	private static readonly Color _attackOverlayGreen = new(0f, 1f, 0f, 0.1f);
 
     public EnemyIdentityCard(int enemyIndex, CombatManager combat)
     {
@@ -46,21 +59,36 @@ public partial class EnemyIdentityCard : Panel
         CustomMinimumSize = new Vector2(180, 110);
         SizeFlagsHorizontal = SizeFlags.ExpandFill;
 
-        // --- Style: border via StyleBoxFlat ---
-        var style = new StyleBoxFlat
-        {
-            BgColor = _bgColor,
-            BorderColor = _borderColor,
-            BorderWidthLeft = 2,
-            BorderWidthRight = 2,
-            BorderWidthTop = 2,
-            BorderWidthBottom = 2,
-            CornerRadiusTopLeft = 6,
-            CornerRadiusTopRight = 6,
-            CornerRadiusBottomLeft = 6,
-            CornerRadiusBottomRight = 6,
-        };
-        AddThemeStyleboxOverride("panel", style);
+		// --- Style: border via StyleBoxFlat ---
+		_normalBorderStyle = new StyleBoxFlat
+		{
+			BgColor = _bgColor,
+			BorderColor = _borderColor,
+			BorderWidthLeft = 2,
+			BorderWidthRight = 2,
+			BorderWidthTop = 2,
+			BorderWidthBottom = 2,
+			CornerRadiusTopLeft = 6,
+			CornerRadiusTopRight = 6,
+			CornerRadiusBottomLeft = 6,
+			CornerRadiusBottomRight = 6,
+		};
+		AddThemeStyleboxOverride("panel", _normalBorderStyle);
+
+		// 攻击目标模式绿色边框（预创建，切换时复用）
+		_attackBorderStyle = new StyleBoxFlat
+		{
+			BgColor = new Color(0.05f, 0.15f, 0.05f, 0.85f),
+			BorderColor = _attackBorderGreen,
+			BorderWidthLeft = 3,
+			BorderWidthRight = 3,
+			BorderWidthTop = 3,
+			BorderWidthBottom = 3,
+			CornerRadiusTopLeft = 6,
+			CornerRadiusTopRight = 6,
+			CornerRadiusBottomLeft = 6,
+			CornerRadiusBottomRight = 6,
+		};
 
         // --- Content VBox ---
         var content = new VBoxContainer
@@ -131,28 +159,46 @@ public partial class EnemyIdentityCard : Panel
         _intentIconContainer.AddThemeConstantOverride("separation", -8); // overlap like STS2
         content.AddChild(_intentIconContainer);
 
-        // Row 6: Target buttons (attack/spell)
-        var btnRow = new HBoxContainer();
-        _attackButton = new Button
-        {
-            Text = "⚔",
-            CustomMinimumSize = new Vector2(28, 22),
-            Flat = true,
-            Visible = false,
-        };
-        _attackButton.AddThemeFontSizeOverride("font_size", 11);
-        btnRow.AddChild(_attackButton);
+		// Row 6: Target buttons (attack/spell) — 攻击按钮在目标模式下放大为醒目控件
+		var btnRow = new HBoxContainer
+		{
+			Alignment = BoxContainer.AlignmentMode.Center,
+		};
+		_attackButton = new Button
+		{
+			Text = "⚔",
+			CustomMinimumSize = new Vector2(120, 30),
+			Flat = true,
+			Visible = false,
+		};
+		_attackButton.AddThemeFontSizeOverride("font_size", 14);
+		_attackButton.AddThemeColorOverride("font_color", new Color(1f, 0.3f, 0.3f));
+		btnRow.AddChild(_attackButton);
 
-        _spellButton = new Button
-        {
-            Text = "✦",
-            CustomMinimumSize = new Vector2(28, 22),
-            Flat = true,
-            Visible = false,
-        };
-        _spellButton.AddThemeFontSizeOverride("font_size", 11);
-        btnRow.AddChild(_spellButton);
-        content.AddChild(btnRow);
+		_spellButton = new Button
+		{
+			Text = "✦",
+			CustomMinimumSize = new Vector2(120, 30),
+			Flat = true,
+			Visible = false,
+		};
+		_spellButton.AddThemeFontSizeOverride("font_size", 14);
+		btnRow.AddChild(_spellButton);
+		content.AddChild(btnRow);
+
+		// 攻击目标覆盖层——半透明绿色，覆盖整个卡片区域
+		// 普通模式：不可见 + Ignore（完全穿透）
+		// 攻击模式：可见 + Stop（拦截点击，触发 OnAttackTargetClicked）
+		_attackOverlay = new ColorRect
+		{
+			Name = "AttackOverlay",
+			Color = _attackOverlayGreen,
+			Visible = false,
+			MouseFilter = MouseFilterEnum.Ignore,
+		};
+		_attackOverlay.SetAnchorsPreset(LayoutPreset.FullRect);
+		_attackOverlay.GuiInput += OnAttackOverlayGuiInput;
+		AddChild(_attackOverlay);
 
         // Mouse filter — Pass to allow combat targeting clicks through
         // (intent icons and attack buttons handle their own clicks)
@@ -247,13 +293,65 @@ public partial class EnemyIdentityCard : Panel
         _healthBar.UpdateHealth(current, max);
     }
 
-    /// <summary>仅刷新护甲显示（轻量版）。</summary>
-    public void RefreshArmor(int armor)
-    {
-        _armorLabel.Visible = armor > 0;
-        if (armor > 0)
-            _armorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", armor.ToString());
-    }
+	/// <summary>仅刷新护甲显示（轻量版）。</summary>
+	public void RefreshArmor(int armor)
+	{
+		_armorLabel.Visible = armor > 0;
+		if (armor > 0)
+			_armorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", armor.ToString());
+	}
+
+	// ===== 攻击目标高亮 =====
+
+	/// <summary>
+	/// 切换攻击目标高亮状态。
+	/// <c>true</c>：绿色边框 + 半透明覆盖层，整个卡片区域可点击触发攻击。
+	/// <c>false</c>：恢复普通边框，覆盖层隐藏并透传鼠标。
+	/// </summary>
+	public void SetAttackTargetHighlight(bool highlight)
+	{
+		if (_isAttackTarget == highlight) return;
+		_isAttackTarget = highlight;
+
+		if (highlight)
+		{
+			// 绿色边框
+			AddThemeStyleboxOverride("panel", _attackBorderStyle);
+			// 显示半透明绿色覆盖层，拦截鼠标点击
+			_attackOverlay.Visible = true;
+			_attackOverlay.MouseFilter = MouseFilterEnum.Stop;
+			// 放大攻击按钮也显示，作为视觉提示
+			_attackButton.Visible = true;
+			_attackButton.Disabled = false;
+			// 卡片本身保持 Pass（让覆盖层处理点击）
+			// MouseFilter 不需要改——覆盖层在上层拦截
+		}
+		else
+		{
+			// 恢复普通边框
+			AddThemeStyleboxOverride("panel", _normalBorderStyle);
+			// 隐藏覆盖层，透传鼠标
+			_attackOverlay.Visible = false;
+			_attackOverlay.MouseFilter = MouseFilterEnum.Ignore;
+			// 隐藏攻击按钮
+			_attackButton.Visible = false;
+		}
+	}
+
+	/// <summary>攻击覆盖层接收到鼠标输入时触发攻击回调。</summary>
+	private void OnAttackOverlayGuiInput(InputEvent @event)
+	{
+		if (!_isAttackTarget) return;
+
+		if (@event is InputEventMouseButton mouseBtn
+			&& mouseBtn.ButtonIndex == MouseButton.Left
+			&& mouseBtn.Pressed)
+		{
+			OnAttackTargetClicked?.Invoke();
+		}
+	}
+
+	// ===== 意图图标 =====
 
     /// <summary>
     /// Diff-based update: reconcile intent icon children with current intent list.

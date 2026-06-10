@@ -1777,6 +1777,13 @@ public partial class CombatUI : Control
 		_enemyHeroAttackButton.Pressed += OnEnemyHeroAttackPressed;
 		_unsubscribeActions.Add(() => _enemyHeroAttackButton.Pressed -= OnEnemyHeroAttackPressed);
 
+		// 敌方身份卡点击攻击（整个卡片区域）
+		if (_enemyCards.Count > 0)
+		{
+			_enemyCards[0].OnAttackTargetClicked += OnEnemyHeroAttackPressed;
+			_unsubscribeActions.Add(() => _enemyCards[0].OnAttackTargetClicked -= OnEnemyHeroAttackPressed);
+		}
+
 		// 对敌方英雄施法按钮
 		_enemyHeroSpellButton.Pressed += OnEnemyHeroSpellTarget;
 		_unsubscribeActions.Add(() => _enemyHeroSpellButton.Pressed -= OnEnemyHeroSpellTarget);
@@ -3165,6 +3172,8 @@ public partial class CombatUI : Control
 
 			_boardUI.HighlightSlots(tauntIndices, isPlayerSide: false, highlight: true);
 			_enemyHeroAttackButton.Visible = false;
+			// 敌方英雄卡片不可攻击（被嘲讽保护）
+			_enemyCards[0].SetAttackTargetHighlight(false);
 
 			GD.Print($"[CombatUI] 攻击目标模式——敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
 		}
@@ -3186,9 +3195,11 @@ public partial class CombatUI : Control
 				_boardUI.HighlightSlots(allEnemyIndices, isPlayerSide: false, highlight: true);
 			}
 
-			// 显示攻击英雄按钮
+			// 显示攻击英雄按钮 + 敌方英雄卡片绿色高亮
 			_enemyHeroAttackButton.Visible = true;
 			_enemyHeroAttackButton.Disabled = false;
+			if (_enemyCards.Count > 0)
+				_enemyCards[0].SetAttackTargetHighlight(true);
 
 			GD.Print("[CombatUI] 攻击目标模式——可攻击敌方英雄");
 		}
@@ -3454,6 +3465,8 @@ public partial class CombatUI : Control
 		_enemyHeroAttackButton.Text = Localization.Localization.T("ui.combat.ion_pulse", "✦ 离子脉冲");
 		_enemyHeroAttackButton.Visible = true;
 		_enemyHeroAttackButton.Disabled = false;
+		if (_enemyCards.Count > 0)
+			_enemyCards[0].SetAttackTargetHighlight(true);
 
 		// 从 Normal 模式进入时只有 OnEnemyHeroAttackPressed 是连接的
 		_enemyHeroAttackButton.Pressed -= OnEnemyHeroAttackPressed;
@@ -3499,6 +3512,8 @@ public partial class CombatUI : Control
 
 			_boardUI.HighlightSlots(tauntIndices, isPlayerSide: false, highlight: true);
 			_enemyHeroAttackButton.Visible = false;
+			if (_enemyCards.Count > 0)
+				_enemyCards[0].SetAttackTargetHighlight(false);
 
 			GD.Print($"[CombatUI] 武器攻击模式——敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
 		}
@@ -3520,10 +3535,12 @@ public partial class CombatUI : Control
 				_boardUI.HighlightSlots(allEnemyIndices, isPlayerSide: false, highlight: true);
 			}
 
-			// 显示攻击英雄按钮（复用已有的敌方英雄攻击按钮，修改文本）
+			// 显示攻击英雄按钮 + 绿色高亮
 			_enemyHeroAttackButton.Text = Localization.Localization.T("ui.combat.weapon_attack_cost", "⚔ 武器攻击 ({cost}费)").Replace("{cost}", _combat.PlayerHero.Weapon!.AttackCost.ToString());
 			_enemyHeroAttackButton.Visible = true;
 			_enemyHeroAttackButton.Disabled = false;
+			if (_enemyCards.Count > 0)
+				_enemyCards[0].SetAttackTargetHighlight(true);
 
 			// 断开旧事件，连接武器攻击事件
 			_enemyHeroAttackButton.Pressed -= OnEnemyHeroAttackPressed;
@@ -4056,6 +4073,10 @@ public partial class CombatUI : Control
 		_playerHeroSpellButton.Visible = false;
 		_weaponAttackButton.Visible = false;
 		_weaponActiveSkillButton.Visible = false;
+
+		// 清除敌方英雄卡片绿色高亮
+		foreach (var card in _enemyCards)
+			card.SetAttackTargetHighlight(false);
 		_handUI.DeselectCard();
 		HidePlayZonePanel();
 
