@@ -199,7 +199,7 @@ public partial class EffectBar : HBoxContainer
         // Godot C# 桥接层要求的无参构造——仅编辑器/反射使用
         private EffectIcon()
         {
-            _effect = null!;
+            _effect = default;
             _parent = null!;
             _background = null!;
             _iconLabel = null!;
