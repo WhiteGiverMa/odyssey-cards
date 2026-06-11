@@ -107,96 +107,31 @@ public partial class CombatManager : Node
 	/// </summary>
 	public event Action<string>? OnEnemyEmote;
 
-	// ===== 表情系统（私有字段） =====
+	// ===== 表情系统 =====
 
-	/// <summary>空闲计时器——玩家不出牌超时后触发敌人嘲讽。</summary>
-	private Timer? _emoteIdleTimer;
-
-	/// <summary>随机数生成器（表情选择 + 时间浮动）。</summary>
-	private readonly Random _emoteRng = new();
-
-	/// <summary>敌对嘲讽词库。</summary>
-	private static readonly string[] _tauntPool =
-	[
-		"阿姨快点啊阿姨",
-		"给阿姨倒一杯卡布奇诺",
-		"开始你的炸弹秀",
-	];
-
-	// ===== 表情系统（私有方法） =====
-
-	/// <summary>玩家出牌时重置空闲计时器。</summary>
-	private void ResetEmoteIdleTimer()
-	{
-		if (_emoteIdleTimer == null) return;
-		_emoteIdleTimer.Stop();
-
-		float baseTime = GameManager.Instance?.EmoteIdleTimeSeconds ?? 5.0f;
-		float varMin = GameManager.Instance?.EmoteIdleVariationMin ?? 0.7f;
-		float varMax = GameManager.Instance?.EmoteIdleVariationMax ?? 1.3f;
-
-		// Clamp：确保 min ≤ max 且范围合法
-		varMin = Math.Clamp(varMin, 0.1f, varMax);
-		varMax = Math.Clamp(varMax, varMin, 3.0f);
-
-		float variation = varMin + _emoteRng.NextSingle() * (varMax - varMin);
-		_emoteIdleTimer.WaitTime = Math.Max(0.5f, baseTime * variation);
-		_emoteIdleTimer.Start();
-		GD.Print($"[CombatManager] 表情计时器已重置 — WaitTime={_emoteIdleTimer.WaitTime:F1}s (base={baseTime:F1} × {variation:F2})");
-	}
-
-	/// <summary>玩家回合开始时启动空闲计时器。</summary>
-	private void StartEmoteIdleTimer()
-	{
-		if (_emoteIdleTimer == null) return;
-		_emoteIdleTimer.Stop();
-		float baseTime = GameManager.Instance?.EmoteIdleTimeSeconds ?? 5.0f;
-		_emoteIdleTimer.WaitTime = baseTime;
-		_emoteIdleTimer.Start();
-		GD.Print($"[CombatManager] 表情计时器已启动 — WaitTime={_emoteIdleTimer.WaitTime:F1}s");
-	}
-
-	/// <summary>玩家回合结束时停止空闲计时器。</summary>
-	private void StopEmoteIdleTimer()
-	{
-		if (_emoteIdleTimer != null)
-		{
-			_emoteIdleTimer.Stop();
-			GD.Print("[CombatManager] 表情计时器已停止（回合结束）");
-		}
-	}
-
-	/// <summary>空闲超时回调——随机选取嘲讽词发送表情事件。</summary>
-	private void OnEmoteIdleTimeout()
-	{
-		GD.Print($"[CombatManager] 表情计时器超时！IsPlayerTurn={State?.IsPlayerTurn}");
-		if (State == null || !State.IsPlayerTurn)
-		{
-			GD.Print("[CombatManager] 表情计时器超时但非玩家回合，跳过");
-			return;
-		}
-		string taunt = _tauntPool[_emoteRng.Next(_tauntPool.Length)];
-		GD.Print($"[CombatManager] 发送嘲讽表情：「{taunt}」，订阅者数={OnEnemyEmote?.GetInvocationList().Length ?? 0}");
-		OnEnemyEmote?.Invoke(taunt);
-
-		// 重新启动计时器（下一轮嘲讽）
-		ResetEmoteIdleTimer();
-	}
+	/// <summary>
+	/// 表情系统子节点——管理敌人嘲讽表情的定时触发。
+	/// 在 <see cref="_Ready"/> 中作为子节点创建并添加。
+	/// </summary>
+	private EmoteSystem _emoteSystem;
 
 	/// <summary>
 	/// 强制从指定敌人发送一条表情文本（由 DevConsole /emote 命令调用）。
+	/// 委托给 <see cref="EmoteSystem.SendEmote"/>。
 	/// </summary>
 	public void SendEmote(string text)
 	{
-		if (string.IsNullOrEmpty(text)) return;
-		GD.Print($"[CombatManager] SendEmote 被调用：「{text}」");
-		OnEnemyEmote?.Invoke(text);
+		_emoteSystem?.SendEmote(text);
 	}
 
 	/// <summary>
-	/// 获取当前表情空闲计时器的基础时长（从 GameManager 读取，用于设置 UI 初始值）。
+	/// 获取/设置表情空闲计时器的基础时长（委托给 <see cref="EmoteSystem.EmoteIdleBaseTime"/>）。
 	/// </summary>
-	public static float EmoteIdleBaseTime => GameManager.Instance?.EmoteIdleTimeSeconds ?? 5.0f;
+	public static float EmoteIdleBaseTime
+	{
+		get => EmoteSystem.EmoteIdleBaseTime;
+		set => EmoteSystem.EmoteIdleBaseTime = value;
+	}
 
 	/// <summary>
 	/// 获取当前敌方遭遇的动态意图（含实时目标和伤害计算）。
@@ -227,17 +162,10 @@ public partial class CombatManager : Node
 	// ===== 随从攻击追踪 =====
 
 	/// <summary>
-	/// 本回合内每个随从的已攻击次数（键为随从实例，值为攻击次数）。
-	/// 用于风怒（Windfury）多段攻击判定和攻击上限检查。
+	/// 攻击追踪器——管理本回合内随从的"可否攻击"和"已攻击次数"状态。
+	/// 从 CombatManager 拆出为独立类，解除回合流转/攻击系统/死亡处理之间的数据耦合。
 	/// </summary>
-	private readonly Dictionary<Minion, int> _attackCountThisTurn = new();
-
-	/// <summary>
-	/// 本回合内可以攻击的随从集合。
-		/// 新召唤的随从默认不可攻击（除非有闪击）；
-	/// 回合开始时所有玩家随从重置为可攻击状态。
-	/// </summary>
-	private readonly HashSet<Minion> _canAttackThisTurn = new();
+	private readonly AttackTracker _attackTracker = new();
 
 	/// <summary>
 	/// 本回合内可以攻击的敌方随从集合。
@@ -368,8 +296,10 @@ public partial class CombatManager : Node
 	/// </summary>
 	private bool _heroPowerUsedThisTurn;
 
-	/// <summary>DevConsole 强制胜利时跳过金币奖励。</summary>
-	private bool _devSkipGoldReward;
+	/// <summary>
+	/// 胜负判定器——检查战斗结束条件、发放金币、触发胜负事件。
+	/// </summary>
+	private VictoryDefeatResolver _victoryResolver = null!;
 
 	// ===== Godot 生命周期 =====
 
@@ -381,16 +311,11 @@ public partial class CombatManager : Node
 		Instance = this;
 		GD.Print("[CombatManager] _Ready — 单例已注册");
 
-		// 表情空闲计时器
-		_emoteIdleTimer = new Timer
-		{
-			Name = "EmoteIdleTimer",
-			OneShot = true,
-			WaitTime = GameManager.Instance?.EmoteIdleTimeSeconds ?? 5.0f,
-		};
-		_emoteIdleTimer.Timeout += OnEmoteIdleTimeout;
-		AddChild(_emoteIdleTimer);
-		GD.Print($"[CombatManager] 表情计时器已创建，初始 WaitTime={_emoteIdleTimer.WaitTime:F1}s");
+		// 表情系统——作为子节点创建并添加，事件转发到 OnEnemyEmote
+		_emoteSystem = new EmoteSystem { Name = "EmoteSystem" };
+		AddChild(_emoteSystem);
+		_emoteSystem.OnEmote += (text) => OnEnemyEmote?.Invoke(text);
+		GD.Print("[CombatManager] EmoteSystem 子节点已创建");
 
 		// 使用 CallDeferred 延迟到下一帧执行，确保 GameManager.Instance 等 Autoload 已就绪
 		CallDeferred(nameof(BootstrapCombat));
@@ -536,16 +461,39 @@ public partial class CombatManager : Node
 		// 从 Player 复制英雄技能设置（由 GameManager.CreateNewPlayer 注入）
 		PlayerHero.HeroPower = Player.HeroPower;
 
-		// 事件驱动胜负判定：任何英雄死亡时自动触发 CheckVictoryOrDefeat
-		PlayerHero.OnDeath += _ => CheckVictoryOrDefeat();
-		foreach (var unit in enemyUnits)
-			unit.Body.OnDeath += _ => CheckVictoryOrDefeat();
-
 		// 奇巧关键词回调：被弃牌时自动打出
 		_playerCore.CombatDeckState.OnBeforeDiscard = HandleQiqiaoDiscard;
 
 		Board = new Board();
 		State = new GameState();
+
+		// 创建胜负判定器
+		_victoryResolver = new VictoryDefeatResolver(Board, State, EnemyUnits, _playerCore);
+		_victoryResolver.OnGameOver += (won) =>
+		{
+			if (won)
+			{
+				// 跨战斗保存玩家生命值（持久化到 GameManager）
+				var gm = GameManager.Instance;
+				gm?.SavePlayerHealth(PlayerHero.CurrentHealth, PlayerHero.MaxHealth);
+				GD.Print($"[CombatManager] 已保存玩家生命值：{PlayerHero.CurrentHealth}/{PlayerHero.MaxHealth}");
+				gm?.SaveRun();
+			}
+			else
+			{
+				// 标记运行失败
+				var gm = GameManager.Instance;
+				gm?.RunState?.FailRun();
+				gm?.SaveRun();
+			}
+			CleanupCombat();
+			OnGameOver?.Invoke(won);
+		};
+
+		// 事件驱动胜负判定：任何英雄死亡时自动触发 CheckVictoryOrDefeat
+		PlayerHero.OnDeath += _ => _victoryResolver.CheckVictoryOrDefeat();
+		foreach (var unit in enemyUnits)
+			unit.Body.OnDeath += _ => _victoryResolver.CheckVictoryOrDefeat();
 
 		// 亡语驱动：随从死亡时自动触发亡语（替换不触发），无需在各处手动调用
 		Board.OnMinionDied += TriggerDeathrattle;
@@ -715,7 +663,7 @@ public partial class CombatManager : Node
 		PlayerHero.TickWeaponCooldown();
 
 		// 启动表情空闲计时器
-		StartEmoteIdleTimer();
+		_emoteSystem?.StartIdleTimer();
 
 		GD.Print($"[CombatManager] 第 {State.TurnCount} 回合开始（法力 {State.PlayerMana}/{State.PlayerMaxMana}），手牌 {_playerCore.Hand.Count} 张");
 	}
@@ -736,7 +684,7 @@ public partial class CombatManager : Node
 		_relicManager.TriggerManaSpent(this, actualCost);
 
 		// 玩家出牌，重置表情空闲计时器
-		ResetEmoteIdleTimer();
+		_emoteSystem?.ResetIdleTimer();
 		GD.Print($"[CombatManager] 卡牌「{card.CardName}」已打出，表情计时器已重置");
 	}
 
@@ -833,7 +781,7 @@ public partial class CombatManager : Node
 		// 闪击关键词：召唤的回合即可攻击
 		if (minion.HasCharge)
 		{
-			_canAttackThisTurn.Add(minion);
+			_attackTracker.AddCharged(minion);
 			GD.Print($"[CombatManager]   ⚡ {minion.CardName} 具有闪击，本回合可以攻击");
 		}
 
@@ -1258,8 +1206,31 @@ public partial class CombatManager : Node
 		}
 
 		// 验证：攻击方合法性
-		if (!ValidateAttacker(attacker))
+		if (attacker == null)
+		{
+			GD.PrintErr("[CombatManager] 攻击验证失败 — 攻击者为 null");
 			return false;
+		}
+		if (!attacker.IsPlayerSide)
+		{
+			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 不是玩家随从");
+			return false;
+		}
+		if (attacker.IsDead)
+		{
+			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 已死亡");
+			return false;
+		}
+		if (!_attackTracker.CanAttack(attacker))
+		{
+			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 本回合无法攻击");
+			return false;
+		}
+		if (attacker.ActionCost > 0 && PlayerHero.CurrentMana < attacker.ActionCost)
+		{
+			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 行动花费 {attacker.ActionCost}，当前法力不足（{PlayerHero.CurrentMana}）");
+			return false;
+		}
 
 		// 验证：防御方有效性
 		if (defender == null || defender.IsDead)
@@ -1293,7 +1264,7 @@ public partial class CombatManager : Node
 		bool combatContinues = ResolveMinionCombat(attacker, defender);
 
 		// 记录攻击次数（即使被伏击击杀也算消耗）
-		RecordAttack(attacker);
+		_attackTracker.RecordAttack(attacker);
 
 		// 检查防御方死亡
 		if (defender.IsDead)
@@ -1307,8 +1278,7 @@ public partial class CombatManager : Node
 		{
 			GD.Print($"[CombatManager]   ☠ {attacker.CardName} 在攻击中阵亡");
 			Board.RemoveMinion(attacker);
-			_canAttackThisTurn.Remove(attacker);
-			_attackCountThisTurn.Remove(attacker);
+			_attackTracker.Remove(attacker);
 		}
 
 		// 全局死亡检查
@@ -1340,8 +1310,31 @@ public partial class CombatManager : Node
 		}
 
 		// 验证：攻击方合法性
-		if (!ValidateAttacker(attacker))
+		if (attacker == null)
+		{
+			GD.PrintErr("[CombatManager] 攻击验证失败 — 攻击者为 null");
 			return false;
+		}
+		if (!attacker.IsPlayerSide)
+		{
+			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 不是玩家随从");
+			return false;
+		}
+		if (attacker.IsDead)
+		{
+			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 已死亡");
+			return false;
+		}
+		if (!_attackTracker.CanAttack(attacker))
+		{
+			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 本回合无法攻击");
+			return false;
+		}
+		if (attacker.ActionCost > 0 && PlayerHero.CurrentMana < attacker.ActionCost)
+		{
+			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 行动花费 {attacker.ActionCost}，当前法力不足（{PlayerHero.CurrentMana}）");
+			return false;
+		}
 
 		// 嘲讽检测（攻击英雄）
 		var enemyTaunts = Board.GetTaunts(ofEnemy: true);
@@ -1376,7 +1369,7 @@ public partial class CombatManager : Node
 		}
 
 		// 记录攻击次数
-		RecordAttack(attacker);
+		_attackTracker.RecordAttack(attacker);
 
 		GD.Print($"[CombatManager]   敌方英雄剩余生命值：{hero.CurrentHealth}（护甲：{hero.CurrentArmor}）");
 
@@ -1385,8 +1378,7 @@ public partial class CombatManager : Node
 		{
 			GD.Print($"[CombatManager]   ☠ {attacker.CardName} 在攻击英雄时被反击击杀");
 			Board.RemoveMinion(attacker);
-			_canAttackThisTurn.Remove(attacker);
-			_attackCountThisTurn.Remove(attacker);
+			_attackTracker.Remove(attacker);
 		}
 
 		// 检查胜负
@@ -1639,81 +1631,6 @@ public partial class CombatManager : Node
 		return true;
 	}
 
-	/// <summary>
-	/// 验证攻击方随从是否可以攻击。
-	/// 检查：非 null、是玩家随从、本回合可攻击、未达攻击上限、风怒判定。
-	/// </summary>
-	/// <param name="attacker">待验证的随从</param>
-	/// <returns>可以攻击返回 true</returns>
-	private bool ValidateAttacker(Minion attacker)
-	{
-		if (attacker == null)
-		{
-			GD.PrintErr("[CombatManager] 攻击验证失败 — 攻击者为 null");
-			return false;
-		}
-
-		if (!attacker.IsPlayerSide)
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 不是玩家随从");
-			return false;
-		}
-
-		if (attacker.IsDead)
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 已死亡");
-			return false;
-		}
-
-		if (!_canAttackThisTurn.Contains(attacker))
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 本回合无法攻击（召唤回合无闪击）");
-			return false;
-		}
-
-		int attacks = _attackCountThisTurn.GetValueOrDefault(attacker, 0);
-
-		if (attacks >= 2)
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 本回合已达攻击上限");
-			return false;
-		}
-
-		if (attacks >= 1 && !attacker.HasWindfury)
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 无风怒，本回合已攻击过");
-			return false;
-		}
-
-		// 行动花费检查：随从攻击需要消耗法力值
-		if (attacker.ActionCost > 0 && PlayerHero.CurrentMana < attacker.ActionCost)
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 行动花费 {attacker.ActionCost}，当前法力不足（{PlayerHero.CurrentMana}）");
-			return false;
-		}
-
-		return true;
-	}
-
-	/// <summary>
-	/// 记录随从的一次攻击。根据风怒关键词决定是否保留可攻击状态。
-	/// </summary>
-	/// <param name="attacker">完成攻击的随从</param>
-	private void RecordAttack(Minion attacker)
-	{
-		int newCount = _attackCountThisTurn.GetValueOrDefault(attacker, 0) + 1;
-		_attackCountThisTurn[attacker] = newCount;
-
-		// 无风怒或有风怒但已达 2 次上限 → 移除可攻击状态
-		if (!attacker.HasWindfury || newCount >= 2)
-		{
-			_canAttackThisTurn.Remove(attacker);
-		}
-
-		GD.Print($"[CombatManager]   {attacker.CardName} 本回合攻击次数：{newCount}" +
-				  (attacker.HasWindfury && newCount < 2 ? "（风怒：还可以攻击）" : ""));
-	}
-
 	// ===== 死亡检测与亡语处理 =====
 
 	/// <summary>
@@ -1743,8 +1660,7 @@ public partial class CombatManager : Node
 			Board.RemoveMinion(minion);
 
 			// 清理攻击追踪
-			_canAttackThisTurn.Remove(minion);
-			_attackCountThisTurn.Remove(minion);
+			_attackTracker.Remove(minion);
 		}
 	}
 
@@ -1790,72 +1706,16 @@ public partial class CombatManager : Node
 		}
 	}
 
-	// ===== 胜负判定 =====
+	// ===== 胜负判定（已委托给 VictoryDefeatResolver） =====
+	// CheckVictoryOrDefeat 和 AwardGold 逻辑已移至 VictoryDefeatResolver。
+	// 胜负事件的后续处理（SavePlayerHealth/SaveRun/CleanupCombat）
+	// 通过 _victoryResolver.OnGameOver 回调在 Initialize 中接线。
 
 	/// <summary>
-	/// 检查是否达成胜利或失败条件。
-	/// 所有敌方英雄死亡 → 胜利；玩家英雄死亡 → 失败。
+	/// 公开的胜负判定入口——委托给 VictoryDefeatResolver。
+	/// 供 CombatUI 和 DevConsole 调用。
 	/// </summary>
-	/// <returns>游戏结束返回 true</returns>
-	internal bool CheckVictoryOrDefeat()
-	{
-		if (State.IsGameOver)
-			return true;
-
-		// 胜利 = 所有敌方英雄均已死亡
-		if (EnemyUnits.All(u => u.Body.IsDead))
-		{
-			GD.Print("[CombatManager] ★★★ 敌方全部被击败 — 玩家胜利！★★★");
-
-			// 跨战斗保存玩家生命值（持久化到 GameManager）
-			var gm = GameManager.Instance;
-			if (gm != null)
-			{
-				gm.SavePlayerHealth(PlayerHero.CurrentHealth, PlayerHero.MaxHealth);
-				GD.Print($"[CombatManager] 已保存玩家生命值：{PlayerHero.CurrentHealth}/{PlayerHero.MaxHealth}");
-
-				// 根据房间类型发放金币奖励（DevConsole 强制胜利可跳过）
-				if (!_devSkipGoldReward)
-				{
-					int goldReward = gm.RunState?.SelectedRoom?.Type switch
-				{
-					Roguelike.RoomType.Monster => new System.Random().Next(10, 16),  // 10-15
-					Roguelike.RoomType.Elite => new System.Random().Next(25, 36),     // 25-35
-					Roguelike.RoomType.Boss => 50,                                     // 50
-					_ => 0,
-				};
-				if (goldReward > 0)
-				{
-					gm.AddGold(goldReward);
-					GD.Print($"[CombatManager] 战斗奖励 {goldReward} 金币（当前总金币 {gm.RunGold}）");
-				}
-				}
-			}
-
-			GameManager.Instance?.SaveRun();
-			State.SetVictory();
-			CleanupCombat();
-			OnGameOver?.Invoke(true);
-			return true;
-		}
-
-		if (PlayerHero.IsDead)
-		{
-			GD.Print("[CombatManager] ☠☠☠ 玩家英雄被击败 — 玩家失败 ☠☠☠");
-
-			// 标记运行失败
-			var gm = GameManager.Instance;
-			gm?.RunState?.FailRun();
-			gm?.SaveRun();
-
-			State.SetDefeat();
-			CleanupCombat();
-			OnGameOver?.Invoke(false);
-			return true;
-		}
-
-		return false;
-	}
+	public bool CheckVictoryOrDefeat() => _victoryResolver.CheckVictoryOrDefeat();
 
 	/// <summary>
 	/// 战斗结束清理——移除所有状态牌，重置热力值等。
@@ -1863,23 +1723,11 @@ public partial class CombatManager : Node
 	private void CleanupCombat()
 	{
 		// 清理状态牌——从手牌、抽牌堆、弃牌堆中移除所有 Status 类型的卡牌
-		RemoveStatusCardsFromList(_playerCore.Hand);
-		RemoveStatusCardsFromList(_playerCore.DrawPile);
-		RemoveStatusCardsFromList(_playerCore.DiscardPile);
+		VictoryDefeatResolver.RemoveStatusCardsFromList(_playerCore.Hand);
+		VictoryDefeatResolver.RemoveStatusCardsFromList(_playerCore.DrawPile);
+		VictoryDefeatResolver.RemoveStatusCardsFromList(_playerCore.DiscardPile);
 
 		GD.Print("[CombatManager] 战斗结束——状态牌已清理，热力值已重置");
-	}
-
-	/// <summary>
-	/// 从卡牌列表中移除所有状态牌。
-	/// </summary>
-	private static void RemoveStatusCardsFromList(IList<Card.Card> cards)
-	{
-		for (int i = cards.Count - 1; i >= 0; i--)
-		{
-			if (cards[i].Type == CardType.Status)
-				cards.RemoveAt(i);
-		}
 	}
 
 	// ===== 回合管理 =====
@@ -1904,11 +1752,10 @@ public partial class CombatManager : Node
 		GD.Print("[CombatManager] ========== 玩家回合结束 ==========");
 
 		// 停止表情空闲计时器
-		StopEmoteIdleTimer();
+		_emoteSystem?.StopIdleTimer();
 
 		// 清理本回合攻击追踪
-		_canAttackThisTurn.Clear();
-		_attackCountThisTurn.Clear();
+		_attackTracker.Reset();
 
 		// 触发领域效果 — 友方回合结束时
 		_domainTriggerManager.OnPlayerTurnEnd();
@@ -1945,7 +1792,7 @@ public partial class CombatManager : Node
 		StartPlayerTurn();
 
 		// 检查胜负
-		CheckVictoryOrDefeat();
+		_victoryResolver.CheckVictoryOrDefeat();
 	}
 
 	/// <summary>
@@ -2006,7 +1853,7 @@ public partial class CombatManager : Node
 	public void ForceVictory(bool grantReward = true)
 	{
 		if (State.IsGameOver) return;
-		_devSkipGoldReward = !grantReward;
+		_victoryResolver.DevSkipGoldReward = !grantReward;
 
 		// 击杀所有敌方随从 —— 绕过伤害管线，直接用 ApplyDamage 确保击杀
 		foreach (var minion in Board.GetEnemyMinions())
@@ -2027,7 +1874,7 @@ public partial class CombatManager : Node
 		}
 
 		// 触发胜负判定（含奖励/保存/OnGameOver）
-		CheckVictoryOrDefeat();
+		_victoryResolver.CheckVictoryOrDefeat();
 		GD.Print($"[CombatManager] DevConsole 强制胜利（{(grantReward ? "含" : "跳过")}奖励）");
 	}
 
@@ -2063,7 +1910,7 @@ public partial class CombatManager : Node
 
 			// 每次执行后检查死亡（攻击意图可能杀死敌人自身或玩家）
 			CheckDeaths();
-			if (CheckVictoryOrDefeat())
+			if (_victoryResolver.CheckVictoryOrDefeat())
 			{
 				_isEnemyTurnAnimating = false;
 				return;
@@ -2077,7 +1924,7 @@ public partial class CombatManager : Node
 		CheckDeaths();
 
 		// 5. 胜负判定
-		CheckVictoryOrDefeat();
+		_victoryResolver.CheckVictoryOrDefeat();
 
 		// 6. 解冻——允许 UI 重新响应状态变更
 		_isEnemyTurnAnimating = false;
@@ -2188,13 +2035,12 @@ public partial class CombatManager : Node
 	/// </summary>
 	private void ResetAttackTracking()
 	{
-		_canAttackThisTurn.Clear();
-		_attackCountThisTurn.Clear();
+		_attackTracker.Reset();
 
 		foreach (var minion in Board.GetPlayerMinions())
 		{
 			// 上回合已存在（非新召唤）的随从可以攻击
-			_canAttackThisTurn.Add(minion);
+			_attackTracker.AddCharged(minion);
 		}
 	}
 
@@ -2375,7 +2221,7 @@ public partial class CombatManager : Node
 		State.ResumePlayerTurn();
 
 		CheckDeaths();
-		CheckVictoryOrDefeat();
+		_victoryResolver.CheckVictoryOrDefeat();
 		NotifyCombatStateChanged();
 		GD.Print("[CombatManager] 选牌完成，恢复玩家回合");
 	}
@@ -2473,7 +2319,7 @@ public partial class CombatManager : Node
 		State.ResumePlayerTurn();
 
 		CheckDeaths();
-		CheckVictoryOrDefeat();
+		_victoryResolver.CheckVictoryOrDefeat();
 		NotifyCombatStateChanged();
 		GD.Print("[CombatManager] 手牌选择完成，恢复玩家回合");
 	}
@@ -2607,7 +2453,7 @@ public partial class CombatManager : Node
 
 		// 全局清理：蜈蚣战斗可能连锁触发其他死亡
 		CheckDeaths();
-		CheckVictoryOrDefeat();
+		_victoryResolver.CheckVictoryOrDefeat();
 	}
 
 	/// <summary>
