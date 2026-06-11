@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $godot = "G:\dev\Godot_v4.6.2\godot.exe"
 $preset = "Android"
-$apk   = "$root\export\OdysseyCards.apk"
+$apk   = "$root\export\android\OdysseyCards.apk"
 $proj  = "$root\project.godot"
 
 function step($msg) { Write-Host "`n▶ $msg" -ForegroundColor Cyan }
