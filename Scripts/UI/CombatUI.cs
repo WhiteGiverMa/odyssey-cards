@@ -236,6 +236,12 @@ public partial class CombatUI : Control
 	// ===== 手牌选择模式（STS2 风格） =====
 
 	/// <summary>
+	/// 缓存上一次手牌快照，用于在 <see cref="OnHandChanged"/> 时机检测新抽到的卡牌
+	/// 并播放从抽牌堆飞向手牌的贝塞尔曲线动画（参考 STS2 的 NCardFlyVfx 模式）。
+	/// </summary>
+	private List<OdysseyCards.Card.Card> _previousHandCards = new();
+
+	/// <summary>
 	/// 是否正在手牌选择模式。
 	/// </summary>
 	private bool _isHandSelecting;
@@ -824,6 +830,10 @@ public partial class CombatUI : Control
 		_unsubscribeActions.Add(() => _combat.PlayerHero.DeckState.OnDrawPileChanged -= UpdateDeckCounts);
 		_combat.PlayerHero.DeckState.OnDiscardPileChanged += UpdateDeckCounts;
 		_unsubscribeActions.Add(() => _combat.PlayerHero.DeckState.OnDiscardPileChanged -= UpdateDeckCounts);
+
+		// 快照当前手牌——用于后续 OnHandChanged 时 diff 检测新抽到的牌
+		_previousHandCards = new List<OdysseyCards.Card.Card>(_combat.PlayerHero.Hand);
+
 		_combat.PlayerHero.DeckState.OnHandChanged += OnHandChanged;
 		_unsubscribeActions.Add(() => _combat.PlayerHero.DeckState.OnHandChanged -= OnHandChanged);
 
@@ -893,7 +903,46 @@ public partial class CombatUI : Control
 
 	private void OnHandChanged()
 	{
+		var currentHand = _combat.PlayerHero.Hand;
+
+		// 检测新抽到的卡牌（当前手牌减去上次快照）
+		var newCards = currentHand.Except(_previousHandCards).ToList();
+
+		if (newCards.Count > 0)
+		{
+			PlayDrawCardAnimations(newCards, currentHand.Count);
+		}
+
+		// 更新快照以供下次 diff
+		_previousHandCards = new List<OdysseyCards.Card.Card>(currentHand);
+
 		_handUI.RefreshHand();
+	}
+
+	/// <summary>
+	/// 播放抽牌飞行特效：为每张刚抽到的卡牌创建从抽牌堆到目标手牌位置的贝塞尔曲线飞行动画。
+	/// 动画在独立的 CardFlyLayer (CanvasLayer=20) 上运行，与手牌 UI 刷新（RefreshHand）并行。
+	/// 参考 STS2 的 NCardFlyVfx 装饰性抽牌动画模式——动画只负责视觉过渡，
+	/// 不影响实际手牌数据模型。
+	/// </summary>
+	/// <param name="newCards">刚抽到的卡牌列表（顺序：先抽到的在前，即手牌中靠左）</param>
+	/// <param name="totalHandSize">抽牌后的手牌总数，用于计算每张牌在风扇布局中的目标位置</param>
+	private void PlayDrawCardAnimations(List<OdysseyCards.Card.Card> newCards, int totalHandSize)
+	{
+		if (_cardFlyLayer == null || _drawPileBtn == null || newCards.Count == 0)
+			return;
+
+		// 抽牌堆按钮的屏幕中心——所有飞行起始点
+		Vector2 drawPileCenter = _drawPileBtn.GlobalPosition + _drawPileBtn.Size * 0.5f;
+
+		for (int i = 0; i < newCards.Count; i++)
+		{
+			// 新卡在手中从末尾开始排列（最后一张的索引 = totalHandSize - 1）
+			int handIndex = totalHandSize - newCards.Count + i;
+			Vector2 targetPos = _handUI.GetHandCardGlobalCenter(handIndex, totalHandSize);
+
+			CardFlyVfx.PlayDrawToHand(newCards[i], drawPileCenter, targetPos, _cardFlyLayer);
+		}
 	}
 
 	private void OnManaChanged(int currentMana, int maxMana)

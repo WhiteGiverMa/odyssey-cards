@@ -457,7 +457,7 @@ public partial class HandUI : Control
 		float startX = (containerWidth - totalSpread) / 2f;
 		float centerX = startX + handIndex * stepX + scaledWidth * 0.5f;
 
-		// 手牌区域在屏幕底部，卡牌静止时 Y ≈ 0（HandUI 局部坐标）
+		// 卡牌在容器内 Y=0 布局，中心 ≈ cardHeight * BASE_SCALE / 2
 		Vector2 localCenter = new(centerX, cardHeight * BASE_SCALE * 0.5f);
 		return GlobalPosition + localCenter;
 	}
