@@ -185,42 +185,32 @@ public partial class CombatManager : Node
 	/// </summary>
 	public bool IsEnemyTurnAnimating => _isEnemyTurnAnimating;
 
-	// ===== 发现选牌状态 =====
+	// ===== 发现选牌 / 手牌选择 =====
+
+	/// <summary>
+	/// 选择系统——管理发现选牌、手牌选择等所有选择交互。
+	/// </summary>
+	private SelectionSystem _selectionSystem = null!;
 
 	/// <summary>
 	/// 当前正在等待玩家进行发现选牌或手牌选择。
 	/// </summary>
-	public bool IsDiscovering => _pendingDiscoverOptions != null || _pendingHandDiscardSelection != null;
+	public bool IsDiscovering => _selectionSystem?.IsDiscovering ?? false;
 
 	/// <summary>
-	/// 当前发现选牌的 N 个候选卡牌（只读）。
+	/// 当前发现选牌的 N 张候选卡牌（只读）。
 	/// </summary>
-	public IReadOnlyList<CardData>? DiscoverOptions => _pendingDiscoverOptions?.AsReadOnly();
-
-	/// <summary>
-	/// 发现选牌候选卡牌列表（null 表示不在发现阶段）。
-	/// </summary>
-	private List<CardData>? _pendingDiscoverOptions;
-
-	/// <summary>
-	/// 当前发现/选牌界面候选的运行时卡牌。用于从弃牌堆选择原卡牌实例。
-	/// </summary>
-	private List<Card.Card>? _pendingDiscoverRuntimeOptions;
+	public IReadOnlyList<CardData>? DiscoverOptions => _selectionSystem?.DiscoverOptions;
 
 	/// <summary>
 	/// 当前选牌需要选择的张数。
 	/// </summary>
-	public int DiscoverPickCount { get; private set; } = 1;
+	public int DiscoverPickCount => _selectionSystem?.DiscoverPickCount ?? 1;
 
 	/// <summary>
 	/// 当前选牌是否使用运行时卡牌实例。
 	/// </summary>
-	public IReadOnlyList<Card.Card>? DiscoverRuntimeOptions => _pendingDiscoverRuntimeOptions?.AsReadOnly();
-
-	/// <summary>
-	/// 触发发现效果的法术牌（选牌完成后从手牌移除）。
-	/// </summary>
-	private Card.Card? _pendingDiscoverSpellCard;
+	public IReadOnlyList<Card.Card>? DiscoverRuntimeOptions => _selectionSystem?.DiscoverRuntimeOptions;
 
 	public enum PendingSelectionMode
 	{
@@ -230,54 +220,30 @@ public partial class CombatManager : Node
 		BladeCrisis
 	}
 
-	private PendingSelectionMode _pendingSelectionMode = PendingSelectionMode.Discover;
-
 	/// <summary>
 	/// 当前选牌模式，供 UI 读取以自定义标题/行为。
 	/// </summary>
-	public PendingSelectionMode CurrentSelectionMode => _pendingSelectionMode;
-
-	// ===== 手牌选择状态（STS2 风格） =====
-
-	/// <summary>
-	/// 当前待选的手牌列表。null 表示不在手牌选择模式。
-	/// </summary>
-	private List<Card.Card>? _pendingHandDiscardSelection;
-
-	/// <summary>
-	/// 手牌选择需选的最小张数。
-	/// </summary>
-	private int _pendingDiscardMin;
-
-	/// <summary>
-	/// 手牌选择可选的最大张数。
-	/// </summary>
-	private int _pendingDiscardMax;
-
-	/// <summary>
-	/// 是否为刀盾危机模式（完成后需要放置 Token + 抽牌）。
-	/// </summary>
-	private bool _pendingDiscardIsBladeCrisis;
+	public PendingSelectionMode CurrentSelectionMode => _selectionSystem?.CurrentSelectionMode ?? PendingSelectionMode.Discover;
 
 	/// <summary>
 	/// 是否处于手牌选择模式（STS2 风格）。
 	/// </summary>
-	public bool IsHandSelecting => _pendingHandDiscardSelection != null;
+	public bool IsHandSelecting => _selectionSystem?.IsHandSelecting ?? false;
 
 	/// <summary>
 	/// 手牌选择模式的待选卡牌列表（只读）。
 	/// </summary>
-	public IReadOnlyList<Card.Card>? HandSelectOptions => _pendingHandDiscardSelection?.AsReadOnly();
+	public IReadOnlyList<Card.Card>? HandSelectOptions => _selectionSystem?.HandSelectOptions;
 
 	/// <summary>
 	/// 手牌选择最少需选张数。
 	/// </summary>
-	public int HandSelectMin => _pendingDiscardMin;
+	public int HandSelectMin => _selectionSystem?.HandSelectMin ?? 0;
 
 	/// <summary>
 	/// 手牌选择最多可选张数。
 	/// </summary>
-	public int HandSelectMax => _pendingDiscardMax;
+	public int HandSelectMax => _selectionSystem?.HandSelectMax ?? 0;
 
 	// ===== 规则子系统 =====
 
@@ -300,6 +266,16 @@ public partial class CombatManager : Node
 	/// 胜负判定器——检查战斗结束条件、发放金币、触发胜负事件。
 	/// </summary>
 	private VictoryDefeatResolver _victoryResolver = null!;
+
+	/// <summary>
+	/// 死亡处理器——管理随从死亡检测、亡语触发、牌堆回收。
+	/// </summary>
+	private DeathHandler _deathHandler = null!;
+
+	/// <summary>
+	/// 武器攻击系统——管理玩家英雄的武器攻击与主动技能。
+	/// </summary>
+	private WeaponAttackSystem _weaponAttack = null!;
 
 	// ===== Godot 生命周期 =====
 
@@ -495,12 +471,6 @@ public partial class CombatManager : Node
 		foreach (var unit in enemyUnits)
 			unit.Body.OnDeath += _ => _victoryResolver.CheckVictoryOrDefeat();
 
-		// 亡语驱动：随从死亡时自动触发亡语（替换不触发），无需在各处手动调用
-		Board.OnMinionDied += TriggerDeathrattle;
-
-		// 牌堆回收驱动：随从死亡时自动进入弃牌堆或返回抽牌堆（轮战），无需在各处手动调用
-		Board.OnMinionDied += HandleMinionDeathPile;
-
 		// 状态变更事件：随从部署/移除时触发，驱动意图 UI 实时刷新
 		Board.OnMinionPlaced += (_, _) => NotifyCombatStateChanged();
 		Board.OnMinionRemoved += (_) => NotifyCombatStateChanged();
@@ -518,15 +488,37 @@ public partial class CombatManager : Node
 		_relicManager = GameManager.Instance.Relics ?? new RelicManager();
 		// 藏品修改热力值（如冰袋）
 		_relicManager.ModifyHeatSystem(_heatSystem);
+		_selectionSystem = new SelectionSystem(
+			PlayerHero,
+			_playerCore,
+			Board,
+			State,
+			NotifyCombatStateChanged,
+			CheckDeaths,
+			() => _victoryResolver.CheckVictoryOrDefeat());
+
 		_effectDispatcher = new CardEffectDispatcher(
 			_playerCore,
 			PlayerHero,
 			Board,
 			State,
 			NotifyCombatStateChanged,
-			HandleDiscoverEffect,
-			BeginDiscardDiscoverSelection,
-			BeginHandDiscardSelection);
+			_selectionSystem.HandleDiscoverEffect,
+			_selectionSystem.BeginDiscardDiscoverSelection,
+			_selectionSystem.BeginHandDiscardSelection);
+		_deathHandler = new DeathHandler(Board, PlayerHero, _effectDispatcher, _attackTracker);
+		_weaponAttack = new WeaponAttackSystem(
+			Board,
+			PlayerHero,
+			EnemyUnits,
+			State,
+			_attackTracker,
+			_deathHandler,
+			NotifyCombatStateChanged,
+			() => IsDiscovering,
+			TriggerBaitTacticsOnAttacked,
+			(won) => OnGameOver?.Invoke(won),
+			this);
 		_domainTriggerManager = new DomainTriggerManager(
 			_playerCore,
 			PlayerHero,
@@ -556,25 +548,6 @@ public partial class CombatManager : Node
 		GD.Print($"[CombatManager] 初始化完成 — 玩家 {PlayerHero.CurrentHealth}/{PlayerHero.MaxHealth}，" +
 				  $"敌方 {EnemyUnits.Count} 个单位：" +
 				  string.Join(", ", EnemyUnits.Select(u => $"{u.Brain.Name} {u.Body.CurrentHealth}/{u.Body.MaxHealth}")));
-	}
-
-	private void BeginDiscardDiscoverSelection(List<Card.Card> options, int pickCount)
-	{
-		_pendingDiscoverRuntimeOptions = options;
-		_pendingDiscoverOptions = options.Select(c => c.Data).ToList();
-		DiscoverPickCount = Math.Min(pickCount, options.Count);
-		_pendingSelectionMode = PendingSelectionMode.Discard;
-		State.SetDiscovering();
-		NotifyCombatStateChanged();
-	}
-
-	private void BeginHandDiscardSelection(List<Card.Card> handOptions, int min, int max, bool isBladeCrisis)
-	{
-		_pendingHandDiscardSelection = handOptions;
-		_pendingDiscardMin = min;
-		_pendingDiscardMax = max;
-		_pendingDiscardIsBladeCrisis = isBladeCrisis;
-		SetHandSelectingState();
 	}
 
 	/// <summary>
@@ -909,7 +882,7 @@ public partial class CombatManager : Node
 			if (IsDiscovering)
 			{
 				selectionTriggered = true;
-				_pendingDiscoverSpellCard = card;
+				_selectionSystem.SetPendingDiscoverSpellCard(card);
 			}
 		}
 
@@ -1401,68 +1374,7 @@ public partial class CombatManager : Node
 	/// <returns>攻击成功返回 true</returns>
 	public bool HeroWeaponAttackHero(Hero target)
 	{
-		if (IsDiscovering)
-		{
-			GD.PrintErr("[CombatManager] HeroWeaponAttackHero 失败 — 正在发现选牌阶段");
-			return false;
-		}
-
-		if (!State.IsPlayerTurn)
-		{
-			GD.PrintErr("[CombatManager] HeroWeaponAttackHero 失败 — 不是玩家回合");
-			return false;
-		}
-
-		if (!PlayerHero.CanWeaponAttack())
-		{
-			GD.PrintErr("[CombatManager] HeroWeaponAttackHero 失败 — 武器不可用");
-			return false;
-		}
-
-		if (!PlayerHero.CanSpendMana(PlayerHero.Weapon!.AttackCost))
-		{
-			GD.PrintErr($"[CombatManager] HeroWeaponAttackHero 失败 — 法力不足（需 {PlayerHero.Weapon.AttackCost}，现有 {PlayerHero.CurrentMana}）");
-			return false;
-		}
-
-		// 消耗法力
-		PlayerHero.SpendMana(PlayerHero.Weapon.AttackCost);
-
-		// 计算武器伤害
-		int weaponDamage = PlayerHero.Weapon.GetModifiedDamage(PlayerHero.Weapon.Attack);
-
-		GD.Print($"[CombatManager] ⚔ 玩家英雄使用 {PlayerHero.Weapon.Name} 攻击敌方英雄，造成 {weaponDamage} 点伤害");
-
-		// 对敌方英雄造成伤害（敌方英雄的武器反击由 Hero.TakeDamage → CounterAttack 自动处理）
-		target.TakeDamage(weaponDamage, PlayerHero);
-
-		// 触发武器被动命中效果（如熔毁：目标防御-1）
-		PlayerHero.Weapon?.PassiveSkill?.OnWeaponHit(target, PlayerHero);
-
-		// 记录武器攻击
-		PlayerHero.RecordWeaponAttack();
-
-		GD.Print($"[CombatManager]   敌方英雄剩余生命值：{target.CurrentHealth}（护甲：{target.CurrentArmor}）");
-
-		// 检查我方英雄是否被敌方武器反击致死
-		if (PlayerHero.IsDead)
-		{
-			GD.Print("[CombatManager]   ☠ 玩家英雄在武器攻击时被敌方武器反击击杀！");
-			GameManager.Instance?.RunState?.FailRun();
-			State.SetDefeat();
-			OnGameOver?.Invoke(false);
-			return true;
-		}
-
-		// 检查胜负
-		if (target.IsDead)
-		{
-			GD.Print("[CombatManager]   ★ 敌方英雄被击败！");
-			State.SetVictory();
-			OnGameOver?.Invoke(true);
-		}
-
-		return true;
+		return _weaponAttack.HeroWeaponAttackHero(target);
 	}
 
 	/// <summary>
@@ -1474,113 +1386,7 @@ public partial class CombatManager : Node
 	/// <returns>攻击成功返回 true</returns>
 	public bool HeroWeaponAttackMinion(Minion target)
 	{
-		if (IsDiscovering)
-		{
-			GD.PrintErr("[CombatManager] HeroWeaponAttackMinion 失败 — 正在发现选牌阶段");
-			return false;
-		}
-
-		if (!State.IsPlayerTurn)
-		{
-			GD.PrintErr("[CombatManager] HeroWeaponAttackMinion 失败 — 不是玩家回合");
-			return false;
-		}
-
-		if (!PlayerHero.CanWeaponAttack())
-		{
-			GD.PrintErr("[CombatManager] HeroWeaponAttackMinion 失败 — 武器不可用");
-			return false;
-		}
-
-		if (!PlayerHero.CanSpendMana(PlayerHero.Weapon!.AttackCost))
-		{
-			GD.PrintErr($"[CombatManager] HeroWeaponAttackMinion 失败 — 法力不足（需 {PlayerHero.Weapon.AttackCost}，现有 {PlayerHero.CurrentMana}）");
-			return false;
-		}
-
-		if (target == null || target.IsDead)
-		{
-			GD.PrintErr("[CombatManager] HeroWeaponAttackMinion 失败 — 目标无效");
-			return false;
-		}
-
-		if (target.IsPlayerSide)
-		{
-			GD.PrintErr("[CombatManager] HeroWeaponAttackMinion 失败 — 不能攻击己方随从");
-			return false;
-		}
-
-		// 嘲讽检测：武器攻击也受嘲讽限制
-		var enemyTaunts = Board.GetTaunts(ofEnemy: true);
-		if (enemyTaunts.Count > 0 && !enemyTaunts.Contains(target))
-		{
-			GD.PrintErr($"[CombatManager] HeroWeaponAttackMinion 失败 — 敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
-			return false;
-		}
-
-		// 消耗法力
-		PlayerHero.SpendMana(PlayerHero.Weapon.AttackCost);
-
-		// 计算武器伤害
-		int weaponDamage = PlayerHero.Weapon.GetModifiedDamage(PlayerHero.Weapon.Attack);
-
-		GD.Print($"[CombatManager] ⚔ 玩家英雄使用 {PlayerHero.Weapon.Name} 攻击 {target.CardName}，造成 {weaponDamage} 点伤害");
-
-		TriggerBaitTacticsOnAttacked(target);
-
-		// 伏击检查：目标有伏击且本回合未消耗时，目标先手攻击英雄
-		bool targetAmbush = target.HasAmbush && !target.AmbushUsedThisTurn;
-		if (targetAmbush)
-		{
-			target.AmbushUsedThisTurn = true;
-			GD.Print($"[CombatManager]   ⚡ {target.CardName} 伏击先手，对英雄造成 {target.Attack} 伤害");
-			PlayerHero.SuppressWeaponCounter = true;
-			PlayerHero.TakeDamage(target.Attack, target);
-			PlayerHero.SuppressWeaponCounter = false;
-
-			// 伏击击杀英雄 → 攻击被取消
-			if (PlayerHero.IsDead)
-			{
-				GD.Print($"[CombatManager]   ☠ 玩家英雄被 {target.CardName} 伏击击杀，攻击被取消");
-				return false;
-			}
-		}
-
-		// 英雄武器攻击随从（第一次伤害：英雄→随从）
-		target.TakeDamage(weaponDamage, PlayerHero);
-
-		// 触发武器被动命中效果（如熔毁：目标防御-1）
-		PlayerHero.Weapon?.PassiveSkill?.OnWeaponHit(target, PlayerHero);
-
-		// 随从反击英雄（第二次伤害：随从→英雄）。
-		// 如果伏击已触发则跳过——伏击先手已经完成了随从的反击。
-		// 抑制武器反击，避免英雄武器对随从的反击再次触发。
-		if (!target.IsDead && !targetAmbush)
-		{
-			PlayerHero.SuppressWeaponCounter = true;
-			PlayerHero.TakeDamage(target.Attack, target);
-			PlayerHero.SuppressWeaponCounter = false;
-		}
-
-		target.TriggerIdolTwilightOnAttacked();
-
-		// 记录武器攻击
-		PlayerHero.RecordWeaponAttack();
-
-		GD.Print($"[CombatManager]   交锋后 — 英雄剩余 {PlayerHero.CurrentHealth}HP，" +
-				  $"{target.CardName}：{target.CurrentHealth}血");
-
-		// 检查随从死亡
-		if (target.IsDead)
-		{
-			GD.Print($"[CombatManager]   ☠ {target.CardName} 被击杀");
-			Board.RemoveMinion(target);
-		}
-
-		// 全局死亡检查
-		CheckDeaths();
-		// 胜负判定由 Hero.OnDeath 事件驱动，不再手动调用
-		return true;
+		return _weaponAttack.HeroWeaponAttackMinion(target);
 	}
 
 	/// <summary>
@@ -1590,120 +1396,18 @@ public partial class CombatManager : Node
 	/// <returns>执行成功返回 true</returns>
 	public bool UseWeaponActiveSkill()
 	{
-		if (IsDiscovering)
-		{
-			GD.PrintErr("[CombatManager] UseWeaponActiveSkill 失败 — 正在发现选牌阶段");
-			return false;
-		}
-
-		if (!State.IsPlayerTurn)
-		{
-			GD.PrintErr("[CombatManager] UseWeaponActiveSkill 失败 — 不是玩家回合");
-			return false;
-		}
-
-		var active = PlayerHero.Weapon?.ActiveSkill;
-		if (active == null)
-		{
-			GD.PrintErr("[CombatManager] UseWeaponActiveSkill 失败 — 武器无主动技能");
-			return false;
-		}
-
-		if (!active.CanUse(PlayerHero))
-		{
-			GD.PrintErr($"[CombatManager] UseWeaponActiveSkill 失败 — 技能不可用（冷却 {active.CurrentCooldown}，法力 {PlayerHero.CurrentMana}/{active.Cost}）");
-			return false;
-		}
-
-		// 清除上一帧残留的目标选择
-		ActiveSkillTarget = null;
-
-		GD.Print($"[CombatManager] ★ 使用武器主动技能：{active.Name}");
-		active.Execute(PlayerHero, this);
-
-		// 触发武器被动命中效果（如熔毁：目标防御-1）
-		if (ActiveSkillTarget != null)
-		{
-			PlayerHero.Weapon?.PassiveSkill?.OnWeaponHit(ActiveSkillTarget, PlayerHero);
-			ActiveSkillTarget = null;
-		}
-
-		return true;
+		return _weaponAttack.UseWeaponActiveSkill();
 	}
 
-	// ===== 死亡检测与亡语处理 =====
+	// ===== 死亡检测与亡语处理（已委托给 DeathHandler） =====
 
 	/// <summary>
 	/// 遍历战场双方所有随从，移除已死亡随从并触发亡语效果。
-	/// 先收集再处理以避免迭代中修改集合。
-	/// 死亡随从从槽位直接收集（GetPlayerMinions 会过滤死亡随从，不能用）。
+	/// 委托给 <see cref="DeathHandler.CheckDeaths"/>。
 	/// </summary>
 	internal void CheckDeaths()
 	{
-		var deadMinions = new List<Minion>();
-		for (int i = 0; i < Board.MaxSlotsPerSide; i++)
-		{
-			if (Board.PlayerSlots[i] is Minion m && m.IsDead)
-				deadMinions.Add(m);
-			if (Board.EnemySlots[i] is Minion em && em.IsDead)
-				deadMinions.Add(em);
-		}
-
-		foreach (var minion in deadMinions)
-		{
-			GD.Print($"[CombatManager] ☠ {minion.CardName}（{minion.IsPlayerSide switch { true => "玩家方", false => "敌方" }}）死亡");
-
-			// Board.RemoveMinion 自动触发：
-			//   - TriggerDeathrattle（亡语）
-			//   - HandleMinionDeathPile（轮战回收 / 进入弃牌堆）
-			//   - NotifyCombatStateChanged（UI 刷新）
-			Board.RemoveMinion(minion);
-
-			// 清理攻击追踪
-			_attackTracker.Remove(minion);
-		}
-	}
-
-	/// <summary>
-	/// 触发随从的亡语效果。
-	/// 原型阶段仅输出日志；后续可扩展为完整效果解析。
-	/// </summary>
-	/// <param name="minion">已死亡的随从</param>
-	private void TriggerDeathrattle(Minion minion)
-	{
-		if (!minion.HasDeathrattle)
-			return;
-
-		GD.Print($"[CombatManager]   ◆ 触发亡语：{minion.CardName}");
-		foreach (var effect in minion.DeathrattleEffects)
-		{
-			GD.Print($"[CombatManager]     亡语效果：{effect.GetDescription()}");
-			ExecuteEffect(effect, minion, minion);
-		}
-	}
-
-	/// <summary>
-	/// 处理随从死亡后的牌堆流转（订阅 <see cref="Board.OnMinionRemoved"/> 事件自动触发）。
-	/// 玩家方随从：轮战→返回抽牌堆底部，否则→进入弃牌堆。
-	/// 敌方随从不参与牌堆流转。
-	/// </summary>
-	/// <param name="minion">已从棋盘移除的随从</param>
-	private void HandleMinionDeathPile(Minion minion)
-	{
-		if (!minion.IsPlayerSide)
-			return;
-
-		var cardFromMinion = minion.ToRuntimeCard();
-		if (minion.HasRecycle)
-		{
-			PlayerHero.AddToDrawPileBottom(cardFromMinion);
-			GD.Print($"[CombatManager]   ♻ {minion.CardName}（轮战）返回抽牌堆底部");
-		}
-		else
-		{
-			PlayerHero.AddToDiscardPile(cardFromMinion);
-			GD.Print($"[CombatManager]   🗑 {minion.CardName} 进入弃牌堆");
-		}
+		_deathHandler.CheckDeaths();
 	}
 
 	// ===== 胜负判定（已委托给 VictoryDefeatResolver） =====
@@ -2055,75 +1759,11 @@ public partial class CombatManager : Node
 	// ===== 发现选牌系统 =====
 
 	/// <summary>
-	/// 处理发现效果——从卡牌池中随机生成 N 张候选卡牌，进入发现选牌阶段。
+	/// 处理发现效果——委托给 <see cref="SelectionSystem"/>。
 	/// </summary>
-	/// <param name="effect">Discover 效果数据。Value=选项数量，TargetType=稀有度过滤（可选，"all"=全部）</param>
-	private void HandleDiscoverEffect(CardEffectData effect)
-	{
-		int count = effect.Value > 0 ? effect.Value : 3;
-		var pool = GetRandomCardsFromPool(count);
-		if (pool.Count == 0)
-		{
-			GD.PrintErr("[CombatManager] HandleDiscoverEffect 失败 — 卡牌池为空");
-			return;
-		}
-
-		_pendingDiscoverOptions = pool;
-		_pendingDiscoverRuntimeOptions = null;
-		DiscoverPickCount = 1;
-		_pendingSelectionMode = PendingSelectionMode.Discover;
-		State.SetDiscovering();
-		GD.Print($"[CombatManager] ◆ 发现：展示 {pool.Count} 张候选卡牌");
-		foreach (var c in pool)
-			GD.Print($"[CombatManager]     {c.GetLocalizedName()} — {c.Description}");
-
-		NotifyCombatStateChanged();
-	}
-
-	/// <summary>
-	/// 确认发现选牌结果——由 DiscoverUI 在选择/跳过时调用。
-	/// </summary>
-	/// <param name="chosen">玩家选中的卡牌数据，null 表示跳过</param>
 	public void ConfirmDiscoverChoice(CardData? chosen)
 	{
-		if (!IsDiscovering)
-		{
-			GD.PrintErr("[CombatManager] ConfirmDiscoverChoice 失败 — 不在发现阶段");
-			return;
-		}
-
-		if (chosen != null)
-		{
-			GD.Print($"[CombatManager] ◆ 发现选牌：{chosen.GetLocalizedName()}");
-
-			var card = new OdysseyCards.Card.Card(chosen);
-			_playerCore.AddToHand(card);
-			GD.Print($"[CombatManager]   已将 {chosen.GetLocalizedName()} 加入手牌（共 {_playerCore.Hand.Count} 张）");
-		}
-		else
-		{
-			GD.Print("[CombatManager] ◆ 发现选牌：跳过");
-		}
-
-		// 移除触发发现的法术牌
-		if (_pendingDiscoverSpellCard != null)
-		{
-			PlayerHero.RemoveFromHand(_pendingDiscoverSpellCard);
-			_pendingDiscoverSpellCard = null;
-		}
-
-		// 清除发现状态
-		_pendingDiscoverOptions = null;
-		_pendingDiscoverRuntimeOptions = null;
-		DiscoverPickCount = 1;
-		_pendingSelectionMode = PendingSelectionMode.Discover;
-		State.ResumePlayerTurn();
-
-		// 检查死亡
-		CheckDeaths();
-
-		NotifyCombatStateChanged();
-		GD.Print("[CombatManager] 发现选牌完成，恢复玩家回合");
+		_selectionSystem.ConfirmDiscoverChoice(chosen);
 	}
 
 	/// <summary>
@@ -2131,269 +1771,33 @@ public partial class CombatManager : Node
 	/// </summary>
 	public void CancelDiscover()
 	{
-		ConfirmDiscoverChoice(null);
+		_selectionSystem.CancelDiscover();
 	}
 
 	/// <summary>
-	/// 确认运行时卡牌选择结果。当前用于「捞月」从弃牌堆移牌回手牌。
+	/// 确认运行时卡牌选择结果——委托给 <see cref="SelectionSystem"/>。
 	/// </summary>
 	public void ConfirmDiscoverCards(IReadOnlyList<Card.Card> chosenCards)
 	{
-		if (!IsDiscovering)
-		{
-			GD.PrintErr("[CombatManager] ConfirmDiscoverCards 失败 — 不在选牌阶段");
-			return;
-		}
-
-		if (_pendingDiscoverSpellCard != null)
-		{
-			PlayerHero.DiscardCard(_pendingDiscoverSpellCard);
-			_pendingDiscoverSpellCard = null;
-		}
-
-		if (_pendingSelectionMode == PendingSelectionMode.Discard)
-		{
-			int moved = 0;
-			foreach (var card in chosenCards)
-			{
-				if (moved >= DiscoverPickCount) break;
-				if (_playerCore.Hand.Count >= _playerCore.MaxHandSize)
-				{
-					GD.Print($"[CombatManager]   手牌已满（{_playerCore.MaxHandSize}张），停止加入弃牌堆卡牌");
-					break;
-				}
-
-				if (PlayerHero.DeckState.MoveFromDiscardToHand(card))
-					moved++;
-			}
-			GD.Print($"[CombatManager] ◆ 捞月完成：加入 {moved} 张牌");
-		}
-		else if (_pendingSelectionMode == PendingSelectionMode.ChooseDiscard)
-		{
-			int discarded = 0;
-			foreach (var card in chosenCards)
-			{
-				if (discarded >= DiscoverPickCount) break;
-				PlayerHero.DiscardCard(card);
-				discarded++;
-			}
-			GD.Print($"[CombatManager] ◆ 弃牌完成：弃掉 {discarded} 张牌");
-		}
-		else if (_pendingSelectionMode == PendingSelectionMode.BladeCrisis)
-		{
-			int discarded = 0;
-			foreach (var card in chosenCards)
-			{
-				PlayerHero.DiscardCard(card);
-				discarded++;
-			}
-			GD.Print($"[CombatManager]   刀盾危机弃牌：弃掉{discarded}张");
-
-			var tokenData = GD.Load<CardData>("res://Resources/Cards/Minion_WhatTheDogDoing.tres");
-			if (tokenData != null)
-			{
-				for (int i = 0; i < discarded; i++)
-				{
-					int emptySlot = Board.GetEmptySlotIndex(isPlayerSide: true);
-					if (emptySlot >= 0)
-					{
-						var tokenMinion = new Minion(tokenData, isPlayerSide: true);
-						Board.PlaceMinion(tokenMinion, emptySlot);
-						GD.Print($"[CombatManager]   刀盾危机：在槽位{emptySlot}放置我的刀盾");
-					}
-					else
-					{
-						GD.Print($"[CombatManager]   刀盾危机：棋盘已满，停止放置（已放{i}个）");
-						break;
-					}
-				}
-			}
-			else GD.PrintErr("[CombatManager] 刀盾危机：无法加载我的刀盾Token卡牌");
-
-			PlayerHero.DrawCards(discarded);
-			GD.Print($"[CombatManager] ◆ 刀盾危机完成：弃{discarded}张，抽{discarded}张");
-		}
-
-		_pendingDiscoverOptions = null;
-		_pendingDiscoverRuntimeOptions = null;
-		DiscoverPickCount = 1;
-		_pendingSelectionMode = PendingSelectionMode.Discover;
-		State.ResumePlayerTurn();
-
-		CheckDeaths();
-		_victoryResolver.CheckVictoryOrDefeat();
-		NotifyCombatStateChanged();
-		GD.Print("[CombatManager] 选牌完成，恢复玩家回合");
+		_selectionSystem.ConfirmDiscoverCards(chosenCards);
 	}
 
 	// ===== 手牌选择系统（STS2 风格） =====
 
 	/// <summary>
-	/// 进入手牌选择状态（调用 State.SetDiscovering 暂停回合流转）。
+	/// 确认手牌选择——委托给 <see cref="SelectionSystem"/>。
 	/// </summary>
-	private void SetHandSelectingState()
-	{
-		State.SetDiscovering();
-		NotifyCombatStateChanged();
-	}
-
-	/// <summary>
-	/// 确认手牌选择——由 CombatUI 的确认按钮调用。
-	/// 根据是否为刀盾危机执行不同的结算逻辑。
-	/// </summary>
-	/// <param name="selectedCards">玩家选中的卡牌列表</param>
 	public void ConfirmHandDiscardSelection(IReadOnlyList<Card.Card> selectedCards)
 	{
-		if (_pendingHandDiscardSelection == null)
-		{
-			GD.PrintErr("[CombatManager] ConfirmHandDiscardSelection 失败 — 不在手牌选择模式");
-			return;
-		}
-
-		int count = selectedCards.Count;
-		if (count < _pendingDiscardMin || count > _pendingDiscardMax)
-		{
-			GD.PrintErr($"[CombatManager] ConfirmHandDiscardSelection 失败 — 选择了{count}张，需要{_pendingDiscardMin}-{_pendingDiscardMax}张");
-			return;
-		}
-
-		if (_pendingDiscardIsBladeCrisis)
-		{
-			// 刀盾危机：弃牌 + 放置Token + 抽牌
-			int discarded = 0;
-			foreach (var card in selectedCards)
-			{
-				PlayerHero.DiscardCard(card);
-				discarded++;
-			}
-			GD.Print($"[CombatManager]   刀盾危机弃牌：弃掉{discarded}张");
-
-			var tokenData = GD.Load<CardData>("res://Resources/Cards/Minion_WhatTheDogDoing.tres");
-			if (tokenData != null)
-			{
-				for (int i = 0; i < discarded; i++)
-				{
-					int emptySlot = Board.GetEmptySlotIndex(isPlayerSide: true);
-					if (emptySlot >= 0)
-					{
-						var tokenMinion = new Minion(tokenData, isPlayerSide: true);
-						Board.PlaceMinion(tokenMinion, emptySlot);
-						GD.Print($"[CombatManager]   刀盾危机：在槽位{emptySlot}放置我的刀盾");
-					}
-					else
-					{
-						GD.Print($"[CombatManager]   刀盾危机：棋盘已满，停止放置（已放{i}个）");
-						break;
-					}
-				}
-			}
-			else GD.PrintErr("[CombatManager] 刀盾危机：无法加载我的刀盾Token卡牌");
-
-			PlayerHero.DrawCards(discarded);
-			GD.Print($"[CombatManager] ◆ 刀盾危机完成：弃{discarded}张，抽{discarded}张");
-		}
-		else
-		{
-			// 普通主动弃牌（白色军团等）
-			int discarded = 0;
-			foreach (var card in selectedCards)
-			{
-				if (discarded >= _pendingDiscardMax) break;
-				PlayerHero.DiscardCard(card);
-				discarded++;
-			}
-			GD.Print($"[CombatManager] ◆ 弃牌完成：弃掉 {discarded} 张牌");
-		}
-
-		// 清理触发法术牌
-		if (_pendingDiscoverSpellCard != null)
-		{
-			PlayerHero.DiscardCard(_pendingDiscoverSpellCard);
-			_pendingDiscoverSpellCard = null;
-		}
-
-		_pendingHandDiscardSelection = null;
-		_pendingDiscardMin = 0;
-		_pendingDiscardMax = 0;
-		_pendingDiscardIsBladeCrisis = false;
-		State.ResumePlayerTurn();
-
-		CheckDeaths();
-		_victoryResolver.CheckVictoryOrDefeat();
-		NotifyCombatStateChanged();
-		GD.Print("[CombatManager] 手牌选择完成，恢复玩家回合");
+		_selectionSystem.ConfirmHandDiscardSelection(selectedCards);
 	}
 
 	/// <summary>
-	/// 取消手牌选择——ESC/右键时由 CombatUI 调用。
-	/// 清除待选状态并恢复玩家回合，不弃任何牌。
+	/// 取消手牌选择——委托给 <see cref="SelectionSystem"/>。
 	/// </summary>
 	public void CancelHandDiscardSelection()
 	{
-		if (_pendingHandDiscardSelection == null)
-		{
-			GD.Print("[CombatManager] CancelHandDiscardSelection 跳过 — 不在手牌选择模式");
-			return;
-		}
-
-		// 清理触发法术牌（取消时法术仍进入弃牌堆）
-		if (_pendingDiscoverSpellCard != null)
-		{
-			PlayerHero.DiscardCard(_pendingDiscoverSpellCard);
-			_pendingDiscoverSpellCard = null;
-		}
-
-		_pendingHandDiscardSelection = null;
-		_pendingDiscardMin = 0;
-		_pendingDiscardMax = 0;
-		_pendingDiscardIsBladeCrisis = false;
-		State.ResumePlayerTurn();
-		NotifyCombatStateChanged();
-		GD.Print("[CombatManager] 手牌选择已取消");
-	}
-
-	/// <summary>
-	/// 从全卡牌池中随机抽取不重复的 N 张卡牌。
-	/// 加载 Resources/Cards/ 下所有 .tres 文件，Fisher-Yates 洗牌后取前 N 张。
-	/// </summary>
-	/// <param name="count">需要的卡牌数量</param>
-	/// <returns>随机卡牌列表</returns>
-	private List<CardData> GetRandomCardsFromPool(int count)
-	{
-		var pool = new List<CardData>();
-
-		// 从 GameManager 注册表加载全卡牌池（编辑器和导出版本均可用）
-		var allCards = GameManager.Instance.GetAllCards();
-		foreach (var cardData in allCards)
-		{
-			if (cardData != null && !string.IsNullOrEmpty(cardData.Id))
-			{
-				pool.Add(cardData);
-			}
-		}
-
-		GD.Print($"[CombatManager] GetRandomCardsFromPool: 卡牌池共 {pool.Count} 张，请求 {count} 张");
-
-		// 排除不可发现的卡牌（如「发现」自身不能发现「发现」）
-		var nonDiscoverableIds = new System.Collections.Generic.HashSet<string>
-		{
-			"spell_Discover",
-		};
-		pool.RemoveAll(c => nonDiscoverableIds.Contains(c.Id));
-		GD.Print($"[CombatManager]   过滤后池共 {pool.Count} 张");
-
-		if (pool.Count <= count)
-			return pool;
-
-		// Fisher-Yates 洗牌后取前 count 张
-		using var rng = new RandomNumberGenerator();
-		rng.Randomize();
-		for (int i = pool.Count - 1; i > 0; i--)
-		{
-			int j = rng.RandiRange(0, i);
-			(pool[i], pool[j]) = (pool[j], pool[i]);
-		}
-		return pool.Take(count).ToList();
+		_selectionSystem.CancelHandDiscardSelection();
 	}
 
 	/// <summary>
