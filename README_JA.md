@@ -2,155 +2,143 @@
 
 # Shoujo Odyssey Cards<br><small>少女オデッセイカード</small>
 
-ハースストーン風のターン制カードバトル Roguelite — Godot 4.6 + C#
+ハースストーン風のターン制カードバトル Roguelite — Godot 4.6 + C#。
 
-> **ブランチ:** `dev` | **状態:** プレイ可能 MVP
-> 59 `.cs` ファイル、約 17,700 行。ターン制戦闘ループが完全に動作し、カードコレクション、マップルート、セーブ機能を搭載。
+> **ブランチ:** `dev` | **状態:** プレイ可能 MVP、拡張中<br>
+> 165 個の `Scripts/*.cs`、約 39,000 行のゲームコード。戦闘ループ、コレクション、マップ、セーブ、多言語、開発者コンソール、ランタイム QA が動作。
 
 ## コアシステム
 
 ### カードバトル
 
-2×5 のミニオンボード（両サイド各 5 スロット）でのターン制戦闘。マナクリスタルシステム（初期 1、毎ターン +1、最大 10）。
+2×5 のミニオンボードで行うターン制戦闘。マナ、アーマー、武器、領域、レリックフック、Heat ダメージ圧力が存在します。
 
-- **ミニオン (Minion)**：ボードに配置可能、攻撃力/体力を持ち、7 種のキーワードに対応
-- **呪文 (Spell)**：手札からプレイすると即座に効果を発揮
-- **領域 (Domain)**：永続的なフィールド効果、グローバルルールに影響
-- **武器 (Weapon)**：ヒーロー装備、攻撃力と武器スキルを提供
-- **ヒーロー (Hero)**：各ヒーローはヒーローパワー（未実装）とアーマー機構を持つ
+- **ミニオン**：ボードユニット。攻撃力/体力/キーワードを持つ
+- **呪文**：カード種別は存在。実行時は共通 `Card` 経路で処理
+- **領域**：戦闘イベントで継続発動するフィールド効果
+- **武器**：ヒーロー装備とスキル
+- **ヒーロー**：アーマー接続済み。ヒーローパワーは IronWill のみ実装、UI は未完
+- **レリック**：ライフサイクルフックあり。リソース化は進行中
+- **Heat**：戦闘全体のテンポ圧力。ダメージパイプラインに接続
 
 ### キーワード
 
 | キーワード | 効果 |
 |------------|------|
-| 突撃 (Charge) | 召喚されたターンに攻撃可能 |
-| 挑発 (Taunt) | 敵ミニオンはこのミニオンを優先的に攻撃しなければならない |
-| 雄叫び (Battlecry) | 手札からプレイされた時に効果を発動 |
-| 断末魔 (Deathrattle) | ミニオンが死亡した時に効果を発動 |
+| 突撃 (Charge) | 召喚ターンに攻撃可能 |
+| 挑発 (Taunt) | 敵ミニオンはこのミニオンを優先攻撃 |
+| 雄叫び (Battlecry) | 手札からプレイ時に発動 |
+| 断末魔 (Deathrattle) | 死亡時に発動 |
 | 疾風 (Windfury) | 毎ターン 2 回攻撃可能 |
-| 伏撃 (Ambush) | 毎ターン最初に攻撃された時、攻撃者より先に反撃ダメージを与える |
-| 衝撃 (Impact) | 攻撃時、すべての反撃ダメージを無効化（使い切り） |
+| 伏撃 (Ambush) | 毎ターン最初に攻撃された時、先制反撃 |
+| 衝撃 (Impact) | 攻撃時の反撃ダメージを一度だけ無効化 |
 
 ### ダメージ計算
 
-三段階パイプライン：`ADDITIVE → MULTIPLICATIVE → CAPPING`（DamageResolver）。最小ダメージは 1 にクランプ。
+四段階パイプライン：`ADDITIVE → MULTIPLICATIVE → HEAT → CAPPING`。アーマー吸収はその後。
 
-### AI システム
+### AI / Intent
 
-Slay the Spire 式の意図ローテーション、3 種の敵タイプ：
-
-- **カルティスト (Cultist)**：HP 20、パターン Attack(6)→Attack(6)→Defend(5)
-- **スライムボス (SlimeBoss)**：HP 40、パターン Attack(8)→Summon(1)→Defend(4)、1/1 スライムを召喚
-- **ウルフライダー (WolfRider)**：HP 12、パターン Attack(5)、安定したダメージ出力
+敵は独立 actor。各敵が HP、MoveState、Intent を持ちます。新 Intent 体系は `Scripts/AI/Intents/` にあり、複数 Intent、動的ダメージ表示、アイコン、tooltip を扱います。
 
 ### Roguelike
 
-戦闘後 3 択の戦利品（EventSelector + RewardUI）、Fisher-Yates シャッフル。マップルート選択（MapUI）。
+マップ、報酬/発見、イベント/ショップ/休憩 UI が存在します。イベント/ショップ/休憩は MapUI と戦闘報酬フローへの接続がまだ途中です。
 
-> ⚠️ EventSelector の戦闘後報酬ロジックは完成しているが、戦闘ループに未接続。
+### コレクション / 多言語 / DevConsole
 
-### カードコレクション
-
-CollectionUI はカード閲覧とデッキ編集を提供。レアリティ別の色分け、説明文の適応表示、削除確認に対応。デッキにはソフトキャップあり。
-
-### ローカライゼーション
-
-YAML ベースの多言語システム（`Scripts/Localization/`）、中国語/英語の二言語対応。すべての UI テキストは `GameManager.LanguageChanged` イベントで動的に更新。
-
-### 開発者コンソール
-
-`DevConsole`（Autoload シングルトン）— `` ` `` キーで表示切替。11 以上のコマンド（`/damage`、`/draw`、`/mana`、`/heal`、`/armor`、`/end` など）で迅速なテストとデバッグが可能。
-
-### ポーズメニュー
-
-ESC またはボタンで全画面オーバーレイを表示。ゲーム再開、設定（言語切替）、セーブ、クイックセーブ/ロードを含む。
-
-### セーブシステム
-
-SaveDataManager + GameSaveData でゲーム進行の永続化を提供。
+CollectionUI はカード閲覧とデッキ編集を提供。多言語は YAML（`zh.yaml` / `en.yaml`）で、`Localization.T()` と `GameManager.LanguageChanged` を使います。DevConsole はリソース、ダメージ、召喚、レリック、戦闘ジャンプ、QA コマンドを持つ Autoload です。
 
 ## 技術スタック
 
 - **エンジン**: Godot 4.6
 - **言語**: C# (.NET 8.0, Godot.NET.Sdk/4.6.2)
-- **テスト**: xUnit（4 テストファイル、303 行）
-- **プラットフォーム**: Windows
+- **テスト**: xUnit（5 Unit + 1 Integration。Integration は Godot Resource 依存で skip）
+- **プラットフォーム**: Windows。Android エクスポートスクリプトあり
 
 ## プロジェクト構造
 
 ```
 Scripts/
-├── Core/ (16)           # CardData, DamageResolver, GameManager (Autoload), Keyword, CardType, SaveDataManager…
-├── UI/ (15)             # CombatUI, BoardUI, HandUI, CardUI, CollectionUI, MapUI, PauseMenu, DiscoverUI, RewardUI…
-├── Card/ (9)            # Card, Minion, Spell, Hero, Weapon, WeaponSkill, ActiveDomain, StatusEffect (純粋 C#)
-├── Character/ (5)       # Player, CommanderCore, Deck, CombatDeckState, ICommander
-├── Combat/ (3)          # CombatManager (1740 行), Board, GameState (純粋 C#)
-├── AI/ (1)              # IntentAI (Cultist/SlimeBoss/WolfRider)
-├── Roguelike/ (3)       # EventSelector, RoomData, GameRunState
-├── Localization/ (5)    # YAML ベースの多言語システム
-└── Infrastructure/ (1)  # DevConsole (Autoload) — 開発者コンソール
-Resources/Cards/         # 16 枚のカードデータ .tres（7 呪文 + 6 ミニオン + 3 領域）
-Resources/Localization/  # zh.yaml / en.yaml 翻訳ファイル
-Scenes/                  # Main.tscn, Combat.tscn, Collection.tscn, Map.tscn（4 シーン）
+├── Core/ (33)           # CardData, DamageResolver, GameManager, CardEffectData, SaveDataManager…
+├── UI/ (36)             # CombatUI partials, CardUI, BoardUI, CollectionUI, MapUI, Shop/Rest/Event UI…
+├── Card/ (12)           # Card, Minion, Hero, Weapon, StatusEffect, HeroPowers/IronWillHeroPower
+├── Character/ (5)       # Player, CommanderCore, Deck, CombatDeckState
+├── Combat/ (13)         # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem…
+├── AI/ (27)             # EnemyEncounter, EnemyRegistry, Brains, Intents/(19)
+├── Heat/ (2)            # HeatSystem + HeatDamageModifier
+├── Relic/ (7)           # AbstractRelic, RelicManager, concrete relics
+├── Roguelike/ (5)       # EventSelector, RoomData, GameRunState, EventData, BlessingData
+├── Localization/ (5)    # YAML localization
+└── Infrastructure/ (20) # DevConsole, InputManager, HotkeyManager, MobileInputRouter, Commands/8
+Resources/Cards/         # 35 .tres resources
+Resources/Localization/  # zh.yaml / en.yaml
+Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPreview
 ```
 
 ### アーキテクチャの特徴
 
-- **プログラム的 UI**：CombatUI および子コンポーネントはすべてコードで生成、.tscn に非依存（Combat.tscn はレイアウトコンテナのみ提供）
-- **純粋 C# コア**：Card/Minion/Hero/Board/GameState は Godot Node を継承せず、シーンツリーとゼロ結合
-- **二重 CommanderCore**：Player と CombatManager がそれぞれ CommanderCore を保持し、`internal Deck setter` でデッキを共有
-- **C# イベント**：Godot `[Signal]` 不使用 — すべて `event Action<...>` を使用
-- **Pull 式 UI 更新**：`CombatUI.RefreshAll()` で駆動、`_Process` ポーリングなし
-- **自動初期化**：シーン読み込み後 `CallDeferred` で戦闘を自動開始、12 枚の初期デッキ
+- 純 C# ドメイン：Card/Minion/Hero/Board/GameState/EnemyUnit は Node を継承しない
+- プログラム的 UI：Combat.tscn は主にコンテナ。Card/Board/Combat の `[Tool]` プレビューあり
+- CombatUI は core/Layout/Refresh/Selection の partial 分割
+- CombatManager は純 C# 補助システムへ委譲（コンストラクタ注入 + Action callback）
+- Godot `[Signal]` 不使用。C# `event Action<>`
+- InputManager → HotkeyManager → scene UI
+- エクスポート時の DirAccess 制限に対するリソース fallback
 
-## ビルド
+## ビルド / テスト / エクスポート
 
 ```bash
-# デバッグビルド
 dotnet build
-
-# リリースビルド
 dotnet build -c Release
-
-# フォーマットチェック (CI)
+dotnet test
 dotnet format OdysseyCards.sln --verify-no-changes
 
-# 自動フォーマット
-dotnet format OdysseyCards.sln
-
-# テスト実行
-dotnet test
+./build_export.ps1 [-Debug] [-SkipBuild]
+./build_android.ps1 [-SkipBuild] [-ExportOnly]
+./package_release.ps1 [version] [-OpenFolder]
 ```
+
+現在 GitHub Actions / Dockerfile / Makefile はありません。GUT は導入済みですが GDScript テストはありません。
 
 ## シーン
 
 | シーン | パス | 説明 |
 |--------|------|------|
 | メインメニュー | `Scenes/Main.tscn` | エントリーシーン |
-| 戦闘 | `Scenes/Combat.tscn` | 戦闘シーン、プログラム的 UI レイアウト |
-| コレクション | `Scenes/Collection.tscn` | カードコレクションとデッキ編集 |
-| マップ | `Scenes/Map.tscn` | Roguelike ルート選択 |
+| 戦闘 | `Scenes/Combat.tscn` | 戦闘、プログラム的 UI |
+| コレクション | `Scenes/Collection.tscn` | コレクションとデッキ編集 |
+| マップ | `Scenes/Map.tscn` | Roguelike ルートマップ |
+| カードプレビュー | `Scenes/CardPreview.tscn` | エディタープレビュー |
+| ボードプレビュー | `Scenes/BoardPreview.tscn` | エディタープレビュー |
+| 戦闘プレビュー | `Scenes/CombatPreview.tscn` | エディタープレビュー |
 
 ## Autoload シングルトン
 
-- **GameManager** (`Scripts/Core/GameManager.cs`) — グローバル状態、戦闘間の永続化、言語切替
-- **UIScaler** (`Scripts/UI/UIScaler.cs`) — UI スケーリング、基準解像度 1152×648
-- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — 開発者コンソール、`` ` `` キーで表示切替
+- **GameManager** (`Scripts/Core/GameManager.cs`) — グローバル状態、カード登録、永続化、言語切替
+- **UIScaler** (`Scripts/UI/UIScaler.cs`) — UI スケーリング、現在基準 1152×648
+- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — 開発者コンソール
+- **MobileInputHelper** (`Scripts/Infrastructure/MobileInputHelper.cs`) — 旧タッチ補助。非戦闘 UI で使用中
+- **MobileInputRouter** (`Scripts/Infrastructure/MobileInputRouter.cs`) — モバイル入力ルーティングとモーダルスタック
+- **InputManager** (`Scripts/Infrastructure/InputManager.cs`) — 物理キーから論理アクションへ
+- **HotkeyManager** (`Scripts/Infrastructure/HotkeyManager.cs`) — アクション callback スタック
 
 ## 既知の制限
 
-- ⚠️ **Spell.cs が未インスタンス化** — CombatManager はすべてのカードに Card 基底クラスを使用（デッドコード）
-- ⚠️ **EventSelector 未接続** — 戦闘後報酬ロジックは完成しているが呼び出し元なし
-- ⚠️ **ヒーローパワー未実装** — IHeroPower インターフェースが空
-- ⚠️ **手札上限なし / 疲労なし** — デッキ切れ時の処理未実装
+- `Spell.cs` は未インスタンス化。実行時は共通 `Card` 経路
+- `RailPistolPassive.cs` と `SafeAreaContainer.cs` は現在孤立
+- Shop/Rest/Event UI は存在するが MapUI フローへ完全接続されていない
+- ヒーローパワーは IronWill のみ。戦闘 UI/入力は未完
+- 手札上限なし。疲労は未完（`Status_Fatigue.tres` は存在）
+- `InfoScreen.cs` は非推奨 Godot API `SplitOffset` を使用中
 
 ## ライセンス
 
-本プロジェクトは混合ライセンスを採用しています：
+本プロジェクトは混合ライセンスです：
 
-- **コード**（`Scripts/` 以下の `.cs` ソースファイルおよびプロジェクト設定ファイル）：[MIT](LICENSE_CODE)
-- **アート/オーディオアセット**（`Assets/` 以下の画像、音声などのメディアファイル）：[CC BY 4.0](LICENSE_ASSETS)
+- **コード**（`Scripts/` 以下の `.cs` と設定）：[MIT](LICENSE_CODE)
+- **アート/オーディオアセット**（`Assets/`）：[CC BY 4.0](LICENSE_ASSETS)
 
 ## 謝辞
 
-本プロジェクトのアーキテクチャ設計は [slay-the-model](https://github.com/wkzMagician/slay-the-model) を参考にしています。これは構造の明確な『Slay the Spire』コアフレームワークであり、カードゲームアーキテクチャ設計の貴重な学習リソースとなりました。
+本プロジェクトのアーキテクチャ設計は [slay-the-model](https://github.com/wkzMagician/slay-the-model) を参考にしています。カードゲーム設計の貴重な学習リソースです。

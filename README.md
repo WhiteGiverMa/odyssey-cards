@@ -2,22 +2,24 @@
 
 # 少女星途卡牌（星途卡牌）<br><small>Shoujo Odyssey Cards</small>
 
-类炉石传说的回合制卡牌对战 Roguelite 游戏 — Godot 4.6 + C#
+类炉石传说的回合制卡牌对战 Roguelite 游戏 — Godot 4.6 + C#。
 
-> **分支:** `dev` | **状态:** 能玩MVP
-> 133 个 .cs 文件，约 24,000 行代码。完整回合制战斗循环可运行，含卡牌收藏、地图路线、存档系统。
+> **分支:** `dev` | **状态:** 能玩 MVP 继续扩展中<br>
+> 165 个 `Scripts/*.cs` 文件，约 39,000 行游戏代码。完整回合制战斗循环可运行，含卡牌收藏、地图路线、存档、本地化、开发者控制台与运行时 QA。
 
 ## 核心系统
 
 ### 卡牌对战
 
-回合制战斗，2×5 随从棋盘（玩家/敌方各一排 5 槽位），法力水晶系统（初始 1 费，每回合 +1，上限 10）。
+回合制战斗，2×5 随从棋盘（玩家/敌方各一排 5 槽位），法力水晶系统（自然上限/硬上限见测试）。
 
-- **随从 (Minion)**：可放置在棋盘上，具有攻击力/生命值，支持 7 种关键词
-- **法术 (Spell)**：从手牌打出立即生效
-- **领域 (Domain)**：持续性场地效果，影响全局规则
-- **武器 (Weapon)**：英雄装备，提供攻击力和武器技能
-- **英雄 (Hero)**：各有英雄技能（待实现）和护甲机制
+- **随从 (Minion)**：放置在棋盘上，具有攻击力/生命值，支持关键词
+- **法术 (Spell)**：卡牌类型存在；运行时统一通过 `Card` 基类处理
+- **领域 (Domain)**：持续性场地效果，在战斗事件点长期触发
+- **武器 (Weapon)**：英雄装备，提供攻击与武器技能
+- **英雄 (Hero)**：护甲机制已接入；英雄技能仅 IronWill 已实现，战斗 UI 尚未完整接线
+- **藏品 (Relic)**：生命周期钩子系统已存在，资源化仍在进行
+- **热力 (Heat)**：战斗全局节奏压力，接入伤害倍率阶段
 
 ### 关键词
 
@@ -33,94 +35,79 @@
 
 ### 伤害计算
 
-四阶段管线：`ADDITIVE → MULTIPLICATIVE → HEAT → CAPPING`（DamageResolver），Clamp 最小伤害为 1。
+四阶段管线：`ADDITIVE → MULTIPLICATIVE → HEAT → CAPPING`（DamageResolver），护甲吸收在管线之后。
 
-### AI 系统
+### AI / 意图
 
-尖塔式意图轮转，3 种敌人类型：
-
-- **邪教徒 (Cultist)**：HP 20，模式 Attack(6)→Attack(6)→Defend(5)
-- **史莱姆首领 (SlimeBoss)**：HP 40，模式 Attack(8)→Summon(1)→Defend(4)，会召唤 1/1 软泥怪
-- **狼骑兵 (WolfRider)**：HP 12，模式 Attack(5)，每回合稳定输出
+多敌人独立 actor 架构：每个敌人拥有自己的 HP、MoveState 链和意图。新版意图系统位于 `Scripts/AI/Intents/`，支持多意图组合、动态伤害预览、图标与 tooltip。
 
 ### Roguelike
 
-战后 3 选 1 战利品（EventSelector + RewardUI），Fisher-Yates 洗牌。地图路线选择（MapUI）。
-
-> ⚠️ EventSelector 战后奖励逻辑完整但尚未接入战斗循环。
+地图路线选择（MapUI）、奖励/发现、事件/商店/休息处 UI 均已存在；后者仍在接入流程中。战后奖励逻辑与旧 `EventSelector` 仍未完全统一。
 
 ### 卡牌收藏
 
-CollectionUI 提供卡牌浏览、卡组编辑功能。支持按稀有度颜色区分、描述自适应显示、删除确认。卡组有软上限。
+CollectionUI 提供卡牌浏览、卡组编辑、分页/过滤。当前战斗使用当前卡组快照，卡组修改在后续流程生效。
 
 ### 多语言
 
-YAML-based 本地化系统（`Scripts/Localization/`），中文/英文双语支持，所有 UI 文本通过 `GameManager.LanguageChanged` 事件动态刷新。
+YAML-based 本地化系统（`Scripts/Localization/`），中文/英文双语支持。UI 文本通过 `Localization.T()` 与 `GameManager.LanguageChanged` 动态刷新。
 
 ### 开发者控制台
 
-`DevConsole`（Autoload 单例）— 按 `` ` `` 键呼出，支持 25 条命令，含 QA 表面、Tab 补全、↑↓ 历史导航。架构：`DevConsole`(UI壳) → `DevConsoleEngine`(纯C#引擎) → `Commands/*`(独立命令类)。AI 可通过 `game_call_method` 远程调用。
-
-### 暂停菜单
-
-ESC 或按钮触发全屏覆盖层。包含继续游戏、设置（语言切换）、存档、快速 SL 功能。
-
-### 存档系统
-
-SaveDataManager + GameSaveData 提供游戏进度持久化。
+`DevConsole`（Autoload）按 `` ` `` 呼出。架构：`DevConsole` → `DevConsoleEngine` → `Commands/*`。支持资源、伤害、召唤、战斗跳转、藏品、标签、运行时 QA 等命令；AI 可通过 godot-mcp 远程调用。
 
 ## 技术栈
 
 - **引擎**: Godot 4.6
 - **语言**: C# (.NET 8.0, Godot.NET.Sdk/4.6.2)
-- **测试**: xunit（8 个测试文件，其中 6 个 Unit + 2 个 Integration）
-- **平台**: Windows
+- **测试**: xUnit（5 个 Unit + 1 个 Integration；Integration 因 Godot Resource 依赖跳过）
+- **平台**: Windows；Android 导出脚本存在
 
 ## 项目结构
 
 ```
 Scripts/
-├── Core/ (27)           # CardData, DamageResolver, GameManager(Autoload), Keyword, CardType, SaveDataManager…
-├── UI/ (26)             # CombatUI, BoardUI, HandUI, CardUI, CollectionUI, MapUI, PauseMenu, DiscoverUI, RewardUI, IntentIcon, IntentTooltip…
-├── Card/ (10)           # Card, Minion, Spell, Hero, Weapon, WeaponSkill, ActiveDomain, StatusEffect (纯 C#)
-├── Character/ (5)       # Player, CommanderCore, Deck, CombatDeckState, ICommander
-├── Combat/ (7)          # CombatManager, Board, EnemyUnit, GameState, CardEffectDispatcher, DomainTriggerManager, CombatRuntimeQa (纯 C#)
-├── AI/ (25)             # Intents/(18): AbstractIntent类体系+MoveState; IntentAI, EnemyRegistry, MechanicalRoachBrain, ZhangLang, ShanHu…
-├── Roguelike/ (3)       # EventSelector, RoomData, GameRunState
-├── Localization/ (5)    # YAML-based 多语言系统（LocalStr/ConcatLocalStr/ILocalizable/YamlParser）
-└── Infrastructure/ (16)  # DevConsole (Autoload), DevConsoleEngine, Commands/ (7 命令组), MobileInputRouter(Autoload), MobileInputHelper
-Resources/Cards/         # 32 张卡牌数据 .tres（法术15 + 随从11 + 领域6）
-Resources/Localization/  # zh.yaml / en.yaml 翻译文件
-Scenes/                  # Main.tscn, Combat.tscn, Collection.tscn, Map.tscn（4 个场景）
+├── Core/ (33)           # CardData, DamageResolver, GameManager, CardEffectData, SaveDataManager…
+├── UI/ (36)             # CombatUI partials, CardUI, BoardUI, CollectionUI, MapUI, Shop/Rest/Event UI…
+├── Card/ (12)           # Card, Minion, Hero, Weapon, StatusEffect, HeroPowers/IronWillHeroPower
+├── Character/ (5)       # Player, CommanderCore, Deck, CombatDeckState
+├── Combat/ (13)         # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem…
+├── AI/ (27)             # EnemyEncounter, EnemyRegistry, Brains, Intents/(19)
+├── Heat/ (2)            # HeatSystem + HeatDamageModifier
+├── Relic/ (7)           # AbstractRelic, RelicManager, concrete relics
+├── Roguelike/ (5)       # EventSelector, RoomData, GameRunState, EventData, BlessingData
+├── Localization/ (5)    # YAML 多语言系统
+└── Infrastructure/ (20) # DevConsole, InputManager, HotkeyManager, MobileInputRouter, Commands/8
+Resources/Cards/         # 35 .tres（领域5 + 随从11 + 法术18 + 状态1）
+Resources/Localization/  # zh.yaml / en.yaml
+Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPreview
 ```
 
 ### 架构特点
 
-- **程序化 UI**：CombatUI 及子组件纯代码创建，不依赖 .tscn（Combat.tscn 仅提供布局容器）
-- **纯 C# 核心**：Card/Minion/Hero/Board/GameState 均不继承 Godot Node，与场景树零耦合
-- **双层 CommanderCore**：Player 和 CombatManager 各自维护 CommanderCore，通过 `internal Deck setter` 共享牌堆
-- **C# event**：不使用 Godot `[Signal]`，全部使用 `event Action<...>`
-- **Pull 模式 UI 刷新**：`CombatUI.RefreshAll()` 驱动，无 `_Process` 轮询
-- **自动初始化**：场景加载后 `CallDeferred` 自动启动战斗，12 张起始牌堆
+- **纯 C# 核心**：Card/Minion/Hero/Board/GameState/EnemyUnit 不继承 Node
+- **程序化 UI**：Combat.tscn 仅容器，CombatUI 子组件纯代码；预览靠 `[Tool]` 场景
+- **CombatUI partial**：核心 / Layout / Refresh / Selection 四分
+- **CombatManager 拆分**：纯 C# 小系统 + 构造注入 + Action 回调
+- **C# event**：不使用 Godot `[Signal]`
+- **三层输入**：InputManager → HotkeyManager → 场景 UI
+- **导出回退**：DirAccess 失败时依赖硬编码资源路径
 
-## 构建
+## 构建 / 测试 / 导出
 
 ```bash
-# 调试构建
 dotnet build
-
-# 发布构建
 dotnet build -c Release
-
-# 代码风格检查
+dotnet test
 dotnet format OdysseyCards.sln --verify-no-changes
 
-# 自动格式化
-dotnet format OdysseyCards.sln
-
-# 运行测试
-dotnet test
+./build_export.ps1 [-Debug] [-SkipBuild]
+./build_android.ps1 [-SkipBuild] [-ExportOnly]
+./package_release.ps1 [version] [-OpenFolder]
 ```
+
+当前没有 GitHub Actions / Dockerfile / Makefile。GUT 插件已安装但暂无 GDScript 测试。
 
 ## 场景
 
@@ -130,21 +117,28 @@ dotnet test
 | 战斗 | `Scenes/Combat.tscn` | 战斗场景，程序化 UI 布局 |
 | 收藏 | `Scenes/Collection.tscn` | 卡牌收藏与卡组编辑 |
 | 地图 | `Scenes/Map.tscn` | Roguelike 路线选择 |
+| 卡牌预览 | `Scenes/CardPreview.tscn` | 编辑器预览 |
+| 棋盘预览 | `Scenes/BoardPreview.tscn` | 编辑器预览 |
+| 战斗预览 | `Scenes/CombatPreview.tscn` | 编辑器预览 |
 
 ## Autoload 单例
 
-- **GameManager** (`Scripts/Core/GameManager.cs`) — 全局状态，跨战斗持久化，语言切换
-- **UIScaler** (`Scripts/UI/UIScaler.cs`) — UI 缩放，基准分辨率 1152×648
-- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — 开发者控制台，`` ` `` 键呼出，25 条命令，命令系统架构，AI 可远程调用
-- **MobileInputRouter** (`Scripts/Infrastructure/MobileInputRouter.cs`) — 移动端触控路由，桌面端透传
-- **MobileInputHelper** (`Scripts/Infrastructure/MobileInputHelper.cs`) — 旧版触控辅助（逐步废弃）
+- **GameManager** (`Scripts/Core/GameManager.cs`) — 全局状态、卡牌注册表、跨战斗持久化、语言切换
+- **UIScaler** (`Scripts/UI/UIScaler.cs`) — UI 缩放，当前基准 1152×648
+- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — 开发者控制台
+- **MobileInputHelper** (`Scripts/Infrastructure/MobileInputHelper.cs`) — 旧触控辅助，非战斗 UI 仍有使用
+- **MobileInputRouter** (`Scripts/Infrastructure/MobileInputRouter.cs`) — 移动端触控路由与模态栈
+- **InputManager** (`Scripts/Infrastructure/InputManager.cs`) — 物理键到逻辑动作
+- **HotkeyManager** (`Scripts/Infrastructure/HotkeyManager.cs`) — 动作到回调栈
 
 ## 已知限制
 
-- ⚠️ **Spell.cs 从未实例化** — CombatManager 对所有卡牌使用 Card 基类（死代码）
-- ⚠️ **EventSelector 未接线** — 战后奖励逻辑完整但无调用入口
-- ⚠️ **英雄技能未实现** — IHeroPower 接口为空
-- ⚠️ **无疲劳机制** — 抽牌堆耗尽后仅有手牌上限封顶
+- `Spell.cs` 从未实例化；运行时统一用 `Card` 基类
+- `RailPistolPassive.cs`、`SafeAreaContainer.cs` 当前孤立
+- `ShopUI` / `RestSiteUI` / `EventUI` 存在但未完整接入 MapUI 流程
+- 英雄技能仅 IronWill 实现；战斗 UI/输入仍未完整接线
+- 手牌无上限 + 疲劳系统未完整化（已有 `Status_Fatigue.tres`）
+- `InfoScreen.cs` 使用 Godot 过时 API `SplitOffset`
 
 ## 许可
 
@@ -154,8 +148,8 @@ dotnet test
 - **美术/音频资源**（`Assets/` 目录下的图片、音频等媒体文件）：[CC BY 4.0](LICENSE_ASSETS)
 
 ## 游戏剧情摘要
-- 2048年，前AGI时代。大国之间开启超限战与太空博弈，中国启动「星途计划」，在民间推出「星途卡牌」这一娱乐活动，各行各业民众踊跃参与。据知，「794局」正在收集全国人民的对战数据，来训练在宇宙空间中参与生产生活、甚至应用到军事中的AGI agent「领航者」。
-- 毕业季的盛夏，少女绮梦安装了《星途卡牌》桌面版，结识了许多同好。她潜心切磋牌技、打磨策略……在一次比赛中层层胜出后，等待她的决赛对手竟是……
+
+2048年，前AGI时代。大国之间开启超限战与太空博弈，中国启动「星途计划」，在民间推出「星途卡牌」这一娱乐活动，各行各业民众踊跃参与。据知，「794局」正在收集全国人民的对战数据，来训练在宇宙空间中参与生产生活、甚至应用到军事中的AGI agent「领航者」。毕业季的盛夏，少女绮梦安装了《星途卡牌》桌面版，结识了许多同好。她潜心切磋牌技、打磨策略……在一次比赛中层层胜出后，等待她的决赛对手竟是……
 
 ## 致谢
 

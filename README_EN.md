@@ -2,22 +2,24 @@
 
 # Odyssey Cards<br><small>Shoujo Odyssey Cards</small>
 
-A Hearthstone-like turn-based card battle Roguelite — Godot 4.6 + C#
+A Hearthstone-like turn-based card battle Roguelite — Godot 4.6 + C#.
 
-> **Branch:** `dev` | **Status:** Playable MVP
-> 59 `.cs` files, ~17,700 lines of code. Full turn-based combat loop operational, with card collection, map routes, and save system.
+> **Branch:** `dev` | **Status:** playable MVP, expanding<br>
+> 165 `Scripts/*.cs` files, ~39,000 lines of game code. Core combat loop runs with collection, map routes, saves, localization, dev console, and runtime QA.
 
 ## Core Systems
 
 ### Card Combat
 
-Turn-based combat on a 2×5 minion board (5 slots per side). Mana crystal system (start at 1, +1 per turn, max 10).
+Turn-based combat on a 2×5 minion board. Mana, armor, weapons, domains, relic hooks, and heat-based damage pressure are present.
 
-- **Minion**: Placeable on board, has Attack/Health, supports 7 keywords
-- **Spell**: Cast from hand, resolves immediately
-- **Domain**: Persistent field effect that affects global rules
-- **Weapon**: Hero equipment providing attack power and weapon skills
-- **Hero**: Each has a hero power (TBD) and armor mechanic
+- **Minion**: board unit with Attack/Health and keywords
+- **Spell**: card type exists; runtime uses the shared `Card` base path
+- **Domain**: persistent field effect triggered by combat events
+- **Weapon**: hero equipment and skills
+- **Hero**: armor is wired; only IronWill hero power exists and combat UI is not fully wired
+- **Relic**: lifecycle-hook system exists; resource data is still being built
+- **Heat**: global battle pressure connected to the damage pipeline
 
 ### Keywords
 
@@ -29,127 +31,113 @@ Turn-based combat on a 2×5 minion board (5 slots per side). Mana crystal system
 | Deathrattle | Triggers an effect when the minion dies |
 | Windfury | Can attack twice each turn |
 | Ambush | Once per turn when attacked, strikes back before the attacker |
-| Impact | When attacking, negates all counter-damage (one-time use) |
+| Impact | Negates all counter-damage while attacking, one-time use |
 
 ### Damage Calculation
 
-Three-stage pipeline: `ADDITIVE → MULTIPLICATIVE → CAPPING` (DamageResolver). Minimum damage clamped to 1.
+Four-stage pipeline: `ADDITIVE → MULTIPLICATIVE → HEAT → CAPPING` via DamageResolver. Armor absorbs after the pipeline.
 
-### AI System
+### AI / Intents
 
-Spire-style intent rotation with 3 enemy types:
-
-- **Cultist**: HP 20, pattern Attack(6)→Attack(6)→Defend(5)
-- **SlimeBoss**: HP 40, pattern Attack(8)→Summon(1)→Defend(4), summons 1/1 slimes
-- **WolfRider**: HP 12, pattern Attack(5), consistent damage output
+Each enemy is an independent actor with its own HP, MoveState chain, and intent. New intent classes live in `Scripts/AI/Intents/` and support multi-intent moves, dynamic damage previews, icons, and tooltips.
 
 ### Roguelike
 
-Post-battle 3-choice loot (EventSelector + RewardUI), Fisher-Yates shuffle. Map route selection (MapUI).
+Map routing, reward/discover screens, and event/shop/rest UI exist. Event/shop/rest flow is still being integrated with MapUI and battle rewards.
 
-> ⚠️ EventSelector post-battle reward logic is complete but not yet wired into the combat loop.
+### Collection / Localization / Dev Console
 
-### Card Collection
-
-CollectionUI provides card browsing and deck editing. Features rarity-based color coding, adaptive description display, and delete confirmation. Deck has a soft cap.
-
-### Localization
-
-YAML-based localization system (`Scripts/Localization/`), Chinese/English bilingual support. All UI text refreshes dynamically via `GameManager.LanguageChanged` event.
-
-### Dev Console
-
-`DevConsole` (Autoload singleton) — press `` ` `` to toggle. Supports 11+ commands: `/damage`, `/draw`, `/mana`, `/heal`, `/armor`, `/end`, etc., for rapid testing and debugging.
-
-### Pause Menu
-
-ESC or button-triggered fullscreen overlay. Includes resume, settings (language switch), save, and quick save/load.
-
-### Save System
-
-SaveDataManager + GameSaveData provides game progress persistence.
+CollectionUI handles browsing and deck editing. Localization is YAML-based (`zh.yaml` / `en.yaml`) through `Localization.T()` and `GameManager.LanguageChanged`. DevConsole is an autoload with command groups for resources, damage, spawning, relics, battle jumps, and QA.
 
 ## Tech Stack
 
 - **Engine**: Godot 4.6
 - **Language**: C# (.NET 8.0, Godot.NET.Sdk/4.6.2)
-- **Testing**: xUnit (4 test files, 303 lines)
-- **Platform**: Windows
+- **Tests**: xUnit (5 Unit + 1 Integration; Integration skipped because Godot Resource runtime is required)
+- **Platforms**: Windows; Android export script exists
 
 ## Project Structure
 
 ```
 Scripts/
-├── Core/ (16)           # CardData, DamageResolver, GameManager (Autoload), Keyword, CardType, SaveDataManager…
-├── UI/ (15)             # CombatUI, BoardUI, HandUI, CardUI, CollectionUI, MapUI, PauseMenu, DiscoverUI, RewardUI…
-├── Card/ (9)            # Card, Minion, Spell, Hero, Weapon, WeaponSkill, ActiveDomain, StatusEffect (pure C#)
-├── Character/ (5)       # Player, CommanderCore, Deck, CombatDeckState, ICommander
-├── Combat/ (3)          # CombatManager (1740 lines), Board, GameState (pure C#)
-├── AI/ (1)              # IntentAI (Cultist/SlimeBoss/WolfRider)
-├── Roguelike/ (3)       # EventSelector, RoomData, GameRunState
-├── Localization/ (5)    # YAML-based localization system
-└── Infrastructure/ (12)  # DevConsole (Autoload), DevConsoleEngine, Commands/ (7 command groups)
-Resources/Cards/         # 16 card data .tres (7 spells + 6 minions + 3 domains)
-Resources/Localization/  # zh.yaml / en.yaml translation files
-Scenes/                  # Main.tscn, Combat.tscn, Collection.tscn, Map.tscn (4 scenes)
+├── Core/ (33)           # CardData, DamageResolver, GameManager, CardEffectData, SaveDataManager…
+├── UI/ (36)             # CombatUI partials, CardUI, BoardUI, CollectionUI, MapUI, Shop/Rest/Event UI…
+├── Card/ (12)           # Card, Minion, Hero, Weapon, StatusEffect, HeroPowers/IronWillHeroPower
+├── Character/ (5)       # Player, CommanderCore, Deck, CombatDeckState
+├── Combat/ (13)         # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem…
+├── AI/ (27)             # EnemyEncounter, EnemyRegistry, Brains, Intents/(19)
+├── Heat/ (2)            # HeatSystem + HeatDamageModifier
+├── Relic/ (7)           # AbstractRelic, RelicManager, concrete relics
+├── Roguelike/ (5)       # EventSelector, RoomData, GameRunState, EventData, BlessingData
+├── Localization/ (5)    # YAML localization
+└── Infrastructure/ (20) # DevConsole, InputManager, HotkeyManager, MobileInputRouter, Commands/8
+Resources/Cards/         # 35 .tres resources
+Resources/Localization/  # zh.yaml / en.yaml
+Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPreview
 ```
 
 ### Architecture Highlights
 
-- **Programmatic UI**: CombatUI and child components are created entirely in code, no .tscn dependency (Combat.tscn only provides layout containers)
-- **Pure C# Core**: Card/Minion/Hero/Board/GameState do not inherit Godot Node — zero coupling with the scene tree
-- **Dual CommanderCore**: Player and CombatManager each maintain a CommanderCore, sharing the deck via `internal Deck setter`
-- **C# Events**: No Godot `[Signal]` — all events use `event Action<...>`
-- **Pull-Mode UI Refresh**: Driven by `CombatUI.RefreshAll()`, no `_Process` polling
-- **Auto-Init**: `CallDeferred` auto-starts combat on scene load, 12-card starting deck
+- Pure C# domain: Card/Minion/Hero/Board/GameState/EnemyUnit do not inherit Node
+- Programmatic UI: Combat.tscn is mostly containers; `[Tool]` preview scenes cover Card/Board/Combat
+- CombatUI split into core/Layout/Refresh/Selection partial files
+- CombatManager delegates to pure C# helper systems with constructor injection + Action callbacks
+- C# `event Action<>`, no Godot `[Signal]`
+- InputManager → HotkeyManager → scene UI
+- Export-safe resource fallbacks for DirAccess limitations
 
-## Build
+## Build / Test / Export
 
 ```bash
-# Debug build
 dotnet build
-
-# Release build
 dotnet build -c Release
-
-# Format check (CI)
+dotnet test
 dotnet format OdysseyCards.sln --verify-no-changes
 
-# Auto-format
-dotnet format OdysseyCards.sln
-
-# Run tests
-dotnet test
+./build_export.ps1 [-Debug] [-SkipBuild]
+./build_android.ps1 [-SkipBuild] [-ExportOnly]
+./package_release.ps1 [version] [-OpenFolder]
 ```
+
+No GitHub Actions, Dockerfile, or Makefile currently. GUT is installed but has no GDScript tests.
 
 ## Scenes
 
 | Scene | Path | Description |
 |-------|------|-------------|
 | Main Menu | `Scenes/Main.tscn` | Entry scene |
-| Combat | `Scenes/Combat.tscn` | Combat scene, programmatic UI layout |
-| Collection | `Scenes/Collection.tscn` | Card collection and deck editing |
-| Map | `Scenes/Map.tscn` | Roguelike route selection |
+| Combat | `Scenes/Combat.tscn` | Battle scene, programmatic UI |
+| Collection | `Scenes/Collection.tscn` | Collection and deck editor |
+| Map | `Scenes/Map.tscn` | Roguelike route map |
+| Card Preview | `Scenes/CardPreview.tscn` | Editor preview |
+| Board Preview | `Scenes/BoardPreview.tscn` | Editor preview |
+| Combat Preview | `Scenes/CombatPreview.tscn` | Editor preview |
 
 ## Autoload Singletons
 
-- **GameManager** (`Scripts/Core/GameManager.cs`) — global state, cross-combat persistence, language switching
-- **UIScaler** (`Scripts/UI/UIScaler.cs`) — UI scaling, base resolution 1152×648
-- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — developer console, toggle with `` ` `` key, 23+ commands, command system architecture, AI-remotable
+- **GameManager** (`Scripts/Core/GameManager.cs`) — global state, card registry, persistence, language switching
+- **UIScaler** (`Scripts/UI/UIScaler.cs`) — UI scaling, current base 1152×648
+- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — developer console
+- **MobileInputHelper** (`Scripts/Infrastructure/MobileInputHelper.cs`) — legacy touch helper still used outside combat UI
+- **MobileInputRouter** (`Scripts/Infrastructure/MobileInputRouter.cs`) — mobile touch routing and modal stack
+- **InputManager** (`Scripts/Infrastructure/InputManager.cs`) — physical keys to logical actions
+- **HotkeyManager** (`Scripts/Infrastructure/HotkeyManager.cs`) — action callback stack
 
 ## Known Limitations
 
-- ⚠️ **Spell.cs never instantiated** — CombatManager uses Card base class for all cards (dead code)
-- ⚠️ **EventSelector not wired** — post-battle reward logic is complete but has no call site
-- ⚠️ **Hero powers not implemented** — IHeroPower interface is empty
-- ⚠️ **No hand limit / no fatigue** — drawing from empty deck is unhandled
+- `Spell.cs` is never instantiated; runtime uses the shared `Card` path
+- `RailPistolPassive.cs` and `SafeAreaContainer.cs` are currently isolated
+- Shop/Rest/Event UI exists but is not fully wired into MapUI flow
+- Only IronWill hero power exists; combat UI/input is not fully wired
+- No hand limit and fatigue is incomplete (`Status_Fatigue.tres` exists)
+- `InfoScreen.cs` still uses deprecated Godot API `SplitOffset`
 
 ## License
 
 This project uses a mixed license:
 
-- **Code** (`.cs` source files under `Scripts/` and project config files): [MIT](LICENSE_CODE)
-- **Art/Audio assets** (images, audio, and other media under `Assets/`): [CC BY 4.0](LICENSE_ASSETS)
+- **Code** (`Scripts/` `.cs` source files and project config): [MIT](LICENSE_CODE)
+- **Art/Audio assets** (`Assets/` media): [CC BY 4.0](LICENSE_ASSETS)
 
 ## Acknowledgments
 
