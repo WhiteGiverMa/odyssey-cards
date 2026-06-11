@@ -15,6 +15,7 @@ namespace OdysseyCards.UI;
 /// 顶部一行 5 个敌方槽位，底部一行 5 个玩家槽位。
 /// 通过点击驱动的方式支持随从放置目标选择和攻击目标选择。
 /// </summary>
+[Tool]
 public partial class BoardUI : Control
 {
     // ===== 常量 =====

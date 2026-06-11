@@ -141,18 +141,23 @@ public partial class HandUI : Control
 	public override void _EnterTree()
 	{
 		base._EnterTree();
-		RegisterHotkeyBindings();
+		if (!Engine.IsEditorHint())
+			RegisterHotkeyBindings();
 	}
 
 	public override void _ExitTree()
 	{
-		SceneLifecycleGuard.OnExitTree(this);
-		UnregisterHotkeyBindings();
+		if (!Engine.IsEditorHint())
+		{
+			SceneLifecycleGuard.OnExitTree(this);
+			UnregisterHotkeyBindings();
+		}
 		base._ExitTree();
 	}
 
 	public override void _Process(double delta)
 	{
+		if (Engine.IsEditorHint()) return;
 		if (SceneLifecycleGuard.ShouldSkip(this)) return;
 		if (_cardSlots.Count == 0) return;
 

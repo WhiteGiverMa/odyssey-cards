@@ -12,6 +12,7 @@ namespace OdysseyCards.UI;
 /// 在一个 Control 上程序化渲染完整卡牌：法力水晶、名称、卡图区域、攻防属性、
 /// 关键词徽章和描述文本。支持点击选择（无拖拽）与悬停动效，适配手牌布局。
 /// </summary>
+[Tool]
 public partial class CardUI : Control
 {
 	// ============================================================
@@ -228,6 +229,14 @@ public partial class CardUI : Control
 			Card = null;
 			SetCard(pendingCard);
 		}
+#if TOOLS
+		// 编辑器预览模式：创建模拟卡牌数据，使卡牌在 Godot 编辑器中可视化。
+		// #if TOOLS 确保此代码完全从发布版剥离，零运行时开销。
+		else if (Engine.IsEditorHint())
+		{
+			PopulateEditorPreview();
+		}
+#endif
 
 		// 所有子控件的鼠标事件穿透到 CardUI，确保整张卡牌可点击
 		foreach (var child in GetChildren())
@@ -562,6 +571,74 @@ public partial class CardUI : Control
 		RebuildKeywordLabels(card, s);
 	}
 
+#if TOOLS
+	/// <summary>
+	/// 编辑器预览：用模拟数据填充卡牌 UI，使卡牌在 Godot 编辑器中可视化。
+	/// 绕过 Localization 调用（编辑器下 YAML 可能未加载），直接用硬编码数据。
+	/// 可在 CardUI 的 _Ready 中被调用，也可在 BoardUI 等预览场景中手动调用。
+	/// </summary>
+	private void PopulateEditorPreview()
+	{
+		float s = UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
+
+		// 法力消耗
+		_manaLabel.Text = "3";
+
+		// 名字（绕过本地化）
+		_nameLabel.Text = "预览卡牌";
+
+		// 卡图占位
+		_artworkLabel.Visible = true;
+
+		// 攻击力 / 生命值（随从布局）
+		if (_attackLabel != null)
+		{
+			_attackLabel.Text = "5";
+			_attackLabel.Visible = true;
+		}
+		if (_healthLabel != null)
+		{
+			_healthLabel.Text = "4";
+			_healthLabel.Visible = true;
+		}
+
+		// 法术类型标签隐藏（预览默认展示随从样式）
+		_spellTypeLabel?.Hide();
+
+		// 描述
+		_descLabel.Text = "编辑器预览\n调整布局用";
+
+		// 关键词徽章：展示嘲讽+战吼
+		if (_keywordContainer != null)
+		{
+			foreach (var child in _keywordContainer.GetChildren())
+				child.QueueFree();
+		}
+		if (_keywordContainer != null)
+		{
+			var tauntBadge = new Label
+			{
+				Text = "嘲讽",
+				HorizontalAlignment = HorizontalAlignment.Center,
+				VerticalAlignment = VerticalAlignment.Center,
+			};
+			tauntBadge.AddThemeColorOverride("font_color", ClrTaunt);
+			tauntBadge.AddThemeFontSizeOverride("font_size", 10);
+			_keywordContainer.AddChild(tauntBadge);
+
+			var bcBadge = new Label
+			{
+				Text = "战吼",
+				HorizontalAlignment = HorizontalAlignment.Center,
+				VerticalAlignment = VerticalAlignment.Center,
+			};
+			bcBadge.AddThemeColorOverride("font_color", ClrBattlecry);
+			bcBadge.AddThemeFontSizeOverride("font_size", 10);
+			_keywordContainer.AddChild(bcBadge);
+		}
+	}
+#endif
+
 	/// <summary>
 	/// 设置卡牌是否可打出。不可打出时整体灰化。
 	/// </summary>
@@ -581,6 +658,7 @@ public partial class CardUI : Control
 	private void OnGuiInputHandler(InputEvent @event)
 	{
 		if (DisplayOnly) return;
+		if (Engine.IsEditorHint()) return; // 编辑器模式下不处理交互
 
 		if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
 		{
