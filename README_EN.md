@@ -4,7 +4,7 @@
 
 A Hearthstone-like turn-based card battle Roguelite — Godot 4.6 + C#
 
-> **Branch:** `main` | **Status:** Playable MVP
+> **Branch:** `dev` | **Status:** Playable MVP
 > 59 `.cs` files, ~17,700 lines of code. Full turn-based combat loop operational, with card collection, map routes, and save system.
 
 ## Core Systems
