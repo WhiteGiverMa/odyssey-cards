@@ -196,7 +196,7 @@ public partial class CardFlyVfx : Control
 		tween.TweenMethod(
 			Callable.From<float>(t =>
 			{
-				Vector2 pos = QuadraticBezier(t, fromPos, toPos, ctrlPos);
+				Vector2 pos = QuadraticBezier(t, fromPos, ctrlPos, toPos);
 				_card.Position = pos;
 
 				_frameCounter++;
