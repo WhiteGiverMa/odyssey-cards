@@ -767,6 +767,26 @@ public partial class BoardUI : Control
         // ===== 构造函数 =====
 
         /// <summary>
+        /// 无参构造——Godot C# 桥接层要求所有 Control 子类必须有无参构造函数。
+        /// 仅编辑器/反射使用，运行时通过带参构造创建。
+        /// </summary>
+        private BoardSlot()
+        {
+            SlotIndex = 0;
+            IsPlayerSide = false;
+            _parentBoard = null!;
+            _background = null!;
+            _borderRect = null!;
+            _indexLabel = null!;
+            _contentLabel = null!;
+            _costBg = null!;
+            _costLabel = null!;
+            _actionCostBg = null!;
+            _actionCostLabel = null!;
+            _intentLabel = null!;
+        }
+
+        /// <summary>
         /// 创建槽位组件。
         /// </summary>
         /// <param name="slotIndex">槽位索引（0-4）</param>

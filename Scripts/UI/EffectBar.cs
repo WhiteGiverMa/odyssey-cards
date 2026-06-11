@@ -196,6 +196,16 @@ public partial class EffectBar : HBoxContainer
         private bool _isHovered;
         private bool _disabled;
 
+        // Godot C# 桥接层要求的无参构造——仅编辑器/反射使用
+        private EffectIcon()
+        {
+            _effect = null!;
+            _parent = null!;
+            _background = null!;
+            _iconLabel = null!;
+            _stackLabel = null;
+        }
+
         public EffectIcon(DisplayableEffect effect, EffectBar parent)
         {
             _effect = effect;
