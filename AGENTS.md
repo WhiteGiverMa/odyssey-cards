@@ -1,6 +1,6 @@
 # OdysseyCards（少女星途卡牌） — Godot 4.6 C# · 类炉石 Roguelite 卡牌
 
-**Branch:** `main` · **Commit:** `394871f` · **Updated:** 2026-06-08
+**Updated:** 2026-06-08
 **Scale:** 137 `.cs` (Scripts/) · ~27,000 行 · 32 `.tres` 卡牌 · 4 `.tscn` 场景
 
 ## Start
@@ -144,7 +144,7 @@ Scenes/             # Main.tscn, Combat.tscn, Collection.tscn, Map.tscn
 - public：`PascalCase`
 - 局部/参数：`camelCase`
 - 命名空间：`file_scoped` (`namespace X;`)，新文件必须。`using` 在 namespace 外。
-- **缩进统一为 Tab**（非空格）。已提交批量格式化的文件（`CombatManager.cs`、`CombatUI.cs`、`Card.cs`），新增文件遵循此规则。
+- **缩进统一为 Tab（4空格）**。已提交批量格式化的文件（`CombatManager.cs`、`CombatUI.cs`、`Card.cs`），新增文件遵循此规则。
 
 ### 事件/信号
 - **不用** `[Signal]`。全部 C# `event Action<...>`。
