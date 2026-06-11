@@ -39,8 +39,13 @@ namespace OdysseyCards.Core
 		/// <returns>The final resolved damage value.</returns>
 		public static int ResolveDamage(int baseDamage, IDamageSource source, IDamageTarget target, DamageKind kind)
 		{
+			return ResolveDamage(baseDamage, source, target, kind, isPreview: false);
+		}
+
+		private static int ResolveDamage(int baseDamage, IDamageSource source, IDamageTarget target, DamageKind kind, bool isPreview)
+		{
 			int damage = baseDamage;
-			var context = new DamageContext(source, target, kind);
+			var context = new DamageContext(source, target, kind, isPreview);
 
 			// Phase 1: ADDITIVE (加算)
 			// Apply source's additive modifiers (e.g., Strength +3)
@@ -119,18 +124,18 @@ namespace OdysseyCards.Core
 		/// <param name="source">伤害来源</param>
 		/// <param name="target">伤害目标（用于计算目标防御力等减免）</param>
 		/// <returns>预览伤害值</returns>
-		public static int ResolvePreviewDamage(int baseDamage, IDamageSource? source, IDamageTarget? target)
+		public static int ResolvePreviewDamage(int baseDamage, IDamageSource source, IDamageTarget target)
 		{
-			return ResolveDamage(baseDamage, source, target, DamageKind.Attack);
+			return ResolveDamage(baseDamage, source, target, DamageKind.Attack, isPreview: true);
 		}
 
 		/// <summary>
 		/// Resolves preview damage with an explicit damage kind.
 		/// 解析指定伤害类型的预览伤害值。
 		/// </summary>
-		public static int ResolvePreviewDamage(int baseDamage, IDamageSource? source, IDamageTarget? target, DamageKind kind)
+		public static int ResolvePreviewDamage(int baseDamage, IDamageSource source, IDamageTarget target, DamageKind kind)
 		{
-			return ResolveDamage(baseDamage, source, target, kind);
+			return ResolveDamage(baseDamage, source, target, kind, isPreview: true);
 		}
 
 		private static int ApplyModifiers(int damage, DamageContext context, IReadOnlyList<IDamageModifier> modifiers, DamagePhase phase, bool isDealt)

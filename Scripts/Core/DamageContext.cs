@@ -21,6 +21,11 @@ public readonly struct DamageContext
 	public DamageKind Kind { get; }
 
 	/// <summary>
+	/// 是否为 UI/意图预览计算，不应产生结算日志或副作用。
+	/// </summary>
+	public bool IsPreview { get; }
+
+	/// <summary>
 	/// 是否跳过目标防御力减免。
 	/// </summary>
 	public bool IgnoresDefense => Kind == DamageKind.Effect;
@@ -28,11 +33,12 @@ public readonly struct DamageContext
 	/// <summary>
 	/// 创建 DamageContext。
 	/// </summary>
-	public DamageContext(IDamageSource source, IDamageTarget target, DamageKind kind = DamageKind.Attack)
+	public DamageContext(IDamageSource source, IDamageTarget target, DamageKind kind = DamageKind.Attack, bool isPreview = false)
 	{
 		Source = source;
 		Target = target;
 		Kind = kind;
+		IsPreview = isPreview;
 	}
 
 	/// <summary>
@@ -40,6 +46,6 @@ public readonly struct DamageContext
 	/// </summary>
 	public static DamageContext ForPreview(IDamageSource source)
 	{
-		return new DamageContext(source, null);
+		return new DamageContext(source, null, DamageKind.Attack, isPreview: true);
 	}
 }

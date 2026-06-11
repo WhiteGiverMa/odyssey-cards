@@ -31,7 +31,8 @@ public class HeatDamageModifier : IDamageModifier
 		float multiplier = _heat.DamageMultiplier;
 		float result = currentDamage * multiplier;
 		int final = (int)MathF.Round(result);
-		Godot.GD.Print($"[HeatMod] base={currentDamage} × mult={multiplier:F3}(heat={_heat.CurrentHeat:F3}) = {result:F2} → round={final}");
+		if (!context.IsPreview)
+			Godot.GD.Print($"[HeatMod] base={currentDamage} × mult={multiplier:F3}(heat={_heat.CurrentHeat:F3}) = {result:F2} → round={final}");
 		return final;
 	}
 
