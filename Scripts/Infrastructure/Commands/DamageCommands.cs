@@ -1,4 +1,5 @@
 #nullable enable
+using OdysseyCards.AI;
 using OdysseyCards.Combat;
 using OdysseyCards.UI;
 using System.Linq;
@@ -12,22 +13,21 @@ public class DamageCommand : DevConsoleCommand
 {
 	public override string Name => "damage";
 	public override string[] Aliases => ["dmg"];
-	public override string Signature => "/damage [-c] N";
-	public override string Description => "对敌方英雄造成 N 点伤害。加 -c 进入点击模式。";
+	public override string Signature => "/damage [X] N";
+	public override string Description => "对敌方英雄造成 N 点伤害。可选 X 指定敌人索引(0..n-1)，默认首个存活。";
 	public override CompletionCandidate[]? GetArgCandidates(string _) => null;
 	public override CommandResult Execute(string[] args)
 	{
 		var cm = CombatManager.Instance;
 		if (cm == null)
 			return CommandResult.Fail("未在战斗中");
-		int n = args.Length > 0 && int.TryParse(args[0], out var v) ? v : 1;
-		var enemyHero = cm.GetDefaultEnemyTargetUnit()?.Body;
-		if (enemyHero == null)
-			return CommandResult.Fail("没有存活的敌方英雄");
-		enemyHero.ApplyDevDamage(n);
+		var (unit, n) = EnemyDamageTargetResolver.ResolveEnemyTarget(cm, args);
+		if (unit == null || unit.Body.IsDead)
+			return CommandResult.Fail(unit == null ? "指定的敌人不存在" : $"{unit.Brain.Name} 已死亡");
+		unit.Body.ApplyDevDamage(n);
 		cm.CheckVictoryOrDefeat();
 		RefreshCombatUI(cm);
-		return CommandResult.Ok($"对敌方英雄造成 {n} 点伤害（剩余 {enemyHero.CurrentHealth}）");
+		return CommandResult.Ok($"对 {unit.Brain.Name} 造成 {n} 点伤害（剩余 {unit.Body.CurrentHealth}）");
 	}
 }
 
@@ -35,21 +35,44 @@ public class DamageEnemyCommand : DevConsoleCommand
 {
 	public override string Name => "damage_enemy";
 	public override string[] Aliases => ["denemy"];
-	public override string Signature => "/damage_enemy N";
-	public override string Description => "对敌方英雄造成 N 点伤害（显式）。";
+	public override string Signature => "/damage_enemy [X] N";
+	public override string Description => "对敌方英雄造成 N 点伤害。可选 X 指定敌人索引(0..n-1)，默认首个存活。";
 	public override CommandResult Execute(string[] args)
 	{
 		var cm = CombatManager.Instance;
 		if (cm == null)
 			return CommandResult.Fail("未在战斗中");
-		int n = args.Length > 0 && int.TryParse(args[0], out var v) ? v : 1;
-		var enemyHero = cm.GetDefaultEnemyTargetUnit()?.Body;
-		if (enemyHero == null)
-			return CommandResult.Fail("没有存活的敌方英雄");
-		enemyHero.ApplyDevDamage(n);
+		var (unit, n) = EnemyDamageTargetResolver.ResolveEnemyTarget(cm, args);
+		if (unit == null || unit.Body.IsDead)
+			return CommandResult.Fail(unit == null ? "指定的敌人不存在" : $"{unit.Brain.Name} 已死亡");
+		unit.Body.ApplyDevDamage(n);
 		cm.CheckVictoryOrDefeat();
 		RefreshCombatUI(cm);
-		return CommandResult.Ok($"对敌方英雄造成 {n} 点伤害（剩余 {enemyHero.CurrentHealth}）");
+		return CommandResult.Ok($"对 {unit.Brain.Name} 造成 {n} 点伤害（剩余 {unit.Body.CurrentHealth}）");
+	}
+}
+
+/// <summary>
+/// 解析 /damage 和 /damage_enemy 的敌方目标与伤害值。
+/// /damage_enemy X N → 指定索引；/damage_enemy N → 默认首个存活。
+/// </summary>
+internal static class EnemyDamageTargetResolver
+{
+	public static (EnemyUnit? unit, int damage) ResolveEnemyTarget(CombatManager cm, string[] args)
+	{
+		// 双参数模式：/damage_enemy X N
+		if (args.Length >= 2
+			&& int.TryParse(args[0], out var idx)
+			&& int.TryParse(args[1], out var n))
+		{
+			if (idx < 0 || idx >= cm.EnemyUnits.Count)
+				return (null, n);
+			return (cm.EnemyUnits[idx], n);
+		}
+
+		// 单参数模式：/damage_enemy N
+		n = args.Length > 0 && int.TryParse(args[0], out var v) ? v : 1;
+		return (cm.GetDefaultEnemyTargetUnit(), n);
 	}
 }
 
