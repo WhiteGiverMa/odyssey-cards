@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Character;
 using OdysseyCards.Core;
-using OdysseyCards.Localization;
 
 namespace OdysseyCards.Card;
 
@@ -270,6 +269,22 @@ public class Hero : IDamageTarget, IDamageSource
 	/// 绕过伤害管线直接击杀后，手动触发死亡事件。
 	/// </summary>
 	internal void InvokeOnDeath() => OnDeath?.Invoke(this);
+
+	/// <summary>
+	/// DevConsole 专用直伤：绕过伤害管线、护甲、反击与状态修饰，直接扣除生命值。
+	/// </summary>
+	internal void ApplyDevDamage(int amount)
+	{
+		if (amount <= 0)
+			return;
+
+		_core.ApplyDamage(amount);
+		string who = IsPlayerSide ? "玩家英雄" : "敌方英雄";
+		GD.Print($"[Hero:{who}] DevConsole 直伤 {amount}，剩余生命值：{CurrentHealth}");
+
+		if (IsDead)
+			OnDeath?.Invoke(this);
+	}
 
 	/// <summary>
 	/// 重置本回合受伤标记（新回合开始时调用）。

@@ -1,6 +1,5 @@
 using Godot;
 using OdysseyCards.Core;
-using OdysseyCards.Localization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -558,6 +557,18 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		GD.Print($"{CardName} 受到 {finalDamage} 点伤害，剩余生命值：{CurrentHealth}");
 
 		// 未来可在此处触发受伤事件（如苦痛侍僧抽牌等）
+	}
+
+	/// <summary>
+	/// DevConsole 专用直伤：绕过伤害管线、护甲与状态修饰，直接扣除生命值。
+	/// </summary>
+	internal void ApplyDevDamage(int amount)
+	{
+		if (amount <= 0)
+			return;
+
+		CurrentHealth -= amount;
+		GD.Print($"[Minion:{CardName}] DevConsole 直伤 {amount}，剩余生命值：{CurrentHealth}");
 	}
 
 	/// <summary>
