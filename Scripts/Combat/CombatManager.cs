@@ -1555,22 +1555,18 @@ public partial class CombatManager : Node
 			return;
 		_victoryResolver.DevSkipGoldReward = !grantReward;
 
-		// 击杀所有敌方随从 —— 绕过伤害管线，直接用 ApplyDamage 确保击杀
+		// 击杀所有敌方随从 —— 绕过伤害管线，直接用 DevConsole 直伤确保击杀
 		foreach (var minion in Board.GetEnemyMinions())
 		{
 			if (!minion.IsDead)
-				minion.ApplyDamage(minion.CurrentHealth, null);
+				minion.ApplyDevDamage(minion.CurrentHealth);
 		}
 
-		// 击杀所有敌方英雄 —— 绕过伤害管线（CAPPING 会截断大额伤害），
-		// 手动触发 OnDeath 因为 ApplyDamage 不走 TakeDamage 不会自动触发
+		// 击杀所有敌方英雄 —— 绕过伤害管线（CAPPING 会截断大额伤害）
 		foreach (var unit in EnemyUnits)
 		{
 			if (!unit.Body.IsDead)
-			{
-				unit.Body.ApplyDamage(unit.Body.CurrentHealth, null);
-				unit.Body.InvokeOnDeath();
-			}
+				unit.Body.ApplyDevDamage(unit.Body.CurrentHealth);
 		}
 
 		// 触发胜负判定（含奖励/保存/OnGameOver）
