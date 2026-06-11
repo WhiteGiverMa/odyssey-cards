@@ -744,12 +744,13 @@ public partial class CardUI : Control
 
 		Vector2 targetSize = Size * targetScale;
 		Vector2 targetTopLeft = globalCenter - targetSize * 0.5f;
-		Scale = Vector2.One * targetScale;
 
 		var tween = CreateTween();
+		tween.SetParallel(true);
 		tween.SetTrans(Tween.TransitionType.Cubic);
 		tween.SetEase(Tween.EaseType.Out);
-		tween.TweenProperty(this, "global_position", targetTopLeft, 0.12f);
+		tween.TweenProperty(this, "global_position", targetTopLeft, 0.15f);
+		tween.TweenProperty(this, "scale", Vector2.One * targetScale, 0.15f);
 	}
 
 	/// <summary>

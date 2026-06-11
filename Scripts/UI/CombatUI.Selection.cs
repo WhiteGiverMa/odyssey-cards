@@ -470,7 +470,27 @@ public partial class CombatUI
 				// 卡牌居中展示，仅箭头跟随鼠标，第二击目标确认。
 				Vector2 viewportSize = GetViewportRect().Size;
 				Vector2 center = new(viewportSize.X * 0.5f, viewportSize.Y - _dragCardUI.Size.Y * TargetingCardScale * 0.5f);
-				_dragCardUI.PresentForTargeting(center, TargetingCardScale);
+
+				if (startedByKeyboard)
+				{
+					// 键盘选中：直接定位到展示位，仅对 Scale 做 Back.ease 弹入动画，
+					// 跳过 Position Tween 以避免 reparent 后帧间位置漂移导致的跳变。
+					_dragCardUI.CancelDragSilent();
+					_dragCardUI.MouseFilter = MouseFilterEnum.Ignore;
+					_dragCardUI.ZIndex = 10;
+
+					Vector2 targetSize = _dragCardUI.Size * TargetingCardScale;
+					_dragCardUI.GlobalPosition = center - targetSize * 0.5f;
+
+					var scaleTween = _dragCardUI.CreateTween();
+					scaleTween.TweenProperty(_dragCardUI, "scale", Vector2.One * TargetingCardScale, 0.18f)
+						.SetTrans(Tween.TransitionType.Back)
+						.SetEase(Tween.EaseType.Out);
+				}
+				else
+				{
+					_dragCardUI.PresentForTargeting(center, TargetingCardScale);
+				}
 			}
 
 			_cardTargetDragStartPos = startedByKeyboard
