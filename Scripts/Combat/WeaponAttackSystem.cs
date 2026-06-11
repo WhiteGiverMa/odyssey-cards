@@ -1,11 +1,8 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using Godot;
 using OdysseyCards.AI;
 using OdysseyCards.Card;
 using OdysseyCards.Core;
-using OdysseyCards.Roguelike;
 
 namespace OdysseyCards.Combat;
 
@@ -111,14 +108,6 @@ internal sealed class WeaponAttackSystem
 			_state.SetDefeat();
 			_onGameOver?.Invoke(false);
 			return true;
-		}
-
-		// 检查胜负
-		if (target.IsDead)
-		{
-			GD.Print("[CombatManager]   ★ 敌方英雄被击败！");
-			_state.SetVictory();
-			_onGameOver?.Invoke(true);
 		}
 
 		return true;

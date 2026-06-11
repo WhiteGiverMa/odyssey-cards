@@ -1357,14 +1357,6 @@ public partial class CombatManager : Node
 			_attackTracker.Remove(attacker);
 		}
 
-		// 检查胜负
-		if (hero.IsDead)
-		{
-			GD.Print("[CombatManager]   ★ 敌方英雄被击败！");
-			State.SetVictory();
-			OnGameOver?.Invoke(true);
-		}
-
 		return true;
 	}
 
