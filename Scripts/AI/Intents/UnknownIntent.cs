@@ -6,9 +6,9 @@ namespace OdysseyCards.AI.Intents;
 /// </summary>
 public sealed class UnknownIntent : AbstractIntent
 {
-    /// <inheritdoc />
-    public override IntentType Type => IntentType.Unknown;
+	/// <inheritdoc />
+	public override IntentType Type => IntentType.Unknown;
 
-    /// <inheritdoc />
-    public override string IntentPrefix => "UNKNOWN";
+	/// <inheritdoc />
+	public override string IntentPrefix => "UNKNOWN";
 }

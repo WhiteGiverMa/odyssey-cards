@@ -9,6 +9,6 @@ namespace OdysseyCards.Core;
 /// </summary>
 public enum DamageKind
 {
-    Attack,
-    Effect,
+	Attack,
+	Effect,
 }

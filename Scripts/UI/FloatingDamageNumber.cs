@@ -70,7 +70,8 @@ public partial class FloatingDamageNumber : Control
 	/// </summary>
 	public static void CreateHeal(int amount, Vector2 screenPosition, Node parent)
 	{
-		if (amount <= 0) return;
+		if (amount <= 0)
+			return;
 		CreateNumber(amount, screenPosition, HealColor, FontSize, HealDuration, parent);
 	}
 
@@ -149,20 +150,20 @@ public partial class FloatingDamageNumber : Control
 
 		// 向上浮动
 		tween.TweenProperty(this, "position:y", Position.Y - FloatDistance, duration)
-		     .SetEase(Tween.EaseType.Out)
-		     .SetTrans(Tween.TransitionType.Cubic);
+			 .SetEase(Tween.EaseType.Out)
+			 .SetTrans(Tween.TransitionType.Cubic);
 
 		// 透明度 1.0 → 0.0（后 40% 时间开始淡出）
 		tween.TweenProperty(this, "modulate:a", 0.0f, duration * 0.5f)
-		     .SetDelay(duration * 0.5f)
-		     .SetEase(Tween.EaseType.In)
-		     .SetTrans(Tween.TransitionType.Quad);
+			 .SetDelay(duration * 0.5f)
+			 .SetEase(Tween.EaseType.In)
+			 .SetTrans(Tween.TransitionType.Quad);
 
 		// 缩放缩小（仅第一个通道，让进场效果明显）
 		var scaleTween = CreateTween();
 		scaleTween.TweenProperty(this, "scale", Vector2.One, duration * 0.5f)
-		          .SetEase(Tween.EaseType.Out)
-		          .SetTrans(Tween.TransitionType.Back);
+				  .SetEase(Tween.EaseType.Out)
+				  .SetTrans(Tween.TransitionType.Back);
 
 		// 动画结束后自动销毁
 		tween.Finished += QueueFree;

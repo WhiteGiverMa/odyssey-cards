@@ -91,10 +91,12 @@ public partial class CombatUI
 	/// </summary>
 	private void RefreshIntentDisplay()
 	{
-		if (_combat == null) return;
+		if (_combat == null)
+			return;
 
 		// 冻结检查：敌方回合执行动画期间不刷新，防止数值跳变
-		if (_combat.IsEnemyTurnAnimating) return;
+		if (_combat.IsEnemyTurnAnimating)
+			return;
 
 		// 通过卡片刷新所有敌人意图（包括首个和额外）
 		foreach (var card in _enemyCards)
@@ -111,10 +113,12 @@ public partial class CombatUI
 	/// </summary>
 	private void RefreshIntentArrows()
 	{
-		if (_combat == null || _arrowRenderer == null) return;
+		if (_combat == null || _arrowRenderer == null)
+			return;
 
 		// 冻结检查：敌方回合执行动画期间不刷新
-		if (_combat.IsEnemyTurnAnimating) return;
+		if (_combat.IsEnemyTurnAnimating)
+			return;
 
 		// 清除旧的意图箭头（前缀 "intent_"）
 		_arrowRenderer.ClearArrows();
@@ -151,7 +155,8 @@ public partial class CombatUI
 					if (targetPos != Vector2.Zero)
 					{
 						var source = GetEnemyIdentityCardAnchor(i, targetPos);
-						if (source == Vector2.Zero) break;
+						if (source == Vector2.Zero)
+							break;
 						_arrowRenderer.AddArrow($"intent_attack_{i}", source, targetPos, ArrowRenderer.EnemyAttackColor);
 					}
 					break;
@@ -186,9 +191,11 @@ public partial class CombatUI
 		var enemyMinions = _combat.Board.GetEnemyMinions();
 		foreach (var minion in enemyMinions)
 		{
-			if (minion.IsDead) continue;
+			if (minion.IsDead)
+				continue;
 			int slotIndex = minion.BoardSlotIndex;
-			if (slotIndex < 0) continue;
+			if (slotIndex < 0)
+				continue;
 
 			Vector2 sourcePos = _boardUI.GetSlotScreenCenter(slotIndex, isPlayerSide: false);
 
@@ -283,7 +290,8 @@ public partial class CombatUI
 	/// </summary>
 	private void UpdateHealthBars()
 	{
-		if (_combat == null) return;
+		if (_combat == null)
+			return;
 
 		_playerHealthBar.UpdateHealth(_combat.PlayerHero.CurrentHealth, _combat.PlayerHero.MaxHealth);
 
@@ -303,7 +311,8 @@ public partial class CombatUI
 	/// </summary>
 	private void UpdateManaDisplay()
 	{
-		if (_combat == null) return;
+		if (_combat == null)
+			return;
 
 		_playerManaLabel.Text = Localization.Localization.T("ui.combat.mana_format", "法力 {current}/{max}")
 			.Replace("{current}", _combat.PlayerHero.CurrentMana.ToString())
@@ -315,7 +324,8 @@ public partial class CombatUI
 	/// </summary>
 	private void UpdateArmorDisplay()
 	{
-		if (_combat == null) return;
+		if (_combat == null)
+			return;
 
 		// 玩家护甲
 		int playerArmor = _combat.PlayerHero.CurrentArmor;
@@ -343,7 +353,8 @@ public partial class CombatUI
 	/// </summary>
 	private void UpdateDefenseDisplay()
 	{
-		if (_combat == null) return;
+		if (_combat == null)
+			return;
 
 		// 玩家防御
 		int playerDef = _combat.PlayerHero.Defense;
@@ -375,7 +386,8 @@ public partial class CombatUI
 	/// </summary>
 	private void UpdateWeaponDisplay()
 	{
-		if (_combat == null) return;
+		if (_combat == null)
+			return;
 
 		// --- 玩家武器 ---
 		var weapon = _combat.PlayerHero.Weapon;
@@ -470,7 +482,8 @@ public partial class CombatUI
 	/// </summary>
 	private void UpdateStatusEffectDisplay()
 	{
-		if (_combat == null) return;
+		if (_combat == null)
+			return;
 
 		// 玩家英雄效果
 		_playerEffectBar.Populate(_combat.PlayerHero.GetDisplayableEffects());
@@ -490,7 +503,8 @@ public partial class CombatUI
 	/// </summary>
 	private void UpdateDeckCounts()
 	{
-		if (_combat == null) return;
+		if (_combat == null)
+			return;
 
 		var deckState = _combat.PlayerHero.DeckState;
 		_drawPileBtn.Text = Localization.Localization.T("ui.combat.draw_pile_format", "抽牌堆 ({count})").Replace("{count}", deckState.DrawPile.Count.ToString());
@@ -502,7 +516,8 @@ public partial class CombatUI
 	/// </summary>
 	private void UpdateHeroPowerButton()
 	{
-		if (_heroPowerButton == null || _combat == null) return;
+		if (_heroPowerButton == null || _combat == null)
+			return;
 
 		var heroPower = _combat.PlayerHero.HeroPower;
 		if (heroPower == null)
@@ -540,7 +555,8 @@ public partial class CombatUI
 	/// </summary>
 	private void UpdateMobileCancelButton()
 	{
-		if (_mobileCancelButton == null) return;
+		if (_mobileCancelButton == null)
+			return;
 
 		bool shouldShow = MobileInputRouter.IsMobile
 			&& (_selectionMode != SelectionMode.Normal || _isHandSelecting);

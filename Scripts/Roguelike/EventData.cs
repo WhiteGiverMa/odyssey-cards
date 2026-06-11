@@ -76,7 +76,8 @@ public static class EventPool
 				return;
 			}
 			var eligible = gm.GetRewardEligibleCards();
-			if (eligible.Count == 0) return;
+			if (eligible.Count == 0)
+				return;
 			var rng = new Random();
 			var card = eligible[rng.Next(eligible.Count)];
 			gm.AddCardToDeckInCombat(card);
@@ -253,7 +254,8 @@ public static class EventPool
 				return;
 			}
 			var eligible = gm.GetRewardEligibleCards();
-			if (eligible.Count == 0) return;
+			if (eligible.Count == 0)
+				return;
 			var rng = new Random();
 			var card = eligible[rng.Next(eligible.Count)];
 			gm.AddCardToDeckInCombat(card);

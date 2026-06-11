@@ -8,22 +8,22 @@ namespace OdysseyCards.Core;
 /// </summary>
 public class DamageCapModifier : IDamageModifier
 {
-    private readonly int _cap;
+	private readonly int _cap;
 
-    /// <summary>
-    /// 创建伤害上限修改器。
-    /// </summary>
-    /// <param name="cap">单次伤害上限（例如 3）</param>
-    public DamageCapModifier(int cap)
-    {
-        _cap = cap;
-    }
+	/// <summary>
+	/// 创建伤害上限修改器。
+	/// </summary>
+	/// <param name="cap">单次伤害上限（例如 3）</param>
+	public DamageCapModifier(int cap)
+	{
+		_cap = cap;
+	}
 
-    public DamagePhase Phase => DamagePhase.CAPPING;
+	public DamagePhase Phase => DamagePhase.CAPPING;
 
-    public int ModifyDamageDealt(int currentDamage, DamageContext context)
-        => currentDamage; // 只影响目标侧
+	public int ModifyDamageDealt(int currentDamage, DamageContext context)
+		=> currentDamage; // 只影响目标侧
 
-    public int ModifyDamageTaken(int currentDamage, DamageContext context)
-        => Math.Min(currentDamage, _cap);
+	public int ModifyDamageTaken(int currentDamage, DamageContext context)
+		=> Math.Min(currentDamage, _cap);
 }

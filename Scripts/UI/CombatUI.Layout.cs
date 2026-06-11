@@ -489,7 +489,8 @@ public partial class CombatUI
 	private void CreateEnemyHeroAttackButton()
 	{
 		var enemyHeroPlaceholder = GetNode<CenterContainer>("CombatRoot/EnemyArea/EnemyHeroLabelPlaceholder");
-		if (enemyHeroPlaceholder == null) return;
+		if (enemyHeroPlaceholder == null)
+			return;
 
 		// 交互面板容器（CenteredContainer 居中内容）
 		var panelContainer = new CenterContainer
@@ -574,7 +575,8 @@ public partial class CombatUI
 	private void CreatePlayerHeroPanel()
 	{
 		var playerHealthPlaceholder = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
-		if (playerHealthPlaceholder == null) return;
+		if (playerHealthPlaceholder == null)
+			return;
 
 		// 交互面板容器
 		var panelContainer = new CenterContainer
@@ -673,7 +675,8 @@ public partial class CombatUI
 	private void CreateDeckButtons()
 	{
 		var deckPlaceholder = GetNode<CenterContainer>("CombatRoot/PlayerArea/DeckPlaceholder");
-		if (deckPlaceholder == null) return;
+		if (deckPlaceholder == null)
+			return;
 
 		var btnContainer = new HBoxContainer
 		{
@@ -718,8 +721,10 @@ public partial class CombatUI
 	/// </summary>
 	private void ShowDrawPileView()
 	{
-		if (_combat == null) return;
-		if (_isPaused || _combat.IsDiscovering) return;
+		if (_combat == null)
+			return;
+		if (_isPaused || _combat.IsDiscovering)
+			return;
 
 		var cards = _combat.PlayerHero.DeckState.DrawPile;
 		ShowPileViewer(Localization.Localization.T("ui.combat.draw_pile", "抽牌堆"), cards, showOrderNumbers: true);
@@ -730,8 +735,10 @@ public partial class CombatUI
 	/// </summary>
 	private void ShowDiscardPileView()
 	{
-		if (_combat == null) return;
-		if (_isPaused || _combat.IsDiscovering) return;
+		if (_combat == null)
+			return;
+		if (_isPaused || _combat.IsDiscovering)
+			return;
 
 		var cards = _combat.PlayerHero.DeckState.DiscardPile;
 		ShowPileViewer(Localization.Localization.T("ui.combat.discard_pile", "弃牌堆"), cards);
@@ -747,7 +754,8 @@ public partial class CombatUI
 	{
 		// --- 玩家武器 UI ---
 		var weaponPlaceholder = GetNode<VBoxContainer>("CombatRoot/PlayerArea/WeaponPlaceholder");
-		if (weaponPlaceholder == null) return;
+		if (weaponPlaceholder == null)
+			return;
 
 		// 武器信息标签
 		_weaponInfoLabel = new Label
@@ -796,7 +804,8 @@ public partial class CombatUI
 
 		// --- 敌方武器信息 ---
 		var enemyArea = GetNode<HBoxContainer>("CombatRoot/EnemyArea");
-		if (enemyArea == null) return;
+		if (enemyArea == null)
+			return;
 
 		_enemyWeaponLabel = new Label
 		{
@@ -973,7 +982,8 @@ public partial class CombatUI
 	/// </summary>
 	private void ShowPlayZonePanel()
 	{
-		if (_playZonePanel == null) return;
+		if (_playZonePanel == null)
+			return;
 
 		var viewport = GetViewport().GetVisibleRect().Size;
 		float threshold = viewport.Y * PlayZoneBaseRatio;
@@ -999,7 +1009,8 @@ public partial class CombatUI
 	/// </summary>
 	private void HidePlayZonePanel()
 	{
-		if (_playZonePanel == null) return;
+		if (_playZonePanel == null)
+			return;
 
 		if (_playZonePanelConnected)
 		{

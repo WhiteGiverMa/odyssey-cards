@@ -20,8 +20,10 @@ public class IronWillHeroPower : IHeroPower
 	/// </summary>
 	public bool CanUse(Hero hero)
 	{
-		if (hero == null) return false;
-		if (hero.IsDead) return false;
+		if (hero == null)
+			return false;
+		if (hero.IsDead)
+			return false;
 		return hero.CurrentMana >= Cost;
 	}
 

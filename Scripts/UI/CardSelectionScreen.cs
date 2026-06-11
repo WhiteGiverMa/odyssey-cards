@@ -270,7 +270,8 @@ public abstract partial class CardSelectionScreen : Control
 		{
 			foreach (var target in extraTargets)
 			{
-				if (target == null) continue;
+				if (target == null)
+					continue;
 				tween.TweenProperty(target, "modulate", Colors.White, 0.45)
 					.From(Colors.Black);
 			}
@@ -281,7 +282,8 @@ public abstract partial class CardSelectionScreen : Control
 
 	private void OnAnyItemClicked(CardUI cardUI)
 	{
-		if (!_isShowing) return;
+		if (!_isShowing)
+			return;
 
 		// 终止拖拽状态
 		cardUI.CancelDragSilent();
@@ -294,7 +296,8 @@ public abstract partial class CardSelectionScreen : Control
 		}
 
 		int index = _items.IndexOf(cardUI);
-		if (index < 0) return;
+		if (index < 0)
+			return;
 
 		GD.Print($"[{GetType().Name}] 玩家选择了第 {index} 项");
 		OnItemSelected(index);
@@ -302,7 +305,8 @@ public abstract partial class CardSelectionScreen : Control
 
 	private void OnSkipPressed()
 	{
-		if (!_isShowing) return;
+		if (!_isShowing)
+			return;
 		GD.Print($"[{GetType().Name}] 玩家跳过");
 		_isShowing = false;
 		OnSkip();
@@ -310,7 +314,8 @@ public abstract partial class CardSelectionScreen : Control
 
 	private void OnConfirmPressed()
 	{
-		if (!_isShowing) return;
+		if (!_isShowing)
+			return;
 		GD.Print($"[{GetType().Name}] 玩家确认");
 		OnConfirm();
 	}
@@ -329,7 +334,8 @@ public abstract partial class CardSelectionScreen : Control
 		UnregisterHotkeyBindings();
 
 		var hm = HotkeyManager.Instance;
-		if (hm == null) return;
+		if (hm == null)
+			return;
 
 		int count = _items.Count;
 
@@ -363,7 +369,8 @@ public abstract partial class CardSelectionScreen : Control
 	private void UnregisterHotkeyBindings()
 	{
 		var hm = HotkeyManager.Instance;
-		if (hm == null) return;
+		if (hm == null)
+			return;
 
 		hm.KeyboardFocusChanged -= OnKeyboardFocusChanged;
 
@@ -374,22 +381,28 @@ public abstract partial class CardSelectionScreen : Control
 		}
 		_selectActions = Array.Empty<Action>();
 
-		if (_acceptAction != null) { hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
+		if (_acceptAction != null)
+		{ hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
 		if (_skipAction != null)
 		{
 			hm.RemovePressedBinding(OdysseyInput.Skip, _skipAction);
 			hm.RemovePressedBinding(OdysseyInput.Cancel, _skipAction);
 			_skipAction = null;
 		}
-		if (_leftAction != null) { hm.RemovePressedBinding(OdysseyInput.Left, _leftAction); _leftAction = null; }
-		if (_rightAction != null) { hm.RemovePressedBinding(OdysseyInput.Right, _rightAction); _rightAction = null; }
+		if (_leftAction != null)
+		{ hm.RemovePressedBinding(OdysseyInput.Left, _leftAction); _leftAction = null; }
+		if (_rightAction != null)
+		{ hm.RemovePressedBinding(OdysseyInput.Right, _rightAction); _rightAction = null; }
 	}
 
 	private void SelectItemByIndex(int index)
 	{
-		if (!_isShowing) return;
-		if (index < 0 || index >= _items.Count) return;
-		if (Time.GetTicksMsec() - _openedTicks < ClickProtectionMs) return;
+		if (!_isShowing)
+			return;
+		if (index < 0 || index >= _items.Count)
+			return;
+		if (Time.GetTicksMsec() - _openedTicks < ClickProtectionMs)
+			return;
 
 		_focusedIndex = index;
 		OnAnyItemClicked(_items[index]);
@@ -397,15 +410,18 @@ public abstract partial class CardSelectionScreen : Control
 
 	private void CycleFocus(int direction)
 	{
-		if (!_isShowing || _items.Count == 0) return;
+		if (!_isShowing || _items.Count == 0)
+			return;
 
 		if (_focusedIndex < 0 || _focusedIndex >= _items.Count)
 			_focusedIndex = direction > 0 ? 0 : _items.Count - 1;
 		else
 		{
 			_focusedIndex += direction;
-			if (_focusedIndex >= _items.Count) _focusedIndex = 0;
-			else if (_focusedIndex < 0) _focusedIndex = _items.Count - 1;
+			if (_focusedIndex >= _items.Count)
+				_focusedIndex = 0;
+			else if (_focusedIndex < 0)
+				_focusedIndex = _items.Count - 1;
 		}
 
 		ApplyKeyboardFocusVisual();
@@ -413,7 +429,8 @@ public abstract partial class CardSelectionScreen : Control
 
 	private void AcceptFocusedOrConfirm()
 	{
-		if (!_isShowing) return;
+		if (!_isShowing)
+			return;
 
 		if (_confirmButton != null && !_confirmButton.Disabled)
 		{
@@ -445,13 +462,16 @@ public abstract partial class CardSelectionScreen : Control
 
 		ClearKeyboardFocusVisual();
 
-		if (!shouldShow) return;
+		if (!shouldShow)
+			return;
 
 		var cardUI = _items[_focusedIndex];
-		if (cardUI == null || !GodotObject.IsInstanceValid(cardUI)) return;
+		if (cardUI == null || !GodotObject.IsInstanceValid(cardUI))
+			return;
 
 		// 已选中项不覆盖（保留金色高亮）
-		if (IsItemSelected(_focusedIndex)) return;
+		if (IsItemSelected(_focusedIndex))
+			return;
 
 		cardUI.SelfModulate = KeyboardFocusColor;
 		_keyboardFocusedUI = cardUI;
@@ -490,7 +510,8 @@ public abstract partial class CardSelectionScreen : Control
 	/// </summary>
 	public override void _GuiInput(InputEvent @event)
 	{
-		if (MobileInputHelper.IsMobile) return;
+		if (MobileInputHelper.IsMobile)
+			return;
 
 		if (@event is InputEventMouseButton mb
 			&& mb.Pressed

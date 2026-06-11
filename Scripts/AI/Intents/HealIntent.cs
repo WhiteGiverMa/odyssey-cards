@@ -5,12 +5,12 @@ namespace OdysseyCards.AI.Intents;
 /// </summary>
 public sealed class HealIntent : AbstractIntent
 {
-    /// <inheritdoc />
-    public override IntentType Type => IntentType.Heal;
+	/// <inheritdoc />
+	public override IntentType Type => IntentType.Heal;
 
-    /// <inheritdoc />
-    public override string IntentPrefix => "HEAL";
+	/// <inheritdoc />
+	public override string IntentPrefix => "HEAL";
 
-    /// <inheritdoc />
-    public override string? SpritePath => "res://Assets/Intents/heal.png";
+	/// <inheritdoc />
+	public override string? SpritePath => "res://Assets/Intents/heal.png";
 }

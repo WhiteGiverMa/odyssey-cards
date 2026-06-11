@@ -117,14 +117,16 @@ public class MechanicalRoachBrain : IIntentActor
 				combat.TriggerBaitTacticsOnAttacked(minionTarget);
 
 				bool ambush = minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
-				if (ambush) minionTarget.AmbushUsedThisTurn = true;
+				if (ambush)
+					minionTarget.AmbushUsedThisTurn = true;
 
 				if (ambush)
 				{
 					_body.TakeDamage(minionTarget.Attack, minionTarget);
 				}
 
-				if (_body.IsDead) return;
+				if (_body.IsDead)
+					return;
 				minionTarget.TakeDamage(_body.Attack, _body);
 			}
 		}
@@ -159,7 +161,8 @@ public class MechanicalRoachBrain : IIntentActor
 	private void ExecuteCopy(CombatManager combat)
 	{
 		int slot = combat.Board.GetEmptySlotIndex(isPlayerSide: false);
-		if (slot < 0) return;
+		if (slot < 0)
+			return;
 
 		var clone = new Minion(_body.Data, isPlayerSide: false);
 		combat.Board.PlaceMinion(clone, slot);

@@ -18,89 +18,89 @@ namespace OdysseyCards.UI;
 /// </summary>
 public partial class SafeAreaContainer : MarginContainer
 {
-    /// <summary>桌面端默认边距（安全区不可用时的回退）。</summary>
-    private static readonly int[] DesktopMargins = { 0, 0, 0, 0 };
+	/// <summary>桌面端默认边距（安全区不可用时的回退）。</summary>
+	private static readonly int[] DesktopMargins = { 0, 0, 0, 0 };
 
-    /// <summary>移动端默认边距（安全区不可用时的回退，最小 24px）。</summary>
-    private static readonly int[] MobileMargins = { 24, 24, 12, 24 }; // top, left, bottom, right
+	/// <summary>移动端默认边距（安全区不可用时的回退，最小 24px）。</summary>
+	private static readonly int[] MobileMargins = { 24, 24, 12, 24 }; // top, left, bottom, right
 
-    public override void _Ready()
-    {
-        Name = "SafeAreaContainer";
+	public override void _Ready()
+	{
+		Name = "SafeAreaContainer";
 
-        if (MobileInputRouter.IsMobile)
-        {
-            ApplyMobileSafeArea();
-        }
-        else
-        {
-            ApplyDesktopMargins();
-        }
+		if (MobileInputRouter.IsMobile)
+		{
+			ApplyMobileSafeArea();
+		}
+		else
+		{
+			ApplyDesktopMargins();
+		}
 
-        // 窗口大小变化时重新计算
-        GetTree().Root.SizeChanged += OnSizeChanged;
-    }
+		// 窗口大小变化时重新计算
+		GetTree().Root.SizeChanged += OnSizeChanged;
+	}
 
-    public override void _ExitTree()
-    {
-        if (IsInsideTree())
-        {
-            GetTree().Root.SizeChanged -= OnSizeChanged;
-        }
-    }
+	public override void _ExitTree()
+	{
+		if (IsInsideTree())
+		{
+			GetTree().Root.SizeChanged -= OnSizeChanged;
+		}
+	}
 
-    private void OnSizeChanged()
-    {
-        if (MobileInputRouter.IsMobile)
-        {
-            ApplyMobileSafeArea();
-        }
-    }
+	private void OnSizeChanged()
+	{
+		if (MobileInputRouter.IsMobile)
+		{
+			ApplyMobileSafeArea();
+		}
+	}
 
-    /// <summary>
-    /// 查询系统安全区并应用为内容边距。
-    /// </summary>
-    private void ApplyMobileSafeArea()
-    {
-        var safeArea = DisplayServer.GetDisplaySafeArea();
-        var screenSize = DisplayServer.ScreenGetSize();
+	/// <summary>
+	/// 查询系统安全区并应用为内容边距。
+	/// </summary>
+	private void ApplyMobileSafeArea()
+	{
+		var safeArea = DisplayServer.GetDisplaySafeArea();
+		var screenSize = DisplayServer.ScreenGetSize();
 
-        if (safeArea.Size.X <= 0 || safeArea.Size.Y <= 0)
-        {
-            // 安全区不可用 — 使用默认移动端边距
-            GD.Print("[SafeAreaContainer] 安全区不可用，使用默认边距");
-            AddThemeConstantOverride("margin_top", MobileMargins[0]);
-            AddThemeConstantOverride("margin_left", MobileMargins[1]);
-            AddThemeConstantOverride("margin_bottom", MobileMargins[2]);
-            AddThemeConstantOverride("margin_right", MobileMargins[3]);
-            return;
-        }
+		if (safeArea.Size.X <= 0 || safeArea.Size.Y <= 0)
+		{
+			// 安全区不可用 — 使用默认移动端边距
+			GD.Print("[SafeAreaContainer] 安全区不可用，使用默认边距");
+			AddThemeConstantOverride("margin_top", MobileMargins[0]);
+			AddThemeConstantOverride("margin_left", MobileMargins[1]);
+			AddThemeConstantOverride("margin_bottom", MobileMargins[2]);
+			AddThemeConstantOverride("margin_right", MobileMargins[3]);
+			return;
+		}
 
-        // 计算各方向需要的内边距
-        int topMargin = safeArea.Position.Y;
-        int leftMargin = safeArea.Position.X;
-        int bottomMargin = screenSize.Y - safeArea.End.Y;
-        int rightMargin = screenSize.X - safeArea.End.X;
+		// 计算各方向需要的内边距
+		int topMargin = safeArea.Position.Y;
+		int leftMargin = safeArea.Position.X;
+		int bottomMargin = screenSize.Y - safeArea.End.Y;
+		int rightMargin = screenSize.X - safeArea.End.X;
 
-        // 最小保障（防止计算错误导致内容紧贴边缘）
-        topMargin = Mathf.Max(topMargin, 12);
-        leftMargin = Mathf.Max(leftMargin, 12);
-        bottomMargin = Mathf.Max(bottomMargin, 12);
-        rightMargin = Mathf.Max(rightMargin, 12);
+		// 最小保障（防止计算错误导致内容紧贴边缘）
+		topMargin = Mathf.Max(topMargin, 12);
+		leftMargin = Mathf.Max(leftMargin, 12);
+		bottomMargin = Mathf.Max(bottomMargin, 12);
+		rightMargin = Mathf.Max(rightMargin, 12);
 
-        AddThemeConstantOverride("margin_top", topMargin);
-        AddThemeConstantOverride("margin_left", leftMargin);
-        AddThemeConstantOverride("margin_bottom", bottomMargin);
-        AddThemeConstantOverride("margin_right", rightMargin);
+		AddThemeConstantOverride("margin_top", topMargin);
+		AddThemeConstantOverride("margin_left", leftMargin);
+		AddThemeConstantOverride("margin_bottom", bottomMargin);
+		AddThemeConstantOverride("margin_right", rightMargin);
 
-        GD.Print($"[SafeAreaContainer] 安全区: T={topMargin} L={leftMargin} B={bottomMargin} R={rightMargin}");
-    }
+		GD.Print($"[SafeAreaContainer] 安全区: T={topMargin} L={leftMargin} B={bottomMargin} R={rightMargin}");
+	}
 
-    private void ApplyDesktopMargins()
-    {
-        AddThemeConstantOverride("margin_top", DesktopMargins[0]);
-        AddThemeConstantOverride("margin_left", DesktopMargins[1]);
-        AddThemeConstantOverride("margin_bottom", DesktopMargins[2]);
-        AddThemeConstantOverride("margin_right", DesktopMargins[3]);
-    }
+	private void ApplyDesktopMargins()
+	{
+		AddThemeConstantOverride("margin_top", DesktopMargins[0]);
+		AddThemeConstantOverride("margin_left", DesktopMargins[1]);
+		AddThemeConstantOverride("margin_bottom", DesktopMargins[2]);
+		AddThemeConstantOverride("margin_right", DesktopMargins[3]);
+	}
 }

@@ -253,7 +253,8 @@ public partial class InfoScreen : Control
 		AddInfoRow(runVBox, "ui.info_screen.run.layer", "当前层数", () =>
 		{
 			var rs = GameManager.Instance.RunState;
-			if (rs == null) return null;
+			if (rs == null)
+				return null;
 			return $"{rs.CurrentLayerIndex + 1} / {rs.TotalLayers}";
 		});
 
@@ -345,7 +346,8 @@ public partial class InfoScreen : Control
 
 	private void RefreshRelicTab()
 	{
-		if (_relicTab == null || _relicList == null) return;
+		if (_relicTab == null || _relicList == null)
+			return;
 
 		// 清除旧内容
 		foreach (var child in _relicList.GetChildren())
@@ -574,11 +576,13 @@ public partial class InfoScreen : Control
 	/// <summary>刷新左侧只读当前卡组列表。</summary>
 	private void RefreshCurrentDeckList()
 	{
-		if (_currentDeckListNode == null) return;
+		if (_currentDeckListNode == null)
+			return;
 
 		// 清除旧内容
 		foreach (var child in _currentDeckListNode.GetChildren())
-			if (child is not Label) child.QueueFree();
+			if (child is not Label)
+				child.QueueFree();
 
 		_currentDeckUIs.Clear();
 
@@ -663,7 +667,8 @@ public partial class InfoScreen : Control
 	/// <summary>刷新右侧可编辑牌组列表。</summary>
 	private void RefreshEditingDeckList()
 	{
-		if (_deckEditList == null) return;
+		if (_deckEditList == null)
+			return;
 
 		// 清除旧内容
 		foreach (var child in _deckEditList.GetChildren())
@@ -744,7 +749,8 @@ public partial class InfoScreen : Control
 	private void OnCardGridCardClicked(CardData cardData)
 	{
 		var gm = GameManager.Instance;
-		if (gm.PlayerDeck == null) return;
+		if (gm.PlayerDeck == null)
+			return;
 
 		bool added = gm.PlayerDeck.AddCardWithCheck(cardData);
 		if (!added)
@@ -757,7 +763,8 @@ public partial class InfoScreen : Control
 	/// <summary>设置 CardGrid 的数据源。</summary>
 	private void RefreshCardGrid()
 	{
-		if (_cardGrid == null) return;
+		if (_cardGrid == null)
+			return;
 		var gm = GameManager.Instance;
 		var ownedCards = gm.GetAllCards()
 			.Where(c => gm.OwnedCardIds.Contains(c.Id))
@@ -784,7 +791,8 @@ public partial class InfoScreen : Control
 	private void RegisterCancelBinding()
 	{
 		var hm = HotkeyManager.Instance;
-		if (hm == null) return;
+		if (hm == null)
+			return;
 
 		// ESC → Cancel → 关闭 InfoScreen
 		Action cancelAction = OnCancelPressed;
@@ -799,7 +807,8 @@ public partial class InfoScreen : Control
 
 	private void OnCancelPressed()
 	{
-		if (!Visible) return;
+		if (!Visible)
+			return;
 		Close();
 	}
 
@@ -811,8 +820,10 @@ public partial class InfoScreen : Control
 		Show();
 		RegisterCancelBinding();
 		RefreshRunTab();
-		if (_activeTabIndex == 1) RefreshDeckTab();
-		if (_activeTabIndex == 2) RefreshRelicTab();
+		if (_activeTabIndex == 1)
+			RefreshDeckTab();
+		if (_activeTabIndex == 2)
+			RefreshRelicTab();
 	}
 
 	/// <summary>关闭信息界面。</summary>
@@ -827,11 +838,13 @@ public partial class InfoScreen : Control
 	/// <summary>刷新运行信息标签页。</summary>
 	private void RefreshRunTab()
 	{
-		if (_runTab == null) return;
+		if (_runTab == null)
+			return;
 		UpdateInfoRowValue("Value_ui.info_screen.run.layer", () =>
 		{
 			var rs = GameManager.Instance.RunState;
-			if (rs == null) return null;
+			if (rs == null)
+				return null;
 			return $"{rs.CurrentLayerIndex + 1} / {rs.TotalLayers}";
 		});
 		UpdateInfoRowValue("Value_ui.info_screen.run.room", () =>
@@ -862,7 +875,8 @@ public partial class InfoScreen : Control
 
 	private void OnLanguageChanged(string lang)
 	{
-		if (!IsInsideTree()) return;
+		if (!IsInsideTree())
+			return;
 
 		// 刷新按钮文本
 		_btnRun.Text = Loc.T("ui.info_screen.tab_run", "运行信息");
@@ -873,15 +887,22 @@ public partial class InfoScreen : Control
 		// 刷新当前标签页
 		switch (_activeTabIndex)
 		{
-			case 0: RefreshRunTab(); break;
-			case 1: RefreshDeckTab(); break;
-			case 2: RefreshRelicTab(); break;
+			case 0:
+				RefreshRunTab();
+				break;
+			case 1:
+				RefreshDeckTab();
+				break;
+			case 2:
+				RefreshRelicTab();
+				break;
 		}
 	}
 
 	private void OnDeckChanged()
 	{
-		if (!IsInsideTree()) return;
+		if (!IsInsideTree())
+			return;
 		if (_activeTabIndex == 1)
 			RefreshEditingDeckList();
 	}

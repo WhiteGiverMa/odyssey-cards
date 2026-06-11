@@ -7,18 +7,18 @@ namespace OdysseyCards.Infrastructure;
 /// </summary>
 public readonly struct CommandResult
 {
-    public bool Success { get; }
-    public string Message { get; }
-    public Task? Task { get; }
+	public bool Success { get; }
+	public string Message { get; }
+	public Task? Task { get; }
 
-    public CommandResult(bool success, string message, Task? task = null)
-    {
-        Success = success;
-        Message = message;
-        Task = task;
-    }
+	public CommandResult(bool success, string message, Task? task = null)
+	{
+		Success = success;
+		Message = message;
+		Task = task;
+	}
 
-    public static CommandResult Ok(string message) => new(true, message);
-    public static CommandResult Fail(string message) => new(false, message);
-    public static CommandResult OkWithTask(Task task, string message) => new(true, message, task);
+	public static CommandResult Ok(string message) => new(true, message);
+	public static CommandResult Fail(string message) => new(false, message);
+	public static CommandResult OkWithTask(Task task, string message) => new(true, message, task);
 }

@@ -439,7 +439,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	public override void _UnhandledInput(InputEvent @event)
 	{
-		if (!IsInsideTree()) return;
+		if (!IsInsideTree())
+			return;
 
 		// 手牌选择模式——桌面端右键取消选择（移动端用取消按钮）
 		if (_isHandSelecting)
@@ -512,7 +513,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	public override void _Process(double delta)
 	{
-		if (SceneLifecycleGuard.ShouldSkip(this)) return;
+		if (SceneLifecycleGuard.ShouldSkip(this))
+			return;
 
 		// --- 攻击选择箭头 ---
 		if (_selectionMode == SelectionMode.SelectingAttackTarget && _selectedAttacker != null && _arrowRenderer != null)
@@ -864,7 +866,8 @@ public partial class CombatUI : Control
 	private void SubscribeHotkeys()
 	{
 		var hm = HotkeyManager.Instance;
-		if (hm == null) return;
+		if (hm == null)
+			return;
 
 		hm.PushPressedBinding(OdysseyInput.EndTurn, TryEndTurn);
 		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.EndTurn, TryEndTurn));
@@ -909,7 +912,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void OnEnemyEmote(string text)
 	{
-		if (string.IsNullOrEmpty(text)) return;
+		if (string.IsNullOrEmpty(text))
+			return;
 		var pos = GetEnemyIdentityCardCenter(0);
 		GD.Print($"[CombatUI] 收到表情「{text}」，敌人位置={pos}");
 		if (pos == Vector2.Zero)
@@ -934,10 +938,12 @@ public partial class CombatUI : Control
 
 	private void OnBoardMinionPreRemove(Minion minion, int slotIndex, bool isPlayerSide)
 	{
-		if (!isPlayerSide) return;
+		if (!isPlayerSide)
+			return;
 
 		var cardPos = _boardUI.GetSlotScreenCenter(slotIndex, isPlayerSide);
-		if (cardPos == Vector2.Zero) return;
+		if (cardPos == Vector2.Zero)
+			return;
 
 		var cardUI = new CardUI { DisplayOnly = true };
 		cardUI.SetCard(minion.ToRuntimeCard());
@@ -976,7 +982,8 @@ public partial class CombatUI : Control
 
 	private void SubscribeMinionDamageEvents(Minion minion)
 	{
-		if (_minionDamageHandlers.ContainsKey(minion)) return;
+		if (_minionDamageHandlers.ContainsKey(minion))
+			return;
 
 		Action<DamageEventInfo, IDamageSource?> onDamage = (info, source) =>
 		{
@@ -999,7 +1006,8 @@ public partial class CombatUI : Control
 
 	private void UnsubscribeMinionDamageEvents(Minion minion)
 	{
-		if (!_minionDamageHandlers.TryGetValue(minion, out var handlers)) return;
+		if (!_minionDamageHandlers.TryGetValue(minion, out var handlers))
+			return;
 		minion.OnDamageTaken -= handlers.Damage;
 		minion.OnHealed -= handlers.Heal;
 		_minionDamageHandlers.Remove(minion);
@@ -1076,11 +1084,16 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void TryEndTurn()
 	{
-		if (_combat == null) return;
-		if (_combat.State.IsGameOver) return;
-		if (_endTurnButton.Disabled) return;
-		if (_combat.IsDiscovering) return;
-		if (!_combat.State.IsPlayerTurn) return;
+		if (_combat == null)
+			return;
+		if (_combat.State.IsGameOver)
+			return;
+		if (_endTurnButton.Disabled)
+			return;
+		if (_combat.IsDiscovering)
+			return;
+		if (!_combat.State.IsPlayerTurn)
+			return;
 
 		GD.Print("[CombatUI] 热键结束回合");
 		_combat.EndPlayerTurn();
@@ -1100,11 +1113,16 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void TryHeroPower()
 	{
-		if (_combat == null) return;
-		if (_combat.State.IsGameOver) return;
-		if (_heroPowerButton.Disabled) return;
-		if (_combat.IsDiscovering) return;
-		if (!_combat.State.IsPlayerTurn) return;
+		if (_combat == null)
+			return;
+		if (_combat.State.IsGameOver)
+			return;
+		if (_heroPowerButton.Disabled)
+			return;
+		if (_combat.IsDiscovering)
+			return;
+		if (!_combat.State.IsPlayerTurn)
+			return;
 
 		GD.Print("[CombatUI] 热键/按钮 — 尝试使用英雄技能");
 		bool success = _combat.TryUseHeroPower();
@@ -1121,7 +1139,8 @@ public partial class CombatUI : Control
 	/// <param name="isVictory">是否胜利</param>
 	private void ShowGameOverPopup(bool isVictory)
 	{
-		if (_gameOverPopup == null) return;
+		if (_gameOverPopup == null)
+			return;
 
 		_isVictory = isVictory;
 
@@ -1189,7 +1208,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void ShowPauseMenu()
 	{
-		if (_pauseMenu != null) return;
+		if (_pauseMenu != null)
+			return;
 
 		GD.Print("[CombatUI] 暂停菜单 — 显示");
 
@@ -1216,7 +1236,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void HidePauseMenu()
 	{
-		if (_pauseMenu == null) return;
+		if (_pauseMenu == null)
+			return;
 
 		GD.Print("[CombatUI] 暂停菜单 — 关闭");
 
@@ -1236,7 +1257,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void OnPauseButtonPressed()
 	{
-		if (_combat == null || _combat.State.IsGameOver) return;
+		if (_combat == null || _combat.State.IsGameOver)
+			return;
 		ShowPauseMenu();
 	}
 
@@ -1246,9 +1268,12 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void TogglePause()
 	{
-		if (!IsInsideTree()) return;
-		if (_combat == null || _combat.State.IsGameOver) return;
-		if (_combat.IsDiscovering) return;
+		if (!IsInsideTree())
+			return;
+		if (_combat == null || _combat.State.IsGameOver)
+			return;
+		if (_combat.IsDiscovering)
+			return;
 
 		if (_isPaused)
 			HidePauseMenu();
@@ -1264,10 +1289,14 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void ToggleInfoScreen()
 	{
-		if (!IsInsideTree()) return;
-		if (_combat == null || _combat.State.IsGameOver) return;
-		if (_combat.IsDiscovering) return;
-		if (_isPaused) return; // 暂停菜单打开时不响应
+		if (!IsInsideTree())
+			return;
+		if (_combat == null || _combat.State.IsGameOver)
+			return;
+		if (_combat.IsDiscovering)
+			return;
+		if (_isPaused)
+			return; // 暂停菜单打开时不响应
 
 		if (_infoScreen != null)
 			HideInfoScreen();
@@ -1280,7 +1309,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void ShowInfoScreen()
 	{
-		if (_infoScreen != null) return;
+		if (_infoScreen != null)
+			return;
 
 		GD.Print("[CombatUI] 综合信息界面 — 显示");
 
@@ -1295,7 +1325,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void HideInfoScreen()
 	{
-		if (_infoScreen == null) return;
+		if (_infoScreen == null)
+			return;
 
 		GD.Print("[CombatUI] 综合信息界面 — 关闭");
 
@@ -1310,7 +1341,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void HandleCancel()
 	{
-		if (!IsInsideTree()) return;
+		if (!IsInsideTree())
+			return;
 
 		// 手牌选择模式——取消弃牌选择
 		if (_isHandSelecting)

@@ -43,7 +43,8 @@ public partial class HandUI : Control
 		HandSelectMode = enabled;
 		foreach (var slot in _cardSlots)
 		{
-			if (slot.CardUI == null) continue;
+			if (slot.CardUI == null)
+				continue;
 
 			slot.CardUI.PreventDrag = enabled;
 			if (enabled)
@@ -157,9 +158,12 @@ public partial class HandUI : Control
 
 	public override void _Process(double delta)
 	{
-		if (Engine.IsEditorHint()) return;
-		if (SceneLifecycleGuard.ShouldSkip(this)) return;
-		if (_cardSlots.Count == 0) return;
+		if (Engine.IsEditorHint())
+			return;
+		if (SceneLifecycleGuard.ShouldSkip(this))
+			return;
+		if (_cardSlots.Count == 0)
+			return;
 
 		if (MobileInputRouter.IsMobile)
 		{
@@ -168,8 +172,10 @@ public partial class HandUI : Control
 		}
 
 		// 拖拽中或选择模式下不触发悬停
-		if (HandSelectMode) return;
-		if (_cardSlots.Exists(s => s.CardUI?.IsDragging == true)) return;
+		if (HandSelectMode)
+			return;
+		if (_cardSlots.Exists(s => s.CardUI?.IsDragging == true))
+			return;
 
 		var mousePos = GetGlobalMousePosition();
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
@@ -183,8 +189,10 @@ public partial class HandUI : Control
 
 		foreach (var slot in _cardSlots)
 		{
-			if (slot.CardUI == null) continue;
-			if (slot.CardUI.IsSelected) continue;
+			if (slot.CardUI == null)
+				continue;
+			if (slot.CardUI.IsSelected)
+				continue;
 
 			if (!_restingPositions.TryGetValue(slot.CardUI, out var restingPos))
 				continue;
@@ -231,7 +239,8 @@ public partial class HandUI : Control
 	/// </summary>
 	private void MobileProcess()
 	{
-		if (_tappedSlot == null) return;
+		if (_tappedSlot == null)
+			return;
 
 		// 检测触控松手是否发生在手牌区域外
 		var router = MobileInputRouter.Instance;
@@ -294,7 +303,8 @@ public partial class HandUI : Control
 		_restingPositions.Clear();
 		_selectedCard = null;
 
-		if (_player == null) return;
+		if (_player == null)
+			return;
 
 		// 帧2：等旧节点真正释放后，再创建新卡牌 UI 并 AddChild
 		// 防重入：多次调用 RefreshHand 只排队一次 RebuildHandCards
@@ -312,7 +322,8 @@ public partial class HandUI : Control
 	private void RebuildHandCards()
 	{
 		_rebuildHandPending = false;
-		if (_player == null) return;
+		if (_player == null)
+			return;
 
 		foreach (var card in _combat!.PlayerHero.Hand)
 		{
@@ -381,7 +392,8 @@ public partial class HandUI : Control
 	/// </summary>
 	public void AddCardBack(Card.Card card)
 	{
-		if (card == null) return;
+		if (card == null)
+			return;
 		var cardUI = CreateCardUI(card);
 		var placeholder = _cardSlots.FirstOrDefault(s => s.Card == card && s.CardUI == null);
 		if (placeholder != null)
@@ -418,37 +430,37 @@ public partial class HandUI : Control
 		RefreshHand();
 	}
 
-    public CardUI? GetCardUIFor(Card.Card card)
-    {
-        foreach (var slot in _cardSlots)
-        {
-            if (slot.Card == card && slot.CardUI != null)
-                return slot.CardUI;
-        }
-        return null;
-    }
+	public CardUI? GetCardUIFor(Card.Card card)
+	{
+		foreach (var slot in _cardSlots)
+		{
+			if (slot.Card == card && slot.CardUI != null)
+				return slot.CardUI;
+		}
+		return null;
+	}
 
-    /// <summary>
-    /// 返回手牌区域中目标位置的全局中心坐标，供抽牌飞行动画使用。
-    /// </summary>
-    /// <param name="handIndex">卡牌在手牌中的索引（0=最左），用于风扇错开</param>
-    /// <param name="totalCards">手牌总张数，用于确定水平居中范围</param>
-    public Vector2 GetHandCardGlobalCenter(int handIndex, int totalCards)
-    {
-        float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
-        float cardWidth = CardUI.DESIGN_WIDTH * s;
-        float cardHeight = CardUI.DESIGN_HEIGHT * s;
-        float scaledWidth = cardWidth * BASE_SCALE;
-        float stepX = scaledWidth * OVERLAP_FACTOR;
-        float totalSpread = stepX * Mathf.Max(totalCards - 1, 0);
-        float containerWidth = GetContainerWidth();
-        float startX = (containerWidth - totalSpread) / 2f;
-        float centerX = startX + handIndex * stepX + scaledWidth * 0.5f;
+	/// <summary>
+	/// 返回手牌区域中目标位置的全局中心坐标，供抽牌飞行动画使用。
+	/// </summary>
+	/// <param name="handIndex">卡牌在手牌中的索引（0=最左），用于风扇错开</param>
+	/// <param name="totalCards">手牌总张数，用于确定水平居中范围</param>
+	public Vector2 GetHandCardGlobalCenter(int handIndex, int totalCards)
+	{
+		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+		float cardWidth = CardUI.DESIGN_WIDTH * s;
+		float cardHeight = CardUI.DESIGN_HEIGHT * s;
+		float scaledWidth = cardWidth * BASE_SCALE;
+		float stepX = scaledWidth * OVERLAP_FACTOR;
+		float totalSpread = stepX * Mathf.Max(totalCards - 1, 0);
+		float containerWidth = GetContainerWidth();
+		float startX = (containerWidth - totalSpread) / 2f;
+		float centerX = startX + handIndex * stepX + scaledWidth * 0.5f;
 
-        // 手牌区域在屏幕底部，卡牌静止时 Y ≈ 0（HandUI 局部坐标）
-        Vector2 localCenter = new(centerX, cardHeight * BASE_SCALE * 0.5f);
-        return GlobalPosition + localCenter;
-    }
+		// 手牌区域在屏幕底部，卡牌静止时 Y ≈ 0（HandUI 局部坐标）
+		Vector2 localCenter = new(centerX, cardHeight * BASE_SCALE * 0.5f);
+		return GlobalPosition + localCenter;
+	}
 
 	// ============================================================
 	// 布局计算 —— STS2 风扇交叠风格
@@ -457,7 +469,8 @@ public partial class HandUI : Control
 	private void RefreshLayout()
 	{
 		int count = _cardSlots.Count;
-		if (count == 0) return;
+		if (count == 0)
+			return;
 
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
 		float cardWidth = CardUI.DESIGN_WIDTH * s;
@@ -486,10 +499,12 @@ public partial class HandUI : Control
 		for (int i = 0; i < count; i++)
 		{
 			var cardUI = _cardSlots[i].CardUI;
-			if (cardUI == null) continue;
+			if (cardUI == null)
+				continue;
 
 			// 拖拽中的卡牌位置由 CardUI._Process 控制，布局系统不应干预
-			if (cardUI.IsDragging) continue;
+			if (cardUI.IsDragging)
+				continue;
 
 			// 卡牌中心 X（在折叠态风扇布局中的位置）
 			float centerX = startX + i * stepX + scaledCardWidth * 0.5f;
@@ -540,7 +555,8 @@ public partial class HandUI : Control
 	private float GetContainerWidth()
 	{
 		float w = _cardContainer.Size.X;
-		if (w > 10f) return w;
+		if (w > 10f)
+			return w;
 
 		// 回退：视口宽度（HandArea 填满 VBoxContainer 全宽）
 		var vp = GetViewport();
@@ -598,23 +614,26 @@ public partial class HandUI : Control
 		OnCardCancelled?.Invoke();
 	}
 
-    /// <summary>
-    /// 移动端拖拽开始时触发。
-    /// 手指移动超过阈值后，自动进入选择模式——跳过二次点击，实现纯拖拽出牌。
-    /// </summary>
-    private void OnMobileDragBegan(CardUI cardUI)
-    {
-        if (cardUI.Card == null) return;
-        if (HandSelectMode) return;
-
-        // 清除展开态，通知 CombatUI 进入对应的选择模式
-        ClearTapExpansion();
-        OnCardSelectedForPlay?.Invoke(cardUI.Card);
-    }
-
-    private void OnCardClicked(CardUI cardUI)
+	/// <summary>
+	/// 移动端拖拽开始时触发。
+	/// 手指移动超过阈值后，自动进入选择模式——跳过二次点击，实现纯拖拽出牌。
+	/// </summary>
+	private void OnMobileDragBegan(CardUI cardUI)
 	{
-		if (cardUI.Card == null) return;
+		if (cardUI.Card == null)
+			return;
+		if (HandSelectMode)
+			return;
+
+		// 清除展开态，通知 CombatUI 进入对应的选择模式
+		ClearTapExpansion();
+		OnCardSelectedForPlay?.Invoke(cardUI.Card);
+	}
+
+	private void OnCardClicked(CardUI cardUI)
+	{
+		if (cardUI.Card == null)
+			return;
 
 		// 移动端触控：首次点击展开预览，拖拽出牌，不保留二次点击选中
 		if (MobileInputRouter.IsMobile)
@@ -727,7 +746,8 @@ public partial class HandUI : Control
 	private void RegisterHotkeyBindings()
 	{
 		var hm = HotkeyManager.Instance;
-		if (hm == null) return;
+		if (hm == null)
+			return;
 
 		// 数字键 1~10 对应手牌第 1~10 张
 		_cardSelectActions = new Action[10];
@@ -760,7 +780,8 @@ public partial class HandUI : Control
 	private void UnregisterHotkeyBindings()
 	{
 		var hm = HotkeyManager.Instance;
-		if (hm == null) return;
+		if (hm == null)
+			return;
 
 		hm.KeyboardFocusChanged -= OnKeyboardFocusChanged;
 
@@ -771,10 +792,14 @@ public partial class HandUI : Control
 			_cardSelectActions = null;
 		}
 
-		if (_leftAction != null) { hm.RemovePressedBinding(OdysseyInput.Left, _leftAction); _leftAction = null; }
-		if (_rightAction != null) { hm.RemovePressedBinding(OdysseyInput.Right, _rightAction); _rightAction = null; }
-		if (_acceptAction != null) { hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
-		if (_cancelAction != null) { hm.RemovePressedBinding(OdysseyInput.Cancel, _cancelAction); _cancelAction = null; }
+		if (_leftAction != null)
+		{ hm.RemovePressedBinding(OdysseyInput.Left, _leftAction); _leftAction = null; }
+		if (_rightAction != null)
+		{ hm.RemovePressedBinding(OdysseyInput.Right, _rightAction); _rightAction = null; }
+		if (_acceptAction != null)
+		{ hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
+		if (_cancelAction != null)
+		{ hm.RemovePressedBinding(OdysseyInput.Cancel, _cancelAction); _cancelAction = null; }
 	}
 
 	// ============================================================
@@ -787,15 +812,19 @@ public partial class HandUI : Control
 	/// </summary>
 	private void SelectCardByIndex(int index)
 	{
-		if (SceneLifecycleGuard.ShouldSkip(this)) return;
-		if (_cardSlots.Count == 0) return;
+		if (SceneLifecycleGuard.ShouldSkip(this))
+			return;
+		if (_cardSlots.Count == 0)
+			return;
 
 		index = Mathf.Clamp(index, 0, _cardSlots.Count - 1);
 		_focusedCardIndex = index;
 
 		var cardUI = _cardSlots[index].CardUI;
-		if (cardUI == null) return;
-		if (cardUI.Card == null) return;
+		if (cardUI == null)
+			return;
+		if (cardUI.Card == null)
+			return;
 
 		if (HandSelectMode)
 		{
@@ -819,8 +848,10 @@ public partial class HandUI : Control
 	/// </summary>
 	private void CycleFocus(int direction)
 	{
-		if (SceneLifecycleGuard.ShouldSkip(this)) return;
-		if (_cardSlots.Count == 0) return;
+		if (SceneLifecycleGuard.ShouldSkip(this))
+			return;
+		if (_cardSlots.Count == 0)
+			return;
 
 		if (_focusedCardIndex < 0 || _focusedCardIndex >= _cardSlots.Count)
 		{
@@ -845,16 +876,20 @@ public partial class HandUI : Control
 	/// </summary>
 	private void AcceptFocusedCard()
 	{
-		if (SceneLifecycleGuard.ShouldSkip(this)) return;
-		if (_cardSlots.Count == 0) return;
+		if (SceneLifecycleGuard.ShouldSkip(this))
+			return;
+		if (_cardSlots.Count == 0)
+			return;
 
 		int index = _focusedCardIndex >= 0 && _focusedCardIndex < _cardSlots.Count
 			? _focusedCardIndex : 0;
 		_focusedCardIndex = index;
 
 		var cardUI = _cardSlots[index].CardUI;
-		if (cardUI == null) return;
-		if (cardUI.Card == null) return;
+		if (cardUI == null)
+			return;
+		if (cardUI.Card == null)
+			return;
 
 		IsKeyboardSelection = true;
 		OnCardClicked(cardUI);
@@ -867,7 +902,8 @@ public partial class HandUI : Control
 	/// </summary>
 	private void CancelKeyboardSelection()
 	{
-		if (SceneLifecycleGuard.ShouldSkip(this)) return;
+		if (SceneLifecycleGuard.ShouldSkip(this))
+			return;
 
 		_focusedCardIndex = -1;
 
@@ -918,10 +954,12 @@ public partial class HandUI : Control
 			_keyboardFocusedCardUI = null;
 		}
 
-		if (!shouldShowFocus) return;
+		if (!shouldShowFocus)
+			return;
 
 		var cardUI = _cardSlots[_focusedCardIndex].CardUI;
-		if (cardUI == null || !GodotObject.IsInstanceValid(cardUI)) return;
+		if (cardUI == null || !GodotObject.IsInstanceValid(cardUI))
+			return;
 
 		// 蓝色调指示器（通过 SelfModulate 叠加，不影响 CardUI 自身的 Modulate）
 		cardUI.SelfModulate = new Color(0.72f, 0.85f, 1f, 1f);

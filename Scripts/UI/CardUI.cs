@@ -47,10 +47,10 @@ public partial class CardUI : Control
 	private static readonly Color ClrTaunt = new("#cc8844");
 	private static readonly Color ClrBattlecry = new("#cccc44");
 	private static readonly Color ClrDeathrattle = new("#8844cc");
-    private static readonly Color ClrWindfury = new("#44cccc");
-    private static readonly Color ClrAmbush = new("#cc6644");
-    private static readonly Color ClrImpact = new("#cccc66");
-    private static readonly Color ClrActionCost = new("#cc3333");
+	private static readonly Color ClrWindfury = new("#44cccc");
+	private static readonly Color ClrAmbush = new("#cc6644");
+	private static readonly Color ClrImpact = new("#cccc66");
+	private static readonly Color ClrActionCost = new("#cc3333");
 
 	// ============================================================
 	// 公共属性与事件
@@ -77,52 +77,52 @@ public partial class CardUI : Control
 	/// </summary>
 	public event Action<CardUI>? OnCardClicked;
 
-    /// <summary>
-    /// 卡牌被右键点击（取消选中）时触发。
-    /// </summary>
+	/// <summary>
+	/// 卡牌被右键点击（取消选中）时触发。
+	/// </summary>
 	public event Action<CardUI>? OnCardRightClicked;
 
-    /// <summary>
-    /// 移动端拖拽开始时触发（手指移动超过 DragThreshold 时）。
-    /// HandUI 监听此事件以自动进入选择模式（跳过二次点击）。
-    /// </summary>
-    public event Action<CardUI>? OnMobileDragBegan;
+	/// <summary>
+	/// 移动端拖拽开始时触发（手指移动超过 DragThreshold 时）。
+	/// HandUI 监听此事件以自动进入选择模式（跳过二次点击）。
+	/// </summary>
+	public event Action<CardUI>? OnMobileDragBegan;
 
-    /// <summary>
-    /// 纯展示模式：禁用所有战斗交互（拖拽、选中、拾起）。
-    /// 设置为 true 后，卡牌只作为视觉元素显示，不响应任何鼠标输入。
-    /// 外部可通过包裹的按钮或其他控件自行处理点击。
-    /// </summary>
-    public bool DisplayOnly { get; set; }
+	/// <summary>
+	/// 纯展示模式：禁用所有战斗交互（拖拽、选中、拾起）。
+	/// 设置为 true 后，卡牌只作为视觉元素显示，不响应任何鼠标输入。
+	/// 外部可通过包裹的按钮或其他控件自行处理点击。
+	/// </summary>
+	public bool DisplayOnly { get; set; }
 
-    /// <summary>
-    /// 阻止拖拽：不进入 StartDrag 流程，但仍触发 OnCardClicked 用于手牌选择模式。
-    /// 与 DisplayOnly 不同——DisplayOnly 完全禁用交互，PreventDrag 仅阻止拖拽副作用。
-    /// </summary>
-    public bool PreventDrag { get; set; }
+	/// <summary>
+	/// 阻止拖拽：不进入 StartDrag 流程，但仍触发 OnCardClicked 用于手牌选择模式。
+	/// 与 DisplayOnly 不同——DisplayOnly 完全禁用交互，PreventDrag 仅阻止拖拽副作用。
+	/// </summary>
+	public bool PreventDrag { get; set; }
 
-    /// <summary>
-    /// 当前是否处于拖拽状态。HandUI 通过此属性在拖拽期间抑制悬停效果。
-    /// </summary>
-    public bool IsDragging => _isDragging;
+	/// <summary>
+	/// 当前是否处于拖拽状态。HandUI 通过此属性在拖拽期间抑制悬停效果。
+	/// </summary>
+	public bool IsDragging => _isDragging;
 
-    /// <summary>
-    /// 最后一次左键点击的全局坐标（来自 InputEventMouseButton）。
-    /// 拖拽流程使用此坐标而非 GetGlobalMousePosition()，确保合成点击和帧时序边界下的位置一致性。
-    /// </summary>
-    public Vector2 LastClickGlobalPosition { get; private set; }
+	/// <summary>
+	/// 最后一次左键点击的全局坐标（来自 InputEventMouseButton）。
+	/// 拖拽流程使用此坐标而非 GetGlobalMousePosition()，确保合成点击和帧时序边界下的位置一致性。
+	/// </summary>
+	public Vector2 LastClickGlobalPosition { get; private set; }
 
-    /// <summary>
-    /// 卡牌在拖拽中左键松开时触发。参数为卡牌 UI 和松开位置的全局坐标。
-    /// 接收方根据松开位置判断：有效目标→打出，无效→取消（等效右键）。
-    /// </summary>
-    public event Action<CardUI, Vector2>? OnCardDropped;
+	/// <summary>
+	/// 卡牌在拖拽中左键松开时触发。参数为卡牌 UI 和松开位置的全局坐标。
+	/// 接收方根据松开位置判断：有效目标→打出，无效→取消（等效右键）。
+	/// </summary>
+	public event Action<CardUI, Vector2>? OnCardDropped;
 
-    /// <summary>
-    /// 卡牌在拖拽中逐帧触发。参数为卡牌 UI 和当前全局坐标。
-    /// 接收方（CombatUI）根据位置更新播放区域视觉反馈。
-    /// </summary>
-    public event Action<CardUI, Vector2>? OnDragMove;
+	/// <summary>
+	/// 卡牌在拖拽中逐帧触发。参数为卡牌 UI 和当前全局坐标。
+	/// 接收方（CombatUI）根据位置更新播放区域视觉反馈。
+	/// </summary>
+	public event Action<CardUI, Vector2>? OnDragMove;
 
 	// ============================================================
 	// 私有 UI 节点
@@ -156,33 +156,33 @@ public partial class CardUI : Control
 	// ============================================================
 	// 内部状态
 	// ============================================================
-    private bool _canPlay = true;
-    private bool _isDragging;
-    private Vector2 _dragOffset;
-    private Vector2 _dragStartScreenPos;
-    private bool _hasDragged;
-    /// <summary>点击选中模式：用户快速点击（松手无拖拽位移）后进入，卡片跟随鼠标但不响应松手掉落。</summary>
-    private bool _clickSelectMode;
-    /// <summary>点击选中跟随鼠标时，是否仍向外广播移动事件（无目标牌需要用它更新播放区高亮）。</summary>
-    private bool _emitMoveWhileClickFollowing;
-    private const float DragThresholdDesktop = 10f;
-    private const float DragThresholdMobile = 20f;
-    private float DragThreshold => MobileInputRouter.IsMobile ? DragThresholdMobile : DragThresholdDesktop;
+	private bool _canPlay = true;
+	private bool _isDragging;
+	private Vector2 _dragOffset;
+	private Vector2 _dragStartScreenPos;
+	private bool _hasDragged;
+	/// <summary>点击选中模式：用户快速点击（松手无拖拽位移）后进入，卡片跟随鼠标但不响应松手掉落。</summary>
+	private bool _clickSelectMode;
+	/// <summary>点击选中跟随鼠标时，是否仍向外广播移动事件（无目标牌需要用它更新播放区高亮）。</summary>
+	private bool _emitMoveWhileClickFollowing;
+	private const float DragThresholdDesktop = 10f;
+	private const float DragThresholdMobile = 20f;
+	private float DragThreshold => MobileInputRouter.IsMobile ? DragThresholdMobile : DragThresholdDesktop;
 
-    /// <summary>
-    /// 上一帧移动端主触控是否仍处于按下状态。
-    /// 用于从 Router 的当前态推导“本帧刚松手”，避免全局共享 release 标记竞争消费。
-    /// </summary>
-    private bool _wasMobileTouchActive;
-    /// <summary>上一帧左键是否按下——用于检测松手事件（clickSelectMode 中松手通知 CombatUI）。</summary>
-    private bool _wasLeftDownLastFrame;
-    /// <summary>上一帧右键是否按下——用于桌面端拖拽中右键取消（MouseFilter=Ignore 时 GuiInput 不可达）。</summary>
-    private bool _wasRightDownLastFrame;
-    /// <summary>卡牌从拾取位置移动超过 5px 后置 true——区分点击选中（不触发掉落）与拖拽松手（触发掉落）。</summary>
-    private bool _hasMovedFromOrigin;
-    /// <summary>BeginPointerFollowFrom 调用时的卡牌位置——用于移动追踪比较基准。</summary>
-    private Vector2 _pointerFollowStartPos;
-    private Tween? _hoverTween;
+	/// <summary>
+	/// 上一帧移动端主触控是否仍处于按下状态。
+	/// 用于从 Router 的当前态推导“本帧刚松手”，避免全局共享 release 标记竞争消费。
+	/// </summary>
+	private bool _wasMobileTouchActive;
+	/// <summary>上一帧左键是否按下——用于检测松手事件（clickSelectMode 中松手通知 CombatUI）。</summary>
+	private bool _wasLeftDownLastFrame;
+	/// <summary>上一帧右键是否按下——用于桌面端拖拽中右键取消（MouseFilter=Ignore 时 GuiInput 不可达）。</summary>
+	private bool _wasRightDownLastFrame;
+	/// <summary>卡牌从拾取位置移动超过 5px 后置 true——区分点击选中（不触发掉落）与拖拽松手（触发掉落）。</summary>
+	private bool _hasMovedFromOrigin;
+	/// <summary>BeginPointerFollowFrom 调用时的卡牌位置——用于移动追踪比较基准。</summary>
+	private Vector2 _pointerFollowStartPos;
+	private Tween? _hoverTween;
 	private bool _isHoverEffectActive;
 	private bool _built;
 
@@ -657,8 +657,10 @@ public partial class CardUI : Control
 	/// </summary>
 	private void OnGuiInputHandler(InputEvent @event)
 	{
-		if (DisplayOnly) return;
-		if (Engine.IsEditorHint()) return; // 编辑器模式下不处理交互
+		if (DisplayOnly)
+			return;
+		if (Engine.IsEditorHint())
+			return; // 编辑器模式下不处理交互
 
 		if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
 		{
@@ -684,97 +686,98 @@ public partial class CardUI : Control
 	/// 进入基础拖拽状态：计算偏移量、设为鼠标穿透、清除旧偏移。
 	/// 仅保留给未来显式调用；当前战斗手牌路径统一由 CombatUI 决定是否进入拖拽/展示态。
 	/// </summary>
-    private void StartDragState()
-    {
-        _isDragging = true;
-        _hasDragged = false;
-        _dragOffset = LastClickGlobalPosition - GlobalPosition;
-        _dragStartScreenPos = LastClickGlobalPosition;
-        MouseFilter = MouseFilterEnum.Ignore;
-        _isHoverEffectActive = false;
-        KillHoverTween();
-        FlashHighlight();
-    }
+	private void StartDragState()
+	{
+		_isDragging = true;
+		_hasDragged = false;
+		_dragOffset = LastClickGlobalPosition - GlobalPosition;
+		_dragStartScreenPos = LastClickGlobalPosition;
+		MouseFilter = MouseFilterEnum.Ignore;
+		_isHoverEffectActive = false;
+		KillHoverTween();
+		FlashHighlight();
+	}
 
-    /// <summary>
-    /// 进入无目标卡牌的指针跟随表现。
-    /// 鼠标按住拖拽时直接进入拖拽跟随态；键盘/点击时进入点击跟随态。
-    /// </summary>
-    /// <param name="globalAnchor">指针与卡牌之间保持不变的锚点</param>
-    /// <param name="startAsClickFollow">true=直接进入点击跟随态（键盘/松开后）；false=进入拖拽态（鼠标按住中）</param>
-    public void BeginPointerFollowFrom(Vector2 globalAnchor, bool startAsClickFollow)
-    {
-        _isDragging = true;
-        _dragOffset = globalAnchor - GlobalPosition;
-        _dragStartScreenPos = globalAnchor;
-        MouseFilter = MouseFilterEnum.Ignore;
-        _isHoverEffectActive = false;
-        KillHoverTween();
-        FlashHighlight();
+	/// <summary>
+	/// 进入无目标卡牌的指针跟随表现。
+	/// 鼠标按住拖拽时直接进入拖拽跟随态；键盘/点击时进入点击跟随态。
+	/// </summary>
+	/// <param name="globalAnchor">指针与卡牌之间保持不变的锚点</param>
+	/// <param name="startAsClickFollow">true=直接进入点击跟随态（键盘/松开后）；false=进入拖拽态（鼠标按住中）</param>
+	public void BeginPointerFollowFrom(Vector2 globalAnchor, bool startAsClickFollow)
+	{
+		_isDragging = true;
+		_dragOffset = globalAnchor - GlobalPosition;
+		_dragStartScreenPos = globalAnchor;
+		MouseFilter = MouseFilterEnum.Ignore;
+		_isHoverEffectActive = false;
+		KillHoverTween();
+		FlashHighlight();
 
-        if (startAsClickFollow)
-        {
-            // 点击/键盘路径：进入点击选中跟随态，不判定拖拽距离
-            _hasDragged = false;
-            _clickSelectMode = true;
-            _emitMoveWhileClickFollowing = true;
-            _pointerFollowStartPos = GlobalPosition;
-            _hasMovedFromOrigin = false;
-        }
-        else
-        {
-            // 鼠标按住拖拽路径：直接标记已拖拽，跳过距离阈值
-            _hasDragged = true;
-            _clickSelectMode = false;
-            _emitMoveWhileClickFollowing = false;
-            _hasMovedFromOrigin = true; // 拖拽路径始终视为已移动
-        }
-    }
+		if (startAsClickFollow)
+		{
+			// 点击/键盘路径：进入点击选中跟随态，不判定拖拽距离
+			_hasDragged = false;
+			_clickSelectMode = true;
+			_emitMoveWhileClickFollowing = true;
+			_pointerFollowStartPos = GlobalPosition;
+			_hasMovedFromOrigin = false;
+		}
+		else
+		{
+			// 鼠标按住拖拽路径：直接标记已拖拽，跳过距离阈值
+			_hasDragged = true;
+			_clickSelectMode = false;
+			_emitMoveWhileClickFollowing = false;
+			_hasMovedFromOrigin = true; // 拖拽路径始终视为已移动
+		}
+	}
 
-    /// <summary>
-    /// 进入目标选择展示态：卡牌不再跟随鼠标，移动到统一的展示位置。
-    /// </summary>
-    public void PresentForTargeting(Vector2 globalCenter, float targetScale)
-    {
-        CancelDragSilent();
-        MouseFilter = MouseFilterEnum.Ignore;
-        ZIndex = 10;
+	/// <summary>
+	/// 进入目标选择展示态：卡牌不再跟随鼠标，移动到统一的展示位置。
+	/// </summary>
+	public void PresentForTargeting(Vector2 globalCenter, float targetScale)
+	{
+		CancelDragSilent();
+		MouseFilter = MouseFilterEnum.Ignore;
+		ZIndex = 10;
 
-        Vector2 targetSize = Size * targetScale;
-        Vector2 targetTopLeft = globalCenter - targetSize * 0.5f;
-        Scale = Vector2.One * targetScale;
+		Vector2 targetSize = Size * targetScale;
+		Vector2 targetTopLeft = globalCenter - targetSize * 0.5f;
+		Scale = Vector2.One * targetScale;
 
-        var tween = CreateTween();
-        tween.SetTrans(Tween.TransitionType.Cubic);
-        tween.SetEase(Tween.EaseType.Out);
-        tween.TweenProperty(this, "global_position", targetTopLeft, 0.12f);
-    }
+		var tween = CreateTween();
+		tween.SetTrans(Tween.TransitionType.Cubic);
+		tween.SetEase(Tween.EaseType.Out);
+		tween.TweenProperty(this, "global_position", targetTopLeft, 0.12f);
+	}
 
-    /// <summary>
-    /// 退出拖拽状态（静默，不触发事件）。
-    /// 用于切换卡牌时直接清理旧卡，避免触发 RefreshHand 链条。
-    /// </summary>
-    public void CancelDragSilent()
-    {
-        _isDragging = false;
-        _hasDragged = false;
-        _clickSelectMode = false;
-        _emitMoveWhileClickFollowing = false;
-        _isHoverEffectActive = false;
-        KillHoverTween();
-        MouseFilter = MouseFilterEnum.Stop;
-        OffsetTop = 0;
-    }
+	/// <summary>
+	/// 退出拖拽状态（静默，不触发事件）。
+	/// 用于切换卡牌时直接清理旧卡，避免触发 RefreshHand 链条。
+	/// </summary>
+	public void CancelDragSilent()
+	{
+		_isDragging = false;
+		_hasDragged = false;
+		_clickSelectMode = false;
+		_emitMoveWhileClickFollowing = false;
+		_isHoverEffectActive = false;
+		KillHoverTween();
+		MouseFilter = MouseFilterEnum.Stop;
+		OffsetTop = 0;
+	}
 
-    /// <summary>
-    /// 退出拖拽状态：恢复鼠标响应、通知取消。
-    /// </summary>
-    public void CancelDrag()
-    {
-        if (!_isDragging) return;
-        CancelDragSilent();
-        OnCardRightClicked?.Invoke(this);
-    }
+	/// <summary>
+	/// 退出拖拽状态：恢复鼠标响应、通知取消。
+	/// </summary>
+	public void CancelDrag()
+	{
+		if (!_isDragging)
+			return;
+		CancelDragSilent();
+		OnCardRightClicked?.Invoke(this);
+	}
 
 	/// <summary>
 	/// 拖拽时每帧跟随鼠标/触控移动，并轮询取消和松开事件。
@@ -792,8 +795,10 @@ public partial class CardUI : Control
 	/// </summary>
 	public override void _Process(double delta)
 	{
-		if (SceneLifecycleGuard.ShouldSkip(this)) return;
-		if (DisplayOnly || !_isDragging) return;
+		if (SceneLifecycleGuard.ShouldSkip(this))
+			return;
+		if (DisplayOnly || !_isDragging)
+			return;
 
 		if (MobileInputRouter.IsMobile)
 		{
@@ -927,7 +932,8 @@ public partial class CardUI : Control
 	/// </summary>
 	public void Select()
 	{
-		if (_isDragging) return;
+		if (_isDragging)
+			return;
 		IsSelected = true;
 		_isHoverEffectActive = false;
 		KillHoverTween();
@@ -936,63 +942,64 @@ public partial class CardUI : Control
 		ZIndex = 1;
 	}
 
-    /// <summary>
-    /// 取消选中：清除高亮状态，恢复原位置。
-    /// </summary>
-    public void Deselect()
-    {
-        IsSelected = false;
-        OffsetTop = 0;
-        ZIndex = 0;
-    }
+	/// <summary>
+	/// 取消选中：清除高亮状态，恢复原位置。
+	/// </summary>
+	public void Deselect()
+	{
+		IsSelected = false;
+		OffsetTop = 0;
+		ZIndex = 0;
+	}
 
-    /// <summary>
-    /// 设置手牌选择模式的选中/取消高亮。
-    /// 选中时：金色调色 + 上移抬起效果。
-    /// 取消时：恢复原始颜色和位置。
-    /// </summary>
-    /// <param name="selected">true=选中高亮，false=取消</param>
-    public void SetHandSelectionHighlight(bool selected)
-    {
-        if (selected)
-        {
-            _isHoverEffectActive = false;
-            KillHoverTween();
-            Modulate = new Color(1f, 0.85f, 0.3f, 1f); // golden
-            OffsetTop = -15f; // slight lift
-            ZIndex = 1;
-        }
-        else
-        {
-            Modulate = _canPlay ? Colors.White : ClrCannotPlay;
-            OffsetTop = 0f;
-            ZIndex = 0;
-        }
-    }
+	/// <summary>
+	/// 设置手牌选择模式的选中/取消高亮。
+	/// 选中时：金色调色 + 上移抬起效果。
+	/// 取消时：恢复原始颜色和位置。
+	/// </summary>
+	/// <param name="selected">true=选中高亮，false=取消</param>
+	public void SetHandSelectionHighlight(bool selected)
+	{
+		if (selected)
+		{
+			_isHoverEffectActive = false;
+			KillHoverTween();
+			Modulate = new Color(1f, 0.85f, 0.3f, 1f); // golden
+			OffsetTop = -15f; // slight lift
+			ZIndex = 1;
+		}
+		else
+		{
+			Modulate = _canPlay ? Colors.White : ClrCannotPlay;
+			OffsetTop = 0f;
+			ZIndex = 0;
+		}
+	}
 
-    /// <summary>
-    /// 设置播放区域高亮状态——卡牌拖入播放区域时显示绿色边框反馈。
-    /// </summary>
-    /// <param name="active">true=在播放区域内，false=离开</param>
-    public void SetPlayZoneHighlight(bool active)
-    {
-        if (_bgPanel == null) return;
+	/// <summary>
+	/// 设置播放区域高亮状态——卡牌拖入播放区域时显示绿色边框反馈。
+	/// </summary>
+	/// <param name="active">true=在播放区域内，false=离开</param>
+	public void SetPlayZoneHighlight(bool active)
+	{
+		if (_bgPanel == null)
+			return;
 
-        var style = new StyleBoxFlat
-        {
-            BgColor = ClrBg,
-            CornerRadiusTopLeft = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
-            CornerRadiusTopRight = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
-            CornerRadiusBottomLeft = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
-            CornerRadiusBottomRight = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
-            BorderWidthBottom = active ? 3 : 1,
-            BorderWidthLeft = active ? 3 : 1,
-            BorderWidthRight = active ? 3 : 1,
-            BorderWidthTop = active ? 3 : 1,
-            BorderColor = active ? new Color(0.3f, 0.9f, 0.3f, 0.8f) : ClrBorder,
-        };
-        _bgPanel.AddThemeStyleboxOverride("panel", style);
-    }
+		var style = new StyleBoxFlat
+		{
+			BgColor = ClrBg,
+			CornerRadiusTopLeft = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
+			CornerRadiusTopRight = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
+			CornerRadiusBottomLeft = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
+			CornerRadiusBottomRight = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
+			BorderWidthBottom = active ? 3 : 1,
+			BorderWidthLeft = active ? 3 : 1,
+			BorderWidthRight = active ? 3 : 1,
+			BorderWidthTop = active ? 3 : 1,
+			BorderColor = active ? new Color(0.3f, 0.9f, 0.3f, 0.8f) : ClrBorder,
+		};
+		_bgPanel.AddThemeStyleboxOverride("panel", style);
+	}
 
 	// ============================================================
 	// 布局切换
@@ -1092,14 +1099,14 @@ public partial class CardUI : Control
 	{
 		return keyword switch
 		{
-        Keyword.Charge => ("闪击", ClrCharge),
+			Keyword.Charge => ("闪击", ClrCharge),
 			Keyword.Taunt => ("嘲讽", ClrTaunt),
 			Keyword.Battlecry => ("战吼", ClrBattlecry),
 			Keyword.Deathrattle => ("亡语", ClrDeathrattle),
-        Keyword.Windfury => ("风怒", ClrWindfury),
-        Keyword.Ambush => ("伏击", ClrAmbush),
-        Keyword.Impact => ("冲击", ClrImpact),
-        _ => (null, Colors.White),
+			Keyword.Windfury => ("风怒", ClrWindfury),
+			Keyword.Ambush => ("伏击", ClrAmbush),
+			Keyword.Impact => ("冲击", ClrImpact),
+			_ => (null, Colors.White),
 		};
 	}
 
@@ -1112,7 +1119,8 @@ public partial class CardUI : Control
 	/// </summary>
 	public void ApplyHoverEffect()
 	{
-		if (_isDragging || IsSelected || _isHoverEffectActive) return;
+		if (_isDragging || IsSelected || _isHoverEffectActive)
+			return;
 		_isHoverEffectActive = true;
 		KillHoverTween();
 		ZIndex = 2;
@@ -1123,7 +1131,8 @@ public partial class CardUI : Control
 	/// </summary>
 	public void RemoveHoverEffect()
 	{
-		if (!_isHoverEffectActive) return;
+		if (!_isHoverEffectActive)
+			return;
 		_isHoverEffectActive = false;
 		KillHoverTween();
 		OffsetTop = 0f;

@@ -5,12 +5,12 @@ namespace OdysseyCards.AI.Intents;
 /// </summary>
 public sealed class SummonIntent : AbstractIntent
 {
-    /// <inheritdoc />
-    public override IntentType Type => IntentType.Summon;
+	/// <inheritdoc />
+	public override IntentType Type => IntentType.Summon;
 
-    /// <inheritdoc />
-    public override string IntentPrefix => "SUMMON";
+	/// <inheritdoc />
+	public override string IntentPrefix => "SUMMON";
 
-    /// <inheritdoc />
-    public override string? SpritePath => "res://Assets/Intents/summon.png";
+	/// <inheritdoc />
+	public override string? SpritePath => "res://Assets/Intents/summon.png";
 }

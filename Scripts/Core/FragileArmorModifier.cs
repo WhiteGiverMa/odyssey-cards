@@ -13,7 +13,8 @@ public class FragileArmorModifier
 
 	public int ModifyArmorGain(int amount)
 	{
-		if (!IsActive || amount <= 0) return amount;
+		if (!IsActive || amount <= 0)
+			return amount;
 		return (int)(amount * EffectiveMultiplier);
 	}
 }

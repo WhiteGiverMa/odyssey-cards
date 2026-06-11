@@ -10,19 +10,19 @@ namespace OdysseyCards.Card;
 /// </summary>
 internal sealed class ArmorAttackBonusModifier : IDamageModifier
 {
-    private readonly Minion _minion;
+	private readonly Minion _minion;
 
-    public ArmorAttackBonusModifier(Minion minion)
-    {
-        _minion = minion ?? throw new ArgumentNullException(nameof(minion));
-    }
+	public ArmorAttackBonusModifier(Minion minion)
+	{
+		_minion = minion ?? throw new ArgumentNullException(nameof(minion));
+	}
 
-    public DamagePhase Phase => DamagePhase.ADDITIVE;
+	public DamagePhase Phase => DamagePhase.ADDITIVE;
 
-    public int ModifyDamageDealt(int currentDamage, DamageContext context)
-    {
-        return _minion.HasArmor ? currentDamage + 2 : currentDamage;
-    }
+	public int ModifyDamageDealt(int currentDamage, DamageContext context)
+	{
+		return _minion.HasArmor ? currentDamage + 2 : currentDamage;
+	}
 
-    public int ModifyDamageTaken(int currentDamage, DamageContext context) => currentDamage;
+	public int ModifyDamageTaken(int currentDamage, DamageContext context) => currentDamage;
 }

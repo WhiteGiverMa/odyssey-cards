@@ -48,7 +48,8 @@ public partial class EventUI : Control
 
 	public override void _Ready()
 	{
-		if (SceneLifecycleGuard.ShouldSkip(this)) return;
+		if (SceneLifecycleGuard.ShouldSkip(this))
+			return;
 
 		// 全屏铺满父控件（MapUI）
 		SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
@@ -135,7 +136,8 @@ public partial class EventUI : Control
 
 	private void OnChoiceSelected(EventChoice choice, Button clickedButton)
 	{
-		if (_choiceSelected) return;
+		if (_choiceSelected)
+			return;
 		_choiceSelected = true;
 
 		// 禁用所有选择按钮

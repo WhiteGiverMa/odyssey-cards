@@ -8,22 +8,22 @@ namespace OdysseyCards.Core;
 /// </summary>
 public sealed class AnimosityDamageModifier : IDamageModifier
 {
-    public DamagePhase Phase => DamagePhase.MULTIPLICATIVE;
+	public DamagePhase Phase => DamagePhase.MULTIPLICATIVE;
 
-    /// <summary>
-    /// 不影响造成的伤害。
-    /// </summary>
-    public int ModifyDamageDealt(int currentDamage, DamageContext context) => currentDamage;
+	/// <summary>
+	/// 不影响造成的伤害。
+	/// </summary>
+	public int ModifyDamageDealt(int currentDamage, DamageContext context) => currentDamage;
 
-    /// <summary>
-    /// 若伤害来源属于玩家阵营，伤害翻倍。
-    /// source 为 null 时（无来源的效果伤害）不会翻倍。
-    /// </summary>
-    public int ModifyDamageTaken(int currentDamage, DamageContext context)
-    {
-        if (context.Source is { IsPlayerSide: true })
-            return currentDamage * 2;
+	/// <summary>
+	/// 若伤害来源属于玩家阵营，伤害翻倍。
+	/// source 为 null 时（无来源的效果伤害）不会翻倍。
+	/// </summary>
+	public int ModifyDamageTaken(int currentDamage, DamageContext context)
+	{
+		if (context.Source is { IsPlayerSide: true })
+			return currentDamage * 2;
 
-        return currentDamage;
-    }
+		return currentDamage;
+	}
 }

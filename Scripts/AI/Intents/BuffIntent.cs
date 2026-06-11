@@ -5,12 +5,12 @@ namespace OdysseyCards.AI.Intents;
 /// </summary>
 public sealed class BuffIntent : AbstractIntent
 {
-    /// <inheritdoc />
-    public override IntentType Type => IntentType.Buff;
+	/// <inheritdoc />
+	public override IntentType Type => IntentType.Buff;
 
-    /// <inheritdoc />
-    public override string IntentPrefix => "BUFF";
+	/// <inheritdoc />
+	public override string IntentPrefix => "BUFF";
 
-    /// <inheritdoc />
-    public override string? SpritePath => "res://Assets/Intents/buff.png";
+	/// <inheritdoc />
+	public override string? SpritePath => "res://Assets/Intents/buff.png";
 }

@@ -42,7 +42,8 @@ public static class RestSiteUI
 			Localization.Localization.T("ui.rest_site.rest_button", "回复 30% 生命值"));
 		restButton.Pressed += () =>
 		{
-			if (hasRested) return;
+			if (hasRested)
+				return;
 			var gm = GameManager.Instance;
 			if (gm != null)
 			{
@@ -82,7 +83,8 @@ public static class RestSiteUI
 			btn.AddThemeColorOverride("font_color", new Color(1, 0.85f, 0.3f, 1));
 			btn.Pressed += () =>
 			{
-				if (hasPickedBlessing) return;
+				if (hasPickedBlessing)
+					return;
 				hasPickedBlessing = true;
 				GD.Print($"[RestSiteUI] 选择了祝福：{blessing.Name}（{blessing.Id}）— 占位符，无实际效果");
 
@@ -91,7 +93,8 @@ public static class RestSiteUI
 					b.Disabled = true;
 					b.AddThemeColorOverride("font_color", new Color(0.5f, 0.5f, 0.5f, 1));
 				}
-				if (continueBtn != null) continueBtn.Disabled = false;
+				if (continueBtn != null)
+					continueBtn.Disabled = false;
 			};
 			blessingButtons.Add(btn);
 			content.AddChild(btn);

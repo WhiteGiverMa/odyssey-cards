@@ -6,12 +6,12 @@ namespace OdysseyCards.AI.Intents;
 /// </summary>
 public sealed class SleepIntent : AbstractIntent
 {
-    /// <inheritdoc />
-    public override IntentType Type => IntentType.Sleep;
+	/// <inheritdoc />
+	public override IntentType Type => IntentType.Sleep;
 
-    /// <inheritdoc />
-    public override string IntentPrefix => "SLEEP";
+	/// <inheritdoc />
+	public override string IntentPrefix => "SLEEP";
 
-    /// <inheritdoc />
-    public override string? SpritePath => "res://Assets/Intents/sleep.png";
+	/// <inheritdoc />
+	public override string? SpritePath => "res://Assets/Intents/sleep.png";
 }

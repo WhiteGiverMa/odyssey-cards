@@ -5,12 +5,12 @@ namespace OdysseyCards.AI.Intents;
 /// </summary>
 public sealed class DefendIntent : AbstractIntent
 {
-    /// <inheritdoc />
-    public override IntentType Type => IntentType.Defend;
+	/// <inheritdoc />
+	public override IntentType Type => IntentType.Defend;
 
-    /// <inheritdoc />
-    public override string IntentPrefix => "DEFEND";
+	/// <inheritdoc />
+	public override string IntentPrefix => "DEFEND";
 
-    /// <inheritdoc />
-    public override string? SpritePath => "res://Assets/Intents/defend.png";
+	/// <inheritdoc />
+	public override string? SpritePath => "res://Assets/Intents/defend.png";
 }

@@ -96,7 +96,8 @@ public class Board
 	public Minion? GetMinionAt(int index, bool isPlayerSide)
 	{
 		var slots = isPlayerSide ? PlayerSlots : EnemySlots;
-		if (index < 0 || index >= MaxSlotsPerSide) return null;
+		if (index < 0 || index >= MaxSlotsPerSide)
+			return null;
 		return slots[index];
 	}
 

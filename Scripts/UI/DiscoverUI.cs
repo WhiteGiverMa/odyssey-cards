@@ -49,7 +49,8 @@ public partial class DiscoverUI : CardSelectionScreen
 
 	protected override bool IsItemSelected(int index)
 	{
-		if (index < 0 || index >= _items.Count) return false;
+		if (index < 0 || index >= _items.Count)
+			return false;
 		return _selectedCardUIs.Contains(_items[index]);
 	}
 
@@ -109,7 +110,8 @@ public partial class DiscoverUI : CardSelectionScreen
 	{
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
 
-		if (_currentCards == null) return;
+		if (_currentCards == null)
+			return;
 
 		foreach (var card in _currentCards)
 		{
@@ -163,7 +165,8 @@ public partial class DiscoverUI : CardSelectionScreen
 
 	protected override void OnConfirm()
 	{
-		if (!_isShowing || _selectedCardUIs.Count != _pickCount) return;
+		if (!_isShowing || _selectedCardUIs.Count != _pickCount)
+			return;
 
 		var chosenCards = new List<Card.Card>();
 		foreach (var cardUI in _selectedCardUIs)
@@ -189,7 +192,8 @@ public partial class DiscoverUI : CardSelectionScreen
 		}
 		else
 		{
-			if (_selectedCardUIs.Count >= _pickCount) return;
+			if (_selectedCardUIs.Count >= _pickCount)
+				return;
 			_selectedCardUIs.Add(cardUI);
 			cardUI.SelfModulate = SelectedColor;
 		}

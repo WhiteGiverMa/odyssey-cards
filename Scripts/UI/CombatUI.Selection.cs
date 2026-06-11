@@ -57,7 +57,8 @@ public partial class CombatUI
 	/// <param name="isPlayerSide">点击的槽位是否属于玩家方</param>
 	private void OnBoardSlotClicked(int slotIndex, bool isPlayerSide)
 	{
-		if (_combat.State.IsGameOver) return;
+		if (_combat.State.IsGameOver)
+			return;
 		switch (_selectionMode)
 		{
 			case SelectionMode.PlacingMinion:
@@ -97,7 +98,8 @@ public partial class CombatUI
 	/// </summary>
 	private void OnBoardSlotRightClicked(int slotIndex, bool isPlayerSide)
 	{
-		if (_combat.State.IsGameOver) return;
+		if (_combat.State.IsGameOver)
+			return;
 
 		// 开发者伤害模式——退出
 		if (_selectionMode == SelectionMode.DevDamageTargeting)
@@ -128,10 +130,12 @@ public partial class CombatUI
 	/// </summary>
 	private void HandleNormalSlotClick(int slotIndex, bool isPlayerSide)
 	{
-		if (!isPlayerSide) return; // 普通模式下只响应己方槽位
+		if (!isPlayerSide)
+			return; // 普通模式下只响应己方槽位
 
 		var minion = _combat.Board.GetMinionAt(slotIndex, isPlayerSide: true);
-		if (minion == null || minion.IsDead) return;
+		if (minion == null || minion.IsDead)
+			return;
 
 		// 行动花费检查：法力不足时拒绝进入攻击模式
 		if (minion.ActionCost > 0 && _combat.PlayerHero.CurrentMana < minion.ActionCost)
@@ -326,8 +330,10 @@ public partial class CombatUI
 	/// <param name="card">被选中的卡牌</param>
 	private void OnCardSelectedFromHand(Card.Card card)
 	{
-		if (_combat.State.IsGameOver) return;
-		if (card == null) return;
+		if (_combat.State.IsGameOver)
+			return;
+		if (card == null)
+			return;
 
 		// 取消之前的攻击选择
 		_selectedAttacker = null;
@@ -410,15 +416,15 @@ public partial class CombatUI
 				}
 				break;
 
-		case CardType.Domain:
-			// 领域牌：进入拖拽播放模式（类 STS2 风格，拖到中央打出）
-			EnterNoTargetPlayMode(card);
-			break;
+			case CardType.Domain:
+				// 领域牌：进入拖拽播放模式（类 STS2 风格，拖到中央打出）
+				EnterNoTargetPlayMode(card);
+				break;
 
-		case CardType.Status:
-			// 状态牌：进入无目标播放模式（自动以玩家英雄为目标）
-			EnterNoTargetPlayMode(card);
-			break;
+			case CardType.Status:
+				// 状态牌：进入无目标播放模式（自动以玩家英雄为目标）
+				EnterNoTargetPlayMode(card);
+				break;
 
 			default:
 				GD.Print($"[CombatUI] 未知卡牌类型：{card.Type}");
@@ -441,7 +447,8 @@ public partial class CombatUI
 		Vector2 originalSize,
 		Vector2 originalScale)
 	{
-		if (_dragCardUI == null) return;
+		if (_dragCardUI == null)
+			return;
 
 		_isCardTargetDragPressed = false;
 		_cardTargetDragHasMoved = false;
@@ -507,8 +514,10 @@ public partial class CombatUI
 	/// </summary>
 	private void OnCardDroppedHandler(CardUI cardUI, Vector2 screenPos)
 	{
-		if (_combat.State.IsGameOver) return;
-		if (_dragCardUI != cardUI) return;
+		if (_combat.State.IsGameOver)
+			return;
+		if (_dragCardUI != cardUI)
+			return;
 
 		GD.Print($"[CombatUI] OnCardDropped — 模式 {_selectionMode}, 坐标 ({screenPos.X:F0}, {screenPos.Y:F0})");
 
@@ -683,7 +692,8 @@ public partial class CombatUI
 	/// </summary>
 	private void AnimateCardToDiscardPile()
 	{
-		if (_dragCardUI == null) return;
+		if (_dragCardUI == null)
+			return;
 
 		var cardUI = _dragCardUI;
 		_dragCardUI = null; // 提取所有权，防止 CleanupDragCard 二次处理
@@ -898,7 +908,8 @@ public partial class CombatUI
 	/// </summary>
 	private void OnEnemyHeroAttackPressed()
 	{
-		if (_combat.State.IsGameOver) return;
+		if (_combat.State.IsGameOver)
+			return;
 		if (_selectedAttacker == null)
 		{
 			GD.PrintErr("[CombatUI] 无攻击方随从");
@@ -915,7 +926,8 @@ public partial class CombatUI
 	/// </summary>
 	private void OnEnemyHeroSpellTarget()
 	{
-		if (_combat.State.IsGameOver) return;
+		if (_combat.State.IsGameOver)
+			return;
 
 		// 开发者伤害模式：对敌方英雄造成伤害
 		if (_selectionMode == SelectionMode.DevDamageTargeting)
@@ -942,7 +954,8 @@ public partial class CombatUI
 	/// </summary>
 	private void OnPlayerHeroSpellTarget()
 	{
-		if (_combat.State.IsGameOver) return;
+		if (_combat.State.IsGameOver)
+			return;
 
 		if (_selectedCard == null)
 		{
@@ -963,12 +976,16 @@ public partial class CombatUI
 	/// </summary>
 	private void OnWeaponAttackPressed()
 	{
-		if (_combat.State.IsGameOver) return;
-		if (!_combat.PlayerHero.CanWeaponAttack()) return;
+		if (_combat.State.IsGameOver)
+			return;
+		if (!_combat.PlayerHero.CanWeaponAttack())
+			return;
 
 		var weapon = _combat.PlayerHero.Weapon;
-		if (weapon == null || weapon.IsDisabled) return;
-		if (!_combat.PlayerHero.CanSpendMana(weapon.AttackCost)) return;
+		if (weapon == null || weapon.IsDisabled)
+			return;
+		if (!_combat.PlayerHero.CanSpendMana(weapon.AttackCost))
+			return;
 
 		GD.Print($"[CombatUI] 进入武器攻击目标选择模式 — {weapon.Name}");
 
@@ -989,11 +1006,14 @@ public partial class CombatUI
 	/// </summary>
 	private void OnWeaponActiveSkillPressed()
 	{
-		if (_combat.State.IsGameOver) return;
+		if (_combat.State.IsGameOver)
+			return;
 
 		var weapon = _combat.PlayerHero.Weapon;
-		if (weapon?.ActiveSkill == null) return;
-		if (!weapon.ActiveSkill.CanUse(_combat.PlayerHero)) return;
+		if (weapon?.ActiveSkill == null)
+			return;
+		if (!weapon.ActiveSkill.CanUse(_combat.PlayerHero))
+			return;
 
 		GD.Print($"[CombatUI] 进入主动技能目标选择模式 — {weapon.ActiveSkill.Name}");
 
@@ -1051,7 +1071,8 @@ public partial class CombatUI
 	/// </summary>
 	private void OnActiveSkillHeroPressed()
 	{
-		if (_combat.State.IsGameOver) return;
+		if (_combat.State.IsGameOver)
+			return;
 
 		GD.Print("[CombatUI] 主动技能目标：敌方英雄");
 
@@ -1125,7 +1146,8 @@ public partial class CombatUI
 	/// </summary>
 	private void OnWeaponAttackHeroPressed()
 	{
-		if (_combat.State.IsGameOver) return;
+		if (_combat.State.IsGameOver)
+			return;
 
 		GD.Print("[CombatUI] 武器攻击敌方英雄");
 		_combat.HeroWeaponAttackHero(_combat.EnemyUnits[0].Body);
@@ -1145,7 +1167,8 @@ public partial class CombatUI
 	/// </summary>
 	public void EnterDevDamageMode(int damageAmount)
 	{
-		if (_combat.State.IsGameOver) return;
+		if (_combat.State.IsGameOver)
+			return;
 
 		_devDamageAmount = damageAmount;
 		_selectionMode = SelectionMode.DevDamageTargeting;
@@ -1159,9 +1182,11 @@ public partial class CombatUI
 		for (int i = 0; i < Board.MaxSlotsPerSide; i++)
 		{
 			var pm = _combat.Board.GetMinionAt(i, isPlayerSide: true);
-			if (pm != null && !pm.IsDead) playerSlots.Add(i);
+			if (pm != null && !pm.IsDead)
+				playerSlots.Add(i);
 			var em = _combat.Board.GetMinionAt(i, isPlayerSide: false);
-			if (em != null && !em.IsDead) enemySlots.Add(i);
+			if (em != null && !em.IsDead)
+				enemySlots.Add(i);
 		}
 		_boardUI.HighlightSlots(playerSlots, isPlayerSide: true, highlight: true);
 		_boardUI.HighlightSlots(enemySlots, isPlayerSide: false, highlight: true);
@@ -1221,7 +1246,8 @@ public partial class CombatUI
 	private Vector2 GetMinionScreenCenter(Minion minion)
 	{
 		int slotIndex = minion.BoardSlotIndex;
-		if (slotIndex < 0 || slotIndex >= Board.MaxSlotsPerSide) return Vector2.Zero;
+		if (slotIndex < 0 || slotIndex >= Board.MaxSlotsPerSide)
+			return Vector2.Zero;
 		return _boardUI.GetSlotScreenCenter(slotIndex, minion.IsPlayerSide);
 	}
 
@@ -1366,7 +1392,8 @@ public partial class CombatUI
 	/// </summary>
 	private void OnCombatStateChangedForDiscover()
 	{
-		if (_combat == null) return;
+		if (_combat == null)
+			return;
 
 		if (_combat.IsDiscovering)
 		{
@@ -1395,7 +1422,8 @@ public partial class CombatUI
 	/// </summary>
 	private void ShowDiscoverUI()
 	{
-		if (_combat?.DiscoverOptions == null) return;
+		if (_combat?.DiscoverOptions == null)
+			return;
 
 		_discoverUI ??= new DiscoverUI();
 		if (_discoverUI.GetParent() == null)
@@ -1461,7 +1489,8 @@ public partial class CombatUI
 	/// </summary>
 	private void EnterHandSelectionMode()
 	{
-		if (_isHandSelecting) return;
+		if (_isHandSelecting)
+			return;
 		_isHandSelecting = true;
 		_selectedHandCards.Clear();
 		_selectedHandCardUIs.Clear();
@@ -1646,7 +1675,8 @@ public partial class CombatUI
 	/// </summary>
 	private void ArrangeSelectedHandCards()
 	{
-		if (_selectedHandCardContainer == null || _selectedHandCardUIs.Count == 0) return;
+		if (_selectedHandCardContainer == null || _selectedHandCardUIs.Count == 0)
+			return;
 
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
 		float cardW = CardUI.DESIGN_WIDTH * s * 0.85f;
@@ -1669,7 +1699,8 @@ public partial class CombatUI
 	/// </summary>
 	private void RefreshHandSelectionHighlights()
 	{
-		if (_combat?.PlayerHero?.Hand == null) return;
+		if (_combat?.PlayerHero?.Hand == null)
+			return;
 
 		foreach (var card in _combat.PlayerHero.Hand)
 		{
@@ -1687,7 +1718,8 @@ public partial class CombatUI
 	/// </summary>
 	private void UpdateHandSelectConfirmButton()
 	{
-		if (_handSelectConfirmBtn == null) return;
+		if (_handSelectConfirmBtn == null)
+			return;
 
 		int count = _selectedHandCards.Count;
 		bool canConfirm = count >= _combat.HandSelectMin && count <= _combat.HandSelectMax;
@@ -1700,7 +1732,8 @@ public partial class CombatUI
 	/// </summary>
 	private void OnHandSelectConfirmPressed()
 	{
-		if (_combat == null || !_isHandSelecting) return;
+		if (_combat == null || !_isHandSelecting)
+			return;
 		GD.Print($"[CombatUI] 手牌选择确认 — 选中 {_selectedHandCards.Count} 张");
 		_combat.ConfirmHandDiscardSelection(_selectedHandCards);
 	}
@@ -1764,19 +1797,20 @@ public partial class CombatUI
 	/// </summary>
 	private void PlaySelectedNoTargetCard()
 	{
-		if (_selectedCard == null || _combat.State.IsGameOver) return;
+		if (_selectedCard == null || _combat.State.IsGameOver)
+			return;
 
 		bool success;
 		switch (_selectedCard.Type)
 		{
-		case CardType.Spell:
-			success = _combat.PlaySpell(_selectedCard, _combat.PlayerHero);
-			break;
-		case CardType.Status:
-			// 状态牌：自动以玩家英雄为目标
-			success = _combat.PlaySpell(_selectedCard, _combat.PlayerHero);
-			break;
-		case CardType.Domain:
+			case CardType.Spell:
+				success = _combat.PlaySpell(_selectedCard, _combat.PlayerHero);
+				break;
+			case CardType.Status:
+				// 状态牌：自动以玩家英雄为目标
+				success = _combat.PlaySpell(_selectedCard, _combat.PlayerHero);
+				break;
+			case CardType.Domain:
 				success = _combat.PlayDomain(_selectedCard);
 				break;
 			default:
@@ -1803,7 +1837,8 @@ public partial class CombatUI
 	/// </summary>
 	private void OnDragMoveForPlayZone(CardUI cardUI, Vector2 screenPos)
 	{
-		if (_selectionMode != SelectionMode.PlayingNoTargetCard) return;
+		if (_selectionMode != SelectionMode.PlayingNoTargetCard)
+			return;
 
 		bool inZone = IsInPlayZone(screenPos);
 		cardUI.SetPlayZoneHighlight(inZone);

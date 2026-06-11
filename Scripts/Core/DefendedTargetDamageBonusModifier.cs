@@ -7,26 +7,26 @@ namespace OdysseyCards.Core;
 /// </summary>
 public sealed class DefendedTargetDamageBonusModifier : IDamageModifier
 {
-    private readonly int _bonusDamage;
-    private readonly int _minimumDefense;
+	private readonly int _bonusDamage;
+	private readonly int _minimumDefense;
 
-    public DefendedTargetDamageBonusModifier(int bonusDamage, int minimumDefense = 1)
-    {
-        _bonusDamage = bonusDamage;
-        _minimumDefense = minimumDefense;
-    }
+	public DefendedTargetDamageBonusModifier(int bonusDamage, int minimumDefense = 1)
+	{
+		_bonusDamage = bonusDamage;
+		_minimumDefense = minimumDefense;
+	}
 
-    public DamagePhase Phase => DamagePhase.ADDITIVE;
+	public DamagePhase Phase => DamagePhase.ADDITIVE;
 
-    public int ModifyDamageDealt(int currentDamage, DamageContext context)
-    {
-        if (context.Target == null || context.Target.Defense < _minimumDefense)
-        {
-            return currentDamage;
-        }
+	public int ModifyDamageDealt(int currentDamage, DamageContext context)
+	{
+		if (context.Target == null || context.Target.Defense < _minimumDefense)
+		{
+			return currentDamage;
+		}
 
-        return currentDamage + _bonusDamage;
-    }
+		return currentDamage + _bonusDamage;
+	}
 
-    public int ModifyDamageTaken(int currentDamage, DamageContext context) => currentDamage;
+	public int ModifyDamageTaken(int currentDamage, DamageContext context) => currentDamage;
 }

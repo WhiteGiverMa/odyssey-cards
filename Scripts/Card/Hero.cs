@@ -14,10 +14,10 @@ namespace OdysseyCards.Card;
 /// </summary>
 public class Hero : IDamageTarget, IDamageSource
 {
-    /// <summary>
-    /// 伤害修改器列表。动态列表，支持武器技能和状态效果注入修改器。
-    /// </summary>
-    internal readonly List<IDamageModifier> _damageModifiers = new();
+	/// <summary>
+	/// 伤害修改器列表。动态列表，支持武器技能和状态效果注入修改器。
+	/// </summary>
+	internal readonly List<IDamageModifier> _damageModifiers = new();
 
 	/// <summary>
 	/// 易伤修改器——被攻击时伤害×1.5。由 StatusEffect "vulnerable" 控制激活。
@@ -34,859 +34,875 @@ public class Hero : IDamageTarget, IDamageSource
 	/// </summary>
 	internal readonly FragileArmorModifier _fragileModifier = new();
 
-    /// <summary>
-    /// 被包装的指挥官核心。
-    /// </summary>
-    private readonly CommanderCore _core;
-
-    /// <summary>
-    /// 当前展开的领域效果列表（key=DomainId, value=领域运行时数据）。
-    /// </summary>
-    private readonly Dictionary<string, ActiveDomain> _activeDomains = new();
-
-    /// <summary>
-    /// 状态效果列表（key=效果ID, value=状态效果运行时数据）。
-    /// 用于武器禁用等持续性减益效果。
-    /// </summary>
-    private readonly Dictionary<string, StatusEffect> _statusEffects = new();
-
-    /// <summary>
-    /// 本回合已使用武器攻击的次数。
-    /// </summary>
-    private int _weaponAttacksThisTurn;
-
-    /// <summary>
-    /// 武器反击抑制标志。武器主动攻击目标后，目标的反击不应再次触发武器反击，
-    /// 以避免无限循环。由 CombatManager 在武器攻击流程中控制。
-    /// </summary>
-    internal bool SuppressWeaponCounter { get; set; }
-
-    // ===== 关键词属性（英雄也可拥有词条） =====
-
-    /// <summary>
-    /// 伏击：每回合第一次被攻击时，先于攻击者造成反击伤害。
-    /// 若攻击者被伏击伤害消灭，则攻击被取消。
-    /// </summary>
-    public bool HasAmbush { get; set; }
-
-    /// <summary>
-    /// 冲击：攻击时抵消所有反击伤害（一次性消耗，类似圣盾）。
-    /// </summary>
-    public bool HasImpact { get; set; }
-
-    /// <summary>
-    /// 本回合伏击是否已被消耗。回合开始时重置。
-    /// </summary>
-    internal bool AmbushUsedThisTurn { get; set; }
-
-    /// <summary>
-    /// 重置伏击状态（新回合开始时调用）。
-    /// </summary>
-    internal void ResetAmbush()
-    {
-        AmbushUsedThisTurn = false;
-    }
-
-    // ===== 指挥官属性（来自 CommanderCore） =====
-
-    /// <summary>
-    /// 当前生命值。
-    /// </summary>
-    public int CurrentHealth => _core.CurrentHealth;
-
-    /// <summary>
-    /// 最大生命值。
-    /// </summary>
-    public int MaxHealth => _core.MaxHealth;
-
-    /// <summary>
-    /// 当前法力水晶。
-    /// </summary>
-    public int CurrentMana => _core.CurrentMana;
-
-    /// <summary>
-    /// 最大法力水晶。
-    /// </summary>
-    public int MaxMana => _core.MaxMana;
-
-    /// <summary>
-    /// 牌堆定义。
-    /// </summary>
-    public Deck Deck => _core.Deck;
-
-    /// <summary>
-    /// 战斗中的牌堆状态。
-    /// </summary>
-    public CombatDeckState DeckState => _core.CombatDeckState;
-
-    /// <summary>
-    /// 手牌列表。
-    /// </summary>
-    public IReadOnlyList<OdysseyCards.Card.Card> Hand => _core.Hand;
-
-    // ===== 英雄独有属性 =====
-
-    /// <summary>
-    /// 是否为玩家方英雄。
-    /// </summary>
-    public bool IsPlayerSide { get; }
-
-    /// <summary>
-    /// 当前护甲值。护甲在生命值之前吸收伤害。
-    /// </summary>
-    public int CurrentArmor { get; private set; }
-
-    /// <summary>
-    /// 移除所有护甲（格挡归零）。
-    /// </summary>
-    public void RemoveArmor()
-    {
-        CurrentArmor = 0;
-        GD.Print($"[Hero] 所有护甲已被移除");
-    }
-
-    /// <summary>
-    /// 计算此英雄的目标标签掩码。
-    /// 用于目标选择系统的合法性验证。
-    /// </summary>
-    public TargetTags GetTargetTags()
-    {
-        return (IsPlayerSide ? TargetTags.Friendly : TargetTags.Enemy) | TargetTags.Hero;
-    }
-
-    /// <summary>
-    /// 防御力。影响受到伤害的数值：最终伤害 = max(0, 基础伤害 - 防御力)。
-    /// 通过 DefenseModifier 在 DamageResolver ADDITIVE 阶段自动生效。
-    /// 可为负值表示脆弱状态（受到额外伤害）。
-    /// 注意：防御力在护甲之前计算——先减防御，剩余伤害再由护甲吸收。
-    /// </summary>
-    public int Defense { get; private set; }
-
-    /// <summary>
-    /// 修改防御力（正数为增加，负数为减少）。
-    /// </summary>
-    /// <param name="delta">增减量</param>
-    public void ModifyDefense(int delta)
-    {
-        Defense += delta;
-        GD.Print($"[Hero] 防御力变化 {delta:+0;-#}，当前：{Defense}");
-    }
-
-    /// <summary>
-    /// 英雄技能。可为 null 表示该英雄没有英雄技能。
-    /// </summary>
-    public IHeroPower HeroPower { get; set; }
-
-    /// <summary>
-    /// 当前展开的领域效果（只读）。
-    /// </summary>
-    public IReadOnlyDictionary<string, ActiveDomain> ActiveDomains => _activeDomains;
-
-    // ===== 武器系统 =====
-
-    /// <summary>
-    /// 英雄当前装备的武器。可为 null 表示无武器。
-    /// </summary>
-    public Weapon? Weapon { get; set; }
-
-    /// <summary>
-    /// 本回合已使用武器攻击的次数。
-    /// </summary>
-    public int WeaponAttacksThisTurn => _weaponAttacksThisTurn;
-
-    /// <summary>
-    /// 当前状态效果（只读）。
-    /// </summary>
-    public IReadOnlyDictionary<string, StatusEffect> StatusEffects => _statusEffects;
-
-    // ===== IDamageTarget 实现 =====
-
-    /// <summary>
-    /// 英雄的伤害修改器列表（作为伤害目标）。
-    /// </summary>
-    public IReadOnlyList<IDamageModifier> DamageModifiers => _damageModifiers;
-
-    /// <summary>
-    /// 英雄是否已死亡。
-    /// </summary>
-    public bool IsDead => _core.IsDead;
-
-    // ===== IDamageSource 实现 =====
-
-    /// <summary>
-    /// 英雄的基础攻击力（来自武器）。
-    /// </summary>
-    int IDamageSource.BaseAttack => Weapon?.Attack ?? 0;
-
-    // ===== 事件 =====
-
-    /// <summary>
-    /// 法力值变化事件。参数为 (currentMana, maxMana)。
-    /// </summary>
-    public event Action<int, int> OnManaChanged
-    {
-        add => _core.OnManaChanged += value;
-        remove => _core.OnManaChanged -= value;
-    }
-
-    /// <summary>
-    /// 英雄被带有明确伤害来源的攻击命中时触发。
-    /// 参数为（被攻击英雄、攻击来源、护甲结算后的实际生命伤害）。
-    /// </summary>
-    public event Action<Hero, IDamageSource, int>? OnAttacked;
-
-    /// <summary>
-    /// 英雄受到伤害时触发。传递伤害事件信息和伤害来源。
-    /// 在 ApplyDamage 之后触发，此时生命值已减少。
-    /// </summary>
-    public event Action<DamageEventInfo, IDamageSource?>? OnDamageTaken;
-
-    /// <summary>
-    /// 英雄恢复生命值时触发。参数为实际恢复量。
-    /// </summary>
-    public event Action<int>? OnHealed;
-
-    /// <summary>
-    /// 本回合是否已经受到过 >0 的生命伤害。仅当 <see cref="HasUnbreakable"/> 为 true 时，
-    /// <see cref="TakeDamage(int, IDamageSource?, DamageKind)"/> 才会检查此标记以阻止后续伤害。
-    /// </summary>
-    internal bool _hasTakenDamageThisTurn;
-
-    /// <summary>
-    /// 是否拥有「不破」被动——每回合只能受到一次生命伤害。
-    /// 设置为 true 时，<see cref="TakeDamage"/> 会在首次伤害后阻止本回合内所有后续伤害。
-    /// 默认 false（无此被动）。
-    /// </summary>
-    public bool HasUnbreakable { get; set; }
-
-    /// <summary>
-    /// 英雄死亡事件——在 TakeDamage 导致生命值归零时触发。
-    /// CombatManager 订阅此事件以驱动胜负判定，替代手动调用 CheckVictoryOrDefeat()。
-    /// </summary>
-    public event Action<Hero>? OnDeath;
-
-    /// <summary>
-    /// 供 CombatManager.ForceVictory 等 dev 路径使用——
-    /// 绕过伤害管线直接击杀后，手动触发死亡事件。
-    /// </summary>
-    internal void InvokeOnDeath() => OnDeath?.Invoke(this);
-
-    /// <summary>
-    /// 重置本回合受伤标记（新回合开始时调用）。
-    /// </summary>
-    internal void ResetDamageTakenThisTurn()
-    {
-        _hasTakenDamageThisTurn = false;
-    }
-
-    // ===== 构造函数 =====
-
-    /// <summary>
-    /// 创建英雄实例，包装指定的指挥官核心。
-    /// </summary>
-    /// <param name="core">指挥官核心，不可为 null</param>
-    /// <param name="isPlayerSide">是否为玩家方英雄</param>
-    /// <exception cref="ArgumentNullException">当 core 为 null 时抛出</exception>
-    public Hero(CommanderCore core, bool isPlayerSide)
-    {
-        _core = core ?? throw new ArgumentNullException(nameof(core));
-        IsPlayerSide = isPlayerSide;
-
-        // 注册防御力修改器
-        _damageModifiers.Add(new DefenseModifier(() => Defense));
-
-        // 注册易伤/虚弱修改器（始终在列表中，由 IsActive 控制激活）
-        _damageModifiers.Add(_vulnerableModifier);
-        _damageModifiers.Add(_weakModifier);
-    }
-
-    // ===== 伤害处理 =====
-
-    /// <summary>
-    /// 受到来自某个伤害来源的基础攻击伤害。
-    /// 攻击伤害会触发被攻击事件和武器反击；效果伤害请调用带 <see cref="DamageKind"/> 的重载。
-    /// </summary>
-    /// <param name="baseDamage">基础伤害值</param>
-    /// <param name="source">伤害来源</param>
-    public void TakeDamage(int baseDamage, IDamageSource? source)
-    {
-        TakeDamage(baseDamage, source, DamageKind.Attack);
-    }
-
-    /// <summary>
-    /// 受到指定类型的基础伤害。
-    /// </summary>
-    /// <param name="baseDamage">基础伤害值</param>
-    /// <param name="source">伤害来源</param>
-    /// <param name="kind">伤害结算类型</param>
-    public void TakeDamage(int baseDamage, IDamageSource? source, DamageKind kind)
-    {
-        // 不破（1）检查：仅对拥有此被动的角色生效，阻止本回合后续伤害
-        if (_hasTakenDamageThisTurn && HasUnbreakable)
-            return;
-
-        // Step 1: ALWAYS go through DamageResolver first (Defense modifier applies here)
-        int resolvedDamage = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
-        string who = IsPlayerSide ? "玩家英雄" : "敌方英雄";
-        GD.Print($"[Hero:{who}] base={baseDamage} → resolved={resolvedDamage} (kind={kind})");
-        int armorAbsorbed = 0;
-
-        // Step 2: Armor absorbs remaining damage AFTER defense
-        if (CurrentArmor > 0)
-        {
-            armorAbsorbed = Math.Min(CurrentArmor, resolvedDamage);
-            CurrentArmor -= armorAbsorbed;
-            resolvedDamage -= armorAbsorbed;
-
-            GD.Print($"[Hero:{who}] 护甲吸收了 {armorAbsorbed} 点伤害（防御力调整后），剩余护甲：{CurrentArmor}");
-
-            if (resolvedDamage <= 0)
-            {
-                ResolveAttackSideEffects(source, kind, 0);
-                OnDamageTaken?.Invoke(new DamageEventInfo(0, armorAbsorbed, true), source);
-                return;
-            }
-        }
-
-        ApplyDamage(resolvedDamage, source);
-
-        // 不破（1）：生命伤害 > 0 时，标记本回合已受伤
-        _hasTakenDamageThisTurn = true;
-
-        // 伤害事件通知（ApplyDamage 之后触发，保证 HP 已减少）
-        OnDamageTaken?.Invoke(new DamageEventInfo(resolvedDamage, armorAbsorbed, false), source);
-
-        // 死亡事件——HP 归零时触发，驱动胜负判定
-        if (IsDead)
-            OnDeath?.Invoke(this);
-
-        // Step 3: Attack-only side effects after damage is settled.
-        ResolveAttackSideEffects(source, kind, resolvedDamage);
-    }
-
-    /// <summary>
-    /// 解析攻击伤害附带的副作用。
-    /// Effect 伤害只造成伤害，不算“被攻击”，也不触发武器反击。
-    /// </summary>
-    /// <param name="source">伤害来源</param>
-    /// <param name="kind">伤害结算类型</param>
-    /// <param name="finalDamage">护甲结算后的实际生命伤害</param>
-    private void ResolveAttackSideEffects(IDamageSource? source, DamageKind kind, int finalDamage)
-    {
-        if (kind != DamageKind.Attack || source == null) return;
-
-        NotifyAttacked(source, finalDamage);
-        CounterAttack(source);
-    }
-
-    /// <summary>
-    /// 在一次有明确来源的攻击结算后广播被攻击事件。
-    /// </summary>
-    /// <param name="source">攻击来源</param>
-    /// <param name="finalDamage">护甲结算后的实际生命伤害</param>
-    private void NotifyAttacked(IDamageSource? source, int finalDamage)
-    {
-        if (source == null) return;
-
-        OnAttacked?.Invoke(this, source, finalDamage);
-    }
-
-    /// <summary>
-    /// 武器反击逻辑。英雄持有未被禁用的武器时，对攻击者造成等同于武器攻击力的伤害。
-    /// 仅当攻击者可被伤害（实现 IDamageTarget）时生效。
-    /// 当 SuppressWeaponCounter 为 true 时跳过，用于武器主动攻击时的互砍流程。
-    /// </summary>
-    /// <param name="source">发起攻击的伤害来源</param>
-    private void CounterAttack(IDamageSource source)
-    {
-        if (SuppressWeaponCounter) return;
-        if (Weapon == null || !Weapon.CanCounter) return;
-        if (source is not IDamageTarget target) return;
-
-        // 防止自我反击（如疲劳伤害等 source 为自身的情况）
-        if (ReferenceEquals(target, this)) return;
-
-        int counterDamage = Weapon.GetModifiedDamage(Weapon.Attack);
-        if (counterDamage <= 0) return;
-
-        GD.Print($"[Hero] ⚔ 武器反击！{Weapon.Name} 对攻击者造成 {counterDamage} 点伤害");
-
-        if (target is Hero targetHero)
-        {
-            bool wasSuppressed = targetHero.SuppressWeaponCounter;
-            targetHero.SuppressWeaponCounter = true;
-            targetHero.TakeDamage(counterDamage, this, DamageKind.Attack);
-            targetHero.SuppressWeaponCounter = wasSuppressed;
-            return;
-        }
-
-        target.TakeDamage(counterDamage, this, DamageKind.Attack);
-    }
-
-    /// <summary>
-    /// 应用最终计算后的伤害值到英雄生命值。
-    /// 实现 <see cref="IDamageTarget"/> 接口方法。
-    /// </summary>
-    /// <param name="finalDamage">最终伤害值</param>
-    /// <param name="source">伤害来源</param>
-    public void ApplyDamage(int finalDamage, IDamageSource source)
-    {
-        _core.ApplyDamage(finalDamage);
-        GD.Print($"[Hero:{(IsPlayerSide ? "玩家英雄" : "敌方英雄")}] 受到 {finalDamage} 点伤害，剩余生命值：{CurrentHealth}");
-    }
-
-    /// <summary>
-    /// 为英雄增加护甲值。
-    /// </summary>
-    /// <param name="amount">护甲增加量</param>
-    public void GainArmor(int amount)
-    {
-        // 脆弱：护甲获得量 ×0.75
-        amount = _fragileModifier.ModifyArmorGain(amount);
-        if (amount <= 0) return;
-
-        CurrentArmor += amount;
-        GD.Print($"[Hero] 获得 {amount} 点护甲，当前护甲：{CurrentArmor}");
-    }
-
-    /// <summary>
-    /// 为英雄恢复生命值。
-    /// </summary>
-    /// <param name="amount">恢复量</param>
-    public void Heal(int amount)
-    {
-        int beforeHeal = _core.CurrentHealth;
-        _core.Heal(amount);
-        int actualHealed = _core.CurrentHealth - beforeHeal;
-
-        if (actualHealed > 0)
-        {
-            OnHealed?.Invoke(actualHealed);
-        }
-
-        GD.Print($"[Hero] 恢复 {amount} 点生命值，当前生命：{CurrentHealth}");
-    }
-
-    // ===== 法力水晶管理（委托给 CommanderCore） =====
-
-    /// <summary>
-    /// 消耗法力水晶。
-    /// </summary>
-    /// <param name="amount">消耗量</param>
-    public void SpendMana(int amount) => _core.SpendMana(amount);
-
-    /// <summary>
-    /// 获得法力水晶。
-    /// </summary>
-    /// <param name="amount">获得量</param>
-    public void GainMana(int amount) => _core.GainMana(amount);
-
-    /// <summary>
-    /// 将当前法力水晶重置为最大值。
-    /// </summary>
-    public void ResetMana() => _core.ResetMana();
-
-    /// <summary>
-    /// 设置法力水晶的当前值和最大值。
-    /// </summary>
-    /// <param name="current">当前法力水晶</param>
-    /// <param name="max">最大法力水晶</param>
-    public void SetMana(int current, int max) => _core.SetMana(current, max);
-
-    /// <summary>
-    /// 检查是否有足够的法力水晶。
-    /// </summary>
-    /// <param name="amount">需要的法力水晶数量</param>
-    /// <returns>足够时返回 true</returns>
-    public bool CanSpendMana(int amount) => _core.CanSpendMana(amount);
-
-    // ===== 牌堆操作（委托给 CommanderCore） =====
-
-    /// <summary>
-    /// 抽指定数量的卡牌。
-    /// </summary>
-    /// <param name="count">抽牌数量</param>
-    public IReadOnlyList<OdysseyCards.Card.Card> DrawCards(int count) => _core.DrawCards(count);
-
-    /// <summary>
-    /// 弃掉指定卡牌。
-    /// </summary>
-    /// <param name="card">要弃掉的卡牌</param>
-    public void DiscardCard(Card card) => _core.DiscardCard(card);
-
-    /// <summary>
-    /// 从手牌中移除指定卡牌（不进入弃牌堆）。
-    /// </summary>
-    /// <param name="card">要移除的卡牌</param>
-    public void RemoveFromHand(Card card) => _core.RemoveFromHand(card);
-
-    /// <summary>
-    /// 将手牌中的卡牌洗回抽牌堆。
-    /// </summary>
-    /// <param name="card">要洗回的卡牌</param>
-    public void ReturnToDrawPile(Card card) => _core.ReturnToDrawPile(card);
-
-    /// <summary>
-    /// 洗牌抽牌堆。
-    /// </summary>
-    public void ShuffleDrawPile() => _core.ShuffleDrawPile();
-
-    /// <summary>
-    /// 弃掉所有手牌。
-    /// </summary>
-    public void DiscardHand() => _core.DiscardHand();
-
-    // ===== 领域管理 =====
-
-    /// <summary>
-    /// 展开一个领域效果。若同名领域已存在则叠加层数。
-    /// </summary>
-    /// <param name="domainId">领域标识</param>
-    /// <param name="effectData">领域效果数据</param>
-    public void AddDomain(string domainId, Core.CardEffectData effectData)
-    {
-        if (_activeDomains.TryGetValue(domainId, out var existing))
-        {
-            existing.StackCount++;
-            GD.Print($"[Hero] 领域「{domainId}」叠加至 {existing.StackCount} 层");
-        }
-        else
-        {
-            _activeDomains[domainId] = new ActiveDomain(domainId, effectData);
-            string desc = effectData.GetDescription();
-            string descPart = string.IsNullOrWhiteSpace(desc) ? "" : $"：{desc}";
-            GD.Print($"[Hero] 展开领域「{domainId}」{descPart}");
-        }
-    }
-
-    /// <summary>
-    /// 移除指定领域。
-    /// </summary>
-    /// <param name="domainId">领域标识</param>
-    public void RemoveDomain(string domainId)
-    {
-        if (_activeDomains.Remove(domainId))
-        {
-            GD.Print($"[Hero] 领域「{domainId}」已移除");
-        }
-    }
-
-    /// <summary>
-    /// 将一张卡牌插入抽牌堆底部。
-    /// </summary>
-    /// <param name="card">要插入的卡牌实例</param>
-    public void InsertCardToDrawPile(Card card)
-    {
-        _core.InsertCardToDrawPile(card);
-    }
-
-    /// <summary>
-    /// 直接将卡牌加入抽牌堆底部（不从手牌移除）。
-    /// </summary>
-    public void AddToDrawPileBottom(Card card)
-    {
-        _core.AddToDrawPileBottom(card);
-    }
-
-    /// <summary>
-    /// 直接将卡牌加入弃牌堆（不从手牌移除）。
-    /// </summary>
-    public void AddToDiscardPile(Card card)
-    {
-        _core.AddToDiscardPile(card);
-    }
-
-    // ===== 状态效果管理 =====
-
-    /// <summary>
-    /// 添加一个状态效果。若同名效果已存在则叠加层数。
-    /// </summary>
-    /// <param name="effect">要添加的状态效果</param>
-    public void AddStatusEffect(StatusEffect effect)
-    {
-        if (_statusEffects.TryGetValue(effect.Id, out var existing))
-        {
-            existing.Stacks += effect.Stacks;
-            GD.Print($"[Hero] 状态「{effect.Id}」叠加到 {existing.Stacks} 层");
-        }
-        else
-        {
-            _statusEffects[effect.Id] = effect;
-            GD.Print($"[Hero] 获得状态「{effect.Id}」{effect.Stacks} 层");
-
-            // 立即应用状态效果（如武器禁用）
-            ApplyStatusEffectImmediate(effect);
-        }
-    }
-
-    /// <summary>
-    /// 移除指定 ID 的状态效果。
-    /// </summary>
-    /// <param name="id">效果标识符</param>
-    public void RemoveStatusEffect(string id)
-    {
-        if (_statusEffects.Remove(id))
-        {
-            GD.Print($"[Hero] 状态「{id}」已移除");
-            OnStatusEffectRemoved(id);
-        }
-    }
-
-    /// <summary>
-    /// 对指定触发时机的状态效果执行一次衰减计时。
-    /// 层数归零的效果将被自动移除。
-    /// </summary>
-    /// <param name="timing">触发时机</param>
-    public void TickStatusEffects(TickTiming timing)
-    {
-        var expiredIds = new List<string>();
-
-        foreach (var (id, effect) in _statusEffects)
-        {
-            if (effect.TickOn != timing) continue;
-
-            effect.Tick();
-            if (effect.IsExpired)
-            {
-                expiredIds.Add(id);
-            }
-        }
-
-        foreach (var id in expiredIds)
-        {
-            RemoveStatusEffect(id);
-        }
-    }
-
-    /// <summary>
-    /// 状态效果添加时的即时应用逻辑。
-    /// 根据效果 ID 执行特定的即时行为（如武器禁用）。
-    /// </summary>
-    /// <param name="effect">新添加的状态效果</param>
-    private void ApplyStatusEffectImmediate(StatusEffect effect)
-    {
-        switch (effect.Id)
-        {
-            case "weapon_disabled":
-                if (Weapon != null)
-                {
-                    Weapon.IsDisabled = true;
-                    GD.Print($"[Hero] 武器「{Weapon.Name}」已被禁用");
-                }
-                break;
-            case "vulnerable":
-                _vulnerableModifier.IsActive = true;
-                GD.Print($"[Hero] 获得易伤（受到伤害×1.5）");
-                break;
-            case "weak":
-                _weakModifier.IsActive = true;
-                GD.Print($"[Hero] 获得虚弱（造成伤害×0.75）");
-                break;
-            case "fragile":
-                _fragileModifier.IsActive = true;
-                GD.Print($"[Hero] 获得脆弱（护甲获得×0.75）");
-                break;
-            case "total_observation":
-                // 总观效应：翻倍易伤/虚弱/脆弱效果
-                // 易伤 1.5→2.0, 虚弱 0.75→0.5, 脆弱 0.75→0.5
-                _vulnerableModifier.ExtraMultiplier = 0.5f;
-                _weakModifier.ExtraMultiplier = -0.25f;
-                _fragileModifier.ExtraMultiplier = -0.25f;
-                GD.Print($"[Hero] 获得总观效应（易伤/虚弱/脆弱效果翻倍）");
-                break;
-            case "attack_ban":
-                // 磁轨锁定：禁用武器攻击1回合
-                if (Weapon != null)
-                {
-                    Weapon.IsDisabled = true;
-                    GD.Print($"[Hero] 被磁轨锁定，武器攻击已禁用");
-                }
-                break;
-        }
-    }
-
-    /// <summary>
-    /// 状态效果移除时的清理逻辑。
-    /// 根据效果 ID 执行特定的恢复行为。
-    /// </summary>
-    /// <param name="id">被移除的效果 ID</param>
-    private void OnStatusEffectRemoved(string id)
-    {
-        switch (id)
-        {
-            case "weapon_disabled":
-                if (Weapon != null && !HasStatusEffect("weapon_disabled"))
-                {
-                    Weapon.IsDisabled = false;
-                    GD.Print($"[Hero] 武器「{Weapon.Name}」已恢复");
-                }
-                break;
-            case "vulnerable":
-                if (!HasStatusEffect("vulnerable"))
-                    _vulnerableModifier.IsActive = false;
-                break;
-            case "weak":
-                if (!HasStatusEffect("weak"))
-                    _weakModifier.IsActive = false;
-                break;
-            case "fragile":
-                if (!HasStatusEffect("fragile"))
-                    _fragileModifier.IsActive = false;
-                break;
-            case "total_observation":
-                if (!HasStatusEffect("total_observation"))
-                {
-                    _vulnerableModifier.ExtraMultiplier = 0f;
-                    _weakModifier.ExtraMultiplier = 0f;
-                    _fragileModifier.ExtraMultiplier = 0f;
-                }
-                break;
-            case "attack_ban":
-                if (!HasStatusEffect("attack_ban") && Weapon != null)
-                {
-                    Weapon.IsDisabled = false;
-                    GD.Print($"[Hero] 磁轨锁定解除，武器攻击已恢复");
-                }
-                break;
-        }
-    }
-
-    /// <summary>
-    /// 检查是否持有指定 ID 的活跃状态效果。
-    /// </summary>
-    /// <param name="id">效果标识符</param>
-    /// <returns>存在时返回 true</returns>
-    public bool HasStatusEffect(string id)
-    {
-        return _statusEffects.ContainsKey(id) && !_statusEffects[id].IsExpired;
-    }
-
-    // ===== 武器攻击追踪 =====
-
-    /// <summary>
-    /// 检查英雄当前是否可以使用武器攻击。
-    /// 条件：持有武器、武器未被禁用、本回合攻击次数未达上限。
-    /// </summary>
-    /// <returns>可以攻击返回 true</returns>
-    public bool CanWeaponAttack()
-    {
-        if (Weapon == null) return false;
-        if (Weapon.IsDisabled) return false;
-        if (Weapon.AttacksPerTurn <= 0) return false;
-        return _weaponAttacksThisTurn < Weapon.AttacksPerTurn;
-    }
-
-    /// <summary>
-    /// 记录一次武器攻击。增加本回合攻击计数。
-    /// </summary>
-    public void RecordWeaponAttack()
-    {
-        _weaponAttacksThisTurn++;
-        GD.Print($"[Hero] 武器攻击次数：{_weaponAttacksThisTurn}/{Weapon?.AttacksPerTurn ?? 0}");
-    }
-
-    /// <summary>
-    /// 重置本回合武器攻击计数。回合开始时调用。
-    /// </summary>
-    public void ResetWeaponAttacks()
-    {
-        _weaponAttacksThisTurn = 0;
-    }
-
-    // ===== 武器主动技能冷却 =====
-
-    /// <summary>
-    /// 对武器主动技能执行一次冷却衰减。友方回合开始时调用。
-    /// </summary>
-    public void TickWeaponCooldown()
-    {
-        if (Weapon?.ActiveSkill == null) return;
-
-        if (Weapon.ActiveSkill.CurrentCooldown > 0)
-        {
-            Weapon.ActiveSkill.CurrentCooldown--;
-            GD.Print($"[Hero] 武器技能「{Weapon.ActiveSkill.Name}」冷却剩余 {Weapon.ActiveSkill.CurrentCooldown} 回合");
-        }
-    }
-
-    // ===== 效果显示器数据聚合 =====
-
-    /// <summary>
-    /// 获取此英雄当前所有应显示的效果图标数据。
-    /// 聚合 StatusEffect + ActiveDomain + 数值变化 + 授予的关键词。
-    /// </summary>
-    public List<DisplayableEffect> GetDisplayableEffects()
-    {
-        var effects = new List<DisplayableEffect>();
-
-        // 1. StatusEffects
-        foreach (var (id, se) in _statusEffects)
-        {
-            if (se.IsExpired) continue;
-            var data = EffectIconTable.GetStatusEffect(id);
-            if (data == null) continue;
-            effects.Add(EffectIconTable.ToDisplayable(
-                data.Value, EffectCategory.StatusEffect, se.Stacks));
-        }
-
-        // 2. ActiveDomains
-        foreach (var (domainId, domain) in _activeDomains)
-        {
-            var data = EffectIconTable.GetDomain(domainId);
-            if (data == null) continue;
-            effects.Add(EffectIconTable.ToDisplayable(
-                data.Value, EffectCategory.Domain, domain.StackCount));
-        }
-
-        // 3. Numerical stat changes (Defense only — HP on health bar)
-        // Hero Attack comes from Weapon, not shown here.
-        if (Defense != 0)
-        {
-            bool isBuff = Defense > 0;
-            string icon = isBuff ? "🛡" : "💔";
-            string sign = isBuff ? "+" : "";
-            effects.Add(new DisplayableEffect
-            {
-                Icon = icon,
-                Name = isBuff
-                    ? Localization.Localization.T("stat.defense_up", "防御力+{value}").Replace("{value}", Defense.ToString())
-                    : Localization.Localization.T("stat.defense_down", "防御力{value}").Replace("{value}", Defense.ToString()),
-                Stacks = Math.Abs(Defense),
-                Description = "",
-                IsBuff = isBuff,
-                Category = EffectCategory.StatBuff,
-            });
-        }
-
-        // 4. Granted keywords (Hero 级别的伏击/冲击)
-        if (HasAmbush)
-        {
-            effects.Add(new DisplayableEffect
-            {
-                Icon = "🗡",
-                Name = Localization.Localization.T("keyword.ambush", "伏击"),
-                Stacks = 0,
-                Description = Localization.Localization.T("keyword.ambush_desc", "每回合首次被攻击时，先于攻击者造成反击伤害。"),
-                IsBuff = true,
-                Category = EffectCategory.Keyword,
-                SourceId = "hero_ambush",
-            });
-        }
-
-        if (HasUnbreakable)
-        {
-            effects.Add(new DisplayableEffect
-            {
-                Icon = "🔰",
-                Name = Localization.Localization.T("keyword.unbreakable", "不破"),
-                Stacks = 0,
-                Description = Localization.Localization.T("keyword.unbreakable_desc", "每回合只能受到一次生命伤害。"),
-                IsBuff = true,
-                Category = EffectCategory.Keyword,
-                SourceId = "hero_unbreakable",
-            });
-        }
-
-        return effects;
-    }
+	/// <summary>
+	/// 被包装的指挥官核心。
+	/// </summary>
+	private readonly CommanderCore _core;
+
+	/// <summary>
+	/// 当前展开的领域效果列表（key=DomainId, value=领域运行时数据）。
+	/// </summary>
+	private readonly Dictionary<string, ActiveDomain> _activeDomains = new();
+
+	/// <summary>
+	/// 状态效果列表（key=效果ID, value=状态效果运行时数据）。
+	/// 用于武器禁用等持续性减益效果。
+	/// </summary>
+	private readonly Dictionary<string, StatusEffect> _statusEffects = new();
+
+	/// <summary>
+	/// 本回合已使用武器攻击的次数。
+	/// </summary>
+	private int _weaponAttacksThisTurn;
+
+	/// <summary>
+	/// 武器反击抑制标志。武器主动攻击目标后，目标的反击不应再次触发武器反击，
+	/// 以避免无限循环。由 CombatManager 在武器攻击流程中控制。
+	/// </summary>
+	internal bool SuppressWeaponCounter { get; set; }
+
+	// ===== 关键词属性（英雄也可拥有词条） =====
+
+	/// <summary>
+	/// 伏击：每回合第一次被攻击时，先于攻击者造成反击伤害。
+	/// 若攻击者被伏击伤害消灭，则攻击被取消。
+	/// </summary>
+	public bool HasAmbush { get; set; }
+
+	/// <summary>
+	/// 冲击：攻击时抵消所有反击伤害（一次性消耗，类似圣盾）。
+	/// </summary>
+	public bool HasImpact { get; set; }
+
+	/// <summary>
+	/// 本回合伏击是否已被消耗。回合开始时重置。
+	/// </summary>
+	internal bool AmbushUsedThisTurn { get; set; }
+
+	/// <summary>
+	/// 重置伏击状态（新回合开始时调用）。
+	/// </summary>
+	internal void ResetAmbush()
+	{
+		AmbushUsedThisTurn = false;
+	}
+
+	// ===== 指挥官属性（来自 CommanderCore） =====
+
+	/// <summary>
+	/// 当前生命值。
+	/// </summary>
+	public int CurrentHealth => _core.CurrentHealth;
+
+	/// <summary>
+	/// 最大生命值。
+	/// </summary>
+	public int MaxHealth => _core.MaxHealth;
+
+	/// <summary>
+	/// 当前法力水晶。
+	/// </summary>
+	public int CurrentMana => _core.CurrentMana;
+
+	/// <summary>
+	/// 最大法力水晶。
+	/// </summary>
+	public int MaxMana => _core.MaxMana;
+
+	/// <summary>
+	/// 牌堆定义。
+	/// </summary>
+	public Deck Deck => _core.Deck;
+
+	/// <summary>
+	/// 战斗中的牌堆状态。
+	/// </summary>
+	public CombatDeckState DeckState => _core.CombatDeckState;
+
+	/// <summary>
+	/// 手牌列表。
+	/// </summary>
+	public IReadOnlyList<OdysseyCards.Card.Card> Hand => _core.Hand;
+
+	// ===== 英雄独有属性 =====
+
+	/// <summary>
+	/// 是否为玩家方英雄。
+	/// </summary>
+	public bool IsPlayerSide { get; }
+
+	/// <summary>
+	/// 当前护甲值。护甲在生命值之前吸收伤害。
+	/// </summary>
+	public int CurrentArmor { get; private set; }
+
+	/// <summary>
+	/// 移除所有护甲（格挡归零）。
+	/// </summary>
+	public void RemoveArmor()
+	{
+		CurrentArmor = 0;
+		GD.Print($"[Hero] 所有护甲已被移除");
+	}
+
+	/// <summary>
+	/// 计算此英雄的目标标签掩码。
+	/// 用于目标选择系统的合法性验证。
+	/// </summary>
+	public TargetTags GetTargetTags()
+	{
+		return (IsPlayerSide ? TargetTags.Friendly : TargetTags.Enemy) | TargetTags.Hero;
+	}
+
+	/// <summary>
+	/// 防御力。影响受到伤害的数值：最终伤害 = max(0, 基础伤害 - 防御力)。
+	/// 通过 DefenseModifier 在 DamageResolver ADDITIVE 阶段自动生效。
+	/// 可为负值表示脆弱状态（受到额外伤害）。
+	/// 注意：防御力在护甲之前计算——先减防御，剩余伤害再由护甲吸收。
+	/// </summary>
+	public int Defense { get; private set; }
+
+	/// <summary>
+	/// 修改防御力（正数为增加，负数为减少）。
+	/// </summary>
+	/// <param name="delta">增减量</param>
+	public void ModifyDefense(int delta)
+	{
+		Defense += delta;
+		GD.Print($"[Hero] 防御力变化 {delta:+0;-#}，当前：{Defense}");
+	}
+
+	/// <summary>
+	/// 英雄技能。可为 null 表示该英雄没有英雄技能。
+	/// </summary>
+	public IHeroPower HeroPower { get; set; }
+
+	/// <summary>
+	/// 当前展开的领域效果（只读）。
+	/// </summary>
+	public IReadOnlyDictionary<string, ActiveDomain> ActiveDomains => _activeDomains;
+
+	// ===== 武器系统 =====
+
+	/// <summary>
+	/// 英雄当前装备的武器。可为 null 表示无武器。
+	/// </summary>
+	public Weapon? Weapon { get; set; }
+
+	/// <summary>
+	/// 本回合已使用武器攻击的次数。
+	/// </summary>
+	public int WeaponAttacksThisTurn => _weaponAttacksThisTurn;
+
+	/// <summary>
+	/// 当前状态效果（只读）。
+	/// </summary>
+	public IReadOnlyDictionary<string, StatusEffect> StatusEffects => _statusEffects;
+
+	// ===== IDamageTarget 实现 =====
+
+	/// <summary>
+	/// 英雄的伤害修改器列表（作为伤害目标）。
+	/// </summary>
+	public IReadOnlyList<IDamageModifier> DamageModifiers => _damageModifiers;
+
+	/// <summary>
+	/// 英雄是否已死亡。
+	/// </summary>
+	public bool IsDead => _core.IsDead;
+
+	// ===== IDamageSource 实现 =====
+
+	/// <summary>
+	/// 英雄的基础攻击力（来自武器）。
+	/// </summary>
+	int IDamageSource.BaseAttack => Weapon?.Attack ?? 0;
+
+	// ===== 事件 =====
+
+	/// <summary>
+	/// 法力值变化事件。参数为 (currentMana, maxMana)。
+	/// </summary>
+	public event Action<int, int> OnManaChanged
+	{
+		add => _core.OnManaChanged += value;
+		remove => _core.OnManaChanged -= value;
+	}
+
+	/// <summary>
+	/// 英雄被带有明确伤害来源的攻击命中时触发。
+	/// 参数为（被攻击英雄、攻击来源、护甲结算后的实际生命伤害）。
+	/// </summary>
+	public event Action<Hero, IDamageSource, int>? OnAttacked;
+
+	/// <summary>
+	/// 英雄受到伤害时触发。传递伤害事件信息和伤害来源。
+	/// 在 ApplyDamage 之后触发，此时生命值已减少。
+	/// </summary>
+	public event Action<DamageEventInfo, IDamageSource?>? OnDamageTaken;
+
+	/// <summary>
+	/// 英雄恢复生命值时触发。参数为实际恢复量。
+	/// </summary>
+	public event Action<int>? OnHealed;
+
+	/// <summary>
+	/// 本回合是否已经受到过 >0 的生命伤害。仅当 <see cref="HasUnbreakable"/> 为 true 时，
+	/// <see cref="TakeDamage(int, IDamageSource?, DamageKind)"/> 才会检查此标记以阻止后续伤害。
+	/// </summary>
+	internal bool _hasTakenDamageThisTurn;
+
+	/// <summary>
+	/// 是否拥有「不破」被动——每回合只能受到一次生命伤害。
+	/// 设置为 true 时，<see cref="TakeDamage"/> 会在首次伤害后阻止本回合内所有后续伤害。
+	/// 默认 false（无此被动）。
+	/// </summary>
+	public bool HasUnbreakable { get; set; }
+
+	/// <summary>
+	/// 英雄死亡事件——在 TakeDamage 导致生命值归零时触发。
+	/// CombatManager 订阅此事件以驱动胜负判定，替代手动调用 CheckVictoryOrDefeat()。
+	/// </summary>
+	public event Action<Hero>? OnDeath;
+
+	/// <summary>
+	/// 供 CombatManager.ForceVictory 等 dev 路径使用——
+	/// 绕过伤害管线直接击杀后，手动触发死亡事件。
+	/// </summary>
+	internal void InvokeOnDeath() => OnDeath?.Invoke(this);
+
+	/// <summary>
+	/// 重置本回合受伤标记（新回合开始时调用）。
+	/// </summary>
+	internal void ResetDamageTakenThisTurn()
+	{
+		_hasTakenDamageThisTurn = false;
+	}
+
+	// ===== 构造函数 =====
+
+	/// <summary>
+	/// 创建英雄实例，包装指定的指挥官核心。
+	/// </summary>
+	/// <param name="core">指挥官核心，不可为 null</param>
+	/// <param name="isPlayerSide">是否为玩家方英雄</param>
+	/// <exception cref="ArgumentNullException">当 core 为 null 时抛出</exception>
+	public Hero(CommanderCore core, bool isPlayerSide)
+	{
+		_core = core ?? throw new ArgumentNullException(nameof(core));
+		IsPlayerSide = isPlayerSide;
+
+		// 注册防御力修改器
+		_damageModifiers.Add(new DefenseModifier(() => Defense));
+
+		// 注册易伤/虚弱修改器（始终在列表中，由 IsActive 控制激活）
+		_damageModifiers.Add(_vulnerableModifier);
+		_damageModifiers.Add(_weakModifier);
+	}
+
+	// ===== 伤害处理 =====
+
+	/// <summary>
+	/// 受到来自某个伤害来源的基础攻击伤害。
+	/// 攻击伤害会触发被攻击事件和武器反击；效果伤害请调用带 <see cref="DamageKind"/> 的重载。
+	/// </summary>
+	/// <param name="baseDamage">基础伤害值</param>
+	/// <param name="source">伤害来源</param>
+	public void TakeDamage(int baseDamage, IDamageSource? source)
+	{
+		TakeDamage(baseDamage, source, DamageKind.Attack);
+	}
+
+	/// <summary>
+	/// 受到指定类型的基础伤害。
+	/// </summary>
+	/// <param name="baseDamage">基础伤害值</param>
+	/// <param name="source">伤害来源</param>
+	/// <param name="kind">伤害结算类型</param>
+	public void TakeDamage(int baseDamage, IDamageSource? source, DamageKind kind)
+	{
+		// 不破（1）检查：仅对拥有此被动的角色生效，阻止本回合后续伤害
+		if (_hasTakenDamageThisTurn && HasUnbreakable)
+			return;
+
+		// Step 1: ALWAYS go through DamageResolver first (Defense modifier applies here)
+		int resolvedDamage = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
+		string who = IsPlayerSide ? "玩家英雄" : "敌方英雄";
+		GD.Print($"[Hero:{who}] base={baseDamage} → resolved={resolvedDamage} (kind={kind})");
+		int armorAbsorbed = 0;
+
+		// Step 2: Armor absorbs remaining damage AFTER defense
+		if (CurrentArmor > 0)
+		{
+			armorAbsorbed = Math.Min(CurrentArmor, resolvedDamage);
+			CurrentArmor -= armorAbsorbed;
+			resolvedDamage -= armorAbsorbed;
+
+			GD.Print($"[Hero:{who}] 护甲吸收了 {armorAbsorbed} 点伤害（防御力调整后），剩余护甲：{CurrentArmor}");
+
+			if (resolvedDamage <= 0)
+			{
+				ResolveAttackSideEffects(source, kind, 0);
+				OnDamageTaken?.Invoke(new DamageEventInfo(0, armorAbsorbed, true), source);
+				return;
+			}
+		}
+
+		ApplyDamage(resolvedDamage, source);
+
+		// 不破（1）：生命伤害 > 0 时，标记本回合已受伤
+		_hasTakenDamageThisTurn = true;
+
+		// 伤害事件通知（ApplyDamage 之后触发，保证 HP 已减少）
+		OnDamageTaken?.Invoke(new DamageEventInfo(resolvedDamage, armorAbsorbed, false), source);
+
+		// 死亡事件——HP 归零时触发，驱动胜负判定
+		if (IsDead)
+			OnDeath?.Invoke(this);
+
+		// Step 3: Attack-only side effects after damage is settled.
+		ResolveAttackSideEffects(source, kind, resolvedDamage);
+	}
+
+	/// <summary>
+	/// 解析攻击伤害附带的副作用。
+	/// Effect 伤害只造成伤害，不算“被攻击”，也不触发武器反击。
+	/// </summary>
+	/// <param name="source">伤害来源</param>
+	/// <param name="kind">伤害结算类型</param>
+	/// <param name="finalDamage">护甲结算后的实际生命伤害</param>
+	private void ResolveAttackSideEffects(IDamageSource? source, DamageKind kind, int finalDamage)
+	{
+		if (kind != DamageKind.Attack || source == null)
+			return;
+
+		NotifyAttacked(source, finalDamage);
+		CounterAttack(source);
+	}
+
+	/// <summary>
+	/// 在一次有明确来源的攻击结算后广播被攻击事件。
+	/// </summary>
+	/// <param name="source">攻击来源</param>
+	/// <param name="finalDamage">护甲结算后的实际生命伤害</param>
+	private void NotifyAttacked(IDamageSource? source, int finalDamage)
+	{
+		if (source == null)
+			return;
+
+		OnAttacked?.Invoke(this, source, finalDamage);
+	}
+
+	/// <summary>
+	/// 武器反击逻辑。英雄持有未被禁用的武器时，对攻击者造成等同于武器攻击力的伤害。
+	/// 仅当攻击者可被伤害（实现 IDamageTarget）时生效。
+	/// 当 SuppressWeaponCounter 为 true 时跳过，用于武器主动攻击时的互砍流程。
+	/// </summary>
+	/// <param name="source">发起攻击的伤害来源</param>
+	private void CounterAttack(IDamageSource source)
+	{
+		if (SuppressWeaponCounter)
+			return;
+		if (Weapon == null || !Weapon.CanCounter)
+			return;
+		if (source is not IDamageTarget target)
+			return;
+
+		// 防止自我反击（如疲劳伤害等 source 为自身的情况）
+		if (ReferenceEquals(target, this))
+			return;
+
+		int counterDamage = Weapon.GetModifiedDamage(Weapon.Attack);
+		if (counterDamage <= 0)
+			return;
+
+		GD.Print($"[Hero] ⚔ 武器反击！{Weapon.Name} 对攻击者造成 {counterDamage} 点伤害");
+
+		if (target is Hero targetHero)
+		{
+			bool wasSuppressed = targetHero.SuppressWeaponCounter;
+			targetHero.SuppressWeaponCounter = true;
+			targetHero.TakeDamage(counterDamage, this, DamageKind.Attack);
+			targetHero.SuppressWeaponCounter = wasSuppressed;
+			return;
+		}
+
+		target.TakeDamage(counterDamage, this, DamageKind.Attack);
+	}
+
+	/// <summary>
+	/// 应用最终计算后的伤害值到英雄生命值。
+	/// 实现 <see cref="IDamageTarget"/> 接口方法。
+	/// </summary>
+	/// <param name="finalDamage">最终伤害值</param>
+	/// <param name="source">伤害来源</param>
+	public void ApplyDamage(int finalDamage, IDamageSource source)
+	{
+		_core.ApplyDamage(finalDamage);
+		GD.Print($"[Hero:{(IsPlayerSide ? "玩家英雄" : "敌方英雄")}] 受到 {finalDamage} 点伤害，剩余生命值：{CurrentHealth}");
+	}
+
+	/// <summary>
+	/// 为英雄增加护甲值。
+	/// </summary>
+	/// <param name="amount">护甲增加量</param>
+	public void GainArmor(int amount)
+	{
+		// 脆弱：护甲获得量 ×0.75
+		amount = _fragileModifier.ModifyArmorGain(amount);
+		if (amount <= 0)
+			return;
+
+		CurrentArmor += amount;
+		GD.Print($"[Hero] 获得 {amount} 点护甲，当前护甲：{CurrentArmor}");
+	}
+
+	/// <summary>
+	/// 为英雄恢复生命值。
+	/// </summary>
+	/// <param name="amount">恢复量</param>
+	public void Heal(int amount)
+	{
+		int beforeHeal = _core.CurrentHealth;
+		_core.Heal(amount);
+		int actualHealed = _core.CurrentHealth - beforeHeal;
+
+		if (actualHealed > 0)
+		{
+			OnHealed?.Invoke(actualHealed);
+		}
+
+		GD.Print($"[Hero] 恢复 {amount} 点生命值，当前生命：{CurrentHealth}");
+	}
+
+	// ===== 法力水晶管理（委托给 CommanderCore） =====
+
+	/// <summary>
+	/// 消耗法力水晶。
+	/// </summary>
+	/// <param name="amount">消耗量</param>
+	public void SpendMana(int amount) => _core.SpendMana(amount);
+
+	/// <summary>
+	/// 获得法力水晶。
+	/// </summary>
+	/// <param name="amount">获得量</param>
+	public void GainMana(int amount) => _core.GainMana(amount);
+
+	/// <summary>
+	/// 将当前法力水晶重置为最大值。
+	/// </summary>
+	public void ResetMana() => _core.ResetMana();
+
+	/// <summary>
+	/// 设置法力水晶的当前值和最大值。
+	/// </summary>
+	/// <param name="current">当前法力水晶</param>
+	/// <param name="max">最大法力水晶</param>
+	public void SetMana(int current, int max) => _core.SetMana(current, max);
+
+	/// <summary>
+	/// 检查是否有足够的法力水晶。
+	/// </summary>
+	/// <param name="amount">需要的法力水晶数量</param>
+	/// <returns>足够时返回 true</returns>
+	public bool CanSpendMana(int amount) => _core.CanSpendMana(amount);
+
+	// ===== 牌堆操作（委托给 CommanderCore） =====
+
+	/// <summary>
+	/// 抽指定数量的卡牌。
+	/// </summary>
+	/// <param name="count">抽牌数量</param>
+	public IReadOnlyList<OdysseyCards.Card.Card> DrawCards(int count) => _core.DrawCards(count);
+
+	/// <summary>
+	/// 弃掉指定卡牌。
+	/// </summary>
+	/// <param name="card">要弃掉的卡牌</param>
+	public void DiscardCard(Card card) => _core.DiscardCard(card);
+
+	/// <summary>
+	/// 从手牌中移除指定卡牌（不进入弃牌堆）。
+	/// </summary>
+	/// <param name="card">要移除的卡牌</param>
+	public void RemoveFromHand(Card card) => _core.RemoveFromHand(card);
+
+	/// <summary>
+	/// 将手牌中的卡牌洗回抽牌堆。
+	/// </summary>
+	/// <param name="card">要洗回的卡牌</param>
+	public void ReturnToDrawPile(Card card) => _core.ReturnToDrawPile(card);
+
+	/// <summary>
+	/// 洗牌抽牌堆。
+	/// </summary>
+	public void ShuffleDrawPile() => _core.ShuffleDrawPile();
+
+	/// <summary>
+	/// 弃掉所有手牌。
+	/// </summary>
+	public void DiscardHand() => _core.DiscardHand();
+
+	// ===== 领域管理 =====
+
+	/// <summary>
+	/// 展开一个领域效果。若同名领域已存在则叠加层数。
+	/// </summary>
+	/// <param name="domainId">领域标识</param>
+	/// <param name="effectData">领域效果数据</param>
+	public void AddDomain(string domainId, Core.CardEffectData effectData)
+	{
+		if (_activeDomains.TryGetValue(domainId, out var existing))
+		{
+			existing.StackCount++;
+			GD.Print($"[Hero] 领域「{domainId}」叠加至 {existing.StackCount} 层");
+		}
+		else
+		{
+			_activeDomains[domainId] = new ActiveDomain(domainId, effectData);
+			string desc = effectData.GetDescription();
+			string descPart = string.IsNullOrWhiteSpace(desc) ? "" : $"：{desc}";
+			GD.Print($"[Hero] 展开领域「{domainId}」{descPart}");
+		}
+	}
+
+	/// <summary>
+	/// 移除指定领域。
+	/// </summary>
+	/// <param name="domainId">领域标识</param>
+	public void RemoveDomain(string domainId)
+	{
+		if (_activeDomains.Remove(domainId))
+		{
+			GD.Print($"[Hero] 领域「{domainId}」已移除");
+		}
+	}
+
+	/// <summary>
+	/// 将一张卡牌插入抽牌堆底部。
+	/// </summary>
+	/// <param name="card">要插入的卡牌实例</param>
+	public void InsertCardToDrawPile(Card card)
+	{
+		_core.InsertCardToDrawPile(card);
+	}
+
+	/// <summary>
+	/// 直接将卡牌加入抽牌堆底部（不从手牌移除）。
+	/// </summary>
+	public void AddToDrawPileBottom(Card card)
+	{
+		_core.AddToDrawPileBottom(card);
+	}
+
+	/// <summary>
+	/// 直接将卡牌加入弃牌堆（不从手牌移除）。
+	/// </summary>
+	public void AddToDiscardPile(Card card)
+	{
+		_core.AddToDiscardPile(card);
+	}
+
+	// ===== 状态效果管理 =====
+
+	/// <summary>
+	/// 添加一个状态效果。若同名效果已存在则叠加层数。
+	/// </summary>
+	/// <param name="effect">要添加的状态效果</param>
+	public void AddStatusEffect(StatusEffect effect)
+	{
+		if (_statusEffects.TryGetValue(effect.Id, out var existing))
+		{
+			existing.Stacks += effect.Stacks;
+			GD.Print($"[Hero] 状态「{effect.Id}」叠加到 {existing.Stacks} 层");
+		}
+		else
+		{
+			_statusEffects[effect.Id] = effect;
+			GD.Print($"[Hero] 获得状态「{effect.Id}」{effect.Stacks} 层");
+
+			// 立即应用状态效果（如武器禁用）
+			ApplyStatusEffectImmediate(effect);
+		}
+	}
+
+	/// <summary>
+	/// 移除指定 ID 的状态效果。
+	/// </summary>
+	/// <param name="id">效果标识符</param>
+	public void RemoveStatusEffect(string id)
+	{
+		if (_statusEffects.Remove(id))
+		{
+			GD.Print($"[Hero] 状态「{id}」已移除");
+			OnStatusEffectRemoved(id);
+		}
+	}
+
+	/// <summary>
+	/// 对指定触发时机的状态效果执行一次衰减计时。
+	/// 层数归零的效果将被自动移除。
+	/// </summary>
+	/// <param name="timing">触发时机</param>
+	public void TickStatusEffects(TickTiming timing)
+	{
+		var expiredIds = new List<string>();
+
+		foreach (var (id, effect) in _statusEffects)
+		{
+			if (effect.TickOn != timing)
+				continue;
+
+			effect.Tick();
+			if (effect.IsExpired)
+			{
+				expiredIds.Add(id);
+			}
+		}
+
+		foreach (var id in expiredIds)
+		{
+			RemoveStatusEffect(id);
+		}
+	}
+
+	/// <summary>
+	/// 状态效果添加时的即时应用逻辑。
+	/// 根据效果 ID 执行特定的即时行为（如武器禁用）。
+	/// </summary>
+	/// <param name="effect">新添加的状态效果</param>
+	private void ApplyStatusEffectImmediate(StatusEffect effect)
+	{
+		switch (effect.Id)
+		{
+			case "weapon_disabled":
+				if (Weapon != null)
+				{
+					Weapon.IsDisabled = true;
+					GD.Print($"[Hero] 武器「{Weapon.Name}」已被禁用");
+				}
+				break;
+			case "vulnerable":
+				_vulnerableModifier.IsActive = true;
+				GD.Print($"[Hero] 获得易伤（受到伤害×1.5）");
+				break;
+			case "weak":
+				_weakModifier.IsActive = true;
+				GD.Print($"[Hero] 获得虚弱（造成伤害×0.75）");
+				break;
+			case "fragile":
+				_fragileModifier.IsActive = true;
+				GD.Print($"[Hero] 获得脆弱（护甲获得×0.75）");
+				break;
+			case "total_observation":
+				// 总观效应：翻倍易伤/虚弱/脆弱效果
+				// 易伤 1.5→2.0, 虚弱 0.75→0.5, 脆弱 0.75→0.5
+				_vulnerableModifier.ExtraMultiplier = 0.5f;
+				_weakModifier.ExtraMultiplier = -0.25f;
+				_fragileModifier.ExtraMultiplier = -0.25f;
+				GD.Print($"[Hero] 获得总观效应（易伤/虚弱/脆弱效果翻倍）");
+				break;
+			case "attack_ban":
+				// 磁轨锁定：禁用武器攻击1回合
+				if (Weapon != null)
+				{
+					Weapon.IsDisabled = true;
+					GD.Print($"[Hero] 被磁轨锁定，武器攻击已禁用");
+				}
+				break;
+		}
+	}
+
+	/// <summary>
+	/// 状态效果移除时的清理逻辑。
+	/// 根据效果 ID 执行特定的恢复行为。
+	/// </summary>
+	/// <param name="id">被移除的效果 ID</param>
+	private void OnStatusEffectRemoved(string id)
+	{
+		switch (id)
+		{
+			case "weapon_disabled":
+				if (Weapon != null && !HasStatusEffect("weapon_disabled"))
+				{
+					Weapon.IsDisabled = false;
+					GD.Print($"[Hero] 武器「{Weapon.Name}」已恢复");
+				}
+				break;
+			case "vulnerable":
+				if (!HasStatusEffect("vulnerable"))
+					_vulnerableModifier.IsActive = false;
+				break;
+			case "weak":
+				if (!HasStatusEffect("weak"))
+					_weakModifier.IsActive = false;
+				break;
+			case "fragile":
+				if (!HasStatusEffect("fragile"))
+					_fragileModifier.IsActive = false;
+				break;
+			case "total_observation":
+				if (!HasStatusEffect("total_observation"))
+				{
+					_vulnerableModifier.ExtraMultiplier = 0f;
+					_weakModifier.ExtraMultiplier = 0f;
+					_fragileModifier.ExtraMultiplier = 0f;
+				}
+				break;
+			case "attack_ban":
+				if (!HasStatusEffect("attack_ban") && Weapon != null)
+				{
+					Weapon.IsDisabled = false;
+					GD.Print($"[Hero] 磁轨锁定解除，武器攻击已恢复");
+				}
+				break;
+		}
+	}
+
+	/// <summary>
+	/// 检查是否持有指定 ID 的活跃状态效果。
+	/// </summary>
+	/// <param name="id">效果标识符</param>
+	/// <returns>存在时返回 true</returns>
+	public bool HasStatusEffect(string id)
+	{
+		return _statusEffects.ContainsKey(id) && !_statusEffects[id].IsExpired;
+	}
+
+	// ===== 武器攻击追踪 =====
+
+	/// <summary>
+	/// 检查英雄当前是否可以使用武器攻击。
+	/// 条件：持有武器、武器未被禁用、本回合攻击次数未达上限。
+	/// </summary>
+	/// <returns>可以攻击返回 true</returns>
+	public bool CanWeaponAttack()
+	{
+		if (Weapon == null)
+			return false;
+		if (Weapon.IsDisabled)
+			return false;
+		if (Weapon.AttacksPerTurn <= 0)
+			return false;
+		return _weaponAttacksThisTurn < Weapon.AttacksPerTurn;
+	}
+
+	/// <summary>
+	/// 记录一次武器攻击。增加本回合攻击计数。
+	/// </summary>
+	public void RecordWeaponAttack()
+	{
+		_weaponAttacksThisTurn++;
+		GD.Print($"[Hero] 武器攻击次数：{_weaponAttacksThisTurn}/{Weapon?.AttacksPerTurn ?? 0}");
+	}
+
+	/// <summary>
+	/// 重置本回合武器攻击计数。回合开始时调用。
+	/// </summary>
+	public void ResetWeaponAttacks()
+	{
+		_weaponAttacksThisTurn = 0;
+	}
+
+	// ===== 武器主动技能冷却 =====
+
+	/// <summary>
+	/// 对武器主动技能执行一次冷却衰减。友方回合开始时调用。
+	/// </summary>
+	public void TickWeaponCooldown()
+	{
+		if (Weapon?.ActiveSkill == null)
+			return;
+
+		if (Weapon.ActiveSkill.CurrentCooldown > 0)
+		{
+			Weapon.ActiveSkill.CurrentCooldown--;
+			GD.Print($"[Hero] 武器技能「{Weapon.ActiveSkill.Name}」冷却剩余 {Weapon.ActiveSkill.CurrentCooldown} 回合");
+		}
+	}
+
+	// ===== 效果显示器数据聚合 =====
+
+	/// <summary>
+	/// 获取此英雄当前所有应显示的效果图标数据。
+	/// 聚合 StatusEffect + ActiveDomain + 数值变化 + 授予的关键词。
+	/// </summary>
+	public List<DisplayableEffect> GetDisplayableEffects()
+	{
+		var effects = new List<DisplayableEffect>();
+
+		// 1. StatusEffects
+		foreach (var (id, se) in _statusEffects)
+		{
+			if (se.IsExpired)
+				continue;
+			var data = EffectIconTable.GetStatusEffect(id);
+			if (data == null)
+				continue;
+			effects.Add(EffectIconTable.ToDisplayable(
+				data.Value, EffectCategory.StatusEffect, se.Stacks));
+		}
+
+		// 2. ActiveDomains
+		foreach (var (domainId, domain) in _activeDomains)
+		{
+			var data = EffectIconTable.GetDomain(domainId);
+			if (data == null)
+				continue;
+			effects.Add(EffectIconTable.ToDisplayable(
+				data.Value, EffectCategory.Domain, domain.StackCount));
+		}
+
+		// 3. Numerical stat changes (Defense only — HP on health bar)
+		// Hero Attack comes from Weapon, not shown here.
+		if (Defense != 0)
+		{
+			bool isBuff = Defense > 0;
+			string icon = isBuff ? "🛡" : "💔";
+			string sign = isBuff ? "+" : "";
+			effects.Add(new DisplayableEffect
+			{
+				Icon = icon,
+				Name = isBuff
+					? Localization.Localization.T("stat.defense_up", "防御力+{value}").Replace("{value}", Defense.ToString())
+					: Localization.Localization.T("stat.defense_down", "防御力{value}").Replace("{value}", Defense.ToString()),
+				Stacks = Math.Abs(Defense),
+				Description = "",
+				IsBuff = isBuff,
+				Category = EffectCategory.StatBuff,
+			});
+		}
+
+		// 4. Granted keywords (Hero 级别的伏击/冲击)
+		if (HasAmbush)
+		{
+			effects.Add(new DisplayableEffect
+			{
+				Icon = "🗡",
+				Name = Localization.Localization.T("keyword.ambush", "伏击"),
+				Stacks = 0,
+				Description = Localization.Localization.T("keyword.ambush_desc", "每回合首次被攻击时，先于攻击者造成反击伤害。"),
+				IsBuff = true,
+				Category = EffectCategory.Keyword,
+				SourceId = "hero_ambush",
+			});
+		}
+
+		if (HasUnbreakable)
+		{
+			effects.Add(new DisplayableEffect
+			{
+				Icon = "🔰",
+				Name = Localization.Localization.T("keyword.unbreakable", "不破"),
+				Stacks = 0,
+				Description = Localization.Localization.T("keyword.unbreakable_desc", "每回合只能受到一次生命伤害。"),
+				IsBuff = true,
+				Category = EffectCategory.Keyword,
+				SourceId = "hero_unbreakable",
+			});
+		}
+
+		return effects;
+	}
 }

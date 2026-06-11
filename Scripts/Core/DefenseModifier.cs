@@ -10,28 +10,28 @@ namespace OdysseyCards.Core;
 /// </summary>
 public class DefenseModifier : IDamageModifier
 {
-    private readonly Func<int> _getDefense;
+	private readonly Func<int> _getDefense;
 
-    public DefenseModifier(Func<int> getDefense)
-    {
-        _getDefense = getDefense ?? throw new ArgumentNullException(nameof(getDefense));
-    }
+	public DefenseModifier(Func<int> getDefense)
+	{
+		_getDefense = getDefense ?? throw new ArgumentNullException(nameof(getDefense));
+	}
 
-    public DamagePhase Phase => DamagePhase.ADDITIVE;
+	public DamagePhase Phase => DamagePhase.ADDITIVE;
 
-    /// <summary>
-    /// 防御力不影响造成的伤害。
-    /// </summary>
-    public int ModifyDamageDealt(int currentDamage, DamageContext context) => currentDamage;
+	/// <summary>
+	/// 防御力不影响造成的伤害。
+	/// </summary>
+	public int ModifyDamageDealt(int currentDamage, DamageContext context) => currentDamage;
 
-    public int ModifyDamageTaken(int currentDamage, DamageContext context)
-    {
-        if (context.IgnoresDefense)
-        {
-            return currentDamage;
-        }
+	public int ModifyDamageTaken(int currentDamage, DamageContext context)
+	{
+		if (context.IgnoresDefense)
+		{
+			return currentDamage;
+		}
 
-        int defense = _getDefense();
-        return currentDamage - defense;
-    }
+		int defense = _getDefense();
+		return currentDamage - defense;
+	}
 }

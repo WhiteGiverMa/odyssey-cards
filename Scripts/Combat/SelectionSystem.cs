@@ -250,7 +250,8 @@ internal sealed class SelectionSystem
 			int moved = 0;
 			foreach (var card in chosenCards)
 			{
-				if (moved >= DiscoverPickCount) break;
+				if (moved >= DiscoverPickCount)
+					break;
 				if (_playerCore.Hand.Count >= _playerCore.MaxHandSize)
 				{
 					GD.Print($"[SelectionSystem]   手牌已满（{_playerCore.MaxHandSize}张），停止加入弃牌堆卡牌");
@@ -267,7 +268,8 @@ internal sealed class SelectionSystem
 			int discarded = 0;
 			foreach (var card in chosenCards)
 			{
-				if (discarded >= DiscoverPickCount) break;
+				if (discarded >= DiscoverPickCount)
+					break;
 				_playerHero.DiscardCard(card);
 				discarded++;
 			}
@@ -302,7 +304,8 @@ internal sealed class SelectionSystem
 					}
 				}
 			}
-			else GD.PrintErr("[SelectionSystem] 刀盾危机：无法加载我的刀盾Token卡牌");
+			else
+				GD.PrintErr("[SelectionSystem] 刀盾危机：无法加载我的刀盾Token卡牌");
 
 			_playerHero.DrawCards(discarded);
 			GD.Print($"[SelectionSystem] ◆ 刀盾危机完成：弃{discarded}张，抽{discarded}张");
@@ -408,7 +411,8 @@ internal sealed class SelectionSystem
 					}
 				}
 			}
-			else GD.PrintErr("[SelectionSystem] 刀盾危机：无法加载我的刀盾Token卡牌");
+			else
+				GD.PrintErr("[SelectionSystem] 刀盾危机：无法加载我的刀盾Token卡牌");
 
 			_playerHero.DrawCards(discarded);
 			GD.Print($"[SelectionSystem] ◆ 刀盾危机完成：弃{discarded}张，抽{discarded}张");
@@ -419,7 +423,8 @@ internal sealed class SelectionSystem
 			int discarded = 0;
 			foreach (var card in selectedCards)
 			{
-				if (discarded >= _pendingDiscardMax) break;
+				if (discarded >= _pendingDiscardMax)
+					break;
 				_playerHero.DiscardCard(card);
 				discarded++;
 			}

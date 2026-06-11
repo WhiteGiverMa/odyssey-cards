@@ -31,7 +31,8 @@ public partial class FloatingEmote : Control
 	/// <param name="parent">父节点（应为 CanvasLayer 下的 Control）</param>
 	public static void Show(string text, Vector2 screenPosition, Node parent)
 	{
-		if (string.IsNullOrEmpty(text)) return;
+		if (string.IsNullOrEmpty(text))
+			return;
 		var emote = new FloatingEmote();
 		emote.Initialize(text, screenPosition);
 		parent.AddChild(emote);
@@ -102,21 +103,21 @@ public partial class FloatingEmote : Control
 
 		// 向上缓缓浮动
 		tween.TweenProperty(this, "position:y", Position.Y - FloatDistance, Duration)
-		     .SetEase(Tween.EaseType.Out)
-		     .SetTrans(Tween.TransitionType.Sine);
+			 .SetEase(Tween.EaseType.Out)
+			 .SetTrans(Tween.TransitionType.Sine);
 
 		// 透明度 1.0 → 0.0（前 30% 完全可见，之后淡出）
 		tween.TweenProperty(this, "modulate:a", 0.0f, Duration * 0.7f)
-		     .SetDelay(Duration * 0.3f)
-		     .SetEase(Tween.EaseType.In)
-		     .SetTrans(Tween.TransitionType.Sine);
+			 .SetDelay(Duration * 0.3f)
+			 .SetEase(Tween.EaseType.In)
+			 .SetTrans(Tween.TransitionType.Sine);
 
 		// 初始微缩放弹入
 		Scale = new Vector2(0.85f, 0.85f);
 		var scaleTween = CreateTween();
 		scaleTween.TweenProperty(this, "scale", Vector2.One, Duration * 0.3f)
-		          .SetEase(Tween.EaseType.Out)
-		          .SetTrans(Tween.TransitionType.Back);
+				  .SetEase(Tween.EaseType.Out)
+				  .SetTrans(Tween.TransitionType.Back);
 
 		// 动画结束后自动销毁
 		tween.Finished += QueueFree;

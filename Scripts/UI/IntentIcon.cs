@@ -87,21 +87,50 @@ public partial class IntentIcon : Control
 	{
 		switch (_intentTypeId)
 		{
-			case 0: DrawAttackIcon(); break;
-			case 1: DrawMultiAttackIcon(); break;
-			case 2: DrawDefendIcon(); break;
-			case 3: DrawBuffIcon(); break;
-			case 4: DrawDebuffIcon(); break;
-			case 5: DrawHealIcon(); break;
-			case 6: DrawSummonIcon(); break;
-			case 7: DrawSleepIcon(); break;
-			case 8: DrawStunIcon(); break;
-			case 9: DrawEscapeIcon(); break;
-			case 10: DrawStatusCardIcon(); break;
-			case 11: DrawUnknownIcon(); break;
-		case 12: /* Hidden — 不绘制 */ break;
-		case 13: DrawSpellCastIcon(); break;
-		default: DrawUnknownIcon(); break;
+			case 0:
+				DrawAttackIcon();
+				break;
+			case 1:
+				DrawMultiAttackIcon();
+				break;
+			case 2:
+				DrawDefendIcon();
+				break;
+			case 3:
+				DrawBuffIcon();
+				break;
+			case 4:
+				DrawDebuffIcon();
+				break;
+			case 5:
+				DrawHealIcon();
+				break;
+			case 6:
+				DrawSummonIcon();
+				break;
+			case 7:
+				DrawSleepIcon();
+				break;
+			case 8:
+				DrawStunIcon();
+				break;
+			case 9:
+				DrawEscapeIcon();
+				break;
+			case 10:
+				DrawStatusCardIcon();
+				break;
+			case 11:
+				DrawUnknownIcon();
+				break;
+			case 12: /* Hidden — 不绘制 */
+				break;
+			case 13:
+				DrawSpellCastIcon();
+				break;
+			default:
+				DrawUnknownIcon();
+				break;
 		}
 	}
 
@@ -310,7 +339,7 @@ public partial class IntentIcon : Control
 		}
 		// 填充星形需要三角剖分，这里用多层绘制模拟
 		DrawCircle(new Vector2(cx, cy), outerR, c); // 实心圆底
-		// 五道星芒线（内外交替）
+													// 五道星芒线（内外交替）
 		for (int i = 0; i < 10; i += 2)
 		{
 			DrawLine(starPoints[i], starPoints[(i + 5) % 10], c, 2.5f);

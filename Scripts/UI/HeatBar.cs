@@ -39,7 +39,8 @@ public partial class HeatBar : HBoxContainer
 	/// </summary>
 	public void Refresh()
 	{
-		if (_heat == null || _label == null || _bar == null) return;
+		if (_heat == null || _label == null || _bar == null)
+			return;
 
 		float pct = _heat.CurrentHeat * 100f;
 		_label.Text = $"热力 {pct:F0}%";
@@ -56,7 +57,8 @@ public partial class HeatBar : HBoxContainer
 
 	private void EnsureControls()
 	{
-		if (_label != null) return;
+		if (_label != null)
+			return;
 
 		_label = new Label();
 		_label.AddThemeFontSizeOverride("font_size", 12);

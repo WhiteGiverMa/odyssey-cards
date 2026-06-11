@@ -11,9 +11,9 @@ namespace OdysseyCards.Core;
 [Flags]
 public enum CardTag
 {
-    /// <summary>无标签</summary>
-    None = 0,
+	/// <summary>无标签</summary>
+	None = 0,
 
-    /// <summary>机械族</summary>
-    Mechanics = 1,
+	/// <summary>机械族</summary>
+	Mechanics = 1,
 }

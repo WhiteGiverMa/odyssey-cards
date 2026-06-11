@@ -8,253 +8,253 @@ namespace OdysseyCards.Localization;
 
 public static class Localization
 {
-    private static readonly Dictionary<string, Dictionary<string, string>> _translations = new();
-    private static string _currentLanguage = "en";
-    private static bool _initialized;
+	private static readonly Dictionary<string, Dictionary<string, string>> _translations = new();
+	private static string _currentLanguage = "en";
+	private static bool _initialized;
 
-    private const string LocalizationPath = "res://Resources/Localization/";
+	private const string LocalizationPath = "res://Resources/Localization/";
 
-    public static string CurrentLanguage
-    {
-        get => _currentLanguage;
-        set => SetLanguage(value);
-    }
+	public static string CurrentLanguage
+	{
+		get => _currentLanguage;
+		set => SetLanguage(value);
+	}
 
-    public static IReadOnlyList<string> AvailableLanguages
-    {
-        get
-        {
-            List<string> languages = new(_translations.Keys);
-            if (languages.Count == 0)
-            {
-                languages.Add("en");
-            }
+	public static IReadOnlyList<string> AvailableLanguages
+	{
+		get
+		{
+			List<string> languages = new(_translations.Keys);
+			if (languages.Count == 0)
+			{
+				languages.Add("en");
+			}
 
-            return languages;
-        }
-    }
+			return languages;
+		}
+	}
 
-    public static event Action<string> OnLanguageChanged;
+	public static event Action<string> OnLanguageChanged;
 
-    public static void Initialize()
-    {
-        if (_initialized)
-        {
-            return;
-        }
+	public static void Initialize()
+	{
+		if (_initialized)
+		{
+			return;
+		}
 
-        LoadAllTranslations();
-        _initialized = true;
-        GD.Print($"[Localization] Initialized with {AvailableLanguages.Count} languages: {string.Join(", ", AvailableLanguages)}");
-    }
+		LoadAllTranslations();
+		_initialized = true;
+		GD.Print($"[Localization] Initialized with {AvailableLanguages.Count} languages: {string.Join(", ", AvailableLanguages)}");
+	}
 
-    public static void SetLanguage(string language)
-    {
-        if (string.IsNullOrEmpty(language))
-        {
-            return;
-        }
+	public static void SetLanguage(string language)
+	{
+		if (string.IsNullOrEmpty(language))
+		{
+			return;
+		}
 
-        if (!_translations.ContainsKey(language))
-        {
-            GD.PrintErr($"[Localization] Language '{language}' not found. Available: {string.Join(", ", AvailableLanguages)}");
-            return;
-        }
+		if (!_translations.ContainsKey(language))
+		{
+			GD.PrintErr($"[Localization] Language '{language}' not found. Available: {string.Join(", ", AvailableLanguages)}");
+			return;
+		}
 
-        if (_currentLanguage == language)
-        {
-            return;
-        }
+		if (_currentLanguage == language)
+		{
+			return;
+		}
 
-        _currentLanguage = language;
-        OnLanguageChanged?.Invoke(language);
-        GD.Print($"[Localization] Language changed to: {language}");
-    }
+		_currentLanguage = language;
+		OnLanguageChanged?.Invoke(language);
+		GD.Print($"[Localization] Language changed to: {language}");
+	}
 
-    public static string T(string key, string defaultValue = null, Dictionary<string, object> parameters = null)
-    {
-        if (!_initialized)
-        {
-            Initialize();
-        }
+	public static string T(string key, string defaultValue = null, Dictionary<string, object> parameters = null)
+	{
+		if (!_initialized)
+		{
+			Initialize();
+		}
 
-        if (string.IsNullOrEmpty(key))
-        {
-            return defaultValue ?? key;
-        }
+		if (string.IsNullOrEmpty(key))
+		{
+			return defaultValue ?? key;
+		}
 
-        string translation = GetTranslation(key);
+		string translation = GetTranslation(key);
 
-        if (translation == null)
-        {
-            return defaultValue ?? key;
-        }
+		if (translation == null)
+		{
+			return defaultValue ?? key;
+		}
 
-        if (parameters != null && parameters.Count > 0)
-        {
-            translation = SubstitutePlaceholders(translation, parameters);
-        }
+		if (parameters != null && parameters.Count > 0)
+		{
+			translation = SubstitutePlaceholders(translation, parameters);
+		}
 
-        return translation;
-    }
+		return translation;
+	}
 
-    public static string T(string key, Dictionary<string, object> parameters)
-    {
-        return T(key, null, parameters);
-    }
+	public static string T(string key, Dictionary<string, object> parameters)
+	{
+		return T(key, null, parameters);
+	}
 
-    public static string T(string key, string defaultValue, params (string key, object value)[] parameters)
-    {
-        Dictionary<string, object> dict = new();
-        foreach ((string k, object v) in parameters)
-        {
-            dict[k] = v;
-        }
+	public static string T(string key, string defaultValue, params (string key, object value)[] parameters)
+	{
+		Dictionary<string, object> dict = new();
+		foreach ((string k, object v) in parameters)
+		{
+			dict[k] = v;
+		}
 
-        return T(key, defaultValue, dict);
-    }
+		return T(key, defaultValue, dict);
+	}
 
-    public static bool HasKey(string key, string language = null)
-    {
-        if (!_initialized)
-        {
-            Initialize();
-        }
+	public static bool HasKey(string key, string language = null)
+	{
+		if (!_initialized)
+		{
+			Initialize();
+		}
 
-        string lang = language ?? _currentLanguage;
+		string lang = language ?? _currentLanguage;
 
-        if (!_translations.TryGetValue(lang, out Dictionary<string, string> langDict))
-        {
-            return false;
-        }
+		if (!_translations.TryGetValue(lang, out Dictionary<string, string> langDict))
+		{
+			return false;
+		}
 
-        return langDict.ContainsKey(key);
-    }
+		return langDict.ContainsKey(key);
+	}
 
-    public static string GetTranslation(string key, string language = null)
-    {
-        string lang = language ?? _currentLanguage;
+	public static string GetTranslation(string key, string language = null)
+	{
+		string lang = language ?? _currentLanguage;
 
-        if (!_translations.TryGetValue(lang, out Dictionary<string, string> langDict))
-        {
-            return null;
-        }
+		if (!_translations.TryGetValue(lang, out Dictionary<string, string> langDict))
+		{
+			return null;
+		}
 
-        return langDict.TryGetValue(key, out string value) ? value : null;
-    }
+		return langDict.TryGetValue(key, out string value) ? value : null;
+	}
 
-    private static void LoadAllTranslations()
-    {
-        _translations.Clear();
+	private static void LoadAllTranslations()
+	{
+		_translations.Clear();
 
-        // 先尝试 DirAccess 枚举（编辑器内正常，导出版本可能失败）
-        bool loadedViaDir = TryLoadTranslationsViaDirAccess();
+		// 先尝试 DirAccess 枚举（编辑器内正常，导出版本可能失败）
+		bool loadedViaDir = TryLoadTranslationsViaDirAccess();
 
-        // 回退：硬编码已知翻译文件列表（导出兼容）
-        if (!loadedViaDir)
-        {
-            GD.Print("[Localization] DirAccess 枚举失败，使用硬编码翻译文件路径回退");
-            LoadTranslationFile(LocalizationPath + "en.yaml", "en");
-            LoadTranslationFile(LocalizationPath + "zh.yaml", "zh");
-        }
+		// 回退：硬编码已知翻译文件列表（导出兼容）
+		if (!loadedViaDir)
+		{
+			GD.Print("[Localization] DirAccess 枚举失败，使用硬编码翻译文件路径回退");
+			LoadTranslationFile(LocalizationPath + "en.yaml", "en");
+			LoadTranslationFile(LocalizationPath + "zh.yaml", "zh");
+		}
 
-        if (!_translations.ContainsKey("en"))
-        {
-            _translations["en"] = new Dictionary<string, string>();
-        }
-    }
+		if (!_translations.ContainsKey("en"))
+		{
+			_translations["en"] = new Dictionary<string, string>();
+		}
+	}
 
-    private static bool TryLoadTranslationsViaDirAccess()
-    {
-        using DirAccess dir = DirAccess.Open(LocalizationPath);
-        if (dir == null)
-            return false;
+	private static bool TryLoadTranslationsViaDirAccess()
+	{
+		using DirAccess dir = DirAccess.Open(LocalizationPath);
+		if (dir == null)
+			return false;
 
-        dir.ListDirBegin();
-        string fileName = dir.GetNext();
-        bool loadedAny = false;
+		dir.ListDirBegin();
+		string fileName = dir.GetNext();
+		bool loadedAny = false;
 
-        while (!string.IsNullOrEmpty(fileName))
-        {
-            if (!dir.CurrentIsDir() && (fileName.EndsWith(".yaml", StringComparison.Ordinal) || fileName.EndsWith(".yml", StringComparison.Ordinal)))
-            {
-                string langCode = Path.GetFileNameWithoutExtension(fileName);
-                string filePath = LocalizationPath + fileName;
-                LoadTranslationFile(filePath, langCode);
-                loadedAny = true;
-            }
+		while (!string.IsNullOrEmpty(fileName))
+		{
+			if (!dir.CurrentIsDir() && (fileName.EndsWith(".yaml", StringComparison.Ordinal) || fileName.EndsWith(".yml", StringComparison.Ordinal)))
+			{
+				string langCode = Path.GetFileNameWithoutExtension(fileName);
+				string filePath = LocalizationPath + fileName;
+				LoadTranslationFile(filePath, langCode);
+				loadedAny = true;
+			}
 
-            fileName = dir.GetNext();
-        }
+			fileName = dir.GetNext();
+		}
 
-        dir.ListDirEnd();
-        return loadedAny;
-    }
+		dir.ListDirEnd();
+		return loadedAny;
+	}
 
-    private static void LoadTranslationFile(string filePath, string languageCode)
-    {
-        using Godot.FileAccess file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Read);
-        if (file == null)
-        {
-            GD.PrintErr($"[Localization] Failed to open file: {filePath}");
-            return;
-        }
+	private static void LoadTranslationFile(string filePath, string languageCode)
+	{
+		using Godot.FileAccess file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Read);
+		if (file == null)
+		{
+			GD.PrintErr($"[Localization] Failed to open file: {filePath}");
+			return;
+		}
 
-        string content = file.GetAsText();
-        Dictionary<string, object> parsed = YamlParser.Parse(content);
-        Dictionary<string, string> flattened = YamlParser.Flatten(parsed);
+		string content = file.GetAsText();
+		Dictionary<string, object> parsed = YamlParser.Parse(content);
+		Dictionary<string, string> flattened = YamlParser.Flatten(parsed);
 
-        _translations[languageCode] = flattened;
-        GD.Print($"[Localization] Loaded {flattened.Count} translations for language: {languageCode}");
-    }
+		_translations[languageCode] = flattened;
+		GD.Print($"[Localization] Loaded {flattened.Count} translations for language: {languageCode}");
+	}
 
-    private static string SubstitutePlaceholders(string template, Dictionary<string, object> parameters)
-    {
-        if (string.IsNullOrEmpty(template))
-        {
-            return template;
-        }
+	private static string SubstitutePlaceholders(string template, Dictionary<string, object> parameters)
+	{
+		if (string.IsNullOrEmpty(template))
+		{
+			return template;
+		}
 
-        string result = template;
+		string result = template;
 
-        foreach (KeyValuePair<string, object> kvp in parameters)
-        {
-            string placeholder = $"{{{kvp.Key}}}";
-            string value = kvp.Value?.ToString() ?? string.Empty;
-            result = result.Replace(placeholder, value);
-        }
+		foreach (KeyValuePair<string, object> kvp in parameters)
+		{
+			string placeholder = $"{{{kvp.Key}}}";
+			string value = kvp.Value?.ToString() ?? string.Empty;
+			result = result.Replace(placeholder, value);
+		}
 
-        Regex placeholderPattern = new(@"\{(\w+)\}");
-        result = placeholderPattern.Replace(result, match =>
-        {
-            string key = match.Groups[1].Value;
-            if (parameters.TryGetValue(key, out object paramValue))
-            {
-                return paramValue?.ToString() ?? string.Empty;
-            }
+		Regex placeholderPattern = new(@"\{(\w+)\}");
+		result = placeholderPattern.Replace(result, match =>
+		{
+			string key = match.Groups[1].Value;
+			if (parameters.TryGetValue(key, out object paramValue))
+			{
+				return paramValue?.ToString() ?? string.Empty;
+			}
 
-            return match.Value;
-        });
+			return match.Value;
+		});
 
-        return result;
-    }
+		return result;
+	}
 
-    public static void Reload()
-    {
-        _initialized = false;
-        _translations.Clear();
-        Initialize();
-    }
+	public static void Reload()
+	{
+		_initialized = false;
+		_translations.Clear();
+		Initialize();
+	}
 
-    public static int GetTranslationCount(string language = null)
-    {
-        string lang = language ?? _currentLanguage;
+	public static int GetTranslationCount(string language = null)
+	{
+		string lang = language ?? _currentLanguage;
 
-        if (_translations.TryGetValue(lang, out Dictionary<string, string> langDict))
-        {
-            return langDict.Count;
-        }
+		if (_translations.TryGetValue(lang, out Dictionary<string, string> langDict))
+		{
+			return langDict.Count;
+		}
 
-        return 0;
-    }
+		return 0;
+	}
 }

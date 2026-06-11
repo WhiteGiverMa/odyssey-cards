@@ -10,33 +10,33 @@ namespace OdysseyCards.Tests.Unit;
 /// </summary>
 public class KeywordTests
 {
-    [Fact]
-    public void KeywordValues_AreDistinct()
-    {
-        var values = Enum.GetValues<Keyword>();
-        var distinct = new HashSet<Keyword>(values);
+	[Fact]
+	public void KeywordValues_AreDistinct()
+	{
+		var values = Enum.GetValues<Keyword>();
+		var distinct = new HashSet<Keyword>(values);
 
-        Assert.Equal(values.Length, distinct.Count);
-    }
+		Assert.Equal(values.Length, distinct.Count);
+	}
 
-    [Fact]
-    public void AllStandardKeywords_HaveDefinedValues()
-    {
-        var values = Enum.GetValues<Keyword>();
+	[Fact]
+	public void AllStandardKeywords_HaveDefinedValues()
+	{
+		var values = Enum.GetValues<Keyword>();
 
-        Assert.Contains(Keyword.Charge, values);
-        Assert.Contains(Keyword.Taunt, values);
-        Assert.Contains(Keyword.Battlecry, values);
-        Assert.Contains(Keyword.Deathrattle, values);
-        Assert.Contains(Keyword.Windfury, values);
-        Assert.Contains(Keyword.Ambush, values);
-        Assert.Contains(Keyword.Impact, values);
-    }
+		Assert.Contains(Keyword.Charge, values);
+		Assert.Contains(Keyword.Taunt, values);
+		Assert.Contains(Keyword.Battlecry, values);
+		Assert.Contains(Keyword.Deathrattle, values);
+		Assert.Contains(Keyword.Windfury, values);
+		Assert.Contains(Keyword.Ambush, values);
+		Assert.Contains(Keyword.Impact, values);
+	}
 
-    [Fact]
-    public void KeywordCount_AtLeastSeven()
-    {
-        var values = Enum.GetValues<Keyword>();
-        Assert.True(values.Length >= 7, $"Expected at least 7 keywords, got {values.Length}");
-    }
+	[Fact]
+	public void KeywordCount_AtLeastSeven()
+	{
+		var values = Enum.GetValues<Keyword>();
+		Assert.True(values.Length >= 7, $"Expected at least 7 keywords, got {values.Length}");
+	}
 }

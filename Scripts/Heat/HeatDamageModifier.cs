@@ -13,33 +13,33 @@ namespace OdysseyCards.Heat;
 /// </summary>
 public class HeatDamageModifier : IDamageModifier
 {
-    private readonly HeatSystem _heat;
+	private readonly HeatSystem _heat;
 
-    public DamagePhase Phase => DamagePhase.HEAT;
+	public DamagePhase Phase => DamagePhase.HEAT;
 
-    public HeatDamageModifier(HeatSystem heat)
-    {
-        _heat = heat ?? throw new ArgumentNullException(nameof(heat));
-    }
+	public HeatDamageModifier(HeatSystem heat)
+	{
+		_heat = heat ?? throw new ArgumentNullException(nameof(heat));
+	}
 
-    /// <summary>
-    /// 修改造成的伤害——乘以热力值倍率。
-    /// 例：当前伤害 10，热力值 40% → 10 × 1.4 = 14
-    /// </summary>
-    public int ModifyDamageDealt(int currentDamage, DamageContext context)
-    {
-        float multiplier = _heat.DamageMultiplier;
-        float result = currentDamage * multiplier;
-        int final = (int)MathF.Round(result);
-        Godot.GD.Print($"[HeatMod] base={currentDamage} × mult={multiplier:F3}(heat={_heat.CurrentHeat:F3}) = {result:F2} → round={final}");
-        return final;
-    }
+	/// <summary>
+	/// 修改造成的伤害——乘以热力值倍率。
+	/// 例：当前伤害 10，热力值 40% → 10 × 1.4 = 14
+	/// </summary>
+	public int ModifyDamageDealt(int currentDamage, DamageContext context)
+	{
+		float multiplier = _heat.DamageMultiplier;
+		float result = currentDamage * multiplier;
+		int final = (int)MathF.Round(result);
+		Godot.GD.Print($"[HeatMod] base={currentDamage} × mult={multiplier:F3}(heat={_heat.CurrentHeat:F3}) = {result:F2} → round={final}");
+		return final;
+	}
 
-    /// <summary>
-    /// 修改受到的伤害——热力值不影响受到伤害，直接返回原值。
-    /// </summary>
-    public int ModifyDamageTaken(int currentDamage, DamageContext context)
-    {
-        return currentDamage;
-    }
+	/// <summary>
+	/// 修改受到的伤害——热力值不影响受到伤害，直接返回原值。
+	/// </summary>
+	public int ModifyDamageTaken(int currentDamage, DamageContext context)
+	{
+		return currentDamage;
+	}
 }

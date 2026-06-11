@@ -11,23 +11,23 @@ namespace OdysseyCards.Card;
 /// </summary>
 public class Spell : Card
 {
-    /// <summary>
-    /// 法术效果列表（来源自卡牌数据）。
-    /// </summary>
-    public IReadOnlyList<CardEffectData> Effects => Data.Effects;
+	/// <summary>
+	/// 法术效果列表（来源自卡牌数据）。
+	/// </summary>
+	public IReadOnlyList<CardEffectData> Effects => Data.Effects;
 
-    /// <summary>
-    /// 是否需要选择目标才能使用。
-    /// </summary>
-    public bool RequiresTarget => Data.RequiresTarget;
+	/// <summary>
+	/// 是否需要选择目标才能使用。
+	/// </summary>
+	public bool RequiresTarget => Data.RequiresTarget;
 
-    /// <summary>
-    /// 创建法术运行时实例。
-    /// </summary>
-    /// <param name="data">卡牌数据资源（必须是法术类型）</param>
-    public Spell(CardData data)
-        : base(data)
-    {
-    }
+	/// <summary>
+	/// 创建法术运行时实例。
+	/// </summary>
+	/// <param name="data">卡牌数据资源（必须是法术类型）</param>
+	public Spell(CardData data)
+		: base(data)
+	{
+	}
 
 }

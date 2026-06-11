@@ -673,7 +673,7 @@ public partial class CombatManager : Node
 
 	/// <summary>
 	/// 玩家打出一张随从牌，将其召唤至战场的指定槽位。
-		/// 验证玩家回合、法力值、槽位可用性，处理战吼和闪击关键词。
+	/// 验证玩家回合、法力值、槽位可用性，处理战吼和闪击关键词。
 	/// </summary>
 	/// <param name="card">要打出的卡牌（手牌中的运行时实例）</param>
 	/// <param name="slotIndex">目标槽位索引（0-4）</param>
@@ -790,7 +790,8 @@ public partial class CombatManager : Node
 	private void CopyMinionToAdjacentSlot(Minion sourceMinion, int sourceSlotIndex)
 	{
 		var tokenData = GD.Load<CardData>("res://Resources/Cards/Minion_WhatTheDogDoing.tres");
-		if (tokenData == null) { GD.PrintErr("[CombatManager] CopyToAdjacentSlot: 无法加载Token卡牌"); return; }
+		if (tokenData == null)
+		{ GD.PrintErr("[CombatManager] CopyToAdjacentSlot: 无法加载Token卡牌"); return; }
 
 		// 优先相邻槽位（先左后右）
 		int? targetSlot = null;
@@ -992,11 +993,11 @@ public partial class CombatManager : Node
 	}
 
 	/// <summary>
-	 /// 执行单个卡牌效果，根据 EffectType 分发到对应的处理逻辑。
-	 /// 供法术、战吼、亡语等所有效果触发场景共用。
-	 /// </summary>
-	 /// <param name="effect">效果数据</param>
-	 /// <param name="target">效果目标对象（Minion 或 Hero，可为 null）</param>
+	/// 执行单个卡牌效果，根据 EffectType 分发到对应的处理逻辑。
+	/// 供法术、战吼、亡语等所有效果触发场景共用。
+	/// </summary>
+	/// <param name="effect">效果数据</param>
+	/// <param name="target">效果目标对象（Minion 或 Hero，可为 null）</param>
 	private void ExecuteEffect(CardEffectData effect, object target, IDamageSource? source = null)
 	{
 		_effectDispatcher.ExecuteEffect(effect, target, source);
@@ -1126,7 +1127,8 @@ public partial class CombatManager : Node
 	/// <param name="b">战斗方 B（后手造成伤害，遵循同时伤害规则）</param>
 	internal void ResolveCombat(Minion a, Minion b)
 	{
-		if (a.IsDead || b.IsDead) return;
+		if (a.IsDead || b.IsDead)
+			return;
 
 		GD.Print($"[CombatManager] ⚔ 战斗：{a.CardName}（{a.Attack}攻/{a.CurrentHealth}血）vs " +
 				  $"{b.CardName}（{b.Attack}攻/{b.CurrentHealth}血）");
@@ -1148,7 +1150,8 @@ public partial class CombatManager : Node
 	/// <param name="target">被攻击的随从</param>
 	internal void TriggerBaitTacticsOnAttacked(Minion target)
 	{
-		if (!target.HasBaitTacticsOnAttacked) return;
+		if (!target.HasBaitTacticsOnAttacked)
+			return;
 
 		var enemyBody = EnemyUnits[0].Body;
 		enemyBody.ModifyDefense(-1);
@@ -1156,8 +1159,8 @@ public partial class CombatManager : Node
 	}
 
 	/// <summary>
-	 /// 玩家随从攻击敌方随从。
-	 /// 通过统一战斗序列 <see cref="ResolveMinionCombat"/> 处理伤害交互，
+	/// 玩家随从攻击敌方随从。
+	/// 通过统一战斗序列 <see cref="ResolveMinionCombat"/> 处理伤害交互，
 	/// 自动支持伏击、冲击、嘲讽检测和风怒多次攻击。
 	/// </summary>
 	/// <param name="attacker">攻击方（必须是玩家随从）</param>
@@ -1556,7 +1559,8 @@ public partial class CombatManager : Node
 	/// </summary>
 	public void ForceVictory(bool grantReward = true)
 	{
-		if (State.IsGameOver) return;
+		if (State.IsGameOver)
+			return;
 		_victoryResolver.DevSkipGoldReward = !grantReward;
 
 		// 击杀所有敌方随从 —— 绕过伤害管线，直接用 ApplyDamage 确保击杀
@@ -1595,14 +1599,16 @@ public partial class CombatManager : Node
 		_enemyMinionsCanAttack.Clear();
 		foreach (var m in Board.GetEnemyMinions())
 		{
-			if (!m.IsDead) _enemyMinionsCanAttack.Add(m);
+			if (!m.IsDead)
+				_enemyMinionsCanAttack.Add(m);
 		}
 
 		// 1. 依次执行每个敌人的当前意图（攻击/防御/召唤等）——使用动态目标选择
 		foreach (var unit in EnemyUnits)
 		{
 			// 跳过已死亡的敌人
-			if (unit.Body.IsDead) continue;
+			if (unit.Body.IsDead)
+				continue;
 
 			// 同步敌方攻击力到意图系统（考虑武器禁用等状态）
 			unit.Brain.Attack = unit.Body.Weapon is { IsDisabled: false } ? unit.Body.Weapon.Attack : 0;
@@ -1657,18 +1663,20 @@ public partial class CombatManager : Node
 	/// </summary>
 	private void EnemyMinionsAttack()
 	{
-			// 回合开始时已存在的随从可以攻击，有闪击的新召唤随从也可以
+		// 回合开始时已存在的随从可以攻击，有闪击的新召唤随从也可以
 		var enemies = Board.GetEnemyMinions()
 			.Where(m => !m.IsDead && (_enemyMinionsCanAttack.Contains(m) || m.HasCharge))
 			.ToList();
-		if (enemies.Count == 0) return;
+		if (enemies.Count == 0)
+			return;
 
 		var playerTaunts = Board.GetTaunts(ofEnemy: false);
 		bool hasPlayerTaunt = playerTaunts.Count > 0;
 
 		foreach (var attacker in enemies)
 		{
-			if (attacker.IsDead) continue;
+			if (attacker.IsDead)
+				continue;
 
 			// 确保所有敌方随从有意图大脑（供 UI 意图显示使用）
 			attacker.IntentBrain ??= new DefaultAttackMinionBrain(attacker);
@@ -1696,7 +1704,8 @@ public partial class CombatManager : Node
 			{
 				// 攻击随机嘲讽随从
 				var tauntTargets = playerTaunts.Where(t => !t.IsDead).ToList();
-				if (tauntTargets.Count == 0) continue;
+				if (tauntTargets.Count == 0)
+					continue;
 				var defender = tauntTargets[new Random().Next(tauntTargets.Count)];
 
 				// 通过统一战斗序列执行（自动处理伏击、冲击）
@@ -1835,8 +1844,10 @@ public partial class CombatManager : Node
 
 		foreach (var centipede in centipedes)
 		{
-			if (centipede.IsDead) continue;
-			if (placedMinion.IsDead) break;
+			if (centipede.IsDead)
+				continue;
+			if (placedMinion.IsDead)
+				break;
 
 			GD.Print($"[CombatManager] ◆ 机械蜈蚣-防空型拦截 {placedMinion.CardName}（{placedMinion.Cost}费）！");
 			ResolveCombat(centipede, placedMinion);

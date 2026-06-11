@@ -58,7 +58,8 @@ public partial class EmoteSystem : Node
 
 	private void OnEmoteIdleTimeout()
 	{
-		if (_tauntPool.Count == 0) return;
+		if (_tauntPool.Count == 0)
+			return;
 		string emote = _tauntPool[_emoteRng.Next(_tauntPool.Count)];
 		SendEmote(emote);
 	}

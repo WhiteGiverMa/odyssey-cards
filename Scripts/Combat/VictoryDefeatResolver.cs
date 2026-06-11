@@ -82,10 +82,12 @@ internal sealed class VictoryDefeatResolver
 	/// </summary>
 	private void AwardGold()
 	{
-		if (_devSkipGoldReward) return;
+		if (_devSkipGoldReward)
+			return;
 
 		var gm = GameManager.Instance;
-		if (gm == null) return;
+		if (gm == null)
+			return;
 
 		int goldReward = gm.RunState?.SelectedRoom?.Type switch
 		{

@@ -46,7 +46,8 @@ public partial class RewardUI : CardSelectionScreen
 		// 刷新数量标签中的稀有度名称
 		foreach (var bundle in _bundles)
 		{
-			if (bundle.CountLabel == null || !GodotObject.IsInstanceValid(bundle.CountLabel)) continue;
+			if (bundle.CountLabel == null || !GodotObject.IsInstanceValid(bundle.CountLabel))
+				continue;
 			string rarityName = GetLocalizedRarityName(bundle.CardData.Rarity);
 			bundle.CountLabel.Text = BuildCopyLabel(bundle.CopyCount, rarityName);
 		}
@@ -152,7 +153,8 @@ public partial class RewardUI : CardSelectionScreen
 
 	protected override void OnItemSelected(int index)
 	{
-		if (index < 0 || index >= _bundles.Count) return;
+		if (index < 0 || index >= _bundles.Count)
+			return;
 
 		var bundle = _bundles[index];
 		GD.Print($"[RewardUI] 玩家选择了：{bundle.CardData.GetLocalizedName()} ×{bundle.CopyCount}");

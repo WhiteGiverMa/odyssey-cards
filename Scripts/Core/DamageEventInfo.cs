@@ -8,19 +8,19 @@ namespace OdysseyCards.Core;
 /// </summary>
 public readonly struct DamageEventInfo
 {
-    /// <summary>最终生命值减少量（所有减免后的 HP 损失）。完全格挡时为 0。</summary>
-    public int HpLost { get; }
+	/// <summary>最终生命值减少量（所有减免后的 HP 损失）。完全格挡时为 0。</summary>
+	public int HpLost { get; }
 
-    /// <summary>被护甲吸收的伤害量。</summary>
-    public int ArmorAbsorbed { get; }
+	/// <summary>被护甲吸收的伤害量。</summary>
+	public int ArmorAbsorbed { get; }
 
-    /// <summary>伤害是否被完全格挡（无 HP 损失）。</summary>
-    public bool WasFullyBlocked { get; }
+	/// <summary>伤害是否被完全格挡（无 HP 损失）。</summary>
+	public bool WasFullyBlocked { get; }
 
-    public DamageEventInfo(int hpLost, int armorAbsorbed, bool wasFullyBlocked)
-    {
-        HpLost = hpLost;
-        ArmorAbsorbed = armorAbsorbed;
-        WasFullyBlocked = wasFullyBlocked;
-    }
+	public DamageEventInfo(int hpLost, int armorAbsorbed, bool wasFullyBlocked)
+	{
+		HpLost = hpLost;
+		ArmorAbsorbed = armorAbsorbed;
+		WasFullyBlocked = wasFullyBlocked;
+	}
 }

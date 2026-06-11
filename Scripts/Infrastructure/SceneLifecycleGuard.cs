@@ -19,65 +19,72 @@ namespace OdysseyCards.Infrastructure;
 /// </summary>
 public static class SceneLifecycleGuard
 {
-    /// <summary>
-    /// 在 _ExitTree 中调用：设置 tombstone、禁用处理、置空引用。
-    /// 使用方式：在场景的 _ExitTree 中调用 SceneLifecycleGuard.OnExitTree(this, ref _field1, ref _field2, ...);
-    /// </summary>
-    public static void OnExitTree(Control control)
-    {
-        if (!GodotObject.IsInstanceValid(control)) return;
-        if (control.IsQueuedForDeletion()) return;
+	/// <summary>
+	/// 在 _ExitTree 中调用：设置 tombstone、禁用处理、置空引用。
+	/// 使用方式：在场景的 _ExitTree 中调用 SceneLifecycleGuard.OnExitTree(this, ref _field1, ref _field2, ...);
+	/// </summary>
+	public static void OnExitTree(Control control)
+	{
+		if (!GodotObject.IsInstanceValid(control))
+			return;
+		if (control.IsQueuedForDeletion())
+			return;
 
-        // 关键：先禁用所有处理循环，防止它们在拆除期间继续运行。
-        // 检查 IsInsideTree：节点可能已被父级先一步移出树。
-        if (control.IsInsideTree())
-        {
-            control.SetProcess(false);
-            control.SetProcessInput(false);
-            control.SetProcessUnhandledInput(false);
-        }
+		// 关键：先禁用所有处理循环，防止它们在拆除期间继续运行。
+		// 检查 IsInsideTree：节点可能已被父级先一步移出树。
+		if (control.IsInsideTree())
+		{
+			control.SetProcess(false);
+			control.SetProcessInput(false);
+			control.SetProcessUnhandledInput(false);
+		}
 
-        GD.Print($"[SceneLifecycleGuard] {control.Name} — 输入已禁用，场景正在拆除");
-    }
+		GD.Print($"[SceneLifecycleGuard] {control.Name} — 输入已禁用，场景正在拆除");
+	}
 
-    /// <summary>
-    /// 在 _Input / _Process / _UnhandledInput / _GuiInput 入口处调用。
-    /// 如果场景正在拆除或已失效，返回 true 表示应该跳过处理。
-    /// </summary>
-    public static bool ShouldSkip(Control control)
-    {
-        if (!GodotObject.IsInstanceValid(control)) return true;
-        if (!control.IsInsideTree()) return true;
-        if (control.IsQueuedForDeletion()) return true;
-        return false;
-    }
+	/// <summary>
+	/// 在 _Input / _Process / _UnhandledInput / _GuiInput 入口处调用。
+	/// 如果场景正在拆除或已失效，返回 true 表示应该跳过处理。
+	/// </summary>
+	public static bool ShouldSkip(Control control)
+	{
+		if (!GodotObject.IsInstanceValid(control))
+			return true;
+		if (!control.IsInsideTree())
+			return true;
+		if (control.IsQueuedForDeletion())
+			return true;
+		return false;
+	}
 
-    /// <summary>
-    /// 安全版本的 CallDeferred：在延迟执行前检查节点是否仍然有效。
-    /// 使用方式：CallDeferredSafe(this, nameof(MyMethod));
-    /// </summary>
-    public static void CallDeferredSafe(Control control, string method)
-    {
-        if (ShouldSkip(control)) return;
-        control.CallDeferred(method);
-    }
+	/// <summary>
+	/// 安全版本的 CallDeferred：在延迟执行前检查节点是否仍然有效。
+	/// 使用方式：CallDeferredSafe(this, nameof(MyMethod));
+	/// </summary>
+	public static void CallDeferredSafe(Control control, string method)
+	{
+		if (ShouldSkip(control))
+			return;
+		control.CallDeferred(method);
+	}
 
-    /// <summary>
-    /// 安全版本的 CallDeferred（带参数）。
-    /// </summary>
-    public static void CallDeferredSafe(Control control, string method, params Variant[] args)
-    {
-        if (ShouldSkip(control)) return;
-        control.CallDeferred(method, args);
-    }
+	/// <summary>
+	/// 安全版本的 CallDeferred（带参数）。
+	/// </summary>
+	public static void CallDeferredSafe(Control control, string method, params Variant[] args)
+	{
+		if (ShouldSkip(control))
+			return;
+		control.CallDeferred(method, args);
+	}
 
-    /// <summary>
-    /// 安全地访问节点引用：在访问前检查 IsInstanceValid。
-    /// 用于 _Input 中 Button 引用等场景。
-    /// 返回 true 表示引用有效并可安全使用。
-    /// </summary>
-    public static bool IsNodeValid(GodotObject? node)
-    {
-        return node != null && GodotObject.IsInstanceValid(node);
-    }
+	/// <summary>
+	/// 安全地访问节点引用：在访问前检查 IsInstanceValid。
+	/// 用于 _Input 中 Button 引用等场景。
+	/// 返回 true 表示引用有效并可安全使用。
+	/// </summary>
+	public static bool IsNodeValid(GodotObject? node)
+	{
+		return node != null && GodotObject.IsInstanceValid(node);
+	}
 }

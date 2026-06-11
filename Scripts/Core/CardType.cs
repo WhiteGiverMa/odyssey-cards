@@ -7,27 +7,27 @@ namespace OdysseyCards.Core;
 /// </summary>
 public enum CardType
 {
-    /// <summary>
-    /// 随从牌：可召唤到场上的单位。
-    /// </summary>
-    Minion,
+	/// <summary>
+	/// 随从牌：可召唤到场上的单位。
+	/// </summary>
+	Minion,
 
-    /// <summary>
-    /// 法术牌：使用时立即生效。
-    /// </summary>
-    Spell,
+	/// <summary>
+	/// 法术牌：使用时立即生效。
+	/// </summary>
+	Spell,
 
-    /// <summary>
-    /// 领域牌：展开一个持久领域效果，挂在英雄身上，整场战斗生效。
-    /// 同类领域可以叠加层数。
-    /// </summary>
-    Domain,
+	/// <summary>
+	/// 领域牌：展开一个持久领域效果，挂在英雄身上，整场战斗生效。
+	/// 同类领域可以叠加层数。
+	/// </summary>
+	Domain,
 
-    /// <summary>
-    /// 状态牌：战斗中由敌人塞入的临时负面卡牌。
-    /// 仅战斗期间存在，战斗结束自动清除，不进入永久卡组。
-    /// </summary>
-    Status
+	/// <summary>
+	/// 状态牌：战斗中由敌人塞入的临时负面卡牌。
+	/// 仅战斗期间存在，战斗结束自动清除，不进入永久卡组。
+	/// </summary>
+	Status
 }
 
 /// <summary>
@@ -41,30 +41,30 @@ public enum CardType
 /// </summary>
 public enum CardRarity
 {
-    /// <summary>衍生卡（Token），无法通过奖励/商店自然获得。</summary>
-    Derivative = 0,
+	/// <summary>衍生卡（Token），无法通过奖励/商店自然获得。</summary>
+	Derivative = 0,
 
-    /// <summary>大师级，金卡。奖励中最多 1 张同名。</summary>
-    Master = 1,
+	/// <summary>大师级，金卡。奖励中最多 1 张同名。</summary>
+	Master = 1,
 
-    /// <summary>极佳，银卡。奖励中最多 2 张同名。</summary>
-    Excellent = 2,
+	/// <summary>极佳，银卡。奖励中最多 2 张同名。</summary>
+	Excellent = 2,
 
-    /// <summary>良好，铜卡。奖励中最多 3 张同名。</summary>
-    Good = 3,
+	/// <summary>良好，铜卡。奖励中最多 3 张同名。</summary>
+	Good = 3,
 
-    /// <summary>普通，铁卡。奖励中最多 4 张同名。</summary>
-    Common = 4,
+	/// <summary>普通，铁卡。奖励中最多 4 张同名。</summary>
+	Common = 4,
 
-    /// <summary>角色专属特殊卡，不在常规稀有度奖励中出现。</summary>
-    Special = 5,
+	/// <summary>角色专属特殊卡，不在常规稀有度奖励中出现。</summary>
+	Special = 5,
 
-    /// <summary>
-    /// 状态牌稀有度。战斗中由敌人添加的临时卡牌。
-    /// 不可在奖励中获得，不可带入永久卡组，不跨战斗保留。
-    /// 可在藏品界面展示。
-    /// </summary>
-    StatusToken = 6
+	/// <summary>
+	/// 状态牌稀有度。战斗中由敌人添加的临时卡牌。
+	/// 不可在奖励中获得，不可带入永久卡组，不跨战斗保留。
+	/// 可在藏品界面展示。
+	/// </summary>
+	StatusToken = 6
 }
 
 /// <summary>
@@ -72,31 +72,31 @@ public enum CardRarity
 /// </summary>
 public static class CardRarityExtensions
 {
-    /// <summary>
-    /// 获取该稀有度在奖励中出现的同名最大张数。
-    /// Derivative(0) 和 Special(5) 返回 0（不出现）。
-    /// </summary>
-    public static int GetMaxRewardCopies(this CardRarity rarity)
-    {
-        return rarity switch
-        {
-            CardRarity.Common => 4,
-            CardRarity.Good => 3,
-            CardRarity.Excellent => 2,
-            CardRarity.Master => 1,
-            CardRarity.Derivative => 0,
-            CardRarity.Special => 0,
-            CardRarity.StatusToken => 0,
-            _ => throw new ArgumentOutOfRangeException(nameof(rarity), rarity, "未知稀有度")
-        };
-    }
+	/// <summary>
+	/// 获取该稀有度在奖励中出现的同名最大张数。
+	/// Derivative(0) 和 Special(5) 返回 0（不出现）。
+	/// </summary>
+	public static int GetMaxRewardCopies(this CardRarity rarity)
+	{
+		return rarity switch
+		{
+			CardRarity.Common => 4,
+			CardRarity.Good => 3,
+			CardRarity.Excellent => 2,
+			CardRarity.Master => 1,
+			CardRarity.Derivative => 0,
+			CardRarity.Special => 0,
+			CardRarity.StatusToken => 0,
+			_ => throw new ArgumentOutOfRangeException(nameof(rarity), rarity, "未知稀有度")
+		};
+	}
 
-    /// <summary>
-    /// 该稀有度的卡牌能否在奖励中出现。
-    /// </summary>
-    public static bool CanAppearInReward(this CardRarity rarity)
-    {
-        return rarity is CardRarity.Common or CardRarity.Good
-            or CardRarity.Excellent or CardRarity.Master;
-    }
+	/// <summary>
+	/// 该稀有度的卡牌能否在奖励中出现。
+	/// </summary>
+	public static bool CanAppearInReward(this CardRarity rarity)
+	{
+		return rarity is CardRarity.Common or CardRarity.Good
+			or CardRarity.Excellent or CardRarity.Master;
+	}
 }

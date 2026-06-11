@@ -11,277 +11,278 @@ namespace OdysseyCards.Character;
 /// </summary>
 public class CommanderCore
 {
-    /// <summary>自然增长的法力水晶上限（每回合+1直到此值）。</summary>
-    public const int MaxManaCrystals = 12;
-    /// <summary>法力水晶的硬上限（任何方式均不可超过）。</summary>
-    public const int HardMaxManaCap = 30;
+	/// <summary>自然增长的法力水晶上限（每回合+1直到此值）。</summary>
+	public const int MaxManaCrystals = 12;
+	/// <summary>法力水晶的硬上限（任何方式均不可超过）。</summary>
+	public const int HardMaxManaCap = 30;
 
-    /// <summary>
-    /// 当前生命值。
-    /// </summary>
-    public int CurrentHealth { get; private set; } = 30;
+	/// <summary>
+	/// 当前生命值。
+	/// </summary>
+	public int CurrentHealth { get; private set; } = 30;
 
-    /// <summary>
-    /// 最大生命值。
-    /// </summary>
-    public int MaxHealth { get; private set; } = 30;
+	/// <summary>
+	/// 最大生命值。
+	/// </summary>
+	public int MaxHealth { get; private set; } = 30;
 
-    /// <summary>
-    /// 牌堆定义。
-    /// </summary>
-    public Deck Deck { get; internal set; }
+	/// <summary>
+	/// 牌堆定义。
+	/// </summary>
+	public Deck Deck { get; internal set; }
 
-    /// <summary>
-    /// 战斗中的牌堆状态。
-    /// </summary>
-    public CombatDeckState CombatDeckState { get; } = new();
+	/// <summary>
+	/// 战斗中的牌堆状态。
+	/// </summary>
+	public CombatDeckState CombatDeckState { get; } = new();
 
-    public List<OdysseyCards.Card.Card> Hand => CombatDeckState.Hand;
-    public List<OdysseyCards.Card.Card> DrawPile => CombatDeckState.DrawPile;
-    public List<OdysseyCards.Card.Card> DiscardPile => CombatDeckState.DiscardPile;
+	public List<OdysseyCards.Card.Card> Hand => CombatDeckState.Hand;
+	public List<OdysseyCards.Card.Card> DrawPile => CombatDeckState.DrawPile;
+	public List<OdysseyCards.Card.Card> DiscardPile => CombatDeckState.DiscardPile;
 
-    /// <summary>
-    /// 当前法力水晶。
-    /// </summary>
-    public int CurrentMana { get; private set; }
+	/// <summary>
+	/// 当前法力水晶。
+	/// </summary>
+	public int CurrentMana { get; private set; }
 
-    /// <summary>
-    /// 最大法力水晶。
-    /// </summary>
-    public int MaxMana { get; private set; } = 0;
+	/// <summary>
+	/// 最大法力水晶。
+	/// </summary>
+	public int MaxMana { get; private set; } = 0;
 
-    /// <summary>
-    /// 最大手牌数。
-    /// </summary>
-    public int MaxHandSize { get => CombatDeckState.MaxHandSize; set => CombatDeckState.MaxHandSize = value; }
+	/// <summary>
+	/// 最大手牌数。
+	/// </summary>
+	public int MaxHandSize { get => CombatDeckState.MaxHandSize; set => CombatDeckState.MaxHandSize = value; }
 
-    /// <summary>
-    /// 疲劳计数器。
-    /// </summary>
-    public int FatigueCount => CombatDeckState.FatigueCount;
+	/// <summary>
+	/// 疲劳计数器。
+	/// </summary>
+	public int FatigueCount => CombatDeckState.FatigueCount;
 
-    /// <summary>
-    /// 法力值变化事件。
-    /// </summary>
-    public event Action<int, int> OnManaChanged;
+	/// <summary>
+	/// 法力值变化事件。
+	/// </summary>
+	public event Action<int, int> OnManaChanged;
 
-    /// <summary>
-    /// 手牌变化事件。
-    /// </summary>
-    public event Action OnHandChanged
-    {
-        add => CombatDeckState.OnHandChanged += value;
-        remove => CombatDeckState.OnHandChanged -= value;
-    }
+	/// <summary>
+	/// 手牌变化事件。
+	/// </summary>
+	public event Action OnHandChanged
+	{
+		add => CombatDeckState.OnHandChanged += value;
+		remove => CombatDeckState.OnHandChanged -= value;
+	}
 
-    public event Action OnDrawPileChanged
-    {
-        add => CombatDeckState.OnDrawPileChanged += value;
-        remove => CombatDeckState.OnDrawPileChanged -= value;
-    }
+	public event Action OnDrawPileChanged
+	{
+		add => CombatDeckState.OnDrawPileChanged += value;
+		remove => CombatDeckState.OnDrawPileChanged -= value;
+	}
 
-    public event Action OnDiscardPileChanged
-    {
-        add => CombatDeckState.OnDiscardPileChanged += value;
-        remove => CombatDeckState.OnDiscardPileChanged -= value;
-    }
+	public event Action OnDiscardPileChanged
+	{
+		add => CombatDeckState.OnDiscardPileChanged += value;
+		remove => CombatDeckState.OnDiscardPileChanged -= value;
+	}
 
-    public CommanderCore()
-    {
-        Deck = new Deck();
-        // 连接疲劳伤害回调：疲劳时对自己造成伤害
-        CombatDeckState.SetFatigueCallback(damage =>
-        {
-            ApplyDamage(damage);
-            GD.Print($"[CommanderCore] Fatigue damage: {damage}, remaining HP: {CurrentHealth}");
-        });
-    }
+	public CommanderCore()
+	{
+		Deck = new Deck();
+		// 连接疲劳伤害回调：疲劳时对自己造成伤害
+		CombatDeckState.SetFatigueCallback(damage =>
+		{
+			ApplyDamage(damage);
+			GD.Print($"[CommanderCore] Fatigue damage: {damage}, remaining HP: {CurrentHealth}");
+		});
+	}
 
-    /// <summary>
-    /// 初始化生命值。
-    /// </summary>
-    public void InitializeHealth(int maxHealth, int currentHealth = -1)
-    {
-        MaxHealth = maxHealth;
-        CurrentHealth = currentHealth >= 0 ? currentHealth : maxHealth;
-    }
+	/// <summary>
+	/// 初始化生命值。
+	/// </summary>
+	public void InitializeHealth(int maxHealth, int currentHealth = -1)
+	{
+		MaxHealth = maxHealth;
+		CurrentHealth = currentHealth >= 0 ? currentHealth : maxHealth;
+	}
 
-    /// <summary>
-    /// 应用伤害。
-    /// </summary>
-    public void ApplyDamage(int amount)
-    {
-        if (amount <= 0) return;
-        CurrentHealth = Math.Max(0, CurrentHealth - amount);
-    }
+	/// <summary>
+	/// 应用伤害。
+	/// </summary>
+	public void ApplyDamage(int amount)
+	{
+		if (amount <= 0)
+			return;
+		CurrentHealth = Math.Max(0, CurrentHealth - amount);
+	}
 
-    /// <summary>
-    /// 恢复生命值。
-    /// </summary>
-    public void Heal(int amount)
-    {
-        CurrentHealth = Mathf.Min(MaxHealth, CurrentHealth + amount);
-    }
+	/// <summary>
+	/// 恢复生命值。
+	/// </summary>
+	public void Heal(int amount)
+	{
+		CurrentHealth = Mathf.Min(MaxHealth, CurrentHealth + amount);
+	}
 
-    /// <summary>
-    /// 设置生命值。
-    /// </summary>
-    public void SetHealth(int current, int max)
-    {
-        MaxHealth = max;
-        CurrentHealth = current;
-    }
+	/// <summary>
+	/// 设置生命值。
+	/// </summary>
+	public void SetHealth(int current, int max)
+	{
+		MaxHealth = max;
+		CurrentHealth = current;
+	}
 
-    /// <summary>
-    /// 是否已死亡。
-    /// </summary>
-    public bool IsDead => CurrentHealth <= 0;
+	/// <summary>
+	/// 是否已死亡。
+	/// </summary>
+	public bool IsDead => CurrentHealth <= 0;
 
-    // ===== 法力水晶管理 =====
+	// ===== 法力水晶管理 =====
 
-    public void SpendMana(int amount)
-    {
-        CurrentMana = Math.Max(0, CurrentMana - amount);
-        OnManaChanged?.Invoke(CurrentMana, MaxMana);
-    }
+	public void SpendMana(int amount)
+	{
+		CurrentMana = Math.Max(0, CurrentMana - amount);
+		OnManaChanged?.Invoke(CurrentMana, MaxMana);
+	}
 
-    public void GainMana(int amount)
-    {
-        CurrentMana = Math.Min(MaxMana + amount, CurrentMana + amount);
-        OnManaChanged?.Invoke(CurrentMana, MaxMana);
-    }
+	public void GainMana(int amount)
+	{
+		CurrentMana = Math.Min(MaxMana + amount, CurrentMana + amount);
+		OnManaChanged?.Invoke(CurrentMana, MaxMana);
+	}
 
-    public void ResetMana()
-    {
-        CurrentMana = MaxMana;
-        OnManaChanged?.Invoke(CurrentMana, MaxMana);
-    }
+	public void ResetMana()
+	{
+		CurrentMana = MaxMana;
+		OnManaChanged?.Invoke(CurrentMana, MaxMana);
+	}
 
-    public void SetMana(int current, int max)
-    {
-        MaxMana = max;
-        CurrentMana = current;
-        OnManaChanged?.Invoke(CurrentMana, MaxMana);
-    }
+	public void SetMana(int current, int max)
+	{
+		MaxMana = max;
+		CurrentMana = current;
+		OnManaChanged?.Invoke(CurrentMana, MaxMana);
+	}
 
-    public bool CanSpendMana(int amount)
-    {
-        return CurrentMana >= amount;
-    }
+	public bool CanSpendMana(int amount)
+	{
+		return CurrentMana >= amount;
+	}
 
-    // ===== 牌堆操作 =====
+	// ===== 牌堆操作 =====
 
-    public IReadOnlyList<OdysseyCards.Card.Card> DrawCards(int count)
-    {
-        return CombatDeckState.DrawCards(count);
-    }
+	public IReadOnlyList<OdysseyCards.Card.Card> DrawCards(int count)
+	{
+		return CombatDeckState.DrawCards(count);
+	}
 
-    public void DiscardCard(OdysseyCards.Card.Card card)
-    {
-        CombatDeckState.DiscardCard(card);
-    }
+	public void DiscardCard(OdysseyCards.Card.Card card)
+	{
+		CombatDeckState.DiscardCard(card);
+	}
 
-    public void RemoveFromHand(OdysseyCards.Card.Card card)
-    {
-        CombatDeckState.RemoveFromHand(card);
-    }
+	public void RemoveFromHand(OdysseyCards.Card.Card card)
+	{
+		CombatDeckState.RemoveFromHand(card);
+	}
 
-    /// <summary>
-    /// 直接将卡牌加入手牌（外部来源：发现、/token 等）。
-    /// </summary>
-    public void AddToHand(OdysseyCards.Card.Card card)
-    {
-        CombatDeckState.AddToHand(card);
-    }
+	/// <summary>
+	/// 直接将卡牌加入手牌（外部来源：发现、/token 等）。
+	/// </summary>
+	public void AddToHand(OdysseyCards.Card.Card card)
+	{
+		CombatDeckState.AddToHand(card);
+	}
 
-    public void ReturnToDrawPile(OdysseyCards.Card.Card card)
-    {
-        CombatDeckState.ReturnToDrawPile(card);
-    }
+	public void ReturnToDrawPile(OdysseyCards.Card.Card card)
+	{
+		CombatDeckState.ReturnToDrawPile(card);
+	}
 
-    public void ShuffleDrawPile()
-    {
-        CombatDeckState.ShuffleDrawPile();
-    }
+	public void ShuffleDrawPile()
+	{
+		CombatDeckState.ShuffleDrawPile();
+	}
 
-    public void DiscardHand()
-    {
-        CombatDeckState.DiscardHand();
-    }
+	public void DiscardHand()
+	{
+		CombatDeckState.DiscardHand();
+	}
 
-    /// <summary>
-    /// 将卡牌插入抽牌堆底部。
-    /// </summary>
-    public void InsertCardToDrawPile(OdysseyCards.Card.Card card)
-    {
-        CombatDeckState.InsertCardToDrawPile(card);
-    }
+	/// <summary>
+	/// 将卡牌插入抽牌堆底部。
+	/// </summary>
+	public void InsertCardToDrawPile(OdysseyCards.Card.Card card)
+	{
+		CombatDeckState.InsertCardToDrawPile(card);
+	}
 
-    /// <summary>
-    /// 直接将卡牌加入抽牌堆底部（不从手牌移除）。
-    /// </summary>
-    public void AddToDrawPileBottom(OdysseyCards.Card.Card card)
-    {
-        CombatDeckState.AddToDrawPileBottom(card);
-    }
+	/// <summary>
+	/// 直接将卡牌加入抽牌堆底部（不从手牌移除）。
+	/// </summary>
+	public void AddToDrawPileBottom(OdysseyCards.Card.Card card)
+	{
+		CombatDeckState.AddToDrawPileBottom(card);
+	}
 
-    /// <summary>
-    /// 直接将卡牌加入弃牌堆（不从手牌移除）。
-    /// </summary>
-    public void AddToDiscardPile(OdysseyCards.Card.Card card)
-    {
-        CombatDeckState.AddToDiscardPile(card);
-    }
+	/// <summary>
+	/// 直接将卡牌加入弃牌堆（不从手牌移除）。
+	/// </summary>
+	public void AddToDiscardPile(OdysseyCards.Card.Card card)
+	{
+		CombatDeckState.AddToDiscardPile(card);
+	}
 
-    // ===== 回合管理 =====
+	// ===== 回合管理 =====
 
-    /// <summary>
-    /// 开始回合：增加最大水晶（上限10），填满当前水晶。
-    /// </summary>
-    public void StartTurn()
-    {
-        if (MaxMana < MaxManaCrystals)
-        {
-            MaxMana++;
-        }
-        CurrentMana = MaxMana;
-        OnManaChanged?.Invoke(CurrentMana, MaxMana);
-    }
+	/// <summary>
+	/// 开始回合：增加最大水晶（上限10），填满当前水晶。
+	/// </summary>
+	public void StartTurn()
+	{
+		if (MaxMana < MaxManaCrystals)
+		{
+			MaxMana++;
+		}
+		CurrentMana = MaxMana;
+		OnManaChanged?.Invoke(CurrentMana, MaxMana);
+	}
 
-    public void EndTurn()
-    {
-    }
+	public void EndTurn()
+	{
+	}
 
-    public void ResetFatigue()
-    {
-        CombatDeckState.ResetFatigue();
-    }
+	public void ResetFatigue()
+	{
+		CombatDeckState.ResetFatigue();
+	}
 
-    public void ClearPiles()
-    {
-        CombatDeckState.ClearPiles();
-    }
+	public void ClearPiles()
+	{
+		CombatDeckState.ClearPiles();
+	}
 
-    /// <summary>
-    /// 从牌堆设置抽牌堆。
-    /// </summary>
-    public void SetupDrawPile()
-    {
-        var cards = CreateDrawPileFromDeck();
-        CombatDeckState.SetupDrawPile(cards);
-    }
+	/// <summary>
+	/// 从牌堆设置抽牌堆。
+	/// </summary>
+	public void SetupDrawPile()
+	{
+		var cards = CreateDrawPileFromDeck();
+		CombatDeckState.SetupDrawPile(cards);
+	}
 
-    /// <summary>
-    /// 从 Deck 创建运行时卡牌列表。
-    /// </summary>
-    private List<OdysseyCards.Card.Card> CreateDrawPileFromDeck()
-    {
-        var cards = new List<OdysseyCards.Card.Card>();
-        foreach (var cardData in Deck.Cards)
-        {
-            var card = new OdysseyCards.Card.Card(cardData);
-            cards.Add(card);
-        }
-        return cards;
-    }
+	/// <summary>
+	/// 从 Deck 创建运行时卡牌列表。
+	/// </summary>
+	private List<OdysseyCards.Card.Card> CreateDrawPileFromDeck()
+	{
+		var cards = new List<OdysseyCards.Card.Card>();
+		foreach (var cardData in Deck.Cards)
+		{
+			var card = new OdysseyCards.Card.Card(cardData);
+			cards.Add(card);
+		}
+		return cards;
+	}
 }

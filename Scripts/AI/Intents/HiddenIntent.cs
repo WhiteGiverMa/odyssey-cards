@@ -6,15 +6,15 @@ namespace OdysseyCards.AI.Intents;
 /// </summary>
 public sealed class HiddenIntent : AbstractIntent
 {
-    /// <inheritdoc />
-    public override IntentType Type => IntentType.Hidden;
+	/// <inheritdoc />
+	public override IntentType Type => IntentType.Hidden;
 
-    /// <inheritdoc />
-    public override bool HasIntentTip => false;
+	/// <inheritdoc />
+	public override bool HasIntentTip => false;
 
-    /// <inheritdoc />
-    public override string? SpritePath => null;
+	/// <inheritdoc />
+	public override string? SpritePath => null;
 
-    /// <inheritdoc />
-    public override string IntentPrefix => "HIDDEN";
+	/// <inheritdoc />
+	public override string IntentPrefix => "HIDDEN";
 }

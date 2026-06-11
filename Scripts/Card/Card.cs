@@ -108,7 +108,8 @@ public class Card
 	/// </summary>
 	public void GrantIdolTwilightOnAttacked(int stacks = 1)
 	{
-		if (Data.Type != CardType.Minion) return;
+		if (Data.Type != CardType.Minion)
+			return;
 		IdolTwilightOnAttackedStacks += stacks;
 	}
 

@@ -375,8 +375,8 @@ public partial class IntentTooltip : Panel
 		_hideTween?.Kill();
 		var tween = CreateTween();
 		tween.TweenProperty(this, "modulate", Colors.White, 0.15f)
-		     .SetEase(Tween.EaseType.Out)
-		     .SetTrans(Tween.TransitionType.Cubic);
+			 .SetEase(Tween.EaseType.Out)
+			 .SetTrans(Tween.TransitionType.Cubic);
 	}
 
 	// ===== 隐藏 / 销毁 =====
@@ -384,7 +384,8 @@ public partial class IntentTooltip : Panel
 	/// <summary>隐藏 Tooltip——淡出后自动销毁。</summary>
 	public void HideTooltip()
 	{
-		if (!IsInstanceValid(this)) return;
+		if (!IsInstanceValid(this))
+			return;
 
 		// 如果从未显示，直接销毁
 		if (!Visible)
@@ -397,8 +398,8 @@ public partial class IntentTooltip : Panel
 		_hideTween?.Kill();
 		var tween = CreateTween();
 		tween.TweenProperty(this, "modulate", new Color(1, 1, 1, 0), 0.1f)
-		     .SetEase(Tween.EaseType.In)
-		     .SetTrans(Tween.TransitionType.Cubic);
+			 .SetEase(Tween.EaseType.In)
+			 .SetTrans(Tween.TransitionType.Cubic);
 		tween.Finished += QueueFree;
 		_hideTween = tween;
 	}

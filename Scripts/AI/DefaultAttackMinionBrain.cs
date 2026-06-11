@@ -41,8 +41,10 @@ public class DefaultAttackMinionBrain : IIntentActor
 			{
 				var defender = tauntTargets[Random.Shared.Next(tauntTargets.Count)];
 				combat.ResolveMinionCombat(_body, defender);
-				if (defender.IsDead) combat.Board.RemoveMinion(defender);
-				if (_body.IsDead) combat.Board.RemoveMinion(_body);
+				if (defender.IsDead)
+					combat.Board.RemoveMinion(defender);
+				if (_body.IsDead)
+					combat.Board.RemoveMinion(_body);
 			}
 		}
 		else

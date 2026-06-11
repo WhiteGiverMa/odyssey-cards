@@ -128,12 +128,14 @@ public class Cosmonaut : EnemyEncounter
 			{
 				combat.TriggerBaitTacticsOnAttacked(minionTarget);
 				bool ambush = minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
-				if (ambush) minionTarget.AmbushUsedThisTurn = true;
+				if (ambush)
+					minionTarget.AmbushUsedThisTurn = true;
 
 				self.SuppressWeaponCounter = true;
 				self.TakeDamage(minionTarget.Attack, minionTarget);
 				self.SuppressWeaponCounter = false;
-				if (ambush && self.IsDead) return;
+				if (ambush && self.IsDead)
+					return;
 
 				minionTarget.TakeDamage(rawDmg, self);
 			}
@@ -189,9 +191,12 @@ public class Cosmonaut : EnemyEncounter
 	{
 		// 随机选C或D，防止3连
 		bool chooseC;
-		if (_lastCCount >= 2) chooseC = false;
-		else if (_lastDCount >= 2) chooseC = true;
-		else chooseC = Random.Shared.Next(2) == 0;
+		if (_lastCCount >= 2)
+			chooseC = false;
+		else if (_lastDCount >= 2)
+			chooseC = true;
+		else
+			chooseC = Random.Shared.Next(2) == 0;
 
 		_currentActionIsC = chooseC;
 
@@ -217,14 +222,16 @@ public class Cosmonaut : EnemyEncounter
 					var playerHero = cm.PlayerHero;
 					for (int hit = 0; hit < 2; hit++)
 					{
-						if (playerHero.IsDead) break;
+						if (playerHero.IsDead)
+							break;
 						playerHero.TakeDamage(3, self, DamageKind.Attack);
 					}
 					foreach (var minion in cm.Board.GetPlayerMinions())
 					{
 						for (int hit = 0; hit < 2; hit++)
 						{
-							if (minion.IsDead) break;
+							if (minion.IsDead)
+								break;
 							minion.TakeDamage(3, self, DamageKind.Attack);
 						}
 					}

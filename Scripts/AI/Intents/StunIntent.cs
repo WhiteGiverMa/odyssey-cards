@@ -6,12 +6,12 @@ namespace OdysseyCards.AI.Intents;
 /// </summary>
 public sealed class StunIntent : AbstractIntent
 {
-    /// <inheritdoc />
-    public override IntentType Type => IntentType.Stun;
+	/// <inheritdoc />
+	public override IntentType Type => IntentType.Stun;
 
-    /// <inheritdoc />
-    public override string IntentPrefix => "STUN";
+	/// <inheritdoc />
+	public override string IntentPrefix => "STUN";
 
-    /// <inheritdoc />
-    public override string? SpritePath => "res://Assets/Intents/stun.png";
+	/// <inheritdoc />
+	public override string? SpritePath => "res://Assets/Intents/stun.png";
 }
