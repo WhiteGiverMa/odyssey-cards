@@ -1,6 +1,6 @@
 # OdysseyCards（少女星途卡牌） — Godot 4.6 C# · 类炉石 Roguelite 卡牌
 
-**Updated:** 2026-06-11
+**Updated:** 2026-06-12
 **Scale:** 165 `Scripts/*.cs` · ~39,000 行 · 35 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
 
 ## Start
@@ -272,6 +272,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - ✅ 全面键盘支持：InputManager→HotkeyManager→各场景，对齐 STS2 键位。
 - ✅ 本地化全场景接线；YAML include_filter 已处理导出。
 - ✅ 卡牌选中/拖拽、攻击双交互、右键取消、敌方英雄攻击绿框已修复。
+- ✅ 意图图标 hover 稳定；设置页支持开关图标/伤害数字浮动视觉风格。
 - ✅ 多敌人 AI：IntentAI + 多 Brain + EnemyRegistry。
 - ✅ 新意图系统：`AI/Intents/` 19 文件，MoveState 多意图，Icon/Tooltip 路径。
 - ✅ CombatUI 大文件已 partial 拆分，支持 Card/Board/Combat 编辑器预览。

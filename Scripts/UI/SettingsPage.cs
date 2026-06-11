@@ -1,7 +1,6 @@
 using Godot;
 using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
-using OdysseyCards.Localization;
 using System;
 using System.Collections.Generic;
 
@@ -30,6 +29,9 @@ public partial class SettingsPage : Control
 	private Label _windowModeLabel = null!;
 	private HBoxContainer _resolutionRow = null!;
 	private HBoxContainer _windowModeRow = null!;
+	private Label _visualStyleLabel = null!;
+	private CheckBox _intentIconFloatingToggle = null!;
+	private CheckBox _intentValueFloatingToggle = null!;
 	private CheckBox _devModeToggle = null!;
 	private Button _consoleButton = null!;
 	private Label _emoteIdleTimeLabel = null!;
@@ -45,10 +47,11 @@ public partial class SettingsPage : Control
 	// ===== 键位设置控件 =====
 
 	/// <summary>子菜单栈返回回调（Set by SubmenuStack）。为 null 时走默认 QueueFree 路径。</summary>
-	public Action? OnBack { get; set; }
+	public Action OnBack { get; set; }
 
-	private StringName? _listeningAction;
-	private Button? _listeningButton;
+	private bool _isListeningForKey;
+	private StringName _listeningAction;
+	private Button _listeningButton = null!;
 	private VBoxContainer _keybindListContainer = null!;
 	private OptionButton _profileSelector = null!;
 	private Button _newProfileBtn = null!;
@@ -194,6 +197,8 @@ public partial class SettingsPage : Control
 		_languageOptionButton.ItemSelected -= OnLanguageSelected;
 		_resolutionOptionButton.ItemSelected -= OnResolutionSelected;
 		_windowModeOptionButton.ItemSelected -= OnWindowModeSelected;
+		_intentIconFloatingToggle.Toggled -= OnIntentIconFloatingToggled;
+		_intentValueFloatingToggle.Toggled -= OnIntentValueFloatingToggled;
 		_backButton.Pressed -= OnBackPressed;
 		_devModeToggle.Toggled -= OnDevModeToggled;
 		_consoleButton.Pressed -= OnConsolePressed;
@@ -211,7 +216,7 @@ public partial class SettingsPage : Control
 	/// </summary>
 	public override void _UnhandledKeyInput(InputEvent @event)
 	{
-		if (_listeningAction == null)
+		if (!_isListeningForKey)
 			return;
 		if (@event is not InputEventKey keyEvent || !keyEvent.Pressed || keyEvent.Echo)
 			return;
@@ -228,7 +233,7 @@ public partial class SettingsPage : Control
 		var im = InputManager.Instance;
 		if (im != null)
 		{
-			im.SetKey(_listeningAction!, keyEvent.Keycode);
+			im.SetKey(_listeningAction, keyEvent.Keycode);
 			im.SaveProfiles();
 		}
 
@@ -330,6 +335,32 @@ public partial class SettingsPage : Control
 		var windowModeRow = CreateSettingRow(_windowModeLabel, _windowModeOptionButton);
 		_windowModeRow = windowModeRow;
 
+		// 自定义视觉风格
+		_visualStyleLabel = new Label
+		{
+			Text = Localization.Localization.T("ui.settings.visual_style", "自定义视觉风格"),
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		_visualStyleLabel.AddThemeFontSizeOverride("font_size", 18);
+		_visualStyleLabel.AddThemeColorOverride("font_color", new Color(0.75f, 0.85f, 1f));
+
+		bool iconFloating = UIScaler.Instance?.IntentIconFloatingEnabled ?? true;
+		bool valueFloating = UIScaler.Instance?.IntentValueFloatingEnabled ?? true;
+		_intentIconFloatingToggle = new CheckBox
+		{
+			Text = Localization.Localization.T("ui.settings.intent_icon_floating", "意图图标整体浮动"),
+			ButtonPressed = iconFloating,
+		};
+		_intentIconFloatingToggle.AddThemeFontSizeOverride("font_size", 18);
+
+		_intentValueFloatingToggle = new CheckBox
+		{
+			Text = Localization.Localization.T("ui.settings.intent_value_floating", "伤害数字随图标浮动"),
+			ButtonPressed = valueFloating,
+			Disabled = !iconFloating,
+		};
+		_intentValueFloatingToggle.AddThemeFontSizeOverride("font_size", 18);
+
 		// 开发者模式
 		_devModeToggle = new CheckBox
 		{
@@ -396,6 +427,9 @@ public partial class SettingsPage : Control
 		_generalContainer.AddChild(languageRow);
 		_generalContainer.AddChild(resolutionRow);
 		_generalContainer.AddChild(windowModeRow);
+		_generalContainer.AddChild(_visualStyleLabel);
+		_generalContainer.AddChild(_intentIconFloatingToggle);
+		_generalContainer.AddChild(_intentValueFloatingToggle);
 		_generalContainer.AddChild(_devModeToggle);
 		_generalContainer.AddChild(_consoleButton);
 		_generalContainer.AddChild(emoteIdleRow);
@@ -549,6 +583,7 @@ public partial class SettingsPage : Control
 
 		_listeningAction = action;
 		_listeningButton = button;
+		_isListeningForKey = true;
 		button.Text = "...";
 		button.AddThemeColorOverride("font_color", new Color(1f, 0.5f, 0.2f)); // 橙色提示
 	}
@@ -556,16 +591,17 @@ public partial class SettingsPage : Control
 	/// <summary>退出监听模式，恢复按钮文字。</summary>
 	private void StopListening()
 	{
-		if (_listeningAction != null && _listeningButton != null)
+		if (_isListeningForKey)
 		{
 			var im = InputManager.Instance;
-			var key = im != null ? im.GetKey(_listeningAction!) : Key.None;
+			var key = im != null ? im.GetKey(_listeningAction) : Key.None;
 			_listeningButton.Text = KeyToDisplay(key);
 			_listeningButton.RemoveThemeColorOverride("font_color");
 		}
 
-		_listeningAction = null;
-		_listeningButton = null;
+		_isListeningForKey = false;
+		_listeningAction = default;
+		_listeningButton = null!;
 	}
 
 	// ===== Tab 切换 =====
@@ -678,6 +714,8 @@ public partial class SettingsPage : Control
 		_languageOptionButton.ItemSelected += OnLanguageSelected;
 		_resolutionOptionButton.ItemSelected += OnResolutionSelected;
 		_windowModeOptionButton.ItemSelected += OnWindowModeSelected;
+		_intentIconFloatingToggle.Toggled += OnIntentIconFloatingToggled;
+		_intentValueFloatingToggle.Toggled += OnIntentValueFloatingToggled;
 		_backButton.Pressed += OnBackPressed;
 		_devModeToggle.Toggled += OnDevModeToggled;
 		_consoleButton.Pressed += OnConsolePressed;
@@ -718,6 +756,17 @@ public partial class SettingsPage : Control
 		int modeIndex = modeVariant.AsInt32();
 		UIScaler.Instance.SetWindowModeIndex(modeIndex);
 		LoadResolutions();
+	}
+
+	private void OnIntentIconFloatingToggled(bool on)
+	{
+		_intentValueFloatingToggle.Disabled = !on;
+		UIScaler.Instance?.SetIntentVisualFloating(on, _intentValueFloatingToggle.ButtonPressed);
+	}
+
+	private void OnIntentValueFloatingToggled(bool on)
+	{
+		UIScaler.Instance?.SetIntentVisualFloating(_intentIconFloatingToggle.ButtonPressed, on);
 	}
 
 	private void OnBackPressed()
@@ -909,6 +958,9 @@ public partial class SettingsPage : Control
 		_languageLabel.Text = Localization.Localization.T("ui.settings.language", "Language");
 		_resolutionLabel.Text = Localization.Localization.T("ui.settings.resolution", "Resolution");
 		_windowModeLabel.Text = Localization.Localization.T("ui.settings.window_mode", "Window Mode");
+		_visualStyleLabel.Text = Localization.Localization.T("ui.settings.visual_style", "自定义视觉风格");
+		_intentIconFloatingToggle.Text = Localization.Localization.T("ui.settings.intent_icon_floating", "意图图标整体浮动");
+		_intentValueFloatingToggle.Text = Localization.Localization.T("ui.settings.intent_value_floating", "伤害数字随图标浮动");
 		_emoteIdleTimeLabel.Text = Localization.Localization.T("ui.settings.emote_idle_time", "Emote Idle Time");
 		_emoteVarMinLabel.Text = Localization.Localization.T("ui.settings.emote_variation_min", "Variation Min");
 		_emoteVarMaxLabel.Text = Localization.Localization.T("ui.settings.emote_variation_max", "Variation Max");
@@ -970,6 +1022,20 @@ public partial class SettingsPage : Control
 			GetViewport().SetInputAsHandled();
 			return;
 		}
+		if (HitTestControl(_intentIconFloatingToggle, touch.Position))
+		{
+			_intentIconFloatingToggle.ButtonPressed = !_intentIconFloatingToggle.ButtonPressed;
+			OnIntentIconFloatingToggled(_intentIconFloatingToggle.ButtonPressed);
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+		if (!_intentValueFloatingToggle.Disabled && HitTestControl(_intentValueFloatingToggle, touch.Position))
+		{
+			_intentValueFloatingToggle.ButtonPressed = !_intentValueFloatingToggle.ButtonPressed;
+			OnIntentValueFloatingToggled(_intentValueFloatingToggle.ButtonPressed);
+			GetViewport().SetInputAsHandled();
+			return;
+		}
 		if (_consoleButton.Visible && HitTestControl(_consoleButton, touch.Position))
 		{
 			OnConsolePressed();
@@ -998,6 +1064,8 @@ public partial class SettingsPage : Control
 		_languageOptionButton.CustomMinimumSize = new Vector2(260, 56);
 		_resolutionOptionButton.CustomMinimumSize = new Vector2(260, 56);
 		_windowModeOptionButton.CustomMinimumSize = new Vector2(260, 56);
+		_intentIconFloatingToggle.CustomMinimumSize = new Vector2(260, 56);
+		_intentValueFloatingToggle.CustomMinimumSize = new Vector2(260, 56);
 		_backButton.CustomMinimumSize = new Vector2(220, 56);
 		_backButton.AddThemeFontSizeOverride("font_size", 22);
 		_consoleButton.CustomMinimumSize = new Vector2(220, 56);
