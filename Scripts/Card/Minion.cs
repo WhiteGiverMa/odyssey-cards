@@ -519,6 +519,10 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	/// <param name="kind">伤害结算类型</param>
 	public void TakeDamage(int baseDamage, IDamageSource? source, DamageKind kind)
 	{
+		// 死实体不接受任何伤害（防止反击链打到已死亡的单位产生跳字）
+		if (IsDead)
+			return;
+
 		// Step 1: ALWAYS go through DamageResolver first (Defense modifier applies here)
 		int resolvedDamage = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
 		int armorAbsorbed = 0;

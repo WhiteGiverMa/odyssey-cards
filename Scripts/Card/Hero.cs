@@ -336,6 +336,10 @@ public class Hero : IDamageTarget, IDamageSource
 	/// <param name="kind">伤害结算类型</param>
 	public void TakeDamage(int baseDamage, IDamageSource? source, DamageKind kind)
 	{
+		// 死实体不接受任何伤害（防止反击链打到已死亡的单位产生跳字）
+		if (IsDead)
+			return;
+
 		// 不破（1）检查：仅对拥有此被动的角色生效，阻止本回合后续伤害
 		if (_hasTakenDamageThisTurn && HasUnbreakable)
 			return;
