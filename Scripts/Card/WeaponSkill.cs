@@ -202,7 +202,7 @@ public class IonPulse : IWeaponActive
         else
         {
             // 对敌方英雄：禁用武器（原行为）
-            var enemy = combat.EnemyHero;
+			var enemy = combat.EnemyUnits[0].Body;
             enemy.AddStatusEffect(new StatusEffect(
                 id: "weapon_disabled",
                 stacks: 2,

@@ -2118,7 +2118,7 @@ public partial class CombatUI : Control
 			var intent = unit.GetCurrentIntent(_combat);
 			switch (intent.Type)
 			{
-				case IntentType.Attack:
+				case AIIntents.IntentType.Attack:
 				{
 					var target = intent.GetTarget(_combat);
 					Vector2 targetPos;
@@ -2146,7 +2146,7 @@ public partial class CombatUI : Control
 					break;
 				}
 
-				case IntentType.Buff:
+				case AIIntents.IntentType.Buff:
 				{
 					// 增益意图：指向敌方战场上的首个友方随从
 					Vector2? buffTarget = null;
@@ -2203,19 +2203,19 @@ public partial class CombatUI : Control
 					target = _combat.PlayerHero;
 
 				int dmg = DamageResolver.ResolvePreviewDamage(minion.Attack, minion, target);
-				intent = new EnemyIntent(IntentType.Attack, dmg, Loc.T("intent.attack_format", "对{target}造成 {damage} 点伤害").Replace("{target}", "英雄").Replace("{damage}", dmg.ToString()));
+				intent = new EnemyIntent(AIIntents.IntentType.Attack, dmg, Loc.T("intent.attack_format", "对{target}造成 {damage} 点伤害").Replace("{target}", "英雄").Replace("{damage}", dmg.ToString()));
 				intent.TargetSelector = _ => target;
 			}
 
 			string key = $"intent_minion_{slotIndex}";
 
-			if (intent.Type == IntentType.Attack)
+			if (intent.Type == AIIntents.IntentType.Attack)
 			{
 				var target = intent.TargetSelector?.Invoke(_combat);
 				Vector2 targetPos = ResolveTargetScreenPos(target);
 				_arrowRenderer.AddArrow(key, sourcePos, targetPos, ArrowRenderer.EnemyAttackColor);
 			}
-			else if (intent.Type == IntentType.Buff)
+			else if (intent.Type == AIIntents.IntentType.Buff)
 			{
 				// 增益意图：指向敌方战场首个友方随从
 				var friendlies = _combat.Board.GetEnemyMinions()
@@ -2240,14 +2240,14 @@ public partial class CombatUI : Control
 	{
 		var move = brain.GetCurrentMove(combat);
 		if (move == null || move.Intents.Count == 0)
-			return new EnemyIntent(IntentType.Attack, 0, "—");
+			return new EnemyIntent(AIIntents.IntentType.Attack, 0, "—");
 
 		// 取第一个意图（最常见），多意图叠加时取主要意图
 		var primary = move.Intents[0];
 
 		return primary switch
 		{
-			AIIntents.AttackIntent atk => new EnemyIntent(IntentType.Attack,
+			AIIntents.AttackIntent atk => new EnemyIntent(AIIntents.IntentType.Attack,
 				atk.GetTotalDamage(combat),
 				atk.GetIntentLabel(combat))
 			{
@@ -2258,11 +2258,11 @@ public partial class CombatUI : Control
 					return taunts.Count > 0 ? taunts[0] : combat.PlayerHero;
 				}
 			},
-			AIIntents.BuffIntent => new EnemyIntent(IntentType.Buff, 0,
+			AIIntents.BuffIntent => new EnemyIntent(AIIntents.IntentType.Buff, 0,
 				primary.GetIntentLabel(combat)),
-			AIIntents.DefendIntent => new EnemyIntent(IntentType.Defend, 0,
+			AIIntents.DefendIntent => new EnemyIntent(AIIntents.IntentType.Defend, 0,
 				primary.GetIntentLabel(combat)),
-			_ => new EnemyIntent(IntentType.Attack, 0,
+			_ => new EnemyIntent(AIIntents.IntentType.Attack, 0,
 				primary.GetIntentLabel(combat)),
 		};
 	}
@@ -2317,7 +2317,7 @@ public partial class CombatUI : Control
 		// 敌方护甲（已迁移到 EnemyIdentityCard，旧版 UI 跳过）
 		if (_enemyArmorLabel != null)
 		{
-			int enemyArmor = _combat.EnemyHero.CurrentArmor;
+			int enemyArmor = _combat.EnemyUnits[0].Body.CurrentArmor;
 			_enemyArmorLabel.Visible = enemyArmor > 0;
 			if (enemyArmor > 0)
 				_enemyArmorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", enemyArmor.ToString());
@@ -2345,7 +2345,7 @@ public partial class CombatUI : Control
 		// 敌方防御（已迁移到 EnemyIdentityCard，旧版 UI 跳过）
 		if (_enemyDefenseLabel != null)
 		{
-			int enemyDef = _combat.EnemyHero.Defense;
+			int enemyDef = _combat.EnemyUnits[0].Body.Defense;
 			_enemyDefenseLabel.Visible = enemyDef != 0;
 			if (enemyDef != 0)
 			{
@@ -3115,7 +3115,7 @@ public partial class CombatUI : Control
 
 		// 高亮敌方英雄作为法术目标
 		_enemyHeroSpellButton.Visible = TargetTagsHelper.IsValidTarget(
-			_combat.EnemyHero.GetTargetTags(), require, exclude);
+			_combat.EnemyUnits[0].Body.GetTargetTags(), require, exclude);
 
 		// 高亮己方英雄作为法术目标
 		_playerHeroSpellButton.Visible = TargetTagsHelper.IsValidTarget(
@@ -3283,7 +3283,7 @@ public partial class CombatUI : Control
 		// --- 敌方武器（已迁移到 EnemyIdentityCard） ---
 		if (_enemyWeaponLabel != null)
 		{
-			var enemyWeapon = _combat.EnemyHero.Weapon;
+			var enemyWeapon = _combat.EnemyUnits[0].Body.Weapon;
 			if (enemyWeapon != null)
 			{
 				string disabledText = enemyWeapon.IsDisabled ? Localization.Localization.T("ui.combat.disabled_suffix", " [禁用]") : "";
@@ -3314,7 +3314,7 @@ public partial class CombatUI : Control
 		// 敌方英雄效果（旧版单敌人兼容层——多敌人时使用 EnemyIdentityCard 内的 EffectBar）
 		if (_enemyEffectBar != null)
 		{
-			_enemyEffectBar.Populate(_combat.EnemyHero.GetDisplayableEffects());
+			_enemyEffectBar.Populate(_combat.EnemyUnits[0].Body.GetDisplayableEffects());
 		}
 	}
 
@@ -3336,7 +3336,7 @@ public partial class CombatUI : Control
 		}
 
 		GD.Print($"[CombatUI] {_selectedAttacker.CardName} 攻击敌方英雄");
-		_combat.MinionAttackHero(_selectedAttacker, _combat.EnemyHero);
+		_combat.MinionAttackHero(_selectedAttacker, _combat.EnemyUnits[0].Body);
 		RefreshAll();
 	}
 
@@ -3350,7 +3350,7 @@ public partial class CombatUI : Control
 		// 开发者伤害模式：对敌方英雄造成伤害
 		if (_selectionMode == SelectionMode.DevDamageTargeting)
 		{
-			_combat.EnemyHero.TakeDamage(_devDamageAmount, null);
+			_combat.EnemyUnits[0].Body.TakeDamage(_devDamageAmount, null);
 			_combat.CheckVictoryOrDefeat();
 			ExitDevDamageMode();
 			return;
@@ -3363,7 +3363,7 @@ public partial class CombatUI : Control
 		}
 
 		GD.Print($"[CombatUI] 对敌方英雄施放 {_selectedCard.CardName}");
-		_combat.PlaySpell(_selectedCard, _combat.EnemyHero);
+		_combat.PlaySpell(_selectedCard, _combat.EnemyUnits[0].Body);
 		RefreshAll();
 	}
 
@@ -3558,7 +3558,7 @@ public partial class CombatUI : Control
 		if (_combat.State.IsGameOver) return;
 
 		GD.Print("[CombatUI] 武器攻击敌方英雄");
-		_combat.HeroWeaponAttackHero(_combat.EnemyHero);
+		_combat.HeroWeaponAttackHero(_combat.EnemyUnits[0].Body);
 
 		// 恢复敌方英雄按钮的原始事件
 		_enemyHeroAttackButton.Pressed -= OnWeaponAttackHeroPressed;

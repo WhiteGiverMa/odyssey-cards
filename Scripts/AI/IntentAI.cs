@@ -12,26 +12,6 @@ namespace OdysseyCards.AI;
 // ====================================================================
 
 /// <summary>
-/// 敌人意图类型（旧版，已废弃）。
-/// 参考《杀戮尖塔》的意图系统，用简单枚举表示敌人本回合的行为类别。
-/// </summary>
-[Obsolete("Use OdysseyCards.AI.Intents.IntentType instead")]
-public enum IntentType
-{
-    /// <summary>攻击：对玩家英雄造成伤害。</summary>
-    Attack,
-
-    /// <summary>防御：为敌方英雄增加护甲。</summary>
-    Defend,
-
-    /// <summary>召唤：在敌方战场召唤随从。</summary>
-    Summon,
-
-    /// <summary>增益：强化自身或随从。</summary>
-    Buff
-}
-
-/// <summary>
 /// 敌人意图结构体。
 /// 描述敌人本回合将要执行的一个意图，包含类型、数值和显示文本。
 /// </summary>

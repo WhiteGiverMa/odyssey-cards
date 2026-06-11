@@ -63,12 +63,6 @@ public partial class CombatManager : Node
 	public Hero PlayerHero { get; private set; }
 
 	/// <summary>
-	/// 敌方英雄（向后兼容单一敌人）。多敌人时返回 EnemyUnits[0].Body。
-	/// </summary>
-	[Obsolete("使用 EnemyUnits[i].Body 代替。多敌人兼容属性，Phase 3 移除。")]
-	public Hero EnemyHero => EnemyUnits[0].Body;
-
-	/// <summary>
 	/// 所有敌方战斗单位列表。每个 EnemyUnit 包含一个 Hero 身体和一个 EnemyEncounter 大脑。
 	/// </summary>
 	public IReadOnlyList<EnemyUnit> EnemyUnits { get; private set; } = new List<EnemyUnit>();
