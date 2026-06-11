@@ -477,7 +477,12 @@ public partial class CombatManager : Node
 		// 事件驱动胜负判定：任何英雄死亡时自动触发 CheckVictoryOrDefeat
 		PlayerHero.OnDeath += _ => _victoryResolver.CheckVictoryOrDefeat();
 		foreach (var unit in enemyUnits)
-			unit.Body.OnDeath += _ => _victoryResolver.CheckVictoryOrDefeat();
+			unit.Body.OnDeath += _ =>
+			{
+				// 敌人死亡时需要刷新 UI：意图箭头清除 + 身份卡显示死亡状态
+				NotifyCombatStateChanged();
+				_victoryResolver.CheckVictoryOrDefeat();
+			};
 
 		// 状态变更事件：随从部署/移除时触发，驱动意图 UI 实时刷新
 		Board.OnMinionPlaced += (_, _) => NotifyCombatStateChanged();
