@@ -34,14 +34,19 @@ namespace OdysseyCards.UI
 		};
 
 		public event Action OnResolutionChanged;
+		public event Action OnIntentVisualSettingsChanged;
 
 		public float CurrentScale { get; private set; } = 1f;
 		public Vector2 CurrentCardSize => _currentCardSize;
+		public bool IntentIconFloatingEnabled { get; private set; } = true;
+		public bool IntentValueFloatingEnabled { get; private set; } = true;
 
 		public override void _Ready()
 		{
 			Instance = this;
 			GetTree().Root.SizeChanged += OnWindowSizeChanged;
+
+			LoadSettings();
 
 			// 移动端全屏运行，不需要窗口管理 / 分辨率设置持久化
 			if (IsMobile)
@@ -51,7 +56,6 @@ namespace OdysseyCards.UI
 			}
 			else
 			{
-				LoadSettings();
 				UpdateScale();
 			}
 		}
@@ -242,6 +246,21 @@ namespace OdysseyCards.UI
 
 		#endregion
 
+		#region 视觉风格设置
+
+		/// <summary>
+		/// 设置敌方意图图标的视觉浮动行为，并持久化到 user://settings.cfg。
+		/// </summary>
+		public void SetIntentVisualFloating(bool iconFloating, bool valueFloating)
+		{
+			IntentIconFloatingEnabled = iconFloating;
+			IntentValueFloatingEnabled = valueFloating;
+			SaveSettings();
+			OnIntentVisualSettingsChanged?.Invoke();
+		}
+
+		#endregion
+
 		#region 持久化
 
 		/// <summary>
@@ -260,6 +279,9 @@ namespace OdysseyCards.UI
 				config.SetValue("display", "window_mode", windowMode);
 			}
 
+			config.SetValue("visual", "intent_icon_floating", IntentIconFloatingEnabled);
+			config.SetValue("visual", "intent_value_floating", IntentValueFloatingEnabled);
+
 			Error err = config.Save(ConfigPath);
 			if (err != Error.Ok)
 			{
@@ -273,18 +295,22 @@ namespace OdysseyCards.UI
 		/// </summary>
 		private void LoadSettings()
 		{
-			if (IsMobile)
-				return;
-
 			using var config = new ConfigFile();
 			Error err = config.Load(ConfigPath);
 			if (err != Error.Ok)
 			{
 				// 首次启动：使用 project.godot 默认值，居中窗口
 				GD.Print("[UIScaler] 未找到配置文件，使用默认设置");
-				CenterWindow();
+				if (!IsMobile)
+					CenterWindow();
 				return;
 			}
+
+			IntentIconFloatingEnabled = config.GetValue("visual", "intent_icon_floating", true).AsBool();
+			IntentValueFloatingEnabled = config.GetValue("visual", "intent_value_floating", true).AsBool();
+
+			if (IsMobile)
+				return;
 
 			int width = (int)config.GetValue("display", "window_width", 1600).AsInt32();
 			int height = (int)config.GetValue("display", "window_height", 900).AsInt32();

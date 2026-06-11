@@ -11,6 +11,7 @@ public partial class IntentIcon : Control
 {
 	// ===== 常量 =====
 	private const float IconSize = 56f;
+	private const float HitBoxHeight = IconSize + BobAmplitude * 2f;
 	private const float BobSpeed = 3.14f;        // π rad/s，完整周期约 2 秒
 	private const float BobAmplitude = 6f;        // 浮动像素幅度
 	private const float HoverScale = 1.1f;
@@ -25,14 +26,15 @@ public partial class IntentIcon : Control
 	private bool _isFrozen;
 	private Label _valueLabel = null!;
 	private float _bobPhase;
-	private float _baseY;
+	private float _iconVisualOffsetY = BobAmplitude;
+	private float _valueVisualOffsetY = BobAmplitude;
 	private bool _isHovering;
 
 	// ===== 公共事件 =====
 	/// <summary>鼠标进入图标时触发，用于外部显示 tooltip。</summary>
-	public event Action<IntentIcon>? OnHovered;
+	public event Action<IntentIcon> OnHovered;
 	/// <summary>鼠标离开图标时触发。</summary>
-	public event Action<IntentIcon>? OnUnhovered;
+	public event Action<IntentIcon> OnUnhovered;
 
 	// ===== 构造 =====
 
@@ -42,7 +44,7 @@ public partial class IntentIcon : Control
 		_labelText = labelText;
 		_intentValue = value;
 
-		CustomMinimumSize = new Vector2(IconSize, IconSize);
+		CustomMinimumSize = new Vector2(IconSize, HitBoxHeight);
 		MouseFilter = MouseFilterEnum.Pass;
 
 		// 数值标签（底端居中）
@@ -56,12 +58,8 @@ public partial class IntentIcon : Control
 		};
 		_valueLabel.AddThemeColorOverride("font_color", Colors.White);
 		_valueLabel.AddThemeFontSizeOverride("font_size", ValueFontSize);
-		// 底部定位：AnchorBottom=1，上偏移 16px
-		_valueLabel.OffsetBottom = 0f;
-		_valueLabel.SetAnchor(Side.Bottom, 1f);
-		_valueLabel.SetAnchor(Side.Left, 0f);
-		_valueLabel.SetAnchor(Side.Right, 1f);
-		_valueLabel.OffsetTop = -20f;
+		// 伤害数字使用固定手动布局，避免被 68px 稳定命中框撑到图标下方。
+		_valueLabel.Size = new Vector2(IconSize, 20f);
 		AddChild(_valueLabel);
 	}
 
@@ -69,7 +67,18 @@ public partial class IntentIcon : Control
 
 	public override void _Ready()
 	{
-		_baseY = Position.Y;
+		if (UIScaler.Instance != null)
+			UIScaler.Instance.OnIntentVisualSettingsChanged += OnIntentVisualSettingsChanged;
+
+		UpdateVisualOffsets(0f);
+		UpdateValueLabelOffset();
+		QueueRedraw();
+	}
+
+	public override void _ExitTree()
+	{
+		if (UIScaler.Instance != null)
+			UIScaler.Instance.OnIntentVisualSettingsChanged -= OnIntentVisualSettingsChanged;
 	}
 
 	public override void _Process(double delta)
@@ -77,14 +86,15 @@ public partial class IntentIcon : Control
 		if (_isFrozen)
 			return;
 
-		_bobPhase += (float)delta * BobSpeed;
-		float offsetY = Mathf.Sin(_bobPhase) * BobAmplitude;
-		Position = new Vector2(Position.X, _baseY + offsetY);
+		UpdateVisualOffsets((float)delta);
+		UpdateValueLabelOffset();
 		QueueRedraw();
 	}
 
 	public override void _Draw()
 	{
+		DrawSetTransform(new Vector2(0f, _iconVisualOffsetY), 0f, Vector2.One);
+
 		switch (_intentTypeId)
 		{
 			case 0:
@@ -132,6 +142,8 @@ public partial class IntentIcon : Control
 				DrawUnknownIcon();
 				break;
 		}
+
+		DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
 	}
 
 	public override void _Notification(int what)
@@ -155,7 +167,10 @@ public partial class IntentIcon : Control
 		if (frozen)
 		{
 			Modulate = new Color(1f, 1f, 1f, 0.5f);
-			Position = new Vector2(Position.X, _baseY);
+			_iconVisualOffsetY = BobAmplitude;
+			_valueVisualOffsetY = BobAmplitude;
+			UpdateValueLabelOffset();
+			QueueRedraw();
 		}
 		else
 		{
@@ -210,6 +225,32 @@ public partial class IntentIcon : Control
 
 		var tween = CreateTween();
 		tween.TweenProperty(this, "scale", Vector2.One, 0.1f);
+	}
+
+	private void OnIntentVisualSettingsChanged()
+	{
+		UpdateVisualOffsets(0f);
+		UpdateValueLabelOffset();
+		QueueRedraw();
+	}
+
+	private void UpdateVisualOffsets(float delta)
+	{
+		bool iconFloating = UIScaler.Instance?.IntentIconFloatingEnabled ?? true;
+		bool valueFloating = iconFloating && (UIScaler.Instance?.IntentValueFloatingEnabled ?? true);
+		if (iconFloating || valueFloating)
+			_bobPhase += delta * BobSpeed;
+
+		float bobOffsetY = BobAmplitude + Mathf.Sin(_bobPhase) * BobAmplitude;
+		_iconVisualOffsetY = iconFloating ? bobOffsetY : BobAmplitude;
+		_valueVisualOffsetY = valueFloating ? bobOffsetY : BobAmplitude;
+	}
+
+	/// <summary>同步数值标签的视觉浮动；父 Control 自身保持稳定命中区域。</summary>
+	private void UpdateValueLabelOffset()
+	{
+		_valueLabel.Position = new Vector2(0f, _valueVisualOffsetY + IconSize - 20f);
+		_valueLabel.Size = new Vector2(IconSize, 20f);
 	}
 
 	// ===== 绘制辅助 =====
