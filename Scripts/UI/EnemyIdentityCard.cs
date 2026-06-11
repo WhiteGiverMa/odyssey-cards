@@ -211,18 +211,37 @@ public partial class EnemyIdentityCard : Panel
 	/// <summary>法术按钮点击事件。</summary>
 	public Button SpellButton => _spellButton;
 
+	/// <summary>当前是否处于可攻击英雄目标高亮状态。</summary>
+	public bool IsAttackTargetHighlighted => _isAttackTarget;
+
 	/// <summary>更新面板中所有数据。</summary>
 	public void Refresh(CombatManager combat)
 	{
 		var unit = combat.EnemyUnits[EnemyIndex];
 		var body = unit.Body;
 		var brain = unit.Brain;
+		bool isDead = body.IsDead;
 
 		// Name
-		_nameLabel.Text = brain.Name;
+		_nameLabel.Text = isDead ? $"{brain.Name} ☠" : brain.Name;
+		Modulate = isDead ? new Color(1f, 1f, 1f, 0.55f) : Colors.White;
 
 		// HP
 		RefreshHealth(body.CurrentHealth, body.MaxHealth);
+
+		if (isDead)
+		{
+			RefreshArmor(0);
+			_defenseLabel.Visible = false;
+			_weaponLabel.Text = "";
+			_intentLabel.Visible = true;
+			_intentLabel.Text = "☠";
+			_intentIconContainer.Visible = false;
+			SetAttackTargetHighlight(false);
+			_spellButton.Visible = false;
+			_effectBar.Populate(body.GetDisplayableEffects());
+			return;
+		}
 
 		// Armor
 		RefreshArmor(body.CurrentArmor);

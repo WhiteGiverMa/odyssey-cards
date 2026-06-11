@@ -8,7 +8,6 @@ using OdysseyCards.Core;
 using OdysseyCards.Character;
 using OdysseyCards.Combat;
 using OdysseyCards.Infrastructure;
-using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.UI;
 
@@ -62,6 +61,7 @@ public partial class CombatUI : Control
 	private Label _enemyDefenseLabel = null!;
 	private Button _enemyHeroAttackButton = null!;
 	private Button _enemyHeroSpellButton = null!;
+	private Action? _enemyHeroCardAction;
 	private Label _enemyIntentLabel = null!;
 	private Panel _enemyHeroPanel = null!;
 	private Label _enemyWeaponLabel = null!;
@@ -629,8 +629,11 @@ public partial class CombatUI : Control
 		_player = player ?? throw new ArgumentNullException(nameof(player));
 		_combat = combat ?? throw new ArgumentNullException(nameof(combat));
 
-		GD.Print($"[CombatUI] 初始化 — 玩家生命 {combat.PlayerHero.CurrentHealth}/{combat.PlayerHero.MaxHealth}，" +
-				  $"敌方生命 {combat.EnemyUnits[0].Body.CurrentHealth}/{combat.EnemyUnits[0].Body.MaxHealth}");
+		var defaultEnemy = combat.GetDefaultEnemyTargetUnit()?.Body;
+		string enemyHealthText = defaultEnemy != null
+			? $"敌方生命 {defaultEnemy.CurrentHealth}/{defaultEnemy.MaxHealth}"
+			: "无存活敌方英雄";
+		GD.Print($"[CombatUI] 初始化 — 玩家生命 {combat.PlayerHero.CurrentHealth}/{combat.PlayerHero.MaxHealth}，{enemyHealthText}");
 
 		// 伤害跳字层（介于棋盘效果层和拖拽层之间，Layer=15）
 		var damageNumberLayer = new CanvasLayer { Name = "DamageNumberLayer", Layer = 15 };
@@ -798,20 +801,22 @@ public partial class CombatUI : Control
 		_heroPowerButton.Pressed += OnHeroPowerPressed;
 		_unsubscribeActions.Add(() => _heroPowerButton.Pressed -= OnHeroPowerPressed);
 
-		// 攻击敌方英雄按钮
-		_enemyHeroAttackButton.Pressed += OnEnemyHeroAttackPressed;
-		_unsubscribeActions.Add(() => _enemyHeroAttackButton.Pressed -= OnEnemyHeroAttackPressed);
-
-		// 敌方身份卡点击攻击（整个卡片区域）
-		if (_enemyCards.Count > 0)
+		// 敌方身份卡点击攻击（按钮 + 整个卡片覆盖层）
+		_enemyHeroCardAction = OnEnemyHeroAttackPressed;
+		foreach (var enemyCard in _enemyCards)
 		{
-			_enemyCards[0].OnAttackTargetClicked += OnEnemyHeroAttackPressed;
-			_unsubscribeActions.Add(() => _enemyCards[0].OnAttackTargetClicked -= OnEnemyHeroAttackPressed);
+			enemyCard.AttackButton.Pressed += OnEnemyHeroCardActionPressed;
+			enemyCard.OnAttackTargetClicked += OnEnemyHeroCardActionPressed;
+			_unsubscribeActions.Add(() => enemyCard.AttackButton.Pressed -= OnEnemyHeroCardActionPressed);
+			_unsubscribeActions.Add(() => enemyCard.OnAttackTargetClicked -= OnEnemyHeroCardActionPressed);
 		}
 
 		// 对敌方英雄施法按钮
-		_enemyHeroSpellButton.Pressed += OnEnemyHeroSpellTarget;
-		_unsubscribeActions.Add(() => _enemyHeroSpellButton.Pressed -= OnEnemyHeroSpellTarget);
+		foreach (var enemyCard in _enemyCards)
+		{
+			enemyCard.SpellButton.Pressed += OnEnemyHeroSpellTarget;
+			_unsubscribeActions.Add(() => enemyCard.SpellButton.Pressed -= OnEnemyHeroSpellTarget);
+		}
 
 		// 对己方英雄施法按钮
 		_playerHeroSpellButton.Pressed += OnPlayerHeroSpellTarget;

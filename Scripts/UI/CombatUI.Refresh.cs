@@ -338,7 +338,7 @@ public partial class CombatUI
 		// 敌方护甲（已迁移到 EnemyIdentityCard，旧版 UI 跳过）
 		if (_enemyArmorLabel != null)
 		{
-			int enemyArmor = _combat.EnemyUnits[0].Body.CurrentArmor;
+			int enemyArmor = _combat.GetDefaultEnemyTargetUnit()?.Body.CurrentArmor ?? 0;
 			_enemyArmorLabel.Visible = enemyArmor > 0;
 			if (enemyArmor > 0)
 			{
@@ -369,7 +369,7 @@ public partial class CombatUI
 		// 敌方防御（已迁移到 EnemyIdentityCard，旧版 UI 跳过）
 		if (_enemyDefenseLabel != null)
 		{
-			int enemyDef = _combat.EnemyUnits[0].Body.Defense;
+			int enemyDef = _combat.GetDefaultEnemyTargetUnit()?.Body.Defense ?? 0;
 			_enemyDefenseLabel.Visible = enemyDef != 0;
 			if (enemyDef != 0)
 			{
@@ -459,7 +459,7 @@ public partial class CombatUI
 		// --- 敌方武器（已迁移到 EnemyIdentityCard） ---
 		if (_enemyWeaponLabel != null)
 		{
-			var enemyWeapon = _combat.EnemyUnits[0].Body.Weapon;
+			var enemyWeapon = _combat.GetDefaultEnemyTargetUnit()?.Body.Weapon;
 			if (enemyWeapon != null)
 			{
 				string disabledText = enemyWeapon.IsDisabled ? Localization.Localization.T("ui.combat.disabled_suffix", " [禁用]") : "";
@@ -491,7 +491,7 @@ public partial class CombatUI
 		// 敌方英雄效果（旧版单敌人兼容层——多敌人时使用 EnemyIdentityCard 内的 EffectBar）
 		if (_enemyEffectBar != null)
 		{
-			_enemyEffectBar.Populate(_combat.EnemyUnits[0].Body.GetDisplayableEffects());
+			_enemyEffectBar.Populate(_combat.GetDefaultEnemyTargetUnit()?.Body.GetDisplayableEffects() ?? []);
 		}
 	}
 
