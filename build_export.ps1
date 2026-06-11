@@ -50,8 +50,10 @@ try {
     }
     $flag = if ($Debug) { "--export-debug" } else { "--export-release" }
     step "[4] godot --headless $flag ..."
-    & $godot --headless --path $root $flag $preset $exe 2>&1
+    $godotOutput = & $godot --headless --path $root $flag $preset $exe 2>&1
+    Write-Host ($godotOutput -join "`n")
     if ($LASTEXITCODE -ne 0) { throw "导出失败，退出码: $LASTEXITCODE" }
+    if (-not (Test-Path $exe)) { throw "导出失败: 未生成 $exe" }
 } finally {
     Copy-Item $bak $proj -Force
     Remove-Item $bak -Force

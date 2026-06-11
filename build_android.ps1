@@ -58,7 +58,7 @@ step "[2/4] Godot 导出 Android APK..."
 $outDir = Split-Path $apk -Parent
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-& $godot --headless --path $root --export-debug $preset $apk 2>&1
+& $godot --headless --path $root --export-debug $preset $apk 2>&1 | ForEach-Object { Write-Host $_ }
 if ($LASTEXITCODE -ne 0) {
     Write-Host "导出失败，退出码: $LASTEXITCODE" -ForegroundColor Red
     exit $LASTEXITCODE
