@@ -130,6 +130,11 @@ public partial class CombatUI
 		for (int i = 0; i < _combat.EnemyUnits.Count; i++)
 		{
 			var unit = _combat.EnemyUnits[i];
+
+			// 死亡敌人不绘制意图箭头
+			if (unit.Body.IsDead)
+				continue;
+
 			var intent = unit.GetCurrentIntent(_combat);
 			switch (intent.Type)
 			{
