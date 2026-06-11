@@ -58,6 +58,7 @@ namespace OdysseyCards.UI
         private CardData? _draggingCard;
         private Vector2 _dragStartPos;
         private bool _isDragging;
+        private readonly List<IDisposable> _mobileZoneTokens = new();
         private const float DragThreshold = 8f;
 
         // ===== 事件 =====
@@ -77,6 +78,11 @@ namespace OdysseyCards.UI
         /// 接收方判断坐标是否在有效放置区域内。
         /// </summary>
         public event Action<CardData, Vector2>? OnCardDragCompleted;
+
+        /// <summary>
+        /// 卡牌在移动端被长按时触发，用于打开居中预览。
+        /// </summary>
+        public event Action<CardData> OnCardLongPressed = delegate { };
 
         /// <summary>
         /// 是否显示过滤栏。
@@ -111,14 +117,53 @@ namespace OdysseyCards.UI
             // 布局已在构造函数中构建，无需重复。
             // 如果 _Ready 在构造函数之前被调用（不应发生），则兜底构建。
             EnsureLayout();
+            SetProcessInput(true);
             GameManager.Instance.LanguageChanged += OnLanguageChanged;
         }
 
         public override void _ExitTree()
         {
             base._ExitTree();
+            ClearMobileZones();
             if (GameManager.Instance != null)
                 GameManager.Instance.LanguageChanged -= OnLanguageChanged;
+        }
+
+        public override void _Input(InputEvent @event)
+        {
+            if (MobileInputRouter.IsMobile || _draggingCard == null)
+                return;
+
+            if (@event is InputEventMouseMotion)
+            {
+                Vector2 mousePos = GetGlobalMousePosition();
+                float dist = mousePos.DistanceTo(_dragStartPos);
+                if (dist > DragThreshold && !_isDragging)
+                {
+                    _isDragging = true;
+                    StartDragClone(_draggingCard, _dragStartPos);
+                }
+
+                if (_isDragging && _dragClone != null)
+                {
+                    _dragClone.GlobalPosition = mousePos - (_dragClone.Size / 2);
+                    GetViewport().SetInputAsHandled();
+                }
+            }
+            else if (@event is InputEventMouseButton mb
+                && mb.ButtonIndex == MouseButton.Left
+                && !mb.Pressed)
+            {
+                if (_isDragging && _dragClone != null)
+                {
+                    Vector2 dropPos = GetGlobalMousePosition();
+                    OnCardDragCompleted?.Invoke(_draggingCard, dropPos);
+                    GetViewport().SetInputAsHandled();
+                }
+
+                _draggingCard = null;
+                CleanupDrag();
+            }
         }
 
         /// <summary>
@@ -346,6 +391,8 @@ namespace OdysseyCards.UI
 
         private void RenderCurrentPage()
         {
+            ClearMobileZones();
+
             // 清除所有现有 wrapper（每个 wrapper 包含一个 CardUI）
             foreach (Node? child in _flowContainer.GetChildren())
             {
@@ -381,6 +428,7 @@ namespace OdysseyCards.UI
 
                 int capturedIndex = i;  // 闭包捕获
                 bool dragStarted = false;
+                bool suppressNextMobileTap = false;
 
                 // 移动端触控状态（区分轻触添加 vs 滚动浏览）
                 Vector2 touchStartPos = Vector2.Zero;
@@ -389,6 +437,11 @@ namespace OdysseyCards.UI
 
                 wrapper.GuiInput += (InputEvent @event) =>
                 {
+                    if (MobileInputRouter.IsMobile)
+                    {
+                        return;
+                    }
+
                     if (MobileInputHelper.IsMobile)
                     {
                         // 移动端：区分 tap（添加卡牌）与 scroll（浏览卡库）
@@ -447,11 +500,11 @@ namespace OdysseyCards.UI
                                 CardData clickedCard = _filteredCards[capturedIndex];
                                 OnCardClicked?.Invoke(clickedCard);
                             }
-                            else if (_isDragging && _dragClone != null)
+                            else if (_isDragging && _dragClone != null && _draggingCard != null)
                             {
                                 // 拖拽松手 → 触发拖拽完成事件
                                 Vector2 dropPos = GetGlobalMousePosition();
-                                CardData card = _draggingCard!;
+                                CardData card = _draggingCard;
                                 OnCardDragCompleted?.Invoke(card, dropPos);
                                 CleanupDrag();
                             }
@@ -490,6 +543,57 @@ namespace OdysseyCards.UI
                         }
                     }
                 };
+
+                wrapper.MouseEntered += () => ApplyGridHover(cardUI, cardSize, true);
+                wrapper.MouseExited += () => ApplyGridHover(cardUI, cardSize, false);
+
+                if (MobileInputRouter.IsMobile)
+                {
+                    _mobileZoneTokens.Add(MobileInputRouter.Instance.RegisterDragZone(
+                        wrapper,
+                        wrapper.GetGlobalRect(),
+                        priority: 250,
+                        onTap: () =>
+                        {
+                            if (suppressNextMobileTap)
+                            {
+                                suppressNextMobileTap = false;
+                                return;
+                            }
+                            CardData clickedCard = _filteredCards[capturedIndex];
+                            OnCardClicked?.Invoke(clickedCard);
+                        },
+                        onDragStart: startPos =>
+                        {
+                            CardData draggedCard = _filteredCards[capturedIndex];
+                            _draggingCard = draggedCard;
+                            _dragStartPos = startPos;
+                            _isDragging = true;
+                            StartDragClone(draggedCard, startPos);
+                        },
+                        onDragMove: (pos, _) =>
+                        {
+                            if (_isDragging && _dragClone != null)
+                            {
+                                _dragClone.GlobalPosition = pos - (_dragClone.Size / 2);
+                            }
+                        },
+                        onDragEnd: dropPos =>
+                        {
+                            if (_draggingCard != null)
+                            {
+                                OnCardDragCompleted?.Invoke(_draggingCard, dropPos);
+                            }
+                            _draggingCard = null;
+                            CleanupDrag();
+                        },
+                        onLongPress: () =>
+                        {
+                            suppressNextMobileTap = true;
+                            CardData longPressedCard = _filteredCards[capturedIndex];
+                            OnCardLongPressed.Invoke(longPressedCard);
+                        }));
+                }
 
                 wrapper.AddChild(cardUI);
                 _cardUIs.Add(cardUI);
@@ -601,6 +705,38 @@ namespace OdysseyCards.UI
         }
 
         // ===== 拖拽支持 =====
+
+        /// <summary>
+        /// 收藏网格卡牌悬停动画。CardUI 自身的 hover 现在只负责 ZIndex，网格需要显式缩放。
+        /// </summary>
+        private static void ApplyGridHover(CardUI cardUI, Vector2 cardSize, bool active)
+        {
+            cardUI.PivotOffset = cardSize / 2f;
+
+            if (active)
+            {
+                cardUI.ApplyHoverEffect();
+            }
+
+            var tween = cardUI.CreateTween();
+            tween.SetTrans(Tween.TransitionType.Cubic);
+            tween.SetEase(Tween.EaseType.Out);
+            tween.TweenProperty(cardUI, "scale", active ? Vector2.One * 1.08f : Vector2.One, 0.12f);
+
+            if (!active)
+            {
+                cardUI.RemoveHoverEffect();
+            }
+        }
+
+        private void ClearMobileZones()
+        {
+            foreach (var token in _mobileZoneTokens)
+            {
+                token.Dispose();
+            }
+            _mobileZoneTokens.Clear();
+        }
 
         /// <summary>
         /// 创建拖拽克隆体（半透明副本，跟随鼠标）。

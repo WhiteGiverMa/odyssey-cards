@@ -23,6 +23,9 @@ public partial class CollectionUI : Control
     /// <summary>移动端 TouchZone 注册 token，ExitTree 时释放。</summary>
     private readonly List<IDisposable> _zoneTokens = new();
 
+    /// <summary>牌组列表行的移动端 TouchZone 注册 token，列表刷新时释放。</summary>
+    private readonly List<IDisposable> _deckRowZoneTokens = new();
+
     // ===== UI 控件 =====
 
     private Button _backButton = null!;
@@ -41,6 +44,8 @@ public partial class CollectionUI : Control
     private CardGrid _cardGrid = null!;
     private FileDialog _fileDialog = null!;
     private Label _minCardsWarning = null!;
+    private Control _cardPreviewOverlay = null!;
+    private bool _hasCardPreviewOverlay;
 
     /// <summary>
     /// 飞入动画层：用于卡牌从网格飞到牌组列表的临时卡片。
@@ -106,6 +111,7 @@ public partial class CollectionUI : Control
         GD.Print("[CollectionUI] _Ready — 初始化牌组编辑界面");
 
         SetupUI();
+        SetProcessInput(true);
         CaptureCheckpoint();
         RefreshAll();
 
@@ -128,10 +134,58 @@ public partial class CollectionUI : Control
     public override void _Input(InputEvent @event)
     {
         if (SceneLifecycleGuard.ShouldSkip(this)) return;
+
+        if (!MobileInputRouter.IsMobile)
+        {
+            HandleDesktopDeckDragInput(@event);
+            return;
+        }
+
         if (!MobileInputHelper.IsMobile)
             return;
 
         // 触控已迁移至 MobileInputRouter.RegisterTapZone
+    }
+
+    private void HandleDesktopDeckDragInput(InputEvent @event)
+    {
+        if (_deckDraggingCardData == null)
+            return;
+
+        if (@event is InputEventMouseMotion)
+        {
+            Vector2 mousePos = GetViewport().GetMousePosition();
+            float dist = mousePos.DistanceTo(_deckDragStartPos);
+            if (dist > DeckDragThreshold && !_deckIsDragging)
+            {
+                _deckIsDragging = true;
+                StartDeckDragClone(_deckDraggingCardData, _deckDragStartPos);
+            }
+
+            if (_deckIsDragging && _deckDragClone != null)
+            {
+                _deckDragClone.GlobalPosition = mousePos - (_deckDragClone.Size / 2);
+                GetViewport().SetInputAsHandled();
+            }
+        }
+        else if (@event is InputEventMouseButton mb
+            && mb.ButtonIndex == MouseButton.Left
+            && !mb.Pressed)
+        {
+            if (_deckIsDragging)
+            {
+                Vector2 dropPos = GetViewport().GetMousePosition();
+                Rect2 gridRect = new(_cardGrid.GlobalPosition, _cardGrid.Size);
+                if (gridRect.HasPoint(dropPos))
+                {
+                    OnDeckCardRemoveClicked(_deckDraggingCardData);
+                }
+                CleanupDeckDrag();
+                GetViewport().SetInputAsHandled();
+            }
+
+            _deckDraggingCardData = null;
+        }
     }
 
     private static void CycleOptionButton(OptionButton optionButton, Action<long> onSelected)
@@ -157,6 +211,9 @@ public partial class CollectionUI : Control
             token.Dispose();
         }
         _zoneTokens.Clear();
+
+        ClearDeckRowMobileZones();
+        CloseCardPreview();
 
         if (GameManager.Instance != null)
         {
@@ -723,6 +780,7 @@ public partial class CollectionUI : Control
         };
         _cardGrid.OnCardClicked += OnCardGridCardClicked;
         _cardGrid.OnCardDragCompleted += OnCardGridDragCompleted;
+        _cardGrid.OnCardLongPressed += ShowCardPreview;
         contentSplit.AddChild(_cardGrid);
 
         // ===== 飞入动画层（最高 ZIndex） =====
@@ -848,6 +906,8 @@ public partial class CollectionUI : Control
     {
         float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
 
+        ClearDeckRowMobileZones();
+
         // 清除旧条目
         foreach (var child in _deckCardList.GetChildren())
         {
@@ -939,6 +999,11 @@ public partial class CollectionUI : Control
 
             row.GuiInput += (InputEvent @event) =>
             {
+                if (MobileInputRouter.IsMobile)
+                {
+                    return;
+                }
+
                 if (MobileInputHelper.IsMobile)
                 {
                     if (@event is InputEventScreenTouch touch)
@@ -1020,8 +1085,50 @@ public partial class CollectionUI : Control
                 }
             };
 
+            if (MobileInputRouter.IsMobile)
+            {
+                _deckRowZoneTokens.Add(MobileInputRouter.Instance.RegisterDragZone(
+                    row,
+                    row.GetGlobalRect(),
+                    priority: 260,
+                    onTap: () => OnDeckCardRemoveClicked(cardData),
+                    onDragStart: startPos =>
+                    {
+                        _deckDraggingCardData = cardData;
+                        _deckDragStartPos = startPos;
+                        _deckIsDragging = true;
+                        StartDeckDragClone(cardData, startPos);
+                    },
+                    onDragMove: (pos, _) =>
+                    {
+                        if (_deckDragClone != null)
+                        {
+                            _deckDragClone.GlobalPosition = pos - (_deckDragClone.Size / 2);
+                        }
+                    },
+                    onDragEnd: dropPos =>
+                    {
+                        Rect2 gridRect = new(_cardGrid.GlobalPosition, _cardGrid.Size);
+                        if (_deckDraggingCardData != null && gridRect.HasPoint(dropPos))
+                        {
+                            OnDeckCardRemoveClicked(_deckDraggingCardData);
+                        }
+                        _deckDraggingCardData = null;
+                        CleanupDeckDrag();
+                    }));
+            }
+
             _deckCardList.AddChild(row);
         }
+    }
+
+    private void ClearDeckRowMobileZones()
+    {
+        foreach (var token in _deckRowZoneTokens)
+        {
+            token.Dispose();
+        }
+        _deckRowZoneTokens.Clear();
     }
 
     /// <summary>
@@ -1250,6 +1357,89 @@ public partial class CollectionUI : Control
             RefreshTopBar();
             RefreshDeckList();
         }));
+    }
+
+    /// <summary>
+    /// 移动端长按卡牌时显示居中大图预览。轻触遮罩关闭。
+    /// </summary>
+    private void ShowCardPreview(CardData cardData)
+    {
+        if (cardData == null) return;
+
+        CloseCardPreview();
+
+        Vector2 viewportSize = GetViewportRect().Size;
+        var overlay = new Control
+        {
+            Name = "CardPreviewOverlay",
+            MouseFilter = MouseFilterEnum.Stop,
+            ZIndex = 500,
+        };
+        overlay.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+
+        var dim = new ColorRect
+        {
+            Color = new Color(0, 0, 0, 0.72f),
+            MouseFilter = MouseFilterEnum.Stop,
+        };
+        dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        overlay.AddChild(dim);
+
+        float uiScale = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+        Vector2 cardBaseSize = new(CardUI.DESIGN_WIDTH * uiScale, CardUI.DESIGN_HEIGHT * uiScale);
+        float previewHeight = Mathf.Min(viewportSize.Y * 0.86f, 430f * uiScale);
+        float previewWidth = previewHeight * (CardUI.DESIGN_WIDTH / CardUI.DESIGN_HEIGHT);
+        if (previewWidth > viewportSize.X * 0.72f)
+        {
+            previewWidth = viewportSize.X * 0.72f;
+            previewHeight = previewWidth * (CardUI.DESIGN_HEIGHT / CardUI.DESIGN_WIDTH);
+        }
+
+        Vector2 previewSize = new(previewWidth, previewHeight);
+        float previewScale = previewHeight / cardBaseSize.Y;
+        var previewCard = new CardUI
+        {
+            DisplayOnly = true,
+            CustomMinimumSize = cardBaseSize,
+            Size = cardBaseSize,
+            Scale = Vector2.One * previewScale,
+            GlobalPosition = (viewportSize - previewSize) / 2f,
+        };
+        previewCard.SetCard(new OdysseyCards.Card.Card(cardData));
+        overlay.AddChild(previewCard);
+
+        overlay.GuiInput += @event =>
+        {
+            if (@event is InputEventMouseButton { Pressed: true }
+                || @event is InputEventScreenTouch { Pressed: true })
+            {
+                CloseCardPreview();
+                overlay.AcceptEvent();
+            }
+        };
+
+        _cardPreviewOverlay = overlay;
+        _hasCardPreviewOverlay = true;
+        AddChild(overlay);
+
+        if (MobileInputRouter.IsMobile)
+        {
+            MobileInputRouter.Instance.PushModalLayer(overlay);
+        }
+    }
+
+    private void CloseCardPreview()
+    {
+        if (!_hasCardPreviewOverlay) return;
+
+        if (MobileInputRouter.IsMobile)
+        {
+            MobileInputRouter.Instance.PopModalLayer(_cardPreviewOverlay);
+        }
+
+        _cardPreviewOverlay.QueueFree();
+        _hasCardPreviewOverlay = false;
+        _cardPreviewOverlay = null;
     }
 
     private void StartDeckDragClone(CardData cardData, Vector2 startScreenPos)
