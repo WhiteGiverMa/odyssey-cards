@@ -7,7 +7,8 @@ trim_trailing_whitespace = true
 insert_final_newline = true
 indent_style = space
 
-[*.{cs,json,tscn,tres,gd}]
+[*.{cs,tscn,tres,gd}]
+indent_style = tab
 indent_size = 4
 
 [*.cs]
@@ -507,6 +508,7 @@ dotnet_diagnostic.CA2265.severity = warning
 dotnet_diagnostic.CS1591.severity = none
 
 [*.json]
+indent_style = space
 indent_size = 2
 
 [*.{tscn,tres}]
