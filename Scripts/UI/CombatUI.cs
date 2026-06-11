@@ -802,20 +802,26 @@ public partial class CombatUI : Control
 		_unsubscribeActions.Add(() => _heroPowerButton.Pressed -= OnHeroPowerPressed);
 
 		// 敌方身份卡点击攻击（按钮 + 整个卡片覆盖层）
+		// 每个敌人独立创建闭包，捕获 enemyIndex 传递给统一分发入口
 		_enemyHeroCardAction = OnEnemyHeroAttackPressed;
 		foreach (var enemyCard in _enemyCards)
 		{
-			enemyCard.AttackButton.Pressed += OnEnemyHeroCardActionPressed;
-			enemyCard.OnAttackTargetClicked += OnEnemyHeroCardActionPressed;
-			_unsubscribeActions.Add(() => enemyCard.AttackButton.Pressed -= OnEnemyHeroCardActionPressed);
-			_unsubscribeActions.Add(() => enemyCard.OnAttackTargetClicked -= OnEnemyHeroCardActionPressed);
+			int idx = enemyCard.EnemyIndex;
+			void OnAttackButton() => OnEnemyHeroCardActionPressed(idx);
+			void OnAttackOverlay(int _) => OnEnemyHeroCardActionPressed(idx);
+			enemyCard.AttackButton.Pressed += OnAttackButton;
+			enemyCard.OnAttackTargetClicked += OnAttackOverlay;
+			_unsubscribeActions.Add(() => enemyCard.AttackButton.Pressed -= OnAttackButton);
+			_unsubscribeActions.Add(() => enemyCard.OnAttackTargetClicked -= OnAttackOverlay);
 		}
 
-		// 对敌方英雄施法按钮
+		// 对敌方英雄施法按钮 — 每个敌人独立闭包，捕获 enemyIndex
 		foreach (var enemyCard in _enemyCards)
 		{
-			enemyCard.SpellButton.Pressed += OnEnemyHeroSpellTarget;
-			_unsubscribeActions.Add(() => enemyCard.SpellButton.Pressed -= OnEnemyHeroSpellTarget);
+			int idx = enemyCard.EnemyIndex;
+			void OnSpellButton() => OnEnemyHeroSpellTargetForIndex(idx);
+			enemyCard.SpellButton.Pressed += OnSpellButton;
+			_unsubscribeActions.Add(() => enemyCard.SpellButton.Pressed -= OnSpellButton);
 		}
 
 		// 对己方英雄施法按钮

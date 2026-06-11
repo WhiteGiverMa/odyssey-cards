@@ -125,7 +125,7 @@ public class Cosmonaut : EnemyEncounter
 			int rawDmg = 10 + Attack;
 			if (target is Minion minionTarget)
 			{
-				combat.TriggerBaitTacticsOnAttacked(minionTarget);
+				combat.TriggerBaitTacticsOnAttacked(minionTarget, self);
 				bool ambush = minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
 				if (ambush)
 					minionTarget.AmbushUsedThisTurn = true;
@@ -258,25 +258,26 @@ public class Cosmonaut : EnemyEncounter
 
 	/// <summary>
 	/// 应用宇宙冷漠领域——使「解释」费用+1。
-	/// 叠加多层时费用叠加。
+	/// 叠加多层时费用叠加。多敌人时对全部存活敌人均生效。
 	/// </summary>
 	private static void ApplyCosmicColdness(CombatManager combat, int stacks)
 	{
-		var enemyHero = combat.GetDefaultEnemyTargetUnit()?.Body;
-		if (enemyHero == null)
-			return;
-		var effectData = new CardEffectData
+		foreach (var unit in combat.EnemyUnits)
 		{
-			EffectType = CardEffectType.Custom,
-			CustomEffectName = "CosmicColdness",
-			Value = stacks,
-		};
+			if (unit.Body.IsDead)
+				continue;
+			var effectData = new CardEffectData
+			{
+				EffectType = CardEffectType.Custom,
+				CustomEffectName = "CosmicColdness",
+				Value = stacks,
+			};
+			unit.Body.AddDomain("cosmic_coldness", effectData);
+			GD.Print($"[Cosmonaut] 宇宙冷漠领域：{unit.Brain.Name} 的「解释」费用+{stacks}");
+		}
 
-		enemyHero.AddDomain("cosmic_coldness", effectData);
-		GD.Print($"[宇宙员] 获得宇宙冷漠 ×{stacks}（解释费用+{stacks}）");
-
-		// 更新所有「解释」卡牌的费用
-		UpdateExplainCostModifiers(combat, enemyHero);
+		// 汇总所有敌人宇宙冷漠的总层数，更新全部「解释」卡牌的费用
+		UpdateExplainCostModifiers(combat);
 	}
 
 	/// <summary>
@@ -344,11 +345,15 @@ public class Cosmonaut : EnemyEncounter
 	/// 更新所有「解释」卡牌的费用修改器。
 	/// 每次宇宙冷漠层数变化时调用。
 	/// </summary>
-	private static void UpdateExplainCostModifiers(CombatManager combat, Hero enemyHero)
+	private static void UpdateExplainCostModifiers(CombatManager combat)
 	{
+		// 汇总所有敌人宇宙冷漠的总层数
 		int totalStacks = 0;
-		if (enemyHero.ActiveDomains.TryGetValue("cosmic_coldness", out var domain))
-			totalStacks = domain.StackCount;
+		foreach (var unit in combat.EnemyUnits)
+		{
+			if (!unit.Body.IsDead && unit.Body.ActiveDomains.TryGetValue("cosmic_coldness", out var domain))
+				totalStacks += domain.StackCount;
+		}
 
 		// 扫描所有区域
 		UpdateCardsInList(combat.PlayerHero.Hand, totalStacks);

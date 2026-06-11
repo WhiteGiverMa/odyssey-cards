@@ -203,8 +203,9 @@ public class IonPulse : IWeaponActive
 		}
 		else
 		{
-			// 对敌方英雄：禁用武器（原行为）
-			var enemy = combat.GetDefaultEnemyTargetUnit()?.Body;
+			// 对敌方英雄：禁用武器
+			// 优先使用 combat 传入的具体目标，回退到首个存活敌人（向后兼容）
+			var enemy = (target as Hero) ?? combat.GetDefaultEnemyTargetUnit()?.Body;
 			if (enemy == null)
 				return;
 

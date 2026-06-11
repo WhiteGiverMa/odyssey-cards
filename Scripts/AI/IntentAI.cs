@@ -412,7 +412,7 @@ public abstract class EnemyEncounter
 
 		if (target is Minion minionTarget)
 		{
-			combat.TriggerBaitTacticsOnAttacked(minionTarget);
+			combat.TriggerBaitTacticsOnAttacked(minionTarget, self);
 
 			// 伏击检查：随从有伏击且本回合未消耗时，先手伤害有击杀取消效果
 			bool ambush = minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;

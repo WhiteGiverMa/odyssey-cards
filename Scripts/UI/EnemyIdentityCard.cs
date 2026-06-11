@@ -37,8 +37,8 @@ public partial class EnemyIdentityCard : Panel
 	private readonly StyleBoxFlat _attackBorderStyle;
 	private bool _isAttackTarget;
 
-	/// <summary>攻击目标模式下点击卡片时触发。</summary>
-	public event Action? OnAttackTargetClicked;
+	/// <summary>攻击目标模式下点击卡片时触发。参数为当前敌人索引。</summary>
+	public event Action<int>? OnAttackTargetClicked;
 
 	// Colors
 	private static readonly Color _nameColor = new(1f, 0.5f, 0.5f);
@@ -368,7 +368,7 @@ public partial class EnemyIdentityCard : Panel
 			&& mouseBtn.ButtonIndex == MouseButton.Left
 			&& mouseBtn.Pressed)
 		{
-			OnAttackTargetClicked?.Invoke();
+			OnAttackTargetClicked?.Invoke(EnemyIndex);
 		}
 	}
 

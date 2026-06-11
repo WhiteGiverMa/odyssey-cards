@@ -41,6 +41,12 @@ public partial class CombatUI
 		DevDamageTargeting,
 	}
 
+	/// <summary>
+	/// 当前被选中为攻击/施法目标的敌人索引。用于点击敌方身份卡时分发正确的目标。
+	/// -1 表示未选中任何敌人。
+	/// </summary>
+	private int _activeEnemyTargetIndex = -1;
+
 	// ===== 事件处理——棋盘点击 =====
 
 	/// <summary>
@@ -594,8 +600,8 @@ public partial class CombatUI
 		int spellTargetIndex = GetEnemyCardIndexAt(screenPos, requireSpellButtonVisible: true);
 		if (spellTargetIndex >= 0)
 		{
-			GD.Print("[CombatUI] 法术松手位置：敌方英雄");
-			OnEnemyHeroSpellTarget();
+			GD.Print($"[CombatUI] 法术松手位置：敌方英雄[{spellTargetIndex}]");
+			OnEnemyHeroSpellTargetForIndex(spellTargetIndex);
 			return;
 		}
 
@@ -667,15 +673,20 @@ public partial class CombatUI
 		{
 			HandleAttackTarget(hit.Value.slotIndex, hit.Value.isPlayerSide);
 		}
-		else if (GetEnemyCardIndexAt(screenPos, requireAttackHighlight: true) >= 0)
-		{
-			OnEnemyHeroAttackPressed();
-		}
 		else
 		{
-			GD.Print("[CombatUI] 攻击松手位置无效，取消选择");
-			ResetSelection();
-			_handUI.RefreshHand();
+			int attackTargetIndex = GetEnemyCardIndexAt(screenPos, requireAttackHighlight: true);
+			if (attackTargetIndex >= 0)
+			{
+				_activeEnemyTargetIndex = attackTargetIndex;
+				OnEnemyHeroAttackPressed();
+			}
+			else
+			{
+				GD.Print("[CombatUI] 攻击松手位置无效，取消选择");
+				ResetSelection();
+				_handUI.RefreshHand();
+			}
 		}
 	}
 
@@ -825,6 +836,9 @@ public partial class CombatUI
 		var enemyHero = GetDefaultEnemyHeroTarget();
 		bool enemyHeroValid = enemyHero != null && TargetTagsHelper.IsValidTarget(enemyHero.GetTargetTags(), require, exclude);
 		SetEnemyHeroSpellTargetsVisible(enemyHeroValid, Loc.T("ui.combat.cast_on_enemy_hero", "对敌方英雄施放"));
+		// 法术模式下覆盖层点击路由到法术目标选择
+		if (enemyHeroValid)
+			_enemyHeroCardAction = OnEnemyHeroSpellTargetViaOverlay;
 
 		// 高亮己方英雄作为法术目标
 		_playerHeroSpellButton.Visible = TargetTagsHelper.IsValidTarget(
@@ -909,8 +923,9 @@ public partial class CombatUI
 		}
 	}
 
-	private void OnEnemyHeroCardActionPressed()
+	private void OnEnemyHeroCardActionPressed(int enemyIndex)
 	{
+		_activeEnemyTargetIndex = enemyIndex;
 		_enemyHeroCardAction?.Invoke();
 	}
 
@@ -933,20 +948,21 @@ public partial class CombatUI
 
 	private void SetEnemyHeroAttackTargetsVisible(bool visible)
 	{
-		int targetIndex = visible ? GetDefaultEnemyTargetIndex() : -1;
 		for (int i = 0; i < _enemyCards.Count; i++)
-			_enemyCards[i].SetAttackTargetHighlight(i == targetIndex);
+			_enemyCards[i].SetAttackTargetHighlight(visible && !_combat.EnemyUnits[i].Body.IsDead);
 	}
 
 	private void SetEnemyHeroSpellTargetsVisible(bool visible, string text)
 	{
-		int targetIndex = visible ? GetDefaultEnemyTargetIndex() : -1;
 		for (int i = 0; i < _enemyCards.Count; i++)
 		{
+			bool isAlive = !_combat.EnemyUnits[i].Body.IsDead;
 			var button = _enemyCards[i].SpellButton;
 			button.Text = text;
-			button.Visible = i == targetIndex;
-			button.Disabled = i != targetIndex;
+			button.Visible = visible && isAlive;
+			button.Disabled = !visible || !isAlive;
+			// 法术/开发者伤害模式下也显示绿色高亮，与攻击/武器/主动技能模式一致
+			_enemyCards[i].SetAttackTargetHighlight(visible && isAlive);
 		}
 	}
 
@@ -980,27 +996,45 @@ public partial class CombatUI
 			return;
 		}
 
-		var target = GetDefaultEnemyHeroTarget();
+		var target = GetActiveEnemyHeroTarget();
 		if (target == null)
 			return;
 
-		GD.Print($"[CombatUI] {_selectedAttacker.CardName} 攻击敌方英雄");
+		GD.Print($"[CombatUI] {_selectedAttacker.CardName} 攻击敌方英雄[{_activeEnemyTargetIndex}]");
 		_combat.MinionAttackHero(_selectedAttacker, target);
 		RefreshAll();
 	}
 
 	/// <summary>
+	/// 获取当前被选中为攻击/施法目标的敌方英雄。
+	/// 优先使用 _activeEnemyTargetIndex；回退到首个存活敌人。
+	/// </summary>
+	private Hero? GetActiveEnemyHeroTarget()
+	{
+		if (_activeEnemyTargetIndex >= 0 && _activeEnemyTargetIndex < _combat.EnemyUnits.Count)
+		{
+			var unit = _combat.EnemyUnits[_activeEnemyTargetIndex];
+			if (!unit.Body.IsDead)
+				return unit.Body;
+		}
+		return GetDefaultEnemyHeroTarget();
+	}
+
+	/// <summary>
 	/// 对敌方英雄施法按钮点击——执行法术对敌方英雄施放。
 	/// </summary>
-	private void OnEnemyHeroSpellTarget()
+	/// <param name="enemyIndex">法术目标敌人索引（来自闭包捕获的 EnemyIdentityCard.EnemyIndex）</param>
+	private void OnEnemyHeroSpellTargetForIndex(int enemyIndex)
 	{
 		if (_combat.State.IsGameOver)
 			return;
 
+		_activeEnemyTargetIndex = enemyIndex;
+
 		// 开发者伤害模式：对敌方英雄造成伤害
 		if (_selectionMode == SelectionMode.DevDamageTargeting)
 		{
-			var devTarget = GetDefaultEnemyHeroTarget();
+			var devTarget = GetActiveEnemyHeroTarget();
 			if (devTarget == null)
 				return;
 
@@ -1016,13 +1050,22 @@ public partial class CombatUI
 			return;
 		}
 
-		var target = GetDefaultEnemyHeroTarget();
+		var target = GetActiveEnemyHeroTarget();
 		if (target == null)
 			return;
 
-		GD.Print($"[CombatUI] 对敌方英雄施放 {_selectedCard.CardName}");
+		GD.Print($"[CombatUI] 对敌方英雄[{enemyIndex}]施放 {_selectedCard.CardName}");
 		_combat.PlaySpell(_selectedCard, target);
 		RefreshAll();
+	}
+
+	/// <summary>
+	/// 法术模式下覆盖层点击路由——由 EnemyIdentityCard 的 OnAttackTargetClicked 触发，
+	/// 经 OnEnemyHeroCardActionPressed 存储 _activeEnemyTargetIndex 后调用。
+	/// </summary>
+	private void OnEnemyHeroSpellTargetViaOverlay()
+	{
+		OnEnemyHeroSpellTargetForIndex(_activeEnemyTargetIndex);
 	}
 
 	/// <summary>
@@ -1145,12 +1188,12 @@ public partial class CombatUI
 		if (_combat.State.IsGameOver)
 			return;
 
-		GD.Print("[CombatUI] 主动技能目标：敌方英雄");
+		GD.Print($"[CombatUI] 主动技能目标：敌方英雄[{_activeEnemyTargetIndex}]");
 
 		_enemyHeroCardAction = OnEnemyHeroAttackPressed;
 
-		// 目标为 null 表示对英雄释放（IonPulse 的默认行为）
-		_combat.ActiveSkillTarget = null;
+		// 目标设为具体敌人英雄（不再为 null，支持多敌人场景）
+		_combat.ActiveSkillTarget = GetActiveEnemyHeroTarget();
 		_combat.UseWeaponActiveSkill();
 		RefreshAll();
 	}
@@ -1210,11 +1253,11 @@ public partial class CombatUI
 	{
 		if (_combat.State.IsGameOver)
 			return;
-		var target = GetDefaultEnemyHeroTarget();
+		var target = GetActiveEnemyHeroTarget();
 		if (target == null)
 			return;
 
-		GD.Print("[CombatUI] 武器攻击敌方英雄");
+		GD.Print($"[CombatUI] 武器攻击敌方英雄[{_activeEnemyTargetIndex}]");
 		_combat.HeroWeaponAttackHero(target);
 		_enemyHeroCardAction = OnEnemyHeroAttackPressed;
 
@@ -1255,6 +1298,7 @@ public partial class CombatUI
 
 		// 敌方英雄按钮
 		SetEnemyHeroSpellTargetsVisible(true, $"⚡ 对敌方英雄造成 {damageAmount} 点伤害");
+		_enemyHeroCardAction = OnEnemyHeroSpellTargetViaOverlay;
 
 		// 启用键盘目标选择（双方槽位）
 		_boardUI.EnableKeyboardTargeting(includePlayerSlots: true, includeEnemySlots: true);
@@ -1377,7 +1421,8 @@ public partial class CombatUI
 			Minion m => m.BoardSlotIndex >= 0
 				? _boardUI.GetSlotScreenCenter(m.BoardSlotIndex, m.IsPlayerSide)
 				: Vector2.Zero,
-			Hero h => h.IsPlayerSide ? GetPlayerHeroScreenCenter() : GetEnemyIdentityCardCenter(GetEnemyHeroIndex(h)),
+			Hero h => h.IsPlayerSide ? GetPlayerHeroScreenCenter() :
+			          GetEnemyHeroIndex(h) is var idx && idx >= 0 ? GetEnemyIdentityCardCenter(idx) : Vector2.Zero,
 			_ => Vector2.Zero
 		};
 	}
@@ -1387,11 +1432,11 @@ public partial class CombatUI
 	/// </summary>
 	private int GetEnemyHeroIndex(Hero hero)
 	{
-		if (_combat == null) return 0;
+		if (_combat == null) return -1;
 		for (int i = 0; i < _combat.EnemyUnits.Count; i++)
 			if (_combat.EnemyUnits[i].Body == hero)
 				return i;
-		return 0;
+		return -1; // 未找到时返回 -1 而非 0，避免错误指向首个敌人
 	}
 
 	// ===== 选择状态管理 =====

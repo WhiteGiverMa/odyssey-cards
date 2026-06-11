@@ -529,7 +529,7 @@ public partial class CombatManager : Node
 			_deathHandler,
 			NotifyCombatStateChanged,
 			() => IsDiscovering,
-			TriggerBaitTacticsOnAttacked,
+			(m) => TriggerBaitTacticsOnAttacked(m, null),
 			(won) => OnGameOver?.Invoke(won),
 			this);
 		_domainTriggerManager = new DomainTriggerManager(
@@ -1158,21 +1158,30 @@ public partial class CombatManager : Node
 
 	/// <summary>
 	/// 处理随从成为攻击目标时的触发效果。
-	/// 「诱饵战术」总是降低玩家敌方英雄的防御力，不根据被攻击随从阵营改向。
+	/// 「诱饵战术」始终降低攻击方敌人的防御力。
 	/// </summary>
 	/// <param name="target">被攻击的随从</param>
-	internal void TriggerBaitTacticsOnAttacked(Minion target)
+	/// <param name="attackerHero">攻击方英雄（AI 大脑/意图攻击时传入），为 null 时回退到首个存活敌人</param>
+	internal void TriggerBaitTacticsOnAttacked(Minion target, Hero? attackerHero = null)
 	{
 		if (!target.HasBaitTacticsOnAttacked)
 			return;
 
-		var enemyUnit = GetDefaultEnemyTargetUnit();
-		if (enemyUnit == null)
-			return;
-
-		var enemyBody = enemyUnit.Body;
-		enemyBody.ModifyDefense(-1);
-		GD.Print($"[CombatManager] ◆ 诱饵战术触发：{target.CardName} 受到攻击，敌方英雄防御力-1（当前 {enemyBody.Defense}）");
+		// 优先降低具体攻击方英雄的防御力；否则回退到首个存活敌人（如随从互殴场景）
+		if (attackerHero != null && !attackerHero.IsPlayerSide)
+		{
+			attackerHero.ModifyDefense(-1);
+			GD.Print($"[CombatManager] ◆ 诱饵战术触发：{target.CardName} 受到敌方英雄攻击，该英雄防御力-1（当前 {attackerHero.Defense}）");
+		}
+		else
+		{
+			var enemyUnit = GetDefaultEnemyTargetUnit();
+			if (enemyUnit == null)
+				return;
+			var enemyBody = enemyUnit.Body;
+			enemyBody.ModifyDefense(-1);
+			GD.Print($"[CombatManager] ◆ 诱饵战术触发：{target.CardName} 受到攻击，敌方英雄防御力-1（当前 {enemyBody.Defense}）");
+		}
 	}
 
 	/// <summary>

@@ -154,7 +154,7 @@ public class ShanHu : EnemyEncounter
 			GD.Print($"[珊胡] 多段攻击 {i + 1}/{hits}");
 			if (target is Minion m)
 			{
-				combat.TriggerBaitTacticsOnAttacked(m);
+				combat.TriggerBaitTacticsOnAttacked(m, self);
 
 				bool ambush = m.HasAmbush && !m.AmbushUsedThisTurn;
 				if (ambush)
