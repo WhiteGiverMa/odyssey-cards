@@ -23,7 +23,9 @@ internal static class CombatRuntimeQa
 			return "诱饵战术QA失败：无法加载所需卡牌资源";
 
 		cm.PlayerHero.GainMana(20);
-		var enemyHero = cm.EnemyUnits[0].Body;
+		var enemyHero = cm.GetDefaultEnemyTargetUnit()?.Body;
+		if (enemyHero == null)
+			return "诱饵战术QA失败：没有存活的敌方英雄";
 		int initialDefense = enemyHero.Defense;
 
 		var friendlyTarget = new Minion(playerMinionData, isPlayerSide: true);

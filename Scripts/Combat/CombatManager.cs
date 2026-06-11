@@ -68,6 +68,14 @@ public partial class CombatManager : Node
 	public IReadOnlyList<EnemyUnit> EnemyUnits { get; private set; } = new List<EnemyUnit>();
 
 	/// <summary>
+	/// 获取当前默认敌方英雄目标：第一个仍存活的敌方单位。
+	/// </summary>
+	public EnemyUnit GetDefaultEnemyTargetUnit()
+	{
+		return EnemyUnits.FirstOrDefault(unit => !unit.Body.IsDead);
+	}
+
+	/// <summary>
 	/// 武器主动技能的目标。IonPulse 等需要选择目标的主动技能在 Execute 时读取此属性。
 	/// 由 CombatUI 在进入技能目标选择模式时设置，Execute 完成后清除。
 	/// </summary>
@@ -1153,7 +1161,11 @@ public partial class CombatManager : Node
 		if (!target.HasBaitTacticsOnAttacked)
 			return;
 
-		var enemyBody = EnemyUnits[0].Body;
+		var enemyUnit = GetDefaultEnemyTargetUnit();
+		if (enemyUnit == null)
+			return;
+
+		var enemyBody = enemyUnit.Body;
 		enemyBody.ModifyDefense(-1);
 		GD.Print($"[CombatManager] ◆ 诱饵战术触发：{target.CardName} 受到攻击，敌方英雄防御力-1（当前 {enemyBody.Defense}）");
 	}
@@ -1970,7 +1982,8 @@ public partial class CombatManager : Node
 	{
 		GD.Print($"[CombatManager] 奇巧施放法术「{card.CardName}」");
 		// 默认目标：敌方英雄
-		Hero? target = EnemyUnits.Count > 0 ? EnemyUnits[0].Body : null;
+		var enemyUnit = GetDefaultEnemyTargetUnit();
+		Hero? target = enemyUnit?.Body;
 		if (target == null)
 		{
 			GD.Print($"[CombatManager] 奇巧法术无有效目标");

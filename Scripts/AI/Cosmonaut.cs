@@ -4,7 +4,6 @@ using OdysseyCards.AI.Intents;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
-using OdysseyCards.Character;
 
 #pragma warning disable CS0618
 
@@ -263,7 +262,9 @@ public class Cosmonaut : EnemyEncounter
 	/// </summary>
 	private static void ApplyCosmicColdness(CombatManager combat, int stacks)
 	{
-		var enemyHero = combat.EnemyUnits[0].Body;
+		var enemyHero = combat.GetDefaultEnemyTargetUnit()?.Body;
+		if (enemyHero == null)
+			return;
 		var effectData = new CardEffectData
 		{
 			EffectType = CardEffectType.Custom,
