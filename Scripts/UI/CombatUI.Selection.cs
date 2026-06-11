@@ -1377,9 +1377,21 @@ public partial class CombatUI
 			Minion m => m.BoardSlotIndex >= 0
 				? _boardUI.GetSlotScreenCenter(m.BoardSlotIndex, m.IsPlayerSide)
 				: Vector2.Zero,
-			Hero h => h.IsPlayerSide ? GetPlayerHeroScreenCenter() : GetEnemyIdentityCardCenter(0),
+			Hero h => h.IsPlayerSide ? GetPlayerHeroScreenCenter() : GetEnemyIdentityCardCenter(GetEnemyHeroIndex(h)),
 			_ => Vector2.Zero
 		};
+	}
+
+	/// <summary>
+	/// 根据 Hero 实例查找其在 EnemyUnits 中的索引，用于跳字/箭头等视觉定位。
+	/// </summary>
+	private int GetEnemyHeroIndex(Hero hero)
+	{
+		if (_combat == null) return 0;
+		for (int i = 0; i < _combat.EnemyUnits.Count; i++)
+			if (_combat.EnemyUnits[i].Body == hero)
+				return i;
+		return 0;
 	}
 
 	// ===== 选择状态管理 =====
