@@ -21,8 +21,10 @@ public class DamageCommand : DevConsoleCommand
 		if (cm == null)
 			return CommandResult.Fail("未在战斗中");
 		int n = args.Length > 0 && int.TryParse(args[0], out var v) ? v : 1;
-		var enemyHero = cm.EnemyUnits[0].Body;
-		enemyHero.TakeDamage(n, null);
+		var enemyHero = cm.GetDefaultEnemyTargetUnit()?.Body;
+		if (enemyHero == null)
+			return CommandResult.Fail("没有存活的敌方英雄");
+		enemyHero.ApplyDevDamage(n);
 		cm.CheckVictoryOrDefeat();
 		RefreshCombatUI(cm);
 		return CommandResult.Ok($"对敌方英雄造成 {n} 点伤害（剩余 {enemyHero.CurrentHealth}）");
@@ -41,8 +43,10 @@ public class DamageEnemyCommand : DevConsoleCommand
 		if (cm == null)
 			return CommandResult.Fail("未在战斗中");
 		int n = args.Length > 0 && int.TryParse(args[0], out var v) ? v : 1;
-		var enemyHero = cm.EnemyUnits[0].Body;
-		enemyHero.TakeDamage(n, null);
+		var enemyHero = cm.GetDefaultEnemyTargetUnit()?.Body;
+		if (enemyHero == null)
+			return CommandResult.Fail("没有存活的敌方英雄");
+		enemyHero.ApplyDevDamage(n);
 		cm.CheckVictoryOrDefeat();
 		RefreshCombatUI(cm);
 		return CommandResult.Ok($"对敌方英雄造成 {n} 点伤害（剩余 {enemyHero.CurrentHealth}）");
@@ -61,7 +65,7 @@ public class DamageSelfCommand : DevConsoleCommand
 		if (cm == null)
 			return CommandResult.Fail("未在战斗中");
 		int n = args.Length > 0 && int.TryParse(args[0], out var v) ? v : 1;
-		cm.PlayerHero.TakeDamage(n, null);
+		cm.PlayerHero.ApplyDevDamage(n);
 		cm.CheckVictoryOrDefeat();
 		RefreshCombatUI(cm);
 		return CommandResult.Ok($"对己方英雄造成 {n} 点伤害（剩余 {cm.PlayerHero.CurrentHealth}）");
@@ -87,7 +91,7 @@ public class DamageESlotCommand : DevConsoleCommand
 		var m = cm.Board.GetMinionAt(slot, isPlayerSide: false);
 		if (m == null || m.IsDead)
 			return CommandResult.Fail($"敌方槽位 {slot} 无有效随从");
-		m.TakeDamage(dmg, null);
+		m.ApplyDevDamage(dmg);
 		string msg = $"对敌方槽位{slot} {m.CardName} 造成 {dmg} 点伤害（剩余 {m.CurrentHealth}）";
 		if (m.IsDead)
 			cm.Board.RemoveMinion(m);
@@ -117,7 +121,7 @@ public class DamagePSlotCommand : DevConsoleCommand
 		var m = cm.Board.GetMinionAt(slot, isPlayerSide: true);
 		if (m == null || m.IsDead)
 			return CommandResult.Fail($"己方槽位 {slot} 无有效随从");
-		m.TakeDamage(dmg, null);
+		m.ApplyDevDamage(dmg);
 		string msg = $"对己方槽位{slot} {m.CardName} 造成 {dmg} 点伤害（剩余 {m.CurrentHealth}）";
 		if (m.IsDead)
 			cm.Board.RemoveMinion(m);
@@ -142,7 +146,7 @@ public class DamageAllCommand : DevConsoleCommand
 		int n = args.Length > 0 && int.TryParse(args[0], out var v) ? v : 1;
 		var enemies = cm.Board.GetEnemyMinions().Where(m => !m.IsDead).ToList();
 		foreach (var e in enemies)
-		{ e.TakeDamage(n, null); if (e.IsDead) cm.Board.RemoveMinion(e); }
+		{ e.ApplyDevDamage(n); if (e.IsDead) cm.Board.RemoveMinion(e); }
 		cm.CheckDeaths();
 		cm.CheckVictoryOrDefeat();
 		RefreshCombatUI(cm);
