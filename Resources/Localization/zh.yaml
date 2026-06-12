@@ -18,6 +18,13 @@ ui:
     ok: "确定"
   settings:
     title: "设置"
+    tab_display: "显示"
+    tab_game: "游戏"
+    tab_keybinds: "键位"
+    section_basic: "基础"
+    section_visual: "卡牌视觉"
+    section_emote: "表情"
+    section_developer: "开发者"
     language: "语言"
     resolution: "分辨率"
     window_mode: "窗口模式"

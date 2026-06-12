@@ -3,6 +3,7 @@ using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
 using System;
 using System.Collections.Generic;
+using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.UI;
 
@@ -12,9 +13,13 @@ public partial class SettingsPage : Control
 
 	// ===== Tab 切换 =====
 
-	private Button _generalTabBtn = null!;
+	private Button _displayTabBtn = null!;
+	private Button _gameTabBtn = null!;
 	private Button _keybindTabBtn = null!;
-	private VBoxContainer _generalContainer = null!;
+	private ScrollContainer _displayScroll = null!;
+	private ScrollContainer _gameScroll = null!;
+	private VBoxContainer _displayContainer = null!;
+	private VBoxContainer _gameContainer = null!;
 	private VBoxContainer _keybindContainer = null!;
 
 	// ===== 常规设置控件（全部保留）=====
@@ -31,7 +36,6 @@ public partial class SettingsPage : Control
 	private HBoxContainer _resolutionRow = null!;
 	private HBoxContainer _windowModeRow = null!;
 	private HBoxContainer _cardDescriptionAlignmentRow = null!;
-	private Label _visualStyleLabel = null!;
 	private OptionButton _cardDescriptionAlignmentOptionButton = null!;
 	private CheckBox _intentIconFloatingToggle = null!;
 	private CheckBox _intentValueFloatingToggle = null!;
@@ -182,7 +186,7 @@ public partial class SettingsPage : Control
 		LoadWindowModes();
 		ConnectSignals();
 		UpdateCurrentLanguage();
-		SwitchToTab("general");
+		SwitchToTab("display");
 
 		if (MobileInputHelper.IsMobile)
 		{
@@ -261,190 +265,227 @@ public partial class SettingsPage : Control
 		};
 		tabRow.AddThemeConstantOverride("separation", 12);
 
-		_generalTabBtn = CreateTabButton("常规", true);
-		_keybindTabBtn = CreateTabButton("键位", false);
-		_generalTabBtn.Pressed += () => SwitchToTab("general");
+		_displayTabBtn = CreateTabButton(Loc.T("ui.settings.tab_display", "显示"), true);
+		_gameTabBtn = CreateTabButton(Loc.T("ui.settings.tab_game", "游戏"), false);
+		_keybindTabBtn = CreateTabButton(Loc.T("ui.settings.tab_keybinds", "键位"), false);
+		_displayTabBtn.Pressed += () => SwitchToTab("display");
+		_gameTabBtn.Pressed += () => SwitchToTab("game");
 		_keybindTabBtn.Pressed += () => SwitchToTab("keybind");
 
-		tabRow.AddChild(_generalTabBtn);
+		tabRow.AddChild(_displayTabBtn);
+		tabRow.AddChild(_gameTabBtn);
 		tabRow.AddChild(_keybindTabBtn);
 
-		// === 常规设置容器 ===
-		_generalContainer = new VBoxContainer
-		{
-			Name = "GeneralContainer",
-			Alignment = BoxContainer.AlignmentMode.Center,
-		};
-		_generalContainer.AddThemeConstantOverride("separation", 20);
-		SetupGeneralUI();
+		// === 显示设置（可滚动）===
+		_displayScroll = CreateTabScroll();
+		_displayContainer = CreateTabContentContainer();
+		SetupDisplayUI();
+		_displayScroll.AddChild(_displayContainer);
 
-		// === 键位设置容器 ===
-		_keybindContainer = new VBoxContainer
-		{
-			Name = "KeybindContainer",
-			Visible = false,
-			Alignment = BoxContainer.AlignmentMode.Center,
-		};
-		_keybindContainer.AddThemeConstantOverride("separation", 16);
+		// === 游戏设置（可滚动）===
+		_gameScroll = CreateTabScroll();
+		_gameScroll.Visible = false;
+		_gameContainer = CreateTabContentContainer();
+		SetupGameUI();
+		_gameScroll.AddChild(_gameContainer);
+
+		// === 键位设置（可滚动）===
+		_keybindContainer = CreateTabContentContainer();
+		_keybindContainer.Visible = false;
 		SetupKeybindUI();
 
 		// === 返回按钮 ===
 		_backButton = new Button
 		{
 			Name = "BackButton",
-			Text = Localization.Localization.T("ui.settings.back", "Back"),
+			Text = Loc.T("ui.settings.back", "Back"),
 			CustomMinimumSize = new Vector2(140, 44),
 		};
 		_backButton.AddThemeFontSizeOverride("font_size", 18);
 
-		// === 根容器 ===
+		// === 根容器（全屏锚定，不设 Alignment 避免塌陷）===
 		var root = new VBoxContainer
 		{
 			Name = "SettingsRoot",
-			AnchorLeft = 0,
-			AnchorTop = 0,
-			AnchorRight = 1,
-			AnchorBottom = 1,
-			Alignment = BoxContainer.AlignmentMode.Center,
+			AnchorLeft = 0, AnchorTop = 0, AnchorRight = 1, AnchorBottom = 1,
 		};
-		root.AddThemeConstantOverride("separation", 20);
+		root.AddThemeConstantOverride("separation", 10);
 
 		root.AddChild(_titleLabel);
 		root.AddChild(tabRow);
-		root.AddChild(_generalContainer);
-		root.AddChild(_keybindContainer);
+		root.AddChild(_displayScroll);
+		root.AddChild(_gameScroll);
+		root.AddChild(_keybindContainer); // 键位页有自己的滚动容器
 		root.AddChild(_backButton);
 
 		AddChild(root);
 	}
 
-	// ===== 常规设置 UI（保留原有逻辑）=====
+	// ===== Tab 滚动容器 / 内容容器工厂 =====
 
-	private void SetupGeneralUI()
+	private static ScrollContainer CreateTabScroll()
 	{
+		var scroll = new ScrollContainer
+		{
+			Name = "TabScroll",
+			HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+			SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+		};
+		return scroll;
+	}
+
+	private static VBoxContainer CreateTabContentContainer()
+	{
+		var vbox = new VBoxContainer
+		{
+			Alignment = BoxContainer.AlignmentMode.Begin,
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+		};
+		vbox.AddThemeConstantOverride("separation", 12);
+		return vbox;
+	}
+
+	/// <summary>创建分组标题行：分隔线 + 居中标签。</summary>
+	private static HBoxContainer CreateSectionHeader(string key, string fallback)
+	{
+		var row = new HBoxContainer
+		{
+			Alignment = BoxContainer.AlignmentMode.Center,
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+		};
+		var leftSep = new HSeparator { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+		var rightSep = new HSeparator { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+		var label = new Label
+		{
+			Text = Loc.T(key, fallback),
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		label.AddThemeFontSizeOverride("font_size", 16);
+		label.AddThemeColorOverride("font_color", new Color(0.75f, 0.85f, 1f));
+		label.CustomMinimumSize = new Vector2(80, 0);
+
+		row.AddChild(leftSep);
+		row.AddChild(label);
+		row.AddChild(rightSep);
+		return row;
+	}
+
+	// ===== 显示设置 UI =====
+
+	private void SetupDisplayUI()
+	{
+		_displayContainer.AddChild(CreateSectionHeader("ui.settings.section_basic", "基础"));
+
 		// 语言行
 		_languageLabel = CreateSettingLabel("ui.settings.language", "Language");
 		_languageOptionButton = new OptionButton { CustomMinimumSize = new Vector2(200, 0) };
-		var languageRow = CreateSettingRow(_languageLabel, _languageOptionButton);
+		_displayContainer.AddChild(CreateSettingRow(_languageLabel, _languageOptionButton));
 
 		// 分辨率行
 		_resolutionLabel = CreateSettingLabel("ui.settings.resolution", "Resolution");
 		_resolutionOptionButton = new OptionButton { CustomMinimumSize = new Vector2(200, 0) };
 		var resolutionRow = CreateSettingRow(_resolutionLabel, _resolutionOptionButton);
 		_resolutionRow = resolutionRow;
+		_displayContainer.AddChild(resolutionRow);
 
 		// 窗口模式行
 		_windowModeLabel = CreateSettingLabel("ui.settings.window_mode", "Window Mode");
 		_windowModeOptionButton = new OptionButton { CustomMinimumSize = new Vector2(200, 0) };
 		var windowModeRow = CreateSettingRow(_windowModeLabel, _windowModeOptionButton);
 		_windowModeRow = windowModeRow;
+		_displayContainer.AddChild(windowModeRow);
 
-		// 自定义视觉风格
-		_visualStyleLabel = new Label
-		{
-			Text = Localization.Localization.T("ui.settings.visual_style", "自定义视觉风格"),
-			HorizontalAlignment = HorizontalAlignment.Center,
-		};
-		_visualStyleLabel.AddThemeFontSizeOverride("font_size", 18);
-		_visualStyleLabel.AddThemeColorOverride("font_color", new Color(0.75f, 0.85f, 1f));
+		_displayContainer.AddChild(CreateSectionHeader("ui.settings.section_visual", "卡牌视觉"));
 
+		// 卡牌描述对齐
 		_cardDescriptionAlignmentLabel = CreateSettingLabel("ui.settings.card_description_alignment", "Card Description Alignment");
 		_cardDescriptionAlignmentOptionButton = new OptionButton { CustomMinimumSize = new Vector2(200, 0) };
 		_cardDescriptionAlignmentRow = CreateSettingRow(_cardDescriptionAlignmentLabel, _cardDescriptionAlignmentOptionButton);
 		LoadCardDescriptionAlignmentOptions();
+		_displayContainer.AddChild(_cardDescriptionAlignmentRow);
 
+		// 意图视觉效果
 		bool iconFloating = UIScaler.Instance?.IntentIconFloatingEnabled ?? true;
 		bool valueFloating = UIScaler.Instance?.IntentValueFloatingEnabled ?? true;
 		_intentIconFloatingToggle = new CheckBox
 		{
-			Text = Localization.Localization.T("ui.settings.intent_icon_floating", "意图图标整体浮动"),
+			Text = Loc.T("ui.settings.intent_icon_floating", "意图图标整体浮动"),
 			ButtonPressed = iconFloating,
 		};
 		_intentIconFloatingToggle.AddThemeFontSizeOverride("font_size", 18);
+		_displayContainer.AddChild(_intentIconFloatingToggle);
 
 		_intentValueFloatingToggle = new CheckBox
 		{
-			Text = Localization.Localization.T("ui.settings.intent_value_floating", "伤害数字随图标浮动"),
+			Text = Loc.T("ui.settings.intent_value_floating", "伤害数字随图标浮动"),
 			ButtonPressed = valueFloating,
 			Disabled = !iconFloating,
 		};
 		_intentValueFloatingToggle.AddThemeFontSizeOverride("font_size", 18);
+		_displayContainer.AddChild(_intentValueFloatingToggle);
+	}
 
-		// 开发者模式
-		_devModeToggle = new CheckBox
-		{
-			Text = Localization.Localization.T("ui.settings.dev_mode", "开发者模式"),
-			ButtonPressed = DevConsole.IsDevMode,
-		};
-		_devModeToggle.AddThemeFontSizeOverride("font_size", 20);
+	// ===== 游戏设置 UI =====
 
-		_consoleButton = new Button
-		{
-			Text = Localization.Localization.T("ui.settings.open_console", "打开控制台"),
-			CustomMinimumSize = new Vector2(0, 44),
-			Visible = DevConsole.IsDevMode,
-		};
-		_consoleButton.AddThemeFontSizeOverride("font_size", 16);
+	private void SetupGameUI()
+	{
+		_gameContainer.AddChild(CreateSectionHeader("ui.settings.section_emote", "表情"));
 
-		// 表情空闲时间行
+		// 表情空闲时间
 		var gm = GameManager.Instance;
 		float currentIdleTime = gm?.EmoteIdleTimeSeconds ?? 5.0f;
 		_emoteIdleTimeLabel = CreateSettingLabel("ui.settings.emote_idle_time", "Emote Idle Time");
-
 		_emoteIdleTimeSlider = new HSlider
 		{
-			MinValue = 3.0,
-			MaxValue = 15.0,
-			Step = 0.5,
-			Value = currentIdleTime,
-			CustomMinimumSize = new Vector2(160, 0),
+			MinValue = 3.0, MaxValue = 15.0, Step = 0.5,
+			Value = currentIdleTime, CustomMinimumSize = new Vector2(160, 0),
 		};
 		_emoteIdleTimeValueLabel = new Label { Text = $"{currentIdleTime:F1}s", CustomMinimumSize = new Vector2(50, 0) };
 		_emoteIdleTimeValueLabel.AddThemeFontSizeOverride("font_size", 16);
-		var emoteIdleRow = CreateSliderRow(_emoteIdleTimeLabel, _emoteIdleTimeSlider, _emoteIdleTimeValueLabel);
+		_gameContainer.AddChild(CreateSliderRow(_emoteIdleTimeLabel, _emoteIdleTimeSlider, _emoteIdleTimeValueLabel));
 
-		// 随机最小倍率行
+		// 随机最小/最大倍率
 		float currentVarMin = gm?.EmoteIdleVariationMin ?? 0.7f;
 		_emoteVarMinLabel = CreateSettingLabel("ui.settings.emote_variation_min", "Variation Min");
 		_emoteVarMinSlider = new HSlider
 		{
-			MinValue = 0.1,
-			MaxValue = 3.0,
-			Step = 0.1,
-			Value = currentVarMin,
-			CustomMinimumSize = new Vector2(160, 0),
+			MinValue = 0.1, MaxValue = 3.0, Step = 0.1,
+			Value = currentVarMin, CustomMinimumSize = new Vector2(160, 0),
 		};
 		_emoteVarMinValueLabel = new Label { Text = $"×{currentVarMin:F1}", CustomMinimumSize = new Vector2(50, 0) };
 		_emoteVarMinValueLabel.AddThemeFontSizeOverride("font_size", 16);
-		var varMinRow = CreateSliderRow(_emoteVarMinLabel, _emoteVarMinSlider, _emoteVarMinValueLabel);
+		_gameContainer.AddChild(CreateSliderRow(_emoteVarMinLabel, _emoteVarMinSlider, _emoteVarMinValueLabel));
 
-		// 随机最大倍率行
 		float currentVarMax = gm?.EmoteIdleVariationMax ?? 1.3f;
 		_emoteVarMaxLabel = CreateSettingLabel("ui.settings.emote_variation_max", "Variation Max");
 		_emoteVarMaxSlider = new HSlider
 		{
-			MinValue = 0.1,
-			MaxValue = 3.0,
-			Step = 0.1,
-			Value = currentVarMax,
-			CustomMinimumSize = new Vector2(160, 0),
+			MinValue = 0.1, MaxValue = 3.0, Step = 0.1,
+			Value = currentVarMax, CustomMinimumSize = new Vector2(160, 0),
 		};
 		_emoteVarMaxValueLabel = new Label { Text = $"×{currentVarMax:F1}", CustomMinimumSize = new Vector2(50, 0) };
 		_emoteVarMaxValueLabel.AddThemeFontSizeOverride("font_size", 16);
-		var varMaxRow = CreateSliderRow(_emoteVarMaxLabel, _emoteVarMaxSlider, _emoteVarMaxValueLabel);
+		_gameContainer.AddChild(CreateSliderRow(_emoteVarMaxLabel, _emoteVarMaxSlider, _emoteVarMaxValueLabel));
 
-		_generalContainer.AddChild(languageRow);
-		_generalContainer.AddChild(resolutionRow);
-		_generalContainer.AddChild(windowModeRow);
-		_generalContainer.AddChild(_visualStyleLabel);
-		_generalContainer.AddChild(_cardDescriptionAlignmentRow);
-		_generalContainer.AddChild(_intentIconFloatingToggle);
-		_generalContainer.AddChild(_intentValueFloatingToggle);
-		_generalContainer.AddChild(_devModeToggle);
-		_generalContainer.AddChild(_consoleButton);
-		_generalContainer.AddChild(emoteIdleRow);
-		_generalContainer.AddChild(varMinRow);
-		_generalContainer.AddChild(varMaxRow);
+		_gameContainer.AddChild(CreateSectionHeader("ui.settings.section_developer", "开发者"));
+
+		// 开发者模式
+		_devModeToggle = new CheckBox
+		{
+			Text = Loc.T("ui.settings.dev_mode", "开发者模式"),
+			ButtonPressed = DevConsole.IsDevMode,
+		};
+		_devModeToggle.AddThemeFontSizeOverride("font_size", 20);
+		_gameContainer.AddChild(_devModeToggle);
+
+		_consoleButton = new Button
+		{
+			Text = Loc.T("ui.settings.open_console", "打开控制台"),
+			CustomMinimumSize = new Vector2(0, 44),
+			Visible = DevConsole.IsDevMode,
+		};
+		_consoleButton.AddThemeFontSizeOverride("font_size", 16);
+		_gameContainer.AddChild(_consoleButton);
 	}
 
 	// ===== 键位设置 UI =====
@@ -454,7 +495,7 @@ public partial class SettingsPage : Control
 		// 配置选择器行
 		var profileLabel = new Label
 		{
-			Text = Localization.Localization.T("ui.settings.keybind_profile", "键位配置"),
+			Text = Loc.T("ui.settings.keybind_profile", "键位配置"),
 		};
 		profileLabel.AddThemeFontSizeOverride("font_size", 18);
 
@@ -476,7 +517,7 @@ public partial class SettingsPage : Control
 		// 提示标签
 		var hintLabel = new Label
 		{
-			Text = Localization.Localization.T("ui.settings.keybind_hint", "点击键位按钮后按下新按键即可重新绑定"),
+			Text = Loc.T("ui.settings.keybind_hint", "点击键位按钮后按下新按键即可重新绑定"),
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
 		hintLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.5f, 0.5f));
@@ -497,7 +538,7 @@ public partial class SettingsPage : Control
 		// 重置按钮
 		_resetDefaultsBtn = new Button
 		{
-			Text = Localization.Localization.T("ui.settings.reset_defaults", "重置为默认键位"),
+			Text = Loc.T("ui.settings.reset_defaults", "重置为默认键位"),
 			CustomMinimumSize = new Vector2(200, 36),
 		};
 		_resetDefaultsBtn.AddThemeFontSizeOverride("font_size", 16);
@@ -618,19 +659,21 @@ public partial class SettingsPage : Control
 
 	private void SwitchToTab(string tab)
 	{
-		bool isGeneral = tab == "general";
-		_generalContainer.Visible = isGeneral;
-		_keybindContainer.Visible = !isGeneral;
+		bool isDisplay = tab == "display";
+		bool isGame = tab == "game";
+		bool isKeybind = tab == "keybind";
 
-		// 更新 Tab 按钮样式
-		UpdateTabStyle(_generalTabBtn, isGeneral);
-		UpdateTabStyle(_keybindTabBtn, !isGeneral);
+		_displayScroll.Visible = isDisplay;
+		_gameScroll.Visible = isGame;
+		_keybindContainer.Visible = isKeybind;
 
-		// 切换标签页时停止监听
+		UpdateTabStyle(_displayTabBtn, isDisplay);
+		UpdateTabStyle(_gameTabBtn, isGame);
+		UpdateTabStyle(_keybindTabBtn, isKeybind);
+
 		StopListening();
 
-		// 切到键位页时刷新列表
-		if (!isGeneral)
+		if (isKeybind)
 		{
 			RefreshProfileList();
 			RefreshKeybindList();
@@ -682,7 +725,7 @@ public partial class SettingsPage : Control
 	{
 		var label = new Label
 		{
-			Text = Localization.Localization.T("ui.settings.title", "Settings"),
+			Text = Loc.T("ui.settings.title", "Settings"),
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
 		label.AddThemeFontSizeOverride("font_size", 36);
@@ -692,7 +735,7 @@ public partial class SettingsPage : Control
 
 	private static Label CreateSettingLabel(string key, string fallback)
 	{
-		var label = new Label { Text = Localization.Localization.T(key, fallback) };
+		var label = new Label { Text = Loc.T(key, fallback) };
 		label.AddThemeFontSizeOverride("font_size", 20);
 		label.CustomMinimumSize = new Vector2(150, 0);
 		return label;
@@ -920,8 +963,8 @@ public partial class SettingsPage : Control
 		var languages = Localization.Localization.AvailableLanguages;
 		var languageNames = new Dictionary<string, string>
 		{
-			{ "en", Localization.Localization.T("language.name_en", "English") },
-			{ "zh", Localization.Localization.T("language.name_zh", "中文") }
+			{ "en", Loc.T("language.name_en", "English") },
+			{ "zh", Loc.T("language.name_zh", "中文") }
 		};
 
 		int selectedIndex = 0;
@@ -954,11 +997,11 @@ public partial class SettingsPage : Control
 	private void LoadWindowModes()
 	{
 		_windowModeOptionButton.Clear();
-		_windowModeOptionButton.AddItem(Localization.Localization.T("ui.settings.windowed", "Windowed"));
+		_windowModeOptionButton.AddItem(Loc.T("ui.settings.windowed", "Windowed"));
 		_windowModeOptionButton.SetItemMetadata(0, 0);
-		_windowModeOptionButton.AddItem(Localization.Localization.T("ui.settings.borderless", "Borderless Fullscreen"));
+		_windowModeOptionButton.AddItem(Loc.T("ui.settings.borderless", "Borderless Fullscreen"));
 		_windowModeOptionButton.SetItemMetadata(1, 1);
-		_windowModeOptionButton.AddItem(Localization.Localization.T("ui.settings.fullscreen", "Fullscreen"));
+		_windowModeOptionButton.AddItem(Loc.T("ui.settings.fullscreen", "Fullscreen"));
 		_windowModeOptionButton.SetItemMetadata(2, 2);
 		_windowModeOptionButton.Selected = UIScaler.Instance.GetCurrentWindowModeIndex();
 	}
@@ -972,18 +1015,22 @@ public partial class SettingsPage : Control
 
 	private void UpdateLabels()
 	{
-		_titleLabel.Text = Localization.Localization.T("ui.settings.title", "Settings");
-		_languageLabel.Text = Localization.Localization.T("ui.settings.language", "Language");
-		_resolutionLabel.Text = Localization.Localization.T("ui.settings.resolution", "Resolution");
-		_windowModeLabel.Text = Localization.Localization.T("ui.settings.window_mode", "Window Mode");
-		_visualStyleLabel.Text = Localization.Localization.T("ui.settings.visual_style", "自定义视觉风格");
-		_cardDescriptionAlignmentLabel.Text = Localization.Localization.T("ui.settings.card_description_alignment", "Card Description Alignment");
-		_intentIconFloatingToggle.Text = Localization.Localization.T("ui.settings.intent_icon_floating", "意图图标整体浮动");
-		_intentValueFloatingToggle.Text = Localization.Localization.T("ui.settings.intent_value_floating", "伤害数字随图标浮动");
-		_emoteIdleTimeLabel.Text = Localization.Localization.T("ui.settings.emote_idle_time", "Emote Idle Time");
-		_emoteVarMinLabel.Text = Localization.Localization.T("ui.settings.emote_variation_min", "Variation Min");
-		_emoteVarMaxLabel.Text = Localization.Localization.T("ui.settings.emote_variation_max", "Variation Max");
-		_backButton.Text = Localization.Localization.T("ui.settings.back", "Back");
+		_titleLabel.Text = Loc.T("ui.settings.title", "Settings");
+		_displayTabBtn.Text = Loc.T("ui.settings.tab_display", "显示");
+		_gameTabBtn.Text = Loc.T("ui.settings.tab_game", "游戏");
+		_keybindTabBtn.Text = Loc.T("ui.settings.tab_keybinds", "键位");
+		_languageLabel.Text = Loc.T("ui.settings.language", "Language");
+		_resolutionLabel.Text = Loc.T("ui.settings.resolution", "Resolution");
+		_windowModeLabel.Text = Loc.T("ui.settings.window_mode", "Window Mode");
+		_cardDescriptionAlignmentLabel.Text = Loc.T("ui.settings.card_description_alignment", "Card Description Alignment");
+		_intentIconFloatingToggle.Text = Loc.T("ui.settings.intent_icon_floating", "意图图标整体浮动");
+		_intentValueFloatingToggle.Text = Loc.T("ui.settings.intent_value_floating", "伤害数字随图标浮动");
+		_emoteIdleTimeLabel.Text = Loc.T("ui.settings.emote_idle_time", "Emote Idle Time");
+		_emoteVarMinLabel.Text = Loc.T("ui.settings.emote_variation_min", "Variation Min");
+		_emoteVarMaxLabel.Text = Loc.T("ui.settings.emote_variation_max", "Variation Max");
+		_backButton.Text = Loc.T("ui.settings.back", "Back");
+		_devModeToggle.Text = Loc.T("ui.settings.dev_mode", "开发者模式");
+		_consoleButton.Text = Loc.T("ui.settings.open_console", "打开控制台");
 	}
 
 	private void UpdateCurrentLanguage()
@@ -1002,9 +1049,9 @@ public partial class SettingsPage : Control
 	private void LoadCardDescriptionAlignmentOptions()
 	{
 		_cardDescriptionAlignmentOptionButton.Clear();
-		_cardDescriptionAlignmentOptionButton.AddItem(Localization.Localization.T("ui.settings.card_description_left", "Left Align"));
+		_cardDescriptionAlignmentOptionButton.AddItem(Loc.T("ui.settings.card_description_left", "Left Align"));
 		_cardDescriptionAlignmentOptionButton.SetItemMetadata(0, false);
-		_cardDescriptionAlignmentOptionButton.AddItem(Localization.Localization.T("ui.settings.card_description_center", "Centered"));
+		_cardDescriptionAlignmentOptionButton.AddItem(Loc.T("ui.settings.card_description_center", "Centered"));
 		_cardDescriptionAlignmentOptionButton.SetItemMetadata(1, true);
 
 		bool centered = UIScaler.Instance?.CardDescriptionCentered ?? false;

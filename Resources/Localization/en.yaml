@@ -18,6 +18,13 @@ ui:
     ok: "OK"
   settings:
     title: "Settings"
+    tab_display: "Display"
+    tab_game: "Game"
+    tab_keybinds: "Keybinds"
+    section_basic: "Basic"
+    section_visual: "Card Visuals"
+    section_emote: "Emote"
+    section_developer: "Developer"
     language: "Language"
     resolution: "Resolution"
     window_mode: "Window Mode"
