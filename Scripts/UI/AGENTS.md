@@ -35,6 +35,9 @@ Godot Control 层。UI 负责显示、输入、动画与异步选择；规则落
 
 - `MouseFilter=Ignore` 不会收到 `_Input()`；拖拽必须 `_Process` 轮询全局 Input。
 - 覆盖层要么 `Ignore` 穿透，要么 `Stop` 接管，不要半吊子。
+- 移动端同一控件不要同时让 `Button.Pressed`、`MobileInputRouter` TouchZone、局部 `_Input` hit-test 执行同一动作；真机可能一次 tap 双触发，桌面端不会暴露。
+- 移动端手动 hit-test 必须检查 `IsVisibleInTree()`，只检查控件自身 `Visible` 会让隐藏 Tab/父页下的控件继续吃点击。
+- Tab/模态切页时同步维护 `Visible` 与 `MouseFilter`，隐藏页用 `Ignore`，当前页用 `Stop`。
 - 同一栈帧不要 `QueueFree` 旧节点后立刻 `AddChild` 新节点；deferred 批处理。
 - `[Tool]` 会实例化嵌套 Control；嵌套类要无参构造，值类型字段用 `default`。
 - 嵌套 partial class 的 `signal +=` 不可靠；用 `Connect` 或 C# event。

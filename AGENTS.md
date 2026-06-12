@@ -124,6 +124,13 @@ Tests/              # tests/csharp：xUnit 5 Unit + 1 Integration(跳过)
 - 取消：右键 / 拖回底部 / 松手在无效区域。
 - 敌方英雄攻击区域：`EnemyIdentityCard.SetAttackTargetHighlight()` 绿色矩形覆盖层。
 
+### 移动端输入
+- 移动端同一控件同一动作只能有一条主触控路径；避免 `Button.Pressed`、`MobileInputRouter.RegisterTapZone`、局部 `_Input` 手动 hit-test 同时处理同一次触摸。
+- 迁移期若无法移除双路径，入口必须防重入/幂等（例如已有模态页时重复打开直接 return），防止真机一次 tap 触发两次。
+- 手动 hit-test 必须用 `IsVisibleInTree()`，不能只看控件自身 `Visible`；隐藏父页下的控件不得响应触摸。
+- Tab/模态页切换必须同步更新 `Visible` 与 `MouseFilter`：当前页 `Stop`，隐藏页 `Ignore`。
+- `MobileInputRouter` 模态栈只负责 Router zone 过滤；Godot 原生 Control 信号仍可能触发，不能把 PushModalLayer 当作全局输入屏蔽。
+
 ### 异步 UI
 - `TaskCompletionSource<T>`：创建 UI → 等待选择 → `SetResult` → `QueueFree`。
 - 屏幕即一次性：选择完成即销毁。
