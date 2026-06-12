@@ -175,6 +175,7 @@ public partial class DevConsole : Node
 		{
 			if (keyEvent.Keycode == Key.Quoteleft) // 反引号键
 			{
+				if (!IsDevMode) return; // 非开发者模式下禁止快捷键呼出
 				Toggle();
 				GetViewport().SetInputAsHandled();
 			}

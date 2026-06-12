@@ -470,10 +470,12 @@ public partial class SettingsPage : Control
 		_gameContainer.AddChild(CreateSectionHeader("ui.settings.section_developer", "开发者"));
 
 		// 开发者模式
+		bool devMode = UIScaler.Instance?.DevModeEnabled ?? false;
+		DevConsole.IsDevMode = devMode; // 启动时从持久化恢复
 		_devModeToggle = new CheckBox
 		{
 			Text = Loc.T("ui.settings.dev_mode", "开发者模式"),
-			ButtonPressed = DevConsole.IsDevMode,
+			ButtonPressed = devMode,
 		};
 		_devModeToggle.AddThemeFontSizeOverride("font_size", 20);
 		_gameContainer.AddChild(CreateCenteredRow(_devModeToggle));
@@ -482,7 +484,7 @@ public partial class SettingsPage : Control
 		{
 			Text = Loc.T("ui.settings.open_console", "打开控制台"),
 			CustomMinimumSize = new Vector2(0, 44),
-			Visible = DevConsole.IsDevMode,
+			Visible = devMode,
 		};
 		_consoleButton.AddThemeFontSizeOverride("font_size", 16);
 		_gameContainer.AddChild(CreateCenteredRow(_consoleButton));
@@ -857,6 +859,7 @@ public partial class SettingsPage : Control
 	{
 		DevConsole.IsDevMode = on;
 		_consoleButton.Visible = on;
+		UIScaler.Instance?.SetDevMode(on); // 持久化
 	}
 
 	private void OnConsolePressed()

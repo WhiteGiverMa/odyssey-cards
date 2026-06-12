@@ -42,6 +42,7 @@ namespace OdysseyCards.UI
 		public bool IntentIconFloatingEnabled { get; private set; } = true;
 		public bool IntentValueFloatingEnabled { get; private set; } = true;
 		public bool CardDescriptionCentered { get; private set; }
+		public bool DevModeEnabled { get; private set; }
 
 		public override void _Ready()
 		{
@@ -276,6 +277,18 @@ namespace OdysseyCards.UI
 			OnCardDescriptionSettingsChanged?.Invoke();
 		}
 
+		/// <summary>设置开发者模式并持久化到 user://settings.cfg。</summary>
+		public void SetDevMode(bool enabled)
+		{
+			if (DevModeEnabled == enabled)
+			{
+				return;
+			}
+
+			DevModeEnabled = enabled;
+			SaveSettings();
+		}
+
 		#endregion
 
 		#region 持久化
@@ -299,6 +312,7 @@ namespace OdysseyCards.UI
 			config.SetValue("visual", "intent_icon_floating", IntentIconFloatingEnabled);
 			config.SetValue("visual", "intent_value_floating", IntentValueFloatingEnabled);
 			config.SetValue("visual", "card_description_centered", CardDescriptionCentered);
+			config.SetValue("visual", "dev_mode", DevModeEnabled);
 
 			Error err = config.Save(ConfigPath);
 			if (err != Error.Ok)
@@ -327,6 +341,7 @@ namespace OdysseyCards.UI
 			IntentIconFloatingEnabled = config.GetValue("visual", "intent_icon_floating", true).AsBool();
 			IntentValueFloatingEnabled = config.GetValue("visual", "intent_value_floating", true).AsBool();
 			CardDescriptionCentered = config.GetValue("visual", "card_description_centered", false).AsBool();
+			DevModeEnabled = config.GetValue("visual", "dev_mode", false).AsBool();
 
 			if (IsMobile)
 				return;
