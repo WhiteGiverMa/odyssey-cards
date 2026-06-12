@@ -115,6 +115,24 @@ public partial class CombatManager : Node
 	/// </summary>
 	public event Action<string>? OnEnemyEmote;
 
+	/// <summary>
+	/// 伤害弹道表现事件。
+	/// 由规则层在“主动伤害”发生前显式请求，UI 层 fire-and-forget 播放；
+	/// 普通反击不主动请求，避免两路弹道打架。
+	/// 参数为（视觉来源、伤害目标、结算类型、表现语义）。
+	/// </summary>
+	public event Action<object, IDamageTarget, DamageKind, CombatDamageVfxKind> OnDamageVfxRequested;
+
+	/// <summary>
+	/// 请求播放伤害弹道特效。只表达表现意图，不改变任何战斗状态。
+	/// </summary>
+	public void RequestDamageVfx(object visualSource, IDamageTarget target, DamageKind kind, CombatDamageVfxKind vfxKind)
+	{
+		if (target == null)
+			return;
+		OnDamageVfxRequested?.Invoke(visualSource, target, kind, vfxKind);
+	}
+
 	// ===== 表情系统 =====
 
 	/// <summary>
@@ -518,7 +536,8 @@ public partial class CombatManager : Node
 			NotifyCombatStateChanged,
 			_selectionSystem.HandleDiscoverEffect,
 			_selectionSystem.BeginDiscardDiscoverSelection,
-			_selectionSystem.BeginHandDiscardSelection);
+			_selectionSystem.BeginHandDiscardSelection,
+			RequestDamageVfx);
 		_deathHandler = new DeathHandler(Board, PlayerHero, _effectDispatcher, _attackTracker);
 		_weaponAttack = new WeaponAttackSystem(
 			Board,
@@ -892,7 +911,7 @@ public partial class CombatManager : Node
 		bool selectionTriggered = false;
 		foreach (var effect in card.Data.Effects)
 		{
-			ResolveSpellEffect(effect, target);
+			ResolveSpellEffect(effect, target, card);
 			if (IsDiscovering)
 			{
 				selectionTriggered = true;
@@ -995,7 +1014,7 @@ public partial class CombatManager : Node
 		foreach (var effect in card.Data.Effects)
 		{
 			// 先执行即时效果（如 RemoveNaturalManaCap），再存储为持久领域效果
-			ExecuteEffect(effect, null);
+			ExecuteEffect(effect, null, visualSource: card);
 			PlayerHero.AddDomain(domainId, effect);
 		}
 
@@ -1011,9 +1030,9 @@ public partial class CombatManager : Node
 	/// </summary>
 	/// <param name="effect">效果数据</param>
 	/// <param name="target">效果目标对象（Minion 或 Hero，可为 null）</param>
-	private void ExecuteEffect(CardEffectData effect, object target, IDamageSource? source = null)
+	private void ExecuteEffect(CardEffectData effect, object? target, IDamageSource? source = null, object? visualSource = null)
 	{
-		_effectDispatcher.ExecuteEffect(effect, target, source);
+		_effectDispatcher.ExecuteEffect(effect, target, source, visualSource);
 	}
 
 	/// <summary>
@@ -1032,9 +1051,9 @@ public partial class CombatManager : Node
 	/// </summary>
 	/// <param name="effect">效果数据</param>
 	/// <param name="target">法术目标对象</param>
-	private void ResolveSpellEffect(CardEffectData effect, object target)
+	private void ResolveSpellEffect(CardEffectData effect, object target, OdysseyCards.Card.Card card)
 	{
-		ExecuteEffect(effect, target);
+		ExecuteEffect(effect, target, visualSource: card);
 	}
 
 	// ===== 随从攻击 =====
@@ -1098,6 +1117,7 @@ public partial class CombatManager : Node
 		}
 
 		// ===== Phase 2: 攻击者造成伤害 =====
+		RequestDamageVfx(attacker, defender, DamageKind.Attack, CombatDamageVfxKind.Attack);
 		defender.TakeDamage(attacker.Attack, attacker);
 
 		// ===== Phase 3: 防御者反击（炉石规则：双方同时伤害，防御者被击杀仍能反击） =====
@@ -1147,9 +1167,11 @@ public partial class CombatManager : Node
 				  $"{b.CardName}（{b.Attack}攻/{b.CurrentHealth}血）");
 
 		// A 对 B 造成伤害（完整 DamageResolver 管线）
+		RequestDamageVfx(a, b, DamageKind.Attack, CombatDamageVfxKind.Combat);
 		b.TakeDamage(a.Attack, a);
 
 		// B 对 A 造成伤害（即使 B 已被击杀，仍遵循同时伤害规则）
+		RequestDamageVfx(b, a, DamageKind.Attack, CombatDamageVfxKind.Combat);
 		a.TakeDamage(b.Attack, b);
 
 		GD.Print($"[CombatManager]   战斗后 — {a.CardName}：{a.CurrentHealth}血，" +
@@ -1361,6 +1383,7 @@ public partial class CombatManager : Node
 		if (impactActive)
 			hero.SuppressWeaponCounter = true;
 
+		RequestDamageVfx(attacker, hero, DamageKind.Attack, CombatDamageVfxKind.Attack);
 		hero.TakeDamage(attacker.Attack, attacker);
 
 		if (impactActive)
@@ -1745,6 +1768,7 @@ public partial class CombatManager : Node
 				if (impactActive)
 					PlayerHero.SuppressWeaponCounter = true;
 
+				RequestDamageVfx(attacker, PlayerHero, DamageKind.Attack, CombatDamageVfxKind.Attack);
 				PlayerHero.TakeDamage(attacker.Attack, attacker);
 
 				if (impactActive)
