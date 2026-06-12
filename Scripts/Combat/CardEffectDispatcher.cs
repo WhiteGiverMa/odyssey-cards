@@ -24,7 +24,8 @@ internal sealed class CardEffectDispatcher
 	private readonly Action<CardEffectData> _handleDiscoverEffect;
 	private readonly Action<List<Card.Card>, int> _beginDiscardDiscoverSelection;
 	private readonly Action<List<Card.Card>, int, int, bool> _beginHandDiscardSelection;
-	private readonly Dictionary<CardEffectType, Action<CardEffectData, object, IDamageSource?>> _handlers;
+	private readonly Action<object?, IDamageTarget, DamageKind, CombatDamageVfxKind> _requestDamageVfx;
+	private readonly Dictionary<CardEffectType, Action<CardEffectData, object?, IDamageSource?, object?>> _handlers;
 
 	public CardEffectDispatcher(
 		CommanderCore playerCore,
@@ -34,7 +35,8 @@ internal sealed class CardEffectDispatcher
 		Action notifyCombatStateChanged,
 		Action<CardEffectData> handleDiscoverEffect,
 		Action<List<Card.Card>, int> beginDiscardDiscoverSelection,
-		Action<List<Card.Card>, int, int, bool> beginHandDiscardSelection)
+		Action<List<Card.Card>, int, int, bool> beginHandDiscardSelection,
+		Action<object?, IDamageTarget, DamageKind, CombatDamageVfxKind> requestDamageVfx)
 	{
 		_playerCore = playerCore;
 		_playerHero = playerHero;
@@ -44,8 +46,9 @@ internal sealed class CardEffectDispatcher
 		_handleDiscoverEffect = handleDiscoverEffect;
 		_beginDiscardDiscoverSelection = beginDiscardDiscoverSelection;
 		_beginHandDiscardSelection = beginHandDiscardSelection;
+		_requestDamageVfx = requestDamageVfx;
 
-		_handlers = new Dictionary<CardEffectType, Action<CardEffectData, object, IDamageSource?>>()
+		_handlers = new Dictionary<CardEffectType, Action<CardEffectData, object?, IDamageSource?, object?>>()
 		{
 			[CardEffectType.Damage] = HandleDamage,
 			[CardEffectType.DealDamageToTarget] = HandleDamage,
@@ -72,26 +75,28 @@ internal sealed class CardEffectDispatcher
 		};
 	}
 
-	public void ExecuteEffect(CardEffectData effect, object target, IDamageSource? source = null)
+	public void ExecuteEffect(CardEffectData effect, object? target, IDamageSource? source = null, object? visualSource = null)
 	{
 		if (_handlers.TryGetValue(effect.EffectType, out var handler))
 		{
-			handler(effect, target, source);
+			handler(effect, target, source, visualSource ?? source);
 			return;
 		}
 
 		GD.Print($"[CardEffectDispatcher] 未处理的效果类型：{effect.EffectType}（{effect.GetDescription()}）");
 	}
 
-	private void HandleDamage(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleDamage(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		if (target is Minion minionTarget)
 		{
+			_requestDamageVfx(visualSource, minionTarget, DamageKind.Effect, CombatDamageVfxKind.Spell);
 			minionTarget.TakeDamage(effect.Value, source, DamageKind.Effect);
 			GD.Print($"[CardEffectDispatcher] 对 {minionTarget.CardName} 造成 {effect.Value} 点伤害");
 		}
 		else if (target is Hero heroTarget)
 		{
+			_requestDamageVfx(visualSource, heroTarget, DamageKind.Effect, CombatDamageVfxKind.Spell);
 			heroTarget.TakeDamage(effect.Value, source, DamageKind.Effect);
 			GD.Print($"[CardEffectDispatcher] 对英雄造成 {effect.Value} 点伤害");
 		}
@@ -101,56 +106,59 @@ internal sealed class CardEffectDispatcher
 		}
 	}
 
-	private void HandleDealDamageToEnemyHero(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleDealDamageToEnemyHero(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		if (target is not Hero hero)
 			return;
+		_requestDamageVfx(visualSource, hero, DamageKind.Effect, CombatDamageVfxKind.Spell);
 		hero.TakeDamage(effect.Value, source, DamageKind.Effect);
 		GD.Print($"[CardEffectDispatcher] 对敌方英雄造成 {effect.Value} 点伤害（剩余 {hero.CurrentHealth}）");
 	}
 
-	private void HandleDealDamageToFriendlyHero(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleDealDamageToFriendlyHero(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
+		_requestDamageVfx(visualSource, _playerHero, DamageKind.Effect, CombatDamageVfxKind.Spell);
 		_playerHero.TakeDamage(effect.Value, source, DamageKind.Effect);
 		GD.Print($"[CardEffectDispatcher] 对友方英雄造成 {effect.Value} 点伤害（剩余 {_playerHero.CurrentHealth}）");
 	}
 
-	private void HandleDealDamageToAllEnemies(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleDealDamageToAllEnemies(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		int hitCount = 0;
 		foreach (var enemyMinion in _board.GetEnemyMinions())
 		{
+			_requestDamageVfx(visualSource, enemyMinion, DamageKind.Effect, CombatDamageVfxKind.Spell);
 			enemyMinion.TakeDamage(effect.Value, source, DamageKind.Effect);
 			hitCount++;
 		}
 		GD.Print($"[CardEffectDispatcher] 对所有敌方随从造成 {effect.Value} 点伤害（命中 {hitCount} 个目标）");
 	}
 
-	private void HandleDrawCards(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleDrawCards(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		_playerHero.DrawCards(effect.Value);
 		GD.Print($"[CardEffectDispatcher] 抽 {effect.Value} 张牌");
 	}
 
-	private void HandleHeal(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleHeal(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		_playerCore.Heal(effect.Value);
 		GD.Print($"[CardEffectDispatcher] 恢复 {effect.Value} 点生命值（当前 {_playerHero.CurrentHealth}）");
 	}
 
-	private void HandleGainArmor(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleGainArmor(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		_playerHero.GainArmor(effect.Value);
 		GD.Print($"[CardEffectDispatcher] 获得 {effect.Value} 点护甲（当前 {_playerHero.CurrentArmor}）");
 	}
 
-	private void HandleGainMaxHealth(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleGainMaxHealth(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		_playerCore.InitializeHealth(_playerCore.MaxHealth + effect.Value, _playerCore.CurrentHealth + effect.Value);
 		GD.Print($"[CardEffectDispatcher] 最大生命值 +{effect.Value} 并恢复等量生命值（当前 {_playerHero.CurrentHealth}/{_playerHero.MaxHealth}）");
 	}
 
-	private void HandleSummonMinion(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleSummonMinion(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		int emptySlot = _board.GetEmptySlotIndex(isPlayerSide: true);
 		if (emptySlot >= 0)
@@ -163,7 +171,7 @@ internal sealed class CardEffectDispatcher
 		}
 	}
 
-	private void HandleBuffMinion(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleBuffMinion(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		if (target is Minion buffTarget)
 		{
@@ -175,24 +183,24 @@ internal sealed class CardEffectDispatcher
 		}
 	}
 
-	private void HandleGainManaSlot(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleGainManaSlot(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		_state.GainManaSlot(effect.Value);
 		_playerCore.SetMana(_playerCore.CurrentMana, _state.PlayerMaxMana);
 		GD.Print($"[CardEffectDispatcher] 获得 {effect.Value} 个法力水晶槽（总上限 {_state.PlayerMaxMana}）");
 	}
 
-	private static void HandleRemoveNaturalManaCap(CardEffectData effect, object target, IDamageSource? source)
+	private static void HandleRemoveNaturalManaCap(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		GD.Print("[CardEffectDispatcher] 无限潜能领域已展开，自然增长上限提升至 30");
 	}
 
-	private void HandleDiscoverEffectDispatch(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleDiscoverEffectDispatch(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		_handleDiscoverEffect(effect);
 	}
 
-	private static void HandleReplaceDeathrattleWithDraw(CardEffectData effect, object target, IDamageSource? source)
+	private static void HandleReplaceDeathrattleWithDraw(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		if (target is not Minion minionTarget)
 		{
@@ -206,7 +214,7 @@ internal sealed class CardEffectDispatcher
 		GD.Print($"[CardEffectDispatcher] {minionTarget.CardName} 获得亡语：抽 {drawCount} 张牌");
 	}
 
-	private void HandleGrantIdolTwilight(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleGrantIdolTwilight(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		int stacks = Math.Max(1, effect.Value);
 		int grantCount = 0;
@@ -227,7 +235,7 @@ internal sealed class CardEffectDispatcher
 		_notifyCombatStateChanged();
 	}
 
-	private void HandleChooseFromDiscard(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleChooseFromDiscard(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		int optionCount = effect.Value > 0 ? effect.Value : 5;
 		int pickCount = effect.SecondaryValue > 0 ? effect.SecondaryValue : 2;
@@ -243,7 +251,7 @@ internal sealed class CardEffectDispatcher
 		GD.Print($"[CardEffectDispatcher] 捞月：从弃牌堆展示 {options.Count} 张，选择 {Math.Min(pickCount, options.Count)} 张");
 	}
 
-	private void HandleDiscardRandom(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleDiscardRandom(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		int discardCount = effect.Value;
 		var hand = _playerHero.Hand.ToList();
@@ -271,7 +279,7 @@ internal sealed class CardEffectDispatcher
 		_notifyCombatStateChanged();
 	}
 
-	private void HandleDiscardChoose(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleDiscardChoose(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		int mustDiscard = effect.Value;
 		var handCopy = _playerHero.Hand.ToList();
@@ -292,7 +300,7 @@ internal sealed class CardEffectDispatcher
 		GD.Print($"[CardEffectDispatcher] 主动弃牌：从手牌 {handCopy.Count} 张中选择弃掉 {mustDiscard} 张");
 	}
 
-	private void HandleShuffleTribeCards(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleShuffleTribeCards(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		int insertCount = effect.Value;
 		if (!Enum.TryParse<CardTag>(effect.TargetType, out var targetTag) || targetTag == CardTag.None)
@@ -328,7 +336,7 @@ internal sealed class CardEffectDispatcher
 		_notifyCombatStateChanged();
 	}
 
-	private void HandleCustomEffect(CardEffectData effect, object target, IDamageSource? source)
+	private void HandleCustomEffect(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		switch (effect.CustomEffectName)
 		{
@@ -451,7 +459,7 @@ internal sealed class CardEffectDispatcher
 	/// <summary>
 	/// 「解释」——敌方英雄获得总观效应，此牌回到手牌并进入不可打出状态。
 	/// </summary>
-	private void HandleExplainEffect(CardEffectData effect, object target)
+	private void HandleExplainEffect(CardEffectData effect, object? target)
 	{
 		// 找到敌方英雄
 		Hero? enemyHero = null;
