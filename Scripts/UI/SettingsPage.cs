@@ -59,7 +59,7 @@ public partial class SettingsPage : Control
 	private bool _isListeningForKey;
 	private StringName _listeningAction;
 	private Button _listeningButton = null!;
-	private GridContainer _keybindListContainer = null!;
+	private HFlowContainer _keybindListContainer = null!;
 	private OptionButton _profileSelector = null!;
 	private Button _newProfileBtn = null!;
 	private Button _deleteProfileBtn = null!;
@@ -524,20 +524,19 @@ public partial class SettingsPage : Control
 		hintLabel.AddThemeFontSizeOverride("font_size", 14);
 		_keybindContainer.AddChild(hintLabel);
 
-		// 可滚动键位网格
+		// 可滚动键位网格（流式布局，响应窗口宽度自动换行）
 		_keybindScroll = new ScrollContainer
 		{
 			CustomMinimumSize = new Vector2(0, 280),
 			HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
 		};
-		_keybindListContainer = new GridContainer
+		_keybindListContainer = new HFlowContainer
 		{
-			Name = "KeybindGrid",
-			Columns = 2,
+			Name = "KeybindFlow",
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 		};
-		_keybindListContainer.AddThemeConstantOverride("h_separation", 12);
-		_keybindListContainer.AddThemeConstantOverride("v_separation", 6);
+		_keybindListContainer.AddThemeConstantOverride("h_separation", 14);
+		_keybindListContainer.AddThemeConstantOverride("v_separation", 8);
 		_keybindScroll.AddChild(_keybindListContainer);
 		_keybindContainer.AddChild(_keybindScroll);
 
@@ -589,35 +588,43 @@ public partial class SettingsPage : Control
 		{
 			var key = im.GetKey(action);
 			var displayName = ActionDisplayNames.TryGetValue(action, out var name) ? name : action.ToString();
-			AddKeybindGridRow(action, displayName, key);
+			AddKeybindFlowItem(action, displayName, key);
 		}
 	}
 
-	/// <summary>向键位网格添加一行：标签（右对齐）→ 按钮。</summary>
-	private void AddKeybindGridRow(StringName action, string displayName, Key currentKey)
+	/// <summary>向键位流式布局添加一项：标签 + 按钮的 HBoxContainer。</summary>
+	private void AddKeybindFlowItem(StringName action, string displayName, Key currentKey)
 	{
+		var row = new HBoxContainer
+		{
+			Alignment = BoxContainer.AlignmentMode.Center,
+			CustomMinimumSize = new Vector2(180, 36),
+		};
+		row.AddThemeConstantOverride("separation", 8);
+
 		var label = new Label
 		{
 			Text = displayName,
-			CustomMinimumSize = new Vector2(120, 32),
+			CustomMinimumSize = new Vector2(80, 0),
 			HorizontalAlignment = HorizontalAlignment.Right,
 			VerticalAlignment = VerticalAlignment.Center,
 		};
-		label.AddThemeFontSizeOverride("font_size", 16);
+		label.AddThemeFontSizeOverride("font_size", 18);
 
 		var keyBtn = new Button
 		{
 			Text = KeyToDisplay(currentKey),
-			CustomMinimumSize = new Vector2(110, 30),
+			CustomMinimumSize = new Vector2(90, 32),
 		};
-		keyBtn.AddThemeFontSizeOverride("font_size", 14);
+		keyBtn.AddThemeFontSizeOverride("font_size", 16);
 		keyBtn.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.6f));
 
 		var capturedAction = action;
 		keyBtn.Pressed += () => StartListening(capturedAction, keyBtn);
 
-		_keybindListContainer.AddChild(label);
-		_keybindListContainer.AddChild(keyBtn);
+		row.AddChild(label);
+		row.AddChild(keyBtn);
+		_keybindListContainer.AddChild(row);
 	}
 
 	// ===== 监听模式 =====
