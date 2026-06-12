@@ -59,7 +59,7 @@ public partial class SettingsPage : Control
 	private bool _isListeningForKey;
 	private StringName _listeningAction;
 	private Button _listeningButton = null!;
-	private VBoxContainer _keybindListContainer = null!;
+	private GridContainer _keybindListContainer = null!;
 	private OptionButton _profileSelector = null!;
 	private Button _newProfileBtn = null!;
 	private Button _deleteProfileBtn = null!;
@@ -524,14 +524,20 @@ public partial class SettingsPage : Control
 		hintLabel.AddThemeFontSizeOverride("font_size", 14);
 		_keybindContainer.AddChild(hintLabel);
 
-		// 可滚动键位列表
+		// 可滚动键位网格
 		_keybindScroll = new ScrollContainer
 		{
 			CustomMinimumSize = new Vector2(0, 280),
 			HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
 		};
-		_keybindListContainer = new VBoxContainer { Name = "KeybindList" };
-		_keybindListContainer.AddThemeConstantOverride("separation", 4);
+		_keybindListContainer = new GridContainer
+		{
+			Name = "KeybindGrid",
+			Columns = 2,
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+		};
+		_keybindListContainer.AddThemeConstantOverride("h_separation", 12);
+		_keybindListContainer.AddThemeConstantOverride("v_separation", 6);
 		_keybindScroll.AddChild(_keybindListContainer);
 		_keybindContainer.AddChild(_keybindScroll);
 
@@ -569,10 +575,9 @@ public partial class SettingsPage : Control
 		_profileSelector.Selected = activeIdx;
 	}
 
-	/// <summary>重建键位列表，反映当前映射。</summary>
+	/// <summary>重建键位网格，反映当前映射。</summary>
 	private void RefreshKeybindList()
 	{
-		// 清除旧行
 		foreach (var child in _keybindListContainer.GetChildren())
 			child.QueueFree();
 
@@ -584,44 +589,35 @@ public partial class SettingsPage : Control
 		{
 			var key = im.GetKey(action);
 			var displayName = ActionDisplayNames.TryGetValue(action, out var name) ? name : action.ToString();
-			var row = CreateKeybindRow(action, displayName, key);
-			_keybindListContainer.AddChild(row);
+			AddKeybindGridRow(action, displayName, key);
 		}
 	}
 
-	/// <summary>创建单个键位行：标签 + 按钮。</summary>
-	private HBoxContainer CreateKeybindRow(StringName action, string displayName, Key currentKey)
+	/// <summary>向键位网格添加一行：标签（右对齐）→ 按钮。</summary>
+	private void AddKeybindGridRow(StringName action, string displayName, Key currentKey)
 	{
-		var row = new HBoxContainer
-		{
-			Alignment = BoxContainer.AlignmentMode.Center,
-			CustomMinimumSize = new Vector2(0, 32),
-		};
-		row.AddThemeConstantOverride("separation", 12);
-
 		var label = new Label
 		{
 			Text = displayName,
-			CustomMinimumSize = new Vector2(120, 0),
+			CustomMinimumSize = new Vector2(120, 32),
 			HorizontalAlignment = HorizontalAlignment.Right,
+			VerticalAlignment = VerticalAlignment.Center,
 		};
 		label.AddThemeFontSizeOverride("font_size", 16);
 
 		var keyBtn = new Button
 		{
 			Text = KeyToDisplay(currentKey),
-			CustomMinimumSize = new Vector2(100, 30),
+			CustomMinimumSize = new Vector2(110, 30),
 		};
 		keyBtn.AddThemeFontSizeOverride("font_size", 14);
 		keyBtn.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.6f));
 
-		// 点击进入「监听」模式
-		var capturedAction = action; // 闭包捕获
+		var capturedAction = action;
 		keyBtn.Pressed += () => StartListening(capturedAction, keyBtn);
 
-		row.AddChild(label);
-		row.AddChild(keyBtn);
-		return row;
+		_keybindListContainer.AddChild(label);
+		_keybindListContainer.AddChild(keyBtn);
 	}
 
 	// ===== 监听模式 =====
