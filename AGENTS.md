@@ -241,6 +241,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - godot-mcp **无法可靠验证拖拽**：`game_click` 合成事件 vs OS 真实鼠标不一致。
 - 需人类肉眼：UI 位置/大小、拖拽交互、动画、字体。
 - 路径硬编码：`G:\dev\godot-mcp-fc-a\build\scripts\`。
+- mcp无法验证移动端特有行为，需请求真机测试
 
 ## Anti-Patterns
 
