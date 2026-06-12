@@ -46,6 +46,7 @@ public partial class CollectionUI : Control
 	private Label _minCardsWarning = null!;
 	private Control _cardPreviewOverlay = null!;
 	private bool _hasCardPreviewOverlay;
+	private IDisposable? _cardPreviewTouchToken;
 
 	/// <summary>
 	/// 飞入动画层：用于卡牌从网格飞到牌组列表的临时卡片。
@@ -135,6 +136,18 @@ public partial class CollectionUI : Control
 	{
 		if (SceneLifecycleGuard.ShouldSkip(this))
 			return;
+
+		// 特写预览期间，任意鼠标点击即关闭（桌面端）。
+		// 在 _Input 层拦截而非依赖 GuiInput，避免 ScrollContainer 等控件
+		// 拦截 GUI 事件导致 overlay 的 GuiInput 无法收到。
+		if (_hasCardPreviewOverlay && !MobileInputRouter.IsMobile)
+		{
+			if (@event is InputEventMouseButton { Pressed: true })
+			{
+				CloseCardPreview();
+				return;
+			}
+		}
 
 		if (!MobileInputRouter.IsMobile)
 		{
@@ -818,6 +831,7 @@ public partial class CollectionUI : Control
 		_cardGrid.OnCardClicked += OnCardGridCardClicked;
 		_cardGrid.OnCardDragCompleted += OnCardGridDragCompleted;
 		_cardGrid.OnCardLongPressed += ShowCardPreview;
+		_cardGrid.OnCardRightClicked += ShowCardPreview;
 		contentSplit.AddChild(_cardGrid);
 
 		// ===== 飞入动画层（最高 ZIndex） =====
@@ -1433,24 +1447,18 @@ public partial class CollectionUI : Control
 		overlay.AddChild(dim);
 
 		float uiScale = UIScaler.Instance?.GetScaleFactor() ?? 1f;
-		Vector2 cardBaseSize = new(CardUI.DESIGN_WIDTH * uiScale, CardUI.DESIGN_HEIGHT * uiScale);
 		float previewHeight = Mathf.Min(viewportSize.Y * 0.86f, 430f * uiScale);
-		float previewWidth = previewHeight * (CardUI.DESIGN_WIDTH / CardUI.DESIGN_HEIGHT);
+		float renderScale = previewHeight / CardUI.DESIGN_HEIGHT;
+		float previewWidth = renderScale * CardUI.DESIGN_WIDTH;
 		if (previewWidth > viewportSize.X * 0.72f)
 		{
-			previewWidth = viewportSize.X * 0.72f;
-			previewHeight = previewWidth * (CardUI.DESIGN_HEIGHT / CardUI.DESIGN_WIDTH);
+			renderScale = viewportSize.X * 0.72f / CardUI.DESIGN_WIDTH;
 		}
 
-		Vector2 previewSize = new(previewWidth, previewHeight);
-		float previewScale = previewHeight / cardBaseSize.Y;
 		var previewCard = new CardUI
 		{
 			DisplayOnly = true,
-			CustomMinimumSize = cardBaseSize,
-			Size = cardBaseSize,
-			Scale = Vector2.One * previewScale,
-			GlobalPosition = (viewportSize - previewSize) / 2f,
+			RenderScaleOverride = renderScale,
 		};
 		previewCard.SetCard(new OdysseyCards.Card.Card(cardData));
 		overlay.AddChild(previewCard);
@@ -1469,8 +1477,17 @@ public partial class CollectionUI : Control
 		_hasCardPreviewOverlay = true;
 		AddChild(overlay);
 
+		// _Ready 在 AddChild 后已执行，Size 已由 renderScale 计算完毕，此时居中定位。
+		previewCard.GlobalPosition = (viewportSize - previewCard.Size) / 2f;
+
 		if (MobileInputRouter.IsMobile)
 		{
+			_cardPreviewTouchToken = MobileInputRouter.Instance.RegisterTapZone(
+				overlay,
+				overlay.GetGlobalRect(),
+				priority: 350,
+				onTap: CloseCardPreview
+			);
 			MobileInputRouter.Instance.PushModalLayer(overlay);
 		}
 	}
@@ -1482,6 +1499,8 @@ public partial class CollectionUI : Control
 
 		if (MobileInputRouter.IsMobile)
 		{
+			_cardPreviewTouchToken?.Dispose();
+			_cardPreviewTouchToken = null;
 			MobileInputRouter.Instance.PopModalLayer(_cardPreviewOverlay);
 		}
 

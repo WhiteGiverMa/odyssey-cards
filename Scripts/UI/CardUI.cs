@@ -103,6 +103,13 @@ public partial class CardUI : Control
 	public bool DisplayOnly { get; set; }
 
 	/// <summary>
+	/// 覆盖内部渲染 scale。设为 &gt;0 时 CardUI 用此值替代系统 UIScaler.uiScale
+	/// 计算所有控件尺寸和字体大小。用于预览特写等需要非标准尺寸渲染的场景。
+	/// 设为 0（默认）时使用系统 uiScale。
+	/// </summary>
+	public float RenderScaleOverride { get; set; }
+
+	/// <summary>
 	/// 阻止拖拽：不进入 StartDrag 流程，但仍触发 OnCardClicked 用于手牌选择模式。
 	/// 与 DisplayOnly 不同——DisplayOnly 完全禁用交互，PreventDrag 仅阻止拖拽副作用。
 	/// </summary>
@@ -205,7 +212,8 @@ public partial class CardUI : Control
 	/// </summary>
 	public override void _Ready()
 	{
-		float s = UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
+		float s = RenderScaleOverride > 0f ? RenderScaleOverride
+			: UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
 		Vector2 cardSize = new(DESIGN_WIDTH * s, DESIGN_HEIGHT * s);
 		_uiScale = s;
 		_cardSize = cardSize;
@@ -563,7 +571,8 @@ public partial class CardUI : Control
 			return;
 		}
 
-		float s = UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
+		float s = RenderScaleOverride > 0f ? RenderScaleOverride
+			: UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
 
 		// 法力消耗
 		_manaLabel.Text = card.GetEffectiveCost().ToString();
