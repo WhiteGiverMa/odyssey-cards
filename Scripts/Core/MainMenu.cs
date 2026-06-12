@@ -88,7 +88,9 @@ public partial class MainMenu : Control
 		_buttonContainer.MoveChild(_abandonButton, 1); // 插入到第二个按钮位置
 
 		// 根据当前是否有活跃冒险控制 Continue / Abandon 按钮的可见性
-		bool hasActiveRun = GameManager.Instance.RunState != null;
+		// 运行完成（胜利/失败）后不显示继续/放弃按钮
+		var runState = GameManager.Instance.RunState;
+		bool hasActiveRun = runState != null && !runState.IsRunComplete;
 		_continueButton.Visible = hasActiveRun;
 		_abandonButton.Visible = hasActiveRun;
 

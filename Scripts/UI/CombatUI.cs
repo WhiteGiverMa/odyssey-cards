@@ -1233,6 +1233,7 @@ public partial class CombatUI : Control
 			GD.Print("[CombatUI] 继续冒险 → 路线选择地图");
 			var gm = GameManager.Instance;
 			gm?.RunState?.CompleteRoom();
+			gm?.SaveRun(); // 立即持久化完成状态，防止重启后运行仍可继续
 
 			// 弹出战后奖励界面
 			ShowPostBattleReward();
@@ -1240,6 +1241,7 @@ public partial class CombatUI : Control
 		else
 		{
 			GD.Print("[CombatUI] 返回主菜单");
+			GameManager.Instance?.ClearActiveRun();
 			GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
 		}
 	}

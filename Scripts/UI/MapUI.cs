@@ -985,7 +985,11 @@ public partial class MapUI : Control
 
 		var returnBtn = MobileDialogHost.CreateDialogButton(
 			Localization.Localization.T("ui.combat.back_to_menu", "返回主菜单"));
-		returnBtn.Pressed += () => GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
+		returnBtn.Pressed += () =>
+		{
+			GameManager.Instance?.ClearActiveRun();
+			GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
+		};
 		buttonRow.AddChild(returnBtn);
 	}
 
