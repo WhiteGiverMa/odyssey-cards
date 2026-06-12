@@ -177,6 +177,11 @@ public partial class CombatUI : Control
 	private Control _damageNumberContainer = null!;
 
 	/// <summary>
+	/// 攻击/法术弹道特效容器（独立 CanvasLayer，Layer=14），低于伤害跳字且不阻塞输入。
+	/// </summary>
+	private Control _attackVfxLayer = null!;
+
+	/// <summary>
 	/// 卡牌飞行 VFX 的父容器（独立 CanvasLayer，Layer=20），用于卡牌打出→弃牌堆飞行动画。
 	/// </summary>
 	private Control _cardFlyLayer = null!;
@@ -209,6 +214,8 @@ public partial class CombatUI : Control
 	/// 当前正在拖拽的卡牌 UI。
 	/// </summary>
 	private CardUI? _dragCardUI;
+	private Card.Card? _pendingSpellVfxCard;
+	private Vector2 _pendingSpellVfxOrigin;
 	private const string CardTargetArrowKey = "card_target_select";
 	private const float TargetingCardScale = 0.75f;
 	private const float CardTargetDragThreshold = 10f;
@@ -635,6 +642,13 @@ public partial class CombatUI : Control
 			: "无存活敌方英雄";
 		GD.Print($"[CombatUI] 初始化 — 玩家生命 {combat.PlayerHero.CurrentHealth}/{combat.PlayerHero.MaxHealth}，{enemyHealthText}");
 
+		// 攻击/法术弹道层（低于跳字，纯表现，不拦截输入）
+		var attackVfxCanvasLayer = new CanvasLayer { Name = "AttackVfxLayer", Layer = 14 };
+		AddChild(attackVfxCanvasLayer);
+		_attackVfxLayer = new Control { Name = "AttackVfxContainer", MouseFilter = MouseFilterEnum.Ignore };
+		_attackVfxLayer.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		attackVfxCanvasLayer.AddChild(_attackVfxLayer);
+
 		// 伤害跳字层（介于棋盘效果层和拖拽层之间，Layer=15）
 		var damageNumberLayer = new CanvasLayer { Name = "DamageNumberLayer", Layer = 15 };
 		AddChild(damageNumberLayer);
@@ -856,6 +870,10 @@ public partial class CombatUI : Control
 		_combat.OnCombatStateChanged += OnCombatStateChangedRefresh;
 		_unsubscribeActions.Add(() => _combat.OnCombatStateChanged -= OnCombatStateChangedRefresh);
 
+		// 主动伤害弹道特效 — 规则层只发请求，UI 层非阻塞播放
+		_combat.OnDamageVfxRequested += OnDamageVfxRequested;
+		_unsubscribeActions.Add(() => _combat.OnDamageVfxRequested -= OnDamageVfxRequested);
+
 		// 发现选牌阶段切换
 		_combat.OnCombatStateChanged += OnCombatStateChangedForDiscover;
 		_unsubscribeActions.Add(() => _combat.OnCombatStateChanged -= OnCombatStateChangedForDiscover);
@@ -965,6 +983,68 @@ public partial class CombatUI : Control
 	{
 		RefreshIntentDisplay();
 		RefreshIntentArrows();
+	}
+
+	private void OnDamageVfxRequested(object? visualSource, IDamageTarget target, DamageKind kind, CombatDamageVfxKind vfxKind)
+	{
+		if (_attackVfxLayer == null)
+			return;
+
+		Vector2 from = ResolveVfxSourceScreenPos(visualSource, vfxKind);
+		Vector2 to = ResolveTargetScreenPos(target);
+		if (from == Vector2.Zero || to == Vector2.Zero)
+			return;
+
+		AttackProjectileVfx.Play(from, to, vfxKind, _attackVfxLayer);
+	}
+
+	private Vector2 ResolveVfxSourceScreenPos(object? visualSource, CombatDamageVfxKind vfxKind)
+	{
+		return visualSource switch
+		{
+			Minion minion => GetMinionScreenCenter(minion),
+			Hero hero => ResolveTargetScreenPos(hero),
+			Card.Card card when ReferenceEquals(card, _pendingSpellVfxCard) && _pendingSpellVfxOrigin != Vector2.Zero => _pendingSpellVfxOrigin,
+			Card.Card => GetPlayerHeroScreenCenter(),
+			_ when vfxKind == CombatDamageVfxKind.Spell => GetPlayerHeroScreenCenter(),
+			_ => GetPlayerHeroScreenCenter(),
+		};
+	}
+
+	private bool PlaySelectedSpellWithVfxOrigin(object target)
+	{
+		if (_selectedCard == null)
+			return false;
+
+		_pendingSpellVfxCard = _selectedCard;
+		_pendingSpellVfxOrigin = ResolveSelectedCardVfxOrigin(_selectedCard);
+		try
+		{
+			return _combat.PlaySpell(_selectedCard, target);
+		}
+		finally
+		{
+			_pendingSpellVfxCard = null;
+			_pendingSpellVfxOrigin = Vector2.Zero;
+		}
+	}
+
+	private Vector2 ResolveSelectedCardVfxOrigin(Card.Card card)
+	{
+		if (_dragCardUI != null)
+		{
+			var rect = _dragCardUI.GetGlobalRect();
+			return rect.Position + rect.Size * 0.5f;
+		}
+
+		var hand = _combat.PlayerHero.Hand;
+		for (int i = 0; i < hand.Count; i++)
+		{
+			if (ReferenceEquals(hand[i], card))
+				return _handUI.GetHandCardGlobalCenter(i, hand.Count);
+		}
+
+		return GetPlayerHeroScreenCenter();
 	}
 
 	/// <summary>

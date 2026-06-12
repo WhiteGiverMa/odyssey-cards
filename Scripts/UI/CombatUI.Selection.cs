@@ -223,7 +223,7 @@ public partial class CombatUI
 		}
 
 		GD.Print($"[CombatUI] 对 {target.CardName} 施放 {_selectedCard.CardName}");
-		bool success = _combat.PlaySpell(_selectedCard, target);
+		bool success = PlaySelectedSpellWithVfxOrigin(target);
 		if (success)
 		{
 			GD.Print($"[CombatUI] ✓ 法术 {_selectedCard.CardName} 已施放");
@@ -1055,7 +1055,7 @@ public partial class CombatUI
 			return;
 
 		GD.Print($"[CombatUI] 对敌方英雄[{enemyIndex}]施放 {_selectedCard.CardName}");
-		_combat.PlaySpell(_selectedCard, target);
+		PlaySelectedSpellWithVfxOrigin(target);
 		RefreshAll();
 	}
 
@@ -1083,7 +1083,7 @@ public partial class CombatUI
 		}
 
 		GD.Print($"[CombatUI] 对己方英雄施放 {_selectedCard.CardName}");
-		_combat.PlaySpell(_selectedCard, _combat.PlayerHero);
+		PlaySelectedSpellWithVfxOrigin(_combat.PlayerHero);
 		RefreshAll();
 	}
 
@@ -1922,11 +1922,11 @@ public partial class CombatUI
 		switch (_selectedCard.Type)
 		{
 			case CardType.Spell:
-				success = _combat.PlaySpell(_selectedCard, _combat.PlayerHero);
+				success = PlaySelectedSpellWithVfxOrigin(_combat.PlayerHero);
 				break;
 			case CardType.Status:
 				// 状态牌：自动以玩家英雄为目标
-				success = _combat.PlaySpell(_selectedCard, _combat.PlayerHero);
+				success = PlaySelectedSpellWithVfxOrigin(_combat.PlayerHero);
 				break;
 			case CardType.Domain:
 				success = _combat.PlayDomain(_selectedCard);
