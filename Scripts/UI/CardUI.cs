@@ -26,6 +26,11 @@ public partial class CardUI : Control
 	private const float STATS_W = 32f;
 	private const float STATS_H = 22f;
 	private const float KEYWORD_H = 18f;
+	private const float MIN_ARTWORK_H = 42f;
+	private const float DESC_SIDE_PADDING = 4f;
+	private const float DESC_TOP_BOTTOM_PADDING = 2f;
+	private const int DESC_BASE_FONT_SIZE = 7;
+	private const int DESC_MIN_FONT_SIZE = 5;
 	private const float HOVER_LIFT = 10f;
 
 	// ============================================================
@@ -185,6 +190,8 @@ public partial class CardUI : Control
 	private Tween? _hoverTween;
 	private bool _isHoverEffectActive;
 	private bool _built;
+	private float _uiScale = 1.0f;
+	private Vector2 _cardSize;
 
 	// ============================================================
 	// Godot 生命周期
@@ -198,6 +205,8 @@ public partial class CardUI : Control
 	{
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
 		Vector2 cardSize = new(DESIGN_WIDTH * s, DESIGN_HEIGHT * s);
+		_uiScale = s;
+		_cardSize = cardSize;
 
 		CustomMinimumSize = cardSize;
 		Size = cardSize;
@@ -495,15 +504,15 @@ public partial class CardUI : Control
 
 		_descLabel = new Label
 		{
-			Size = new Vector2(size.X - 8f * s, h - 4f * s),
-			Position = new Vector2(4f * s, y + 2f * s),
-			HorizontalAlignment = HorizontalAlignment.Center,
-			VerticalAlignment = VerticalAlignment.Center,
-			AutowrapMode = TextServer.AutowrapMode.Word,
+			Size = new Vector2(size.X - DESC_SIDE_PADDING * 2f * s, h - DESC_TOP_BOTTOM_PADDING * 2f * s),
+			Position = new Vector2(DESC_SIDE_PADDING * s, y + DESC_TOP_BOTTOM_PADDING * s),
+			HorizontalAlignment = HorizontalAlignment.Left,
+			VerticalAlignment = VerticalAlignment.Top,
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			ClipText = true,
 		};
 		_descLabel.AddThemeColorOverride("font_color", ClrDescText);
-		_descLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(7 * s));
+		_descLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(DESC_BASE_FONT_SIZE * s));
 		AddChild(_descLabel);
 	}
 
@@ -569,6 +578,7 @@ public partial class CardUI : Control
 
 		// 关键词（仅随从）
 		RebuildKeywordLabels(card, s);
+		ApplyResponsiveContentLayout();
 	}
 
 #if TOOLS
@@ -636,6 +646,8 @@ public partial class CardUI : Control
 			bcBadge.AddThemeFontSizeOverride("font_size", 10);
 			_keywordContainer.AddChild(bcBadge);
 		}
+
+		ApplyResponsiveContentLayout();
 	}
 #endif
 
@@ -1043,6 +1055,152 @@ public partial class CardUI : Control
 			CardType.Domain => "领域",
 			_ => "法术"
 		};
+	}
+
+	/// <summary>
+	/// 按描述文本长度、关键词占位和牌面可用空间重新分配卡图/描述/关键词区域。
+	/// 目标是让长描述优先获得垂直空间，其次再缩小字号，而不是依赖固定高度硬裁切。
+	/// </summary>
+	private void ApplyResponsiveContentLayout()
+	{
+		if (!_built)
+		{
+			return;
+		}
+
+		float s = _uiScale > 0f ? _uiScale : (UIScaler.Instance?.GetScaleFactor() ?? 1.0f);
+		Vector2 size = _cardSize == Vector2.Zero ? Size : _cardSize;
+		float headerHeight = HEADER_H * s;
+		float keywordHeight = GetKeywordAreaHeight(s);
+		float maxArtworkHeight = ARTWORK_H * s;
+		float minArtworkHeight = MIN_ARTWORK_H * s;
+		float artworkStep = Mathf.Max(2f, 4f * s);
+		float descWidth = Mathf.Max(8f, size.X - DESC_SIDE_PADDING * 2f * s);
+		int baseFontSize = Mathf.Max(1, Mathf.RoundToInt(DESC_BASE_FONT_SIZE * s));
+		int minFontSize = Mathf.Max(1, Mathf.RoundToInt(DESC_MIN_FONT_SIZE * s));
+		float selectedArtworkHeight = minArtworkHeight;
+		int selectedFontSize = minFontSize;
+		bool foundFit = false;
+
+		for (float artworkHeight = maxArtworkHeight; artworkHeight >= minArtworkHeight; artworkHeight -= artworkStep)
+		{
+			float descAreaHeight = Mathf.Max(0f, size.Y - headerHeight - artworkHeight - keywordHeight);
+			float descInnerHeight = Mathf.Max(0f, descAreaHeight - DESC_TOP_BOTTOM_PADDING * 2f * s);
+
+			for (int fontSize = baseFontSize; fontSize >= minFontSize; fontSize--)
+			{
+				float textHeight = MeasureWrappedDescriptionHeight(descWidth, fontSize);
+				if (textHeight <= descInnerHeight)
+				{
+					selectedArtworkHeight = artworkHeight;
+					selectedFontSize = fontSize;
+					foundFit = true;
+					break;
+				}
+			}
+
+			if (foundFit)
+			{
+				break;
+			}
+
+			selectedArtworkHeight = artworkHeight;
+		}
+
+		float descTop = headerHeight + selectedArtworkHeight;
+		float descHeight = Mathf.Max(0f, size.Y - descTop - keywordHeight);
+		float keywordTop = descTop + descHeight;
+
+		ApplyArtworkLayout(headerHeight, selectedArtworkHeight, size, s);
+		ApplyDescriptionLayout(descTop, descHeight, descWidth, selectedFontSize, s);
+		ApplyKeywordLayout(keywordTop, keywordHeight, size, s);
+	}
+
+	/// <summary>
+	/// 更新卡图区、法术标签和攻防角标的位置，使其与响应式高度一致。
+	/// </summary>
+	private void ApplyArtworkLayout(float artworkTop, float artworkHeight, Vector2 size, float s)
+	{
+		_artworkRect.Position = new Vector2(0, artworkTop);
+		_artworkRect.Size = new Vector2(size.X, artworkHeight);
+
+		_artworkLabel.Position = new Vector2(0, artworkTop);
+		_artworkLabel.Size = new Vector2(size.X, artworkHeight);
+
+		_spellTypeLabel.Position = new Vector2(0, artworkTop);
+		_spellTypeLabel.Size = new Vector2(size.X, artworkHeight);
+
+		float statWidth = STATS_W * s;
+		float statHeight = STATS_H * s;
+		float statY = artworkTop + artworkHeight - statHeight - 2f * s;
+
+		_attackBg.Position = new Vector2(2f * s, statY);
+		_attackLabel.Position = _attackBg.Position;
+		_attackBg.Size = new Vector2(statWidth, statHeight);
+		_attackLabel.Size = _attackBg.Size;
+
+		float healthX = size.X - statWidth - 2f * s;
+		_healthBg.Position = new Vector2(healthX, statY);
+		_healthLabel.Position = _healthBg.Position;
+		_healthBg.Size = new Vector2(statWidth, statHeight);
+		_healthLabel.Size = _healthBg.Size;
+	}
+
+	/// <summary>
+	/// 更新描述区位置与字号；多行文本始终从上往下排，避免垂直居中导致的假性溢出。
+	/// </summary>
+	private void ApplyDescriptionLayout(float descTop, float descHeight, float descWidth, int fontSize, float s)
+	{
+		_descBg.Position = new Vector2(0, descTop);
+		_descBg.Size = new Vector2(_cardSize.X, descHeight);
+
+		_descLabel.Position = new Vector2(DESC_SIDE_PADDING * s, descTop + DESC_TOP_BOTTOM_PADDING * s);
+		_descLabel.Size = new Vector2(descWidth, Mathf.Max(0f, descHeight - DESC_TOP_BOTTOM_PADDING * 2f * s));
+		_descLabel.HorizontalAlignment = HorizontalAlignment.Left;
+		_descLabel.AddThemeFontSizeOverride("font_size", fontSize);
+	}
+
+	/// <summary>
+	/// 更新关键词区位置；无关键词时完全折叠，把空间还给描述文本。
+	/// </summary>
+	private void ApplyKeywordLayout(float keywordTop, float keywordHeight, Vector2 size, float s)
+	{
+		if (_keywordContainer.GetChildCount() == 0)
+		{
+			_keywordContainer.Visible = false;
+			return;
+		}
+
+		_keywordContainer.Visible = true;
+		_keywordContainer.Position = new Vector2(2f * s, keywordTop);
+		_keywordContainer.Size = new Vector2(size.X - 4f * s, keywordHeight);
+	}
+
+	/// <summary>
+	/// 关键词区当前高度。无关键词则折叠为 0；有关键词则保留底部一行高度。
+	/// </summary>
+	private float GetKeywordAreaHeight(float s)
+	{
+		return _keywordContainer.GetChildCount() > 0 ? KEYWORD_H * s : 0f;
+	}
+
+	/// <summary>
+	/// 用当前 Label 字体测量固定宽度下的换行后高度。
+	/// </summary>
+	private float MeasureWrappedDescriptionHeight(float width, int fontSize)
+	{
+		if (string.IsNullOrEmpty(_descLabel.Text))
+		{
+			return 0f;
+		}
+
+		Font font = _descLabel.GetThemeFont("font") ?? ThemeDB.FallbackFont;
+		Vector2 textSize = font.GetMultilineStringSize(
+			_descLabel.Text,
+			HorizontalAlignment.Left,
+			width,
+			fontSize);
+		return textSize.Y;
 	}
 
 	// ============================================================
