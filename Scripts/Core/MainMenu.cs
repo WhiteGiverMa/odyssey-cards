@@ -238,6 +238,9 @@ public partial class MainMenu : Control
 
 	private void OnSettingsPressed()
 	{
+		if (IsSettingsOverlayActive())
+			return;
+
 		SettingsPage settingsPage = new();
 		settingsPage.Name = "SettingsPage";
 		settingsPage.SetAnchorsPreset(LayoutPreset.FullRect);
@@ -250,6 +253,13 @@ public partial class MainMenu : Control
 			_activeModalOverlay = settingsPage;
 			MobileInputRouter.Instance.PushModalLayer(settingsPage);
 		}
+	}
+
+	private bool IsSettingsOverlayActive()
+	{
+		return _activeModalOverlay != null
+			&& GodotObject.IsInstanceValid(_activeModalOverlay)
+			&& _activeModalOverlay.IsInsideTree();
 	}
 
 	private void OnQuitPressed()

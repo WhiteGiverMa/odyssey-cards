@@ -18,9 +18,11 @@ public partial class SettingsPage : Control
 	private Button _keybindTabBtn = null!;
 	private ScrollContainer _displayScroll = null!;
 	private ScrollContainer _gameScroll = null!;
+	private ScrollContainer _keybindPageScroll = null!;
 	private VBoxContainer _displayContainer = null!;
 	private VBoxContainer _gameContainer = null!;
 	private VBoxContainer _keybindContainer = null!;
+	private string _activeTab = "display";
 
 	// ===== 常规设置控件（全部保留）=====
 
@@ -292,9 +294,11 @@ public partial class SettingsPage : Control
 		_gameScroll.AddChild(_gameContainer);
 
 		// === 键位设置（可滚动）===
+		_keybindPageScroll = CreateTabScroll();
+		_keybindPageScroll.Visible = false;
 		_keybindContainer = CreateTabContentContainer();
-		_keybindContainer.Visible = false;
 		SetupKeybindUI();
+		_keybindPageScroll.AddChild(_keybindContainer);
 
 		// === 返回按钮 ===
 		_backButton = new Button
@@ -314,7 +318,7 @@ public partial class SettingsPage : Control
 		root.AddChild(tabRow);
 		root.AddChild(_displayScroll);
 		root.AddChild(_gameScroll);
-		root.AddChild(_keybindContainer); // 键位页有自己的滚动容器
+		root.AddChild(_keybindPageScroll);
 		root.AddChild(_backButton);
 
 		AddChild(root);
@@ -329,6 +333,7 @@ public partial class SettingsPage : Control
 			Name = "TabScroll",
 			HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
 			SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+			MouseFilter = MouseFilterEnum.Stop,
 		};
 		return scroll;
 	}
@@ -666,10 +671,15 @@ public partial class SettingsPage : Control
 		bool isDisplay = tab == "display";
 		bool isGame = tab == "game";
 		bool isKeybind = tab == "keybind";
+		_activeTab = tab;
 
 		_displayScroll.Visible = isDisplay;
 		_gameScroll.Visible = isGame;
-		_keybindContainer.Visible = isKeybind;
+		_keybindPageScroll.Visible = isKeybind;
+
+		_displayScroll.MouseFilter = isDisplay ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
+		_gameScroll.MouseFilter = isGame ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
+		_keybindPageScroll.MouseFilter = isKeybind ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
 
 		UpdateTabStyle(_displayTabBtn, isDisplay);
 		UpdateTabStyle(_gameTabBtn, isGame);
@@ -1088,61 +1098,65 @@ public partial class SettingsPage : Control
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (HitTestControl(_languageOptionButton, touch.Position))
+		if (IsDisplayTabActive() && HitTestControl(_languageOptionButton, touch.Position))
 		{
 			CycleOptionButton(_languageOptionButton, OnLanguageSelected);
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (HitTestControl(_resolutionOptionButton, touch.Position))
+		if (IsDisplayTabActive() && HitTestControl(_resolutionOptionButton, touch.Position))
 		{
 			CycleOptionButton(_resolutionOptionButton, OnResolutionSelected);
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (HitTestControl(_windowModeOptionButton, touch.Position))
+		if (IsDisplayTabActive() && HitTestControl(_windowModeOptionButton, touch.Position))
 		{
 			CycleOptionButton(_windowModeOptionButton, OnWindowModeSelected);
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (HitTestControl(_cardDescriptionAlignmentOptionButton, touch.Position))
+		if (IsDisplayTabActive() && HitTestControl(_cardDescriptionAlignmentOptionButton, touch.Position))
 		{
 			CycleOptionButton(_cardDescriptionAlignmentOptionButton, OnCardDescriptionAlignmentSelected);
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (_devModeToggle.Visible && HitTestControl(_devModeToggle, touch.Position))
+		if (IsGameTabActive() && _devModeToggle.Visible && HitTestControl(_devModeToggle, touch.Position))
 		{
 			_devModeToggle.ButtonPressed = !_devModeToggle.ButtonPressed;
 			OnDevModeToggled(_devModeToggle.ButtonPressed);
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (HitTestControl(_intentIconFloatingToggle, touch.Position))
+		if (IsDisplayTabActive() && HitTestControl(_intentIconFloatingToggle, touch.Position))
 		{
 			_intentIconFloatingToggle.ButtonPressed = !_intentIconFloatingToggle.ButtonPressed;
 			OnIntentIconFloatingToggled(_intentIconFloatingToggle.ButtonPressed);
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (!_intentValueFloatingToggle.Disabled && HitTestControl(_intentValueFloatingToggle, touch.Position))
+		if (IsDisplayTabActive() && !_intentValueFloatingToggle.Disabled && HitTestControl(_intentValueFloatingToggle, touch.Position))
 		{
 			_intentValueFloatingToggle.ButtonPressed = !_intentValueFloatingToggle.ButtonPressed;
 			OnIntentValueFloatingToggled(_intentValueFloatingToggle.ButtonPressed);
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (_consoleButton.Visible && HitTestControl(_consoleButton, touch.Position))
+		if (IsGameTabActive() && _consoleButton.Visible && HitTestControl(_consoleButton, touch.Position))
 		{
 			OnConsolePressed();
 			GetViewport().SetInputAsHandled();
 		}
 	}
 
+	private bool IsDisplayTabActive() => _activeTab == "display" && _displayScroll.IsVisibleInTree();
+
+	private bool IsGameTabActive() => _activeTab == "game" && _gameScroll.IsVisibleInTree();
+
 	private static bool HitTestControl(Control control, Vector2 touchPos)
 	{
-		if (control == null || !control.IsInsideTree() || !control.Visible)
+		if (control == null || !control.IsInsideTree() || !control.IsVisibleInTree())
 			return false;
 		return control.GetGlobalRect().Grow(MobileTouchHitPadding).HasPoint(touchPos);
 	}
