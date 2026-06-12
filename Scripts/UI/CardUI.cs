@@ -31,6 +31,8 @@ public partial class CardUI : Control
 	private const float DESC_TOP_BOTTOM_PADDING = 2f;
 	private const int DESC_BASE_FONT_SIZE = 7;
 	private const int DESC_MIN_FONT_SIZE = 5;
+	private const int NAME_BASE_FONT_SIZE = 11;
+	private const int NAME_MIN_FONT_SIZE = 7;
 	private const float HOVER_LIFT = 10f;
 
 	// ============================================================
@@ -379,12 +381,11 @@ public partial class CardUI : Control
 		{
 			Size = new Vector2(w, h),
 			Position = new Vector2(x, 0),
-			HorizontalAlignment = HorizontalAlignment.Center,
+			HorizontalAlignment = GetNameAlignment(),
 			VerticalAlignment = VerticalAlignment.Center,
-			ClipText = true,
 		};
 		_nameLabel.AddThemeColorOverride("font_color", ClrTextWhite);
-		_nameLabel.AddThemeFontSizeOverride("font_size", (int)(11 * s));
+		_nameLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(NAME_BASE_FONT_SIZE * s));
 		AddChild(_nameLabel);
 	}
 
@@ -570,8 +571,10 @@ public partial class CardUI : Control
 		// 行动花费（随从始终显示，法术隐藏）
 		_actionCostLabel.Text = card.ActionCost.ToString();
 
-		// 卡牌名称（本地化）
+		// 卡牌名称（本地化）- 响应式字号防止长名称溢出
 		_nameLabel.Text = card.GetLocalizedName();
+		_nameLabel.HorizontalAlignment = GetNameAlignment();
+		ApplyNameFontSize(s);
 
 		// 卡图区域：有真实资源时隐藏占位文字
 		_artworkLabel.Visible = card.Data.Artwork == null;
@@ -1227,10 +1230,54 @@ public partial class CardUI : Control
 	}
 
 	/// <summary>
-	/// 设置页切换描述对齐后，当前已存在的 CardUI 也需要即时重排。
+	/// 卡牌名称对齐方式——复用「卡牌描述对齐」设置项，
+	/// 白名单模式：居中对齐时名称也居中，左对齐时名称左对齐。
+	/// </summary>
+	private static HorizontalAlignment GetNameAlignment()
+	{
+		return UIScaler.Instance?.CardDescriptionCentered == true
+			? HorizontalAlignment.Center
+			: HorizontalAlignment.Left;
+	}
+
+	/// <summary>
+	/// 测量卡牌名称文本宽度，必要时缩小字号以适配名称区域宽度。
+	/// 从 NAME_BASE_FONT_SIZE 逐步降至 NAME_MIN_FONT_SIZE。
+	/// </summary>
+	private void ApplyNameFontSize(float s)
+	{
+		if (string.IsNullOrEmpty(_nameLabel.Text))
+			return;
+
+		float x = MANA_DIAMETER * s + 8f * s;
+		float availableWidth = _cardSize.X - x - 4f * s;
+
+		int baseFontSize = Mathf.RoundToInt(NAME_BASE_FONT_SIZE * s);
+		int minFontSize = Mathf.Max(1, Mathf.RoundToInt(NAME_MIN_FONT_SIZE * s));
+		int fontSize = baseFontSize;
+
+		Font font = _nameLabel.GetThemeFont("font") ?? ThemeDB.FallbackFont;
+		for (; fontSize > minFontSize; fontSize--)
+		{
+			Vector2 textSize = font.GetStringSize(_nameLabel.Text, HorizontalAlignment.Left, -1, fontSize);
+			if (textSize.X <= availableWidth)
+				break;
+		}
+
+		_nameLabel.AddThemeFontSizeOverride("font_size", fontSize);
+	}
+
+	/// <summary>
+	/// 设置页切换描述对齐后，当前已存在的 CardUI 也需要即时重排名称和描述。
 	/// </summary>
 	private void OnCardDescriptionSettingsChanged()
 	{
+		if (!_built)
+			return;
+
+		_nameLabel.HorizontalAlignment = GetNameAlignment();
+		float s = _uiScale > 0f ? _uiScale : (UIScaler.Instance?.GetScaleFactor() ?? 1.0f);
+		ApplyNameFontSize(s);
 		ApplyResponsiveContentLayout();
 	}
 
