@@ -413,7 +413,7 @@ public partial class SettingsPage : Control
 			ButtonPressed = iconFloating,
 		};
 		_intentIconFloatingToggle.AddThemeFontSizeOverride("font_size", 18);
-		_displayContainer.AddChild(_intentIconFloatingToggle);
+		_displayContainer.AddChild(CreateCenteredRow(_intentIconFloatingToggle));
 
 		_intentValueFloatingToggle = new CheckBox
 		{
@@ -422,7 +422,7 @@ public partial class SettingsPage : Control
 			Disabled = !iconFloating,
 		};
 		_intentValueFloatingToggle.AddThemeFontSizeOverride("font_size", 18);
-		_displayContainer.AddChild(_intentValueFloatingToggle);
+		_displayContainer.AddChild(CreateCenteredRow(_intentValueFloatingToggle));
 	}
 
 	// ===== 游戏设置 UI =====
@@ -476,7 +476,7 @@ public partial class SettingsPage : Control
 			ButtonPressed = DevConsole.IsDevMode,
 		};
 		_devModeToggle.AddThemeFontSizeOverride("font_size", 20);
-		_gameContainer.AddChild(_devModeToggle);
+		_gameContainer.AddChild(CreateCenteredRow(_devModeToggle));
 
 		_consoleButton = new Button
 		{
@@ -485,7 +485,7 @@ public partial class SettingsPage : Control
 			Visible = DevConsole.IsDevMode,
 		};
 		_consoleButton.AddThemeFontSizeOverride("font_size", 16);
-		_gameContainer.AddChild(_consoleButton);
+		_gameContainer.AddChild(CreateCenteredRow(_consoleButton));
 	}
 
 	// ===== 键位设置 UI =====
@@ -746,6 +746,14 @@ public partial class SettingsPage : Control
 		var row = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
 		row.AddThemeConstantOverride("separation", 20);
 		row.AddChild(label);
+		row.AddChild(control);
+		return row;
+	}
+
+	/// <summary>将单个控件包装在居中的 HBoxContainer 中（用于 CheckBox/Button 等无需配对标签的控件）。</summary>
+	private static HBoxContainer CreateCenteredRow(Control control)
+	{
+		var row = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
 		row.AddChild(control);
 		return row;
 	}
