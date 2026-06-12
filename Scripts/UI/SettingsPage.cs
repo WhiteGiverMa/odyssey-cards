@@ -180,6 +180,8 @@ public partial class SettingsPage : Control
 
 	public override void _Ready()
 	{
+		// 填满父容器（SubmenuStack 或 MainMenu），防止布局塌陷到 (0,0)
+		SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 		SetupUI();
 		LoadLanguages();
 		LoadResolutions();
@@ -304,11 +306,8 @@ public partial class SettingsPage : Control
 		_backButton.AddThemeFontSizeOverride("font_size", 18);
 
 		// === 根容器（全屏锚定，不设 Alignment 避免塌陷）===
-		var root = new VBoxContainer
-		{
-			Name = "SettingsRoot",
-			AnchorLeft = 0, AnchorTop = 0, AnchorRight = 1, AnchorBottom = 1,
-		};
+		var root = new VBoxContainer { Name = "SettingsRoot" };
+		root.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 		root.AddThemeConstantOverride("separation", 10);
 
 		root.AddChild(_titleLabel);
