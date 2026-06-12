@@ -1250,7 +1250,9 @@ public partial class CollectionUI : Control
 
 	private void GoBack()
 	{
-		GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
+		// 使用 CallDeferred 延迟场景切换，避免在输入事件回调链路中直接 ChangeSceneToFile
+		// 导致 Godot _push_unhandled_input_internal 访问已脱离场景树的节点
+		GetTree().CallDeferred(SceneTree.MethodName.ChangeSceneToFile, "res://Scenes/Main.tscn");
 	}
 
 	private void SwitchToPendingDeck()
