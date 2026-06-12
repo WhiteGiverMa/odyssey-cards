@@ -27,9 +27,12 @@ public partial class SettingsPage : Control
 	private Label _languageLabel = null!;
 	private Label _resolutionLabel = null!;
 	private Label _windowModeLabel = null!;
+	private Label _cardDescriptionAlignmentLabel = null!;
 	private HBoxContainer _resolutionRow = null!;
 	private HBoxContainer _windowModeRow = null!;
+	private HBoxContainer _cardDescriptionAlignmentRow = null!;
 	private Label _visualStyleLabel = null!;
+	private OptionButton _cardDescriptionAlignmentOptionButton = null!;
 	private CheckBox _intentIconFloatingToggle = null!;
 	private CheckBox _intentValueFloatingToggle = null!;
 	private CheckBox _devModeToggle = null!;
@@ -197,6 +200,7 @@ public partial class SettingsPage : Control
 		_languageOptionButton.ItemSelected -= OnLanguageSelected;
 		_resolutionOptionButton.ItemSelected -= OnResolutionSelected;
 		_windowModeOptionButton.ItemSelected -= OnWindowModeSelected;
+		_cardDescriptionAlignmentOptionButton.ItemSelected -= OnCardDescriptionAlignmentSelected;
 		_intentIconFloatingToggle.Toggled -= OnIntentIconFloatingToggled;
 		_intentValueFloatingToggle.Toggled -= OnIntentValueFloatingToggled;
 		_backButton.Pressed -= OnBackPressed;
@@ -344,6 +348,11 @@ public partial class SettingsPage : Control
 		_visualStyleLabel.AddThemeFontSizeOverride("font_size", 18);
 		_visualStyleLabel.AddThemeColorOverride("font_color", new Color(0.75f, 0.85f, 1f));
 
+		_cardDescriptionAlignmentLabel = CreateSettingLabel("ui.settings.card_description_alignment", "Card Description Alignment");
+		_cardDescriptionAlignmentOptionButton = new OptionButton { CustomMinimumSize = new Vector2(200, 0) };
+		_cardDescriptionAlignmentRow = CreateSettingRow(_cardDescriptionAlignmentLabel, _cardDescriptionAlignmentOptionButton);
+		LoadCardDescriptionAlignmentOptions();
+
 		bool iconFloating = UIScaler.Instance?.IntentIconFloatingEnabled ?? true;
 		bool valueFloating = UIScaler.Instance?.IntentValueFloatingEnabled ?? true;
 		_intentIconFloatingToggle = new CheckBox
@@ -428,6 +437,7 @@ public partial class SettingsPage : Control
 		_generalContainer.AddChild(resolutionRow);
 		_generalContainer.AddChild(windowModeRow);
 		_generalContainer.AddChild(_visualStyleLabel);
+		_generalContainer.AddChild(_cardDescriptionAlignmentRow);
 		_generalContainer.AddChild(_intentIconFloatingToggle);
 		_generalContainer.AddChild(_intentValueFloatingToggle);
 		_generalContainer.AddChild(_devModeToggle);
@@ -714,6 +724,7 @@ public partial class SettingsPage : Control
 		_languageOptionButton.ItemSelected += OnLanguageSelected;
 		_resolutionOptionButton.ItemSelected += OnResolutionSelected;
 		_windowModeOptionButton.ItemSelected += OnWindowModeSelected;
+		_cardDescriptionAlignmentOptionButton.ItemSelected += OnCardDescriptionAlignmentSelected;
 		_intentIconFloatingToggle.Toggled += OnIntentIconFloatingToggled;
 		_intentValueFloatingToggle.Toggled += OnIntentValueFloatingToggled;
 		_backButton.Pressed += OnBackPressed;
@@ -756,6 +767,12 @@ public partial class SettingsPage : Control
 		int modeIndex = modeVariant.AsInt32();
 		UIScaler.Instance.SetWindowModeIndex(modeIndex);
 		LoadResolutions();
+	}
+
+	private void OnCardDescriptionAlignmentSelected(long index)
+	{
+		bool centered = _cardDescriptionAlignmentOptionButton.GetItemMetadata((int)index).AsBool();
+		UIScaler.Instance?.SetCardDescriptionCentered(centered);
 	}
 
 	private void OnIntentIconFloatingToggled(bool on)
@@ -950,6 +967,7 @@ public partial class SettingsPage : Control
 	{
 		UpdateLabels();
 		LoadWindowModes();
+		LoadCardDescriptionAlignmentOptions();
 	}
 
 	private void UpdateLabels()
@@ -959,6 +977,7 @@ public partial class SettingsPage : Control
 		_resolutionLabel.Text = Localization.Localization.T("ui.settings.resolution", "Resolution");
 		_windowModeLabel.Text = Localization.Localization.T("ui.settings.window_mode", "Window Mode");
 		_visualStyleLabel.Text = Localization.Localization.T("ui.settings.visual_style", "自定义视觉风格");
+		_cardDescriptionAlignmentLabel.Text = Localization.Localization.T("ui.settings.card_description_alignment", "Card Description Alignment");
 		_intentIconFloatingToggle.Text = Localization.Localization.T("ui.settings.intent_icon_floating", "意图图标整体浮动");
 		_intentValueFloatingToggle.Text = Localization.Localization.T("ui.settings.intent_value_floating", "伤害数字随图标浮动");
 		_emoteIdleTimeLabel.Text = Localization.Localization.T("ui.settings.emote_idle_time", "Emote Idle Time");
@@ -978,6 +997,18 @@ public partial class SettingsPage : Control
 				break;
 			}
 		}
+	}
+
+	private void LoadCardDescriptionAlignmentOptions()
+	{
+		_cardDescriptionAlignmentOptionButton.Clear();
+		_cardDescriptionAlignmentOptionButton.AddItem(Localization.Localization.T("ui.settings.card_description_left", "Left Align"));
+		_cardDescriptionAlignmentOptionButton.SetItemMetadata(0, false);
+		_cardDescriptionAlignmentOptionButton.AddItem(Localization.Localization.T("ui.settings.card_description_center", "Centered"));
+		_cardDescriptionAlignmentOptionButton.SetItemMetadata(1, true);
+
+		bool centered = UIScaler.Instance?.CardDescriptionCentered ?? false;
+		_cardDescriptionAlignmentOptionButton.Selected = centered ? 1 : 0;
 	}
 
 	// ===== 移动端 =====
@@ -1012,6 +1043,12 @@ public partial class SettingsPage : Control
 		if (HitTestControl(_windowModeOptionButton, touch.Position))
 		{
 			CycleOptionButton(_windowModeOptionButton, OnWindowModeSelected);
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+		if (HitTestControl(_cardDescriptionAlignmentOptionButton, touch.Position))
+		{
+			CycleOptionButton(_cardDescriptionAlignmentOptionButton, OnCardDescriptionAlignmentSelected);
 			GetViewport().SetInputAsHandled();
 			return;
 		}
@@ -1064,6 +1101,7 @@ public partial class SettingsPage : Control
 		_languageOptionButton.CustomMinimumSize = new Vector2(260, 56);
 		_resolutionOptionButton.CustomMinimumSize = new Vector2(260, 56);
 		_windowModeOptionButton.CustomMinimumSize = new Vector2(260, 56);
+		_cardDescriptionAlignmentOptionButton.CustomMinimumSize = new Vector2(260, 56);
 		_intentIconFloatingToggle.CustomMinimumSize = new Vector2(260, 56);
 		_intentValueFloatingToggle.CustomMinimumSize = new Vector2(260, 56);
 		_backButton.CustomMinimumSize = new Vector2(220, 56);

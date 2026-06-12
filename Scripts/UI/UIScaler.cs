@@ -35,11 +35,13 @@ namespace OdysseyCards.UI
 
 		public event Action OnResolutionChanged;
 		public event Action OnIntentVisualSettingsChanged;
+		public event Action OnCardDescriptionSettingsChanged;
 
 		public float CurrentScale { get; private set; } = 1f;
 		public Vector2 CurrentCardSize => _currentCardSize;
 		public bool IntentIconFloatingEnabled { get; private set; } = true;
 		public bool IntentValueFloatingEnabled { get; private set; } = true;
+		public bool CardDescriptionCentered { get; private set; }
 
 		public override void _Ready()
 		{
@@ -259,6 +261,21 @@ namespace OdysseyCards.UI
 			OnIntentVisualSettingsChanged?.Invoke();
 		}
 
+		/// <summary>
+		/// 设置卡牌描述文本是否居中，并持久化到 user://settings.cfg。
+		/// </summary>
+		public void SetCardDescriptionCentered(bool centered)
+		{
+			if (CardDescriptionCentered == centered)
+			{
+				return;
+			}
+
+			CardDescriptionCentered = centered;
+			SaveSettings();
+			OnCardDescriptionSettingsChanged?.Invoke();
+		}
+
 		#endregion
 
 		#region 持久化
@@ -281,6 +298,7 @@ namespace OdysseyCards.UI
 
 			config.SetValue("visual", "intent_icon_floating", IntentIconFloatingEnabled);
 			config.SetValue("visual", "intent_value_floating", IntentValueFloatingEnabled);
+			config.SetValue("visual", "card_description_centered", CardDescriptionCentered);
 
 			Error err = config.Save(ConfigPath);
 			if (err != Error.Ok)
@@ -308,6 +326,7 @@ namespace OdysseyCards.UI
 
 			IntentIconFloatingEnabled = config.GetValue("visual", "intent_icon_floating", true).AsBool();
 			IntentValueFloatingEnabled = config.GetValue("visual", "intent_value_floating", true).AsBool();
+			CardDescriptionCentered = config.GetValue("visual", "card_description_centered", false).AsBool();
 
 			if (IsMobile)
 				return;

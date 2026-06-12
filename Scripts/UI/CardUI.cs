@@ -228,6 +228,11 @@ public partial class CardUI : Control
 			GuiInput += OnGuiInputHandler;
 		}
 
+		if (UIScaler.Instance != null)
+		{
+			UIScaler.Instance.OnCardDescriptionSettingsChanged += OnCardDescriptionSettingsChanged;
+		}
+
 		_built = true;
 
 		// 如果卡牌数据在 _Ready 之前已被设定（程序化创建时的常见情况），
@@ -252,6 +257,14 @@ public partial class CardUI : Control
 		{
 			if (child is Control ctrl)
 				ctrl.MouseFilter = MouseFilterEnum.Ignore;
+		}
+	}
+
+	public override void _ExitTree()
+	{
+		if (UIScaler.Instance != null)
+		{
+			UIScaler.Instance.OnCardDescriptionSettingsChanged -= OnCardDescriptionSettingsChanged;
 		}
 	}
 
@@ -506,7 +519,7 @@ public partial class CardUI : Control
 		{
 			Size = new Vector2(size.X - DESC_SIDE_PADDING * 2f * s, h - DESC_TOP_BOTTOM_PADDING * 2f * s),
 			Position = new Vector2(DESC_SIDE_PADDING * s, y + DESC_TOP_BOTTOM_PADDING * s),
-			HorizontalAlignment = HorizontalAlignment.Left,
+			HorizontalAlignment = GetDescriptionAlignment(),
 			VerticalAlignment = VerticalAlignment.Top,
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			ClipText = true,
@@ -1156,7 +1169,7 @@ public partial class CardUI : Control
 
 		_descLabel.Position = new Vector2(DESC_SIDE_PADDING * s, descTop + DESC_TOP_BOTTOM_PADDING * s);
 		_descLabel.Size = new Vector2(descWidth, Mathf.Max(0f, descHeight - DESC_TOP_BOTTOM_PADDING * 2f * s));
-		_descLabel.HorizontalAlignment = HorizontalAlignment.Left;
+		_descLabel.HorizontalAlignment = GetDescriptionAlignment();
 		_descLabel.AddThemeFontSizeOverride("font_size", fontSize);
 	}
 
@@ -1197,10 +1210,28 @@ public partial class CardUI : Control
 		Font font = _descLabel.GetThemeFont("font") ?? ThemeDB.FallbackFont;
 		Vector2 textSize = font.GetMultilineStringSize(
 			_descLabel.Text,
-			HorizontalAlignment.Left,
+			GetDescriptionAlignment(),
 			width,
 			fontSize);
 		return textSize.Y;
+	}
+
+	/// <summary>
+	/// 从 UIScaler 读取当前卡牌描述对齐方式。
+	/// </summary>
+	private static HorizontalAlignment GetDescriptionAlignment()
+	{
+		return UIScaler.Instance?.CardDescriptionCentered == true
+			? HorizontalAlignment.Center
+			: HorizontalAlignment.Left;
+	}
+
+	/// <summary>
+	/// 设置页切换描述对齐后，当前已存在的 CardUI 也需要即时重排。
+	/// </summary>
+	private void OnCardDescriptionSettingsChanged()
+	{
+		ApplyResponsiveContentLayout();
 	}
 
 	// ============================================================
