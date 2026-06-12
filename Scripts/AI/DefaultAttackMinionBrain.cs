@@ -49,6 +49,7 @@ public class DefaultAttackMinionBrain : IIntentActor
 		}
 		else
 		{
+			combat.RequestDamageVfx(_body, combat.PlayerHero, DamageKind.Attack, CombatDamageVfxKind.Attack);
 			combat.PlayerHero.TakeDamage(_body.Attack, _body);
 		}
 	}

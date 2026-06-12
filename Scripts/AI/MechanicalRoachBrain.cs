@@ -111,7 +111,10 @@ public class MechanicalRoachBrain : IIntentActor
 		{
 			GD.Print($"[机械小蠊] 攻击目标，造成 {_body.Attack} 点伤害");
 			if (target is Hero hero)
+			{
+				combat.RequestDamageVfx(_body, hero, DamageKind.Attack, CombatDamageVfxKind.Attack);
 				hero.TakeDamage(_body.Attack, _body);
+			}
 			else if (target is Minion minionTarget)
 			{
 				combat.TriggerBaitTacticsOnAttacked(minionTarget);
@@ -127,6 +130,7 @@ public class MechanicalRoachBrain : IIntentActor
 
 				if (_body.IsDead)
 					return;
+				combat.RequestDamageVfx(_body, minionTarget, DamageKind.Attack, CombatDamageVfxKind.Attack);
 				minionTarget.TakeDamage(_body.Attack, _body);
 			}
 		}

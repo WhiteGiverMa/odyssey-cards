@@ -164,10 +164,12 @@ public class ShanHu : EnemyEncounter
 				self.SuppressWeaponCounter = false;
 				if (ambush && self.IsDead)
 					return;
+				combat.RequestDamageVfx(self, m, DamageKind.Attack, CombatDamageVfxKind.Attack);
 				m.TakeDamage(perHit + Attack, self);
 			}
 			else if (target is Hero h)
 			{
+				combat.RequestDamageVfx(self, h, DamageKind.Attack, CombatDamageVfxKind.Attack);
 				h.TakeDamage(perHit + Attack, self);
 			}
 		}

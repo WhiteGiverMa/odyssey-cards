@@ -90,6 +90,7 @@ internal sealed class WeaponAttackSystem
 		GD.Print($"[CombatManager] ⚔ 玩家英雄使用 {_playerHero.Weapon.Name} 攻击敌方英雄，造成 {weaponDamage} 点伤害");
 
 		// 对敌方英雄造成伤害（敌方英雄的武器反击由 Hero.TakeDamage → CounterAttack 自动处理）
+		_combatManager.RequestDamageVfx(_playerHero, target, DamageKind.Attack, CombatDamageVfxKind.Attack);
 		target.TakeDamage(weaponDamage, _playerHero);
 
 		// 触发武器被动命中效果（如熔毁：目标防御-1）
@@ -195,6 +196,7 @@ internal sealed class WeaponAttackSystem
 		}
 
 		// 英雄武器攻击随从（第一次伤害：英雄→随从）
+		_combatManager.RequestDamageVfx(_playerHero, target, DamageKind.Attack, CombatDamageVfxKind.Attack);
 		target.TakeDamage(weaponDamage, _playerHero);
 
 		// 触发武器被动命中效果（如熔毁：目标防御-1）

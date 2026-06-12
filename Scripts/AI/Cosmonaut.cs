@@ -136,10 +136,13 @@ public class Cosmonaut : EnemyEncounter
 				if (ambush && self.IsDead)
 					return;
 
+				combat.RequestDamageVfx(self, minionTarget, DamageKind.Attack, CombatDamageVfxKind.Attack);
 				minionTarget.TakeDamage(rawDmg, self);
 			}
 			else
 			{
+				if (target != null)
+					combat.RequestDamageVfx(self, target, DamageKind.Attack, CombatDamageVfxKind.Attack);
 				target?.TakeDamage(rawDmg, self);
 			}
 
@@ -223,6 +226,7 @@ public class Cosmonaut : EnemyEncounter
 					{
 						if (playerHero.IsDead)
 							break;
+						cm.RequestDamageVfx(self, playerHero, DamageKind.Attack, CombatDamageVfxKind.Attack);
 						playerHero.TakeDamage(3, self, DamageKind.Attack);
 					}
 					foreach (var minion in cm.Board.GetPlayerMinions())
@@ -231,6 +235,7 @@ public class Cosmonaut : EnemyEncounter
 						{
 							if (minion.IsDead)
 								break;
+							cm.RequestDamageVfx(self, minion, DamageKind.Attack, CombatDamageVfxKind.Attack);
 							minion.TakeDamage(3, self, DamageKind.Attack);
 						}
 					}

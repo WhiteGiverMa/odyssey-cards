@@ -50,12 +50,14 @@ public sealed class TacticalNukeRelic : AbstractRelic
 			var enemyMinions = combat.Board.GetEnemyMinions();
 			foreach (var minion in enemyMinions)
 			{
+				combat.RequestDamageVfx(combat.PlayerHero, minion, Core.DamageKind.Effect, CombatDamageVfxKind.Spell);
 				minion.TakeDamage(damage, null, Core.DamageKind.Effect);
 			}
 
 			// 对敌方英雄造成伤害
 			foreach (var enemyUnit in combat.EnemyUnits)
 			{
+				combat.RequestDamageVfx(combat.PlayerHero, enemyUnit.Body, Core.DamageKind.Effect, CombatDamageVfxKind.Spell);
 				enemyUnit.Body.TakeDamage(damage, null, Core.DamageKind.Effect);
 			}
 
