@@ -888,6 +888,7 @@ public partial class GameManager : Node
 		_currentLanguage = language;
 		Localization.Localization.SetLanguage(language);
 		LanguageChanged?.Invoke(language);
+		SaveToDisk(); // 持久化语言选择，下次启动自动恢复
 		GD.Print($"[GameManager] Language changed to: {language}");
 	}
 
