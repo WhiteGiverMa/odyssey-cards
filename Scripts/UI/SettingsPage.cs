@@ -1081,12 +1081,25 @@ public partial class SettingsPage : Control
 		_cardDescriptionAlignmentOptionButton.Selected = centered ? 1 : 0;
 	}
 
-	// ===== 移动端 =====
+	// ===== 键盘 / 系统返回 =====
 
 	public override void _Input(InputEvent @event)
 	{
 		if (SceneLifecycleGuard.ShouldSkip(this))
 			return;
+
+		// ESC / Android 返回键 → 返回上一级（键位监听中由 _UnhandledKeyInput 接管）
+		if (@event is InputEventKey key && key.Pressed && !_isListeningForKey)
+		{
+			if (key.Keycode == Key.Escape || key.Keycode == Key.Back)
+			{
+				OnBackPressed();
+				GetViewport().SetInputAsHandled();
+				return;
+			}
+		}
+
+		// 移动端触摸
 		if (!MobileInputHelper.IsMobile)
 			return;
 		if (@event is not InputEventScreenTouch touch || !touch.Pressed)
@@ -1149,10 +1162,21 @@ public partial class SettingsPage : Control
 			GetViewport().SetInputAsHandled();
 		}
 	}
-
 	private bool IsDisplayTabActive() => _activeTab == "display" && _displayScroll.IsVisibleInTree();
 
 	private bool IsGameTabActive() => _activeTab == "game" && _gameScroll.IsVisibleInTree();
+
+	/// <summary>
+	/// Android 系统返回手势/按钮 → 返回上一级。
+	/// 在 Godot 中处理此通知可阻止默认行为（退出应用）。
+	/// </summary>
+	public override void _Notification(int what)
+	{
+		if (what == NotificationWMGoBackRequest)
+		{
+			OnBackPressed();
+		}
+	}
 
 	private static bool HitTestControl(Control control, Vector2 touchPos)
 	{
