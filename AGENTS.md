@@ -68,6 +68,7 @@ Tests/              # tests/csharp：xUnit 5 Unit + 1 Integration(跳过)
 | UI 总控 | `UI/CombatUI*.cs` | 4 个 partial：核心/Layout/Refresh/Selection；详见 `Scripts/UI/AGENTS.md` |
 | 手牌 | `UI/HandUI.cs` | 风扇交叠，Control 手动布局（非 Container） |
 | 卡牌交互 | `UI/CardUI.cs` | `[Tool]` 预览 + 点击/拖拽状态机 |
+| 交互状态机 | `UI/InteractionFSM.cs` | 纯 C#；统一 Idle/CardPickedUp/Targeting/BoardDrag 阶段转换 |
 | 棋盘 UI | `UI/BoardUI.cs` | `[Tool]` 预览，2×5 BoardSlot |
 | 收藏 | `UI/CollectionUI.cs`, `CardGrid.cs` | 浏览/编辑/分页/过滤 |
 | 地图/事件 | `UI/MapUI.cs`, `EventUI.cs`, `ShopUI.cs`, `RestSiteUI.cs` | 后三者存在但未完整接入流程 |
@@ -90,6 +91,7 @@ Tests/              # tests/csharp：xUnit 5 Unit + 1 Integration(跳过)
 - `Card`, `Minion`, `Spell`, `Hero`, `Weapon`, `Board`, `GameState`, `EnemyUnit` — **禁止**调用 Godot API。
 - 数据与渲染分离：`Card` = 纯数据，`CardUI` = Godot Control 包装。
 - `CombatManager` 是唯一跨两层的中介；拆分模块仍通过它接入 UI/场景树。
+- 交互状态机：`UI/InteractionFSM.cs` 统一管理卡牌拖拽/点击/攻击拖拽的 `Idle→CardPickedUp→Targeting→BoardDrag` 四阶段转换；`CardUI._Process` 和 `CombatUI` 攻击拖拽均委托给 FSM。
 
 ### 伤害管线
 - 四阶段：`ADDITIVE` → `MULTIPLICATIVE` → `HEAT` → `CAPPING` → Clamp。
@@ -123,6 +125,7 @@ Tests/              # tests/csharp：xUnit 5 Unit + 1 Integration(跳过)
 - 出牌区域：Y 轴阈值（屏幕高度 75%），自适应拖拽起始位置。
 - 取消：右键 / 拖回底部 / 松手在无效区域。
 - 敌方英雄攻击区域：`EnemyIdentityCard.SetAttackTargetHighlight()` 绿色矩形覆盖层。
+- 交互状态机 | `UI/InteractionFSM.cs` | 纯 C# 状态机；统一管理卡牌拖拽/点击/攻击拖拽的 Idle/CardPickedUp/Targeting/BoardDrag 四阶段转换；右键取消路径通过 FSM.Cancel() 统一
 
 ### 移动端输入
 - 移动端同一控件同一动作只能有一条主触控路径；避免 `Button.Pressed`、`MobileInputRouter.RegisterTapZone`、局部 `_Input` 手动 hit-test 同时处理同一次触摸。

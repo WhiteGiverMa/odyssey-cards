@@ -121,6 +121,12 @@ public partial class CardUI : Control
 	public bool IsDragging => _isDragging;
 
 	/// <summary>
+	/// 注入交互状态机，将拖拽/点击/目标选择的状态管理委托给 FSM。
+	/// 设为 null 时 CardUI 回退到本地行为，保持向后兼容。
+	/// </summary>
+	public void SetInteractionFsm(InteractionFsm fsm) => _interactionFsm = fsm;
+
+	/// <summary>
 	/// 最后一次左键点击的全局坐标（来自 InputEventMouseButton）。
 	/// 拖拽流程使用此坐标而非 GetGlobalMousePosition()，确保合成点击和帧时序边界下的位置一致性。
 	/// </summary>
@@ -170,6 +176,7 @@ public partial class CardUI : Control
 	// ============================================================
 	// 内部状态
 	// ============================================================
+	private InteractionFsm? _interactionFsm;
 	private bool _canPlay = true;
 	private bool _isDragging;
 	private Vector2 _dragOffset;
@@ -177,8 +184,6 @@ public partial class CardUI : Control
 	private bool _hasDragged;
 	/// <summary>点击选中模式：用户快速点击（松手无拖拽位移）后进入，卡片跟随鼠标但不响应松手掉落。</summary>
 	private bool _clickSelectMode;
-	/// <summary>点击选中跟随鼠标时，是否仍向外广播移动事件（无目标牌需要用它更新播放区高亮）。</summary>
-	private bool _emitMoveWhileClickFollowing;
 	private const float DragThresholdDesktop = 10f;
 	private const float DragThresholdMobile = 20f;
 	private float DragThreshold => MobileInputRouter.IsMobile ? DragThresholdMobile : DragThresholdDesktop;
@@ -275,6 +280,13 @@ public partial class CardUI : Control
 		if (UIScaler.Instance != null)
 		{
 			UIScaler.Instance.OnCardDescriptionSettingsChanged -= OnCardDescriptionSettingsChanged;
+		}
+
+		if (_interactionFsm != null)
+		{
+			_interactionFsm.OnDragMove -= OnFsmDragMove;
+			_interactionFsm.OnDrop -= OnFsmDrop;
+			_interactionFsm.OnCancel -= OnFsmCancel;
 		}
 	}
 
@@ -733,6 +745,8 @@ public partial class CardUI : Control
 		_isHoverEffectActive = false;
 		KillHoverTween();
 		FlashHighlight();
+
+		_interactionFsm?.PickUpCard(LastClickGlobalPosition, isClickSelect: false, isMobile: MobileInputRouter.IsMobile);
 	}
 
 	/// <summary>
@@ -751,22 +765,34 @@ public partial class CardUI : Control
 		KillHoverTween();
 		FlashHighlight();
 
-		if (startAsClickFollow)
+		if (_interactionFsm != null)
 		{
-			// 点击/键盘路径：进入点击选中跟随态，不判定拖拽距离
-			_hasDragged = false;
-			_clickSelectMode = true;
-			_emitMoveWhileClickFollowing = true;
-			_pointerFollowStartPos = GlobalPosition;
-			_hasMovedFromOrigin = false;
+			// 订阅 FSM 事件（先取消再订阅，防止重复）
+			_interactionFsm.OnDragMove -= OnFsmDragMove;
+			_interactionFsm.OnDragMove += OnFsmDragMove;
+			_interactionFsm.OnDrop -= OnFsmDrop;
+			_interactionFsm.OnDrop += OnFsmDrop;
+			_interactionFsm.OnCancel -= OnFsmCancel;
+			_interactionFsm.OnCancel += OnFsmCancel;
+
+			_interactionFsm.PickUpCard(globalAnchor, isClickSelect: startAsClickFollow, isMobile: MobileInputRouter.IsMobile);
 		}
 		else
 		{
-			// 鼠标按住拖拽路径：直接标记已拖拽，跳过距离阈值
-			_hasDragged = true;
-			_clickSelectMode = false;
-			_emitMoveWhileClickFollowing = false;
-			_hasMovedFromOrigin = true; // 拖拽路径始终视为已移动
+			// 回退到本地行为
+			if (startAsClickFollow)
+			{
+				_hasDragged = false;
+				_clickSelectMode = true;
+				_pointerFollowStartPos = GlobalPosition;
+				_hasMovedFromOrigin = false;
+			}
+			else
+			{
+				_hasDragged = true;
+				_clickSelectMode = false;
+				_hasMovedFromOrigin = true;
+			}
 		}
 	}
 
@@ -775,6 +801,7 @@ public partial class CardUI : Control
 	/// </summary>
 	public void PresentForTargeting(Vector2 globalCenter, float targetScale)
 	{
+		_interactionFsm?.EnterTargeting();
 		CancelDragSilent();
 		MouseFilter = MouseFilterEnum.Ignore;
 		ZIndex = 10;
@@ -796,10 +823,10 @@ public partial class CardUI : Control
 	/// </summary>
 	public void CancelDragSilent()
 	{
+		_interactionFsm?.ForceReset();
 		_isDragging = false;
 		_hasDragged = false;
 		_clickSelectMode = false;
-		_emitMoveWhileClickFollowing = false;
 		_isHoverEffectActive = false;
 		KillHoverTween();
 		MouseFilter = MouseFilterEnum.Stop;
@@ -844,7 +871,17 @@ public partial class CardUI : Control
 			return;
 		}
 
-		// ==================== 桌面端鼠标交互（STS2 对齐） ====================
+		// ==================== FSM 委托路径 ====================
+		if (_interactionFsm != null && _interactionFsm.CurrentPhase != InteractionPhase.Idle)
+		{
+			Vector2 fsmMousePos = GetGlobalMousePosition();
+			bool fsmLeftDown = Input.IsMouseButtonPressed(MouseButton.Left);
+			float viewportH = GetViewportRect().Size.Y;
+			_interactionFsm.Tick(fsmMousePos, fsmLeftDown, Input.IsMouseButtonPressed(MouseButton.Right), viewportH, _dragStartScreenPos.Y);
+			return;
+		}
+
+		// ==================== 桌面端鼠标交互（回退路径——无 FSM 时） ====================
 		// 核心原则：不使用像素距离阈值区分点击/拖拽。
 		// 用 _hasMovedFromOrigin 区分「点击选中」（卡牌未移动→不触发掉落）与「拖拽松手」（卡牌移动过→触发掉落）。
 		// 每次松手都通知 CombatUI，由它根据落点决定打出/取消/忽略（对齐 STS2）。
@@ -885,15 +922,13 @@ public partial class CardUI : Control
 				// 拖拽松手 → 转入 clickSelectMode 并通知 CombatUI
 				Vector2 dropPos = mousePosition;
 				_hasDragged = false;
-				_clickSelectMode = true;
-				_emitMoveWhileClickFollowing = true;
-				OnCardDropped?.Invoke(this, dropPos);
+			_clickSelectMode = true;
+			OnCardDropped?.Invoke(this, dropPos);
 			}
 			else if (!_clickSelectMode)
 			{
 				// 首次松手 → 进入点击选中模式
 				_clickSelectMode = true;
-				_emitMoveWhileClickFollowing = true;
 			}
 			else if (leftReleasedThisFrame && _hasMovedFromOrigin)
 			{
@@ -905,15 +940,29 @@ public partial class CardUI : Control
 
 	/// <summary>
 	/// 移动端触控拖拽逻辑。
-	/// 手指按下后超过阈值（20f）即触发拖拽，松手即掉落或取消。
-	/// 无 clickSelectMode，无右键取消。
+	/// 委托给 FSM 处理状态转换、阈值检测和松手事件。
+	/// 无 FSM 时回退到本地行为。
 	/// </summary>
 	private void MobileDragProcess()
 	{
-		var router = MobileInputRouter.Instance;
-		if (router.IsTouchActive)
+		if (_interactionFsm != null)
 		{
-			Vector2 touchPos = router.TouchPosition;
+			if (_interactionFsm.CurrentPhase == InteractionPhase.Idle)
+				return;
+
+			var fsmRouter = MobileInputRouter.Instance;
+			Vector2 touchPos = fsmRouter.TouchPosition;
+			bool isTouchActive = fsmRouter.IsTouchActive;
+			float viewportH = GetViewportRect().Size.Y;
+			_interactionFsm.Tick(touchPos, isTouchActive, isRightDown: false, viewportH, _dragStartScreenPos.Y);
+			return;
+		}
+
+		// ==================== 回退路径（无 FSM） ====================
+		var routerFallback = MobileInputRouter.Instance;
+		if (routerFallback.IsTouchActive)
+		{
+			Vector2 touchPos = routerFallback.TouchPosition;
 
 			// 跟踪拖拽距离
 			if (!_hasDragged)
@@ -935,20 +984,19 @@ public partial class CardUI : Control
 		}
 
 		// 手指松开处理
-		if (_wasMobileTouchActive && !router.IsTouchActive)
+		if (_wasMobileTouchActive && !routerFallback.IsTouchActive)
 		{
-			Vector2 dropScreenPos = router.TouchReleasePosition;
+			Vector2 dropScreenPos = routerFallback.TouchReleasePosition;
 			bool wasDragging = _hasDragged;
 			_isDragging = false;
 			_hasDragged = false;
-			_clickSelectMode = false;
-			_emitMoveWhileClickFollowing = false;
-			_isHoverEffectActive = false;
-			KillHoverTween();
-			MouseFilter = MouseFilterEnum.Stop;
-			OffsetTop = 0;
+		_clickSelectMode = false;
+		_isHoverEffectActive = false;
+		KillHoverTween();
+		MouseFilter = MouseFilterEnum.Stop;
+		OffsetTop = 0;
 
-			if (wasDragging)
+		if (wasDragging)
 			{
 				// 拖拽后松手 → 触发 OnCardDropped
 				OnCardDropped?.Invoke(this, dropScreenPos);
@@ -960,7 +1008,7 @@ public partial class CardUI : Control
 			}
 		}
 
-		_wasMobileTouchActive = router.IsTouchActive;
+		_wasMobileTouchActive = routerFallback.IsTouchActive;
 	}
 
 	/// <summary>
@@ -1354,6 +1402,53 @@ public partial class CardUI : Control
 			Keyword.Impact => ("冲击", ClrImpact),
 			_ => (null, Colors.White),
 		};
+	}
+
+	// ============================================================
+	// FSM 事件处理
+	// ============================================================
+
+	/// <summary>
+	/// FSM 拖拽移动回调：更新卡牌位置以跟随指针，并转发 OnDragMove 事件。
+	/// 仅在 CardPickedUp 或 BoardDrag 阶段更新位置。
+	/// </summary>
+	private void OnFsmDragMove(Vector2 pos, bool inPlay, bool inCancel)
+	{
+		if (_interactionFsm is { CurrentPhase: InteractionPhase.CardPickedUp or InteractionPhase.BoardDrag })
+		{
+			GlobalPosition = pos - _dragOffset;
+		}
+		OnDragMove?.Invoke(this, pos);
+	}
+
+	/// <summary>
+	/// FSM 松手/掉落回调：恢复视觉状态，转发 OnCardDropped。
+	/// </summary>
+	private void OnFsmDrop(Vector2 pos, bool wasDrag)
+	{
+		_isDragging = false;
+		_hasDragged = false;
+		_clickSelectMode = false;
+		_isHoverEffectActive = false;
+		KillHoverTween();
+		MouseFilter = MouseFilterEnum.Stop;
+		OffsetTop = 0;
+		OnCardDropped?.Invoke(this, pos);
+	}
+
+	/// <summary>
+	/// FSM 取消回调：恢复视觉状态，转发 OnCardRightClicked。
+	/// </summary>
+	private void OnFsmCancel()
+	{
+		_isDragging = false;
+		_hasDragged = false;
+		_clickSelectMode = false;
+		_isHoverEffectActive = false;
+		KillHoverTween();
+		MouseFilter = MouseFilterEnum.Stop;
+		OffsetTop = 0;
+		OnCardRightClicked?.Invoke(this);
 	}
 
 	// ============================================================

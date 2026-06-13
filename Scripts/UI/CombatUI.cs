@@ -218,11 +218,6 @@ public partial class CombatUI : Control
 	private Vector2 _pendingSpellVfxOrigin;
 	private const string CardTargetArrowKey = "card_target_select";
 	private const float TargetingCardScale = 0.75f;
-	private const float CardTargetDragThreshold = 10f;
-	private bool _isCardTargetDragPressed;
-	private bool _cardTargetDragHasMoved;
-	private Vector2 _cardTargetDragStartPos;
-
 	// ===== 外部引用 =====
 
 	/// <summary>
@@ -296,35 +291,12 @@ public partial class CombatUI : Control
 	/// </summary>
 	private Minion? _selectedAttacker;
 
-	// ===== 攻击拖拽状态（点击选中 + 拖拽松手 双交互模式） =====
+	// ===== 攻击拖拽状态（委托给 InteractionFsm） =====
 
 	/// <summary>
-	/// 鼠标左键在当前攻击方随从槽位上按下中（未松开）。
-	/// 用于区分「快速点击→选中等待第二击」和「按住拖动→松手攻击」。
+	/// 攻击拖拽交互状态机——管理攻击/武器目标选择的拖拽/点击双交互模式。
 	/// </summary>
-	private bool _isAttackDragPressed;
-
-	/// <summary>
-	/// 攻击拖拽中鼠标位移是否已超过拖拽阈值。
-	/// 未超过=快速点击，松手保持选中等待第二击；
-	/// 超过=真正拖拽，松手时调用 HandleAttackDrop 执行攻击或取消。
-	/// </summary>
-	private bool _attackDragHasMoved;
-
-	/// <summary>
-	/// 攻击拖拽起始屏幕坐标（按下时的鼠标位置）。
-	/// 用于计算是否超过 AttackDragThreshold。
-	/// </summary>
-	private Vector2 _attackDragStartPos;
-
-	/// <summary>
-	/// 攻击拖拽最小位移阈值（像素），与 CardUI.DragThreshold 一致。
-	/// </summary>
-	/// <summary>
-	/// 攻击拖拽最小位移阈值（像素）。桌面端 10f，移动端 20f（触控精度较低，需更高阈值防误触）。
-	/// </summary>
-	private static float AttackDragThreshold => MobileInputRouter.IsMobile ? 20f : 10f;
-	private bool _wasMobileAttackTouchActive;
+	private InteractionFsm _attackDragFsm = new InteractionFsm();
 
 	/// <summary>
 	/// 获取当前输入坐标（屏幕空间）。桌面端返回鼠标位置，移动端返回触控位置。
@@ -426,11 +398,10 @@ public partial class CombatUI : Control
 	{
 		if (!MobileInputRouter.IsMobile && @event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Right && mb.Pressed)
 		{
-			if (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget)
+		if (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget)
 			{
 				GD.Print($"[CombatUI] 右键取消攻击选择，mode={_selectionMode}");
-				ResetSelection();
-				_handUI.RefreshHand();
+				_attackDragFsm.Cancel(); // 触发 OnCancel → OnAttackDragCancel → ResetSelection + RefreshHand
 				GetViewport().SetInputAsHandled();
 			}
 			else if (_selectionMode == SelectionMode.DevDamageTargeting)
@@ -495,8 +466,7 @@ public partial class CombatUI : Control
 				&& (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
 			{
 				GD.Print($"[CombatUI] _UnhandledInput 右键取消攻击选择，mode={_selectionMode}");
-				ResetSelection();
-				_handUI.RefreshHand();
+				_attackDragFsm.Cancel(); // 触发 OnCancel → OnAttackDragCancel → ResetSelection + RefreshHand
 				GetViewport().SetInputAsHandled();
 				return;
 			}
@@ -578,74 +548,53 @@ public partial class CombatUI : Control
 			_arrowRenderer.RemoveArrow(CardTargetArrowKey);
 		}
 
-		// --- 卡牌目标拖拽追踪：目标型牌居中展示，CombatUI 负责松手解析目标 ---
-		if (_isCardTargetDragPressed)
-		{
-			Vector2 inputPos = GetInputPosition();
-			if (!_cardTargetDragHasMoved && inputPos.DistanceTo(_cardTargetDragStartPos) > CardTargetDragThreshold)
-			{
-				_cardTargetDragHasMoved = true;
-			}
-
-			bool released = !Input.IsMouseButtonPressed(MouseButton.Left);
-			if (released)
-			{
-				_isCardTargetDragPressed = false;
-				if (_cardTargetDragHasMoved)
-				{
-					if (_selectionMode == SelectionMode.PlacingMinion)
-						HandleMinionDrop(inputPos);
-					else if (_selectionMode == SelectionMode.TargetingSpell)
-						HandleSpellDrop(inputPos);
-				}
-				// 快速点击未拖拽：保持选择状态，等待第二击目标。
-			}
-		}
-
-		// --- 攻击拖拽追踪（双交互模式：点击选中→第二击攻击 / 按住拖动→松手攻击） ---
-		if (_isAttackDragPressed)
+		// --- 攻击拖拽追踪（委托给 InteractionFsm） ---
+		if (_attackDragFsm.CurrentPhase != InteractionPhase.Idle)
 		{
 			var inputPos = GetInputPosition();
-
-			// 位移超过阈值 → 升级为真正拖拽
-			if (!_attackDragHasMoved && inputPos.DistanceTo(_attackDragStartPos) > AttackDragThreshold)
-			{
-				_attackDragHasMoved = true;
-			}
-
-			// 检测松手
-			bool released;
-			Vector2 releaseOrInputPos = inputPos;
+			bool pointerDown;
 			if (MobileInputRouter.IsMobile)
-			{
-				var router = MobileInputRouter.Instance;
-				released = _wasMobileAttackTouchActive && !router.IsTouchActive;
-				if (released)
-					releaseOrInputPos = router.TouchReleasePosition;
-			}
+				pointerDown = MobileInputRouter.Instance.IsTouchActive;
 			else
-			{
-				// 桌面端：鼠标左键松开
-				released = !Input.IsMouseButtonPressed(MouseButton.Left);
-			}
+				pointerDown = Input.IsMouseButtonPressed(MouseButton.Left);
 
-			if (released)
-			{
-				_isAttackDragPressed = false;
-				if (_attackDragHasMoved && (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
-				{
-					// 拖拽路径：松手时检查落点，有效目标→攻击，无效→取消
-					HandleAttackDrop(releaseOrInputPos);
-				}
-				// else: 快速点击无拖拽 → 保持选中状态，等待玩家第二击（现有行为）
-			}
+			float viewportH = GetViewportRect().Size.Y;
+			_attackDragFsm.Tick(inputPos, pointerDown, isRightDown: false, viewportH, dragStartY: 0f);
 		}
-
-		if (MobileInputRouter.IsMobile)
-			_wasMobileAttackTouchActive = MobileInputRouter.Instance.IsTouchActive;
 
 		// --- 移动端取消按钮可见性 ---
 		UpdateMobileCancelButton();
+	}
+
+	// ===== 攻击拖拽 FSM 事件处理 =====
+
+	/// <summary>
+	/// 攻击拖拽移动回调——箭头渲染由 <see cref="_Process"/> 中的 GetInputPosition 处理。
+	/// </summary>
+	private void OnAttackDragMove(Vector2 pos, bool inPlay, bool inCancel)
+	{
+		// 箭头渲染已通过 _Process 中的 GetInputPosition() 实时绘制，无需额外处理。
+	}
+
+	/// <summary>
+	/// 攻击拖拽松手回调——区分快速点击（保持选中等待第二击）和拖拽松手（执行攻击）。
+	/// </summary>
+	private void OnAttackDragDrop(Vector2 pos, bool wasDrag)
+	{
+		if (wasDrag && (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
+		{
+			HandleAttackDrop(pos);
+		}
+		// else: 快速点击无拖拽 → 保持选中状态，等待玩家第二击（现有行为）
+	}
+
+	/// <summary>
+	/// 攻击拖拽取消回调（右键/拖回底部/ESC）。
+	/// </summary>
+	private void OnAttackDragCancel()
+	{
+		ResetSelection();
+		_handUI.RefreshHand();
 	}
 
 	// ===== 初始化 =====
@@ -922,6 +871,14 @@ public partial class CombatUI : Control
 		// 敌方表情 — 空闲超时或 DevConsole 触发
 		_combat.OnEnemyEmote += OnEnemyEmote;
 		_unsubscribeActions.Add(() => _combat.OnEnemyEmote -= OnEnemyEmote);
+
+		// 攻击拖拽 FSM 事件订阅
+		_attackDragFsm.OnDragMove += OnAttackDragMove;
+		_unsubscribeActions.Add(() => _attackDragFsm.OnDragMove -= OnAttackDragMove);
+		_attackDragFsm.OnDrop += OnAttackDragDrop;
+		_unsubscribeActions.Add(() => _attackDragFsm.OnDrop -= OnAttackDragDrop);
+		_attackDragFsm.OnCancel += OnAttackDragCancel;
+		_unsubscribeActions.Add(() => _attackDragFsm.OnCancel -= OnAttackDragCancel);
 
 	}
 
@@ -1527,15 +1484,23 @@ public partial class CombatUI : Control
 			return;
 		}
 
-		// 攻击/武器/法术目标选择模式——重置选择
+		// 攻击/武器/主动技能目标选择模式——通过 FSM 取消
 		if (_selectionMode == SelectionMode.SelectingAttackTarget
 			|| _selectionMode == SelectionMode.SelectingWeaponTarget
-			|| _selectionMode == SelectionMode.SelectingActiveSkillTarget
-			|| _selectionMode == SelectionMode.TargetingSpell
+			|| _selectionMode == SelectionMode.SelectingActiveSkillTarget)
+		{
+			GD.Print("[CombatUI] 热键取消攻击/武器/技能选择");
+			_attackDragFsm.Cancel(); // 触发 OnCancel → OnAttackDragCancel → ResetSelection + RefreshHand
+			return;
+		}
+
+		// 卡牌相关模式（法术目标、随从放置、无目标卡牌）——直接重置 + FSM 安全清理
+		if (_selectionMode == SelectionMode.TargetingSpell
 			|| _selectionMode == SelectionMode.PlacingMinion
 			|| _selectionMode == SelectionMode.PlayingNoTargetCard)
 		{
-			GD.Print("[CombatUI] 热键取消选择");
+			GD.Print("[CombatUI] 热键取消卡牌选择");
+			_attackDragFsm.ForceReset(); // 安全清理：确保攻击拖拽状态也重置
 			ResetSelection();
 			_handUI.RefreshHand();
 			return;

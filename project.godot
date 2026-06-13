@@ -29,6 +29,7 @@ config/use_native_file_dialog=true
 
 [autoload]
 
+
 GameManager="*res://Scripts/Core/GameManager.cs"
 UIScaler="*res://Scripts/UI/UIScaler.cs"
 DevConsole="*res://Scripts/Infrastructure/DevConsole.cs"

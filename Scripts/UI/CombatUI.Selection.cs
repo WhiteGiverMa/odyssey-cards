@@ -64,7 +64,7 @@ public partial class CombatUI
 	{
 		if (_combat.State.IsGameOver)
 			return;
-		if (_isAttackDragPressed && (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
+		if (_attackDragFsm.CurrentPhase != InteractionPhase.Idle && (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
 		{
 			GD.Print($"[CombatUI] 忽略槽位点击：攻击拖拽尚未松手，mode={_selectionMode}, slot={slotIndex}, side={(isPlayerSide ? "P" : "E")}");
 			return;
@@ -158,10 +158,8 @@ public partial class CombatUI
 		_selectedAttacker = minion;
 		_selectionMode = SelectionMode.SelectingAttackTarget;
 
-		// 启动攻击拖拽追踪（支持按住拖动→松手攻击）
-		_isAttackDragPressed = true;
-		_attackDragHasMoved = false;
-		_attackDragStartPos = GetInputPosition();
+		// 启动攻击拖拽追踪（委托给 InteractionFsm）
+		_attackDragFsm.PickUpCard(GetInputPosition(), isClickSelect: true, isMobile: MobileInputRouter.IsMobile);
 
 		GD.Print($"[CombatUI] 选中己方随从 {minion.CardName} 准备攻击");
 
@@ -456,9 +454,6 @@ public partial class CombatUI
 		if (_dragCardUI == null)
 			return;
 
-		_isCardTargetDragPressed = false;
-		_cardTargetDragHasMoved = false;
-
 		if (IsCardTargetSelectionCard(card))
 		{
 			if (startedWithPointerDown)
@@ -499,9 +494,6 @@ public partial class CombatUI
 				}
 			}
 
-			_cardTargetDragStartPos = startedByKeyboard
-				? originalGlobalPos + originalSize * originalScale * 0.5f
-				: _dragCardUI.LastClickGlobalPosition;
 			return;
 		}
 
@@ -931,7 +923,7 @@ public partial class CombatUI
 
 	private void OnEnemyHeroCardActionPressed(int enemyIndex)
 	{
-		if (_isAttackDragPressed && (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
+		if (_attackDragFsm.CurrentPhase != InteractionPhase.Idle && (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
 		{
 			GD.Print($"[CombatUI] 忽略敌方英雄点击：攻击拖拽尚未松手，mode={_selectionMode}, enemy={enemyIndex}");
 			return;
@@ -1146,9 +1138,7 @@ public partial class CombatUI
 		_selectionMode = SelectionMode.SelectingWeaponTarget;
 		_selectedAttacker = null;
 		_selectedCard = null;
-		_isAttackDragPressed = true;
-		_attackDragHasMoved = false;
-		_attackDragStartPos = startPos;
+		_attackDragFsm.PickUpCard(startPos, isClickSelect: true, isMobile: MobileInputRouter.IsMobile);
 
 		// 高亮合法攻击目标
 		HighlightWeaponTargets();
@@ -1517,12 +1507,8 @@ public partial class CombatUI
 		HidePlayZonePanel();
 
 		// 清除攻击拖拽状态
-		_isAttackDragPressed = false;
-		_attackDragHasMoved = false;
+		_attackDragFsm.ForceReset();
 
-		// 清除卡牌目标拖拽状态
-		_isCardTargetDragPressed = false;
-		_cardTargetDragHasMoved = false;
 	}
 
 	/// <summary>
