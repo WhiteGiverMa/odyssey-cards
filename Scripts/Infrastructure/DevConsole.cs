@@ -74,6 +74,9 @@ public partial class DevConsole : Node
 
 	public override void _Ready()
 	{
+		// 从持久化设置恢复开发者模式状态（不必等 SettingsPage 被打开）
+		IsDevMode = UIScaler.Instance?.DevModeEnabled ?? false;
+
 		// 创建 UI 层级（置于最顶层）
 		_canvasLayer = new CanvasLayer { Layer = 128, Name = "DevConsoleLayer" };
 		AddChild(_canvasLayer);
