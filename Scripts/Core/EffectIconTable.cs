@@ -39,6 +39,7 @@ public static class EffectIconTable
 		["unlimited_potential"] = new() { Icon = "♾", NameKey = "domain.unlimited_potential", DescKey = "domain.unlimited_potential_desc", IsBuff = true },
 		["flying_away"] = new() { Icon = "🕊", NameKey = "domain.flying_away", DescKey = "domain.flying_away_desc", IsBuff = true },
 		["idol_twilight"] = new() { Icon = "🌅", NameKey = "domain.idol_twilight", DescKey = "domain.idol_twilight_desc", IsBuff = true },
+		["jiehuafa"] = new() { Icon = "🛡", NameKey = "domain.jiehuafa", DescKey = "domain.jiehuafa_desc", IsBuff = true },
 	};
 
 	private static readonly Dictionary<string, EffectIconData> _keywordSources = new()

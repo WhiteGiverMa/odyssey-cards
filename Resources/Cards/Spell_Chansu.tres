@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_Heal"]
+script = ExtResource("2_effect")
+EffectType = 1
+Value = 2
+
+[sub_resource type="Resource" id="SubResource_Armor"]
+script = ExtResource("2_effect")
+EffectType = 12
+Value = 2
+
+[sub_resource type="Resource" id="SubResource_Draw"]
+script = ExtResource("2_effect")
+EffectType = 2
+Value = 1
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_chansu"
+CardName = "机会~"
+Description = "回复2点生命，获得2点格挡，抽1张牌。每回合首次对热力值大于100%的敌人造成伤害时，将牌库或弃牌堆中的这张牌加入手牌。"
+Rarity = 1
+Cost = 0
+Type = 1
+Effects = [SubResource("SubResource_Heal"), SubResource("SubResource_Armor"), SubResource("SubResource_Draw")]

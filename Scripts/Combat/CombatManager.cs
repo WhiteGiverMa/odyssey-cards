@@ -288,6 +288,10 @@ public partial class CombatManager : Node
 	/// </summary>
 	private bool _heroPowerUsedThisTurn;
 
+	// 机会~被动追踪：每回合各自独立计数
+	private bool _chansuTriggeredThisPlayerTurn;
+	private bool _chansuTriggeredThisEnemyTurn;
+
 	/// <summary>
 	/// 胜负判定器——检查战斗结束条件、发放金币、触发胜负事件。
 	/// </summary>
@@ -562,6 +566,13 @@ public partial class CombatManager : Node
 			EnemyUnits,
 			NotifyCombatStateChanged);
 		PlayerHero.OnAttacked += HandlePlayerHeroAttacked;
+		PlayerHero.OnDamageTaken += HandlePlayerHeroDamageTaken;
+
+		// 机会~被动：订阅所有敌方单位的 OnDamageTaken
+		foreach (var unit in EnemyUnits)
+		{
+			unit.Body.OnDamageTaken += HandleEnemyDamageTakenForChansu;
+		}
 
 		// 注册热力值伤害修改器到所有敌方单位
 		var heatMod = new HeatDamageModifier(_heatSystem);
@@ -635,6 +646,7 @@ public partial class CombatManager : Node
 	{
 		// 重置英雄技能使用标记
 		_heroPowerUsedThisTurn = false;
+		_chansuTriggeredThisPlayerTurn = false;
 
 		// 检查英雄是否拥有「无限潜能」领域，决定自然增长上限
 		int growthCap = PlayerHero.ActiveDomains.ContainsKey("unlimited_potential")
@@ -1055,6 +1067,80 @@ public partial class CombatManager : Node
 	private void HandlePlayerHeroAttacked(Hero target, IDamageSource source, int finalDamage)
 	{
 		_domainTriggerManager.HandlePlayerHeroAttacked(target, source, finalDamage);
+	}
+
+	private void HandlePlayerHeroDamageTaken(DamageEventInfo info, IDamageSource? source)
+	{
+		_domainTriggerManager.HandlePlayerHeroDamageTaken(info, source);
+	}
+
+	/// <summary>
+	/// 敌方单位受击时检查「机会~」被动触发条件。
+	/// 每回合首次对热力值 > 100% 的敌人造成伤害时，
+	/// 从牌库或弃牌堆中搜索「机会~」并加入手牌。
+	/// </summary>
+	private void HandleEnemyDamageTakenForChansu(DamageEventInfo info, IDamageSource? source)
+	{
+		// 必须来自玩家方的伤害
+		if (source == null || !source.IsPlayerSide)
+			return;
+
+		// 热力值必须 > 100%
+		if (_heatSystem.CurrentHeat <= 1.0f)
+			return;
+
+		// 本回合已触发过
+		bool alreadyTriggered = State.IsPlayerTurn
+			? _chansuTriggeredThisPlayerTurn
+			: _chansuTriggeredThisEnemyTurn;
+		if (alreadyTriggered)
+			return;
+
+		// 搜索并取回
+		if (TryFetchChansuToHand())
+		{
+			if (State.IsPlayerTurn)
+				_chansuTriggeredThisPlayerTurn = true;
+			else
+				_chansuTriggeredThisEnemyTurn = true;
+		}
+	}
+
+	/// <summary>
+	/// 从牌库顶或弃牌堆中搜索「机会~」并加入手牌。
+	/// 优先从弃牌堆查找（更可能在那里）。
+	/// </summary>
+	private bool TryFetchChansuToHand()
+	{
+		const string chaseId = "spell_chansu";
+
+		// 先检查弃牌堆
+		foreach (var card in _playerCore.DiscardPile)
+		{
+			if (card.Data.Id == chaseId)
+			{
+				_playerCore.DiscardPile.Remove(card);
+				_playerCore.AddToHand(card);
+				GD.Print($"[CombatManager] 机会~：从弃牌堆加入手牌");
+				NotifyCombatStateChanged();
+				return true;
+			}
+		}
+
+		// 再检查牌库
+		foreach (var card in _playerCore.DrawPile)
+		{
+			if (card.Data.Id == chaseId)
+			{
+				_playerCore.DrawPile.Remove(card);
+				_playerCore.AddToHand(card);
+				GD.Print($"[CombatManager] 机会~：从牌库加入手牌");
+				NotifyCombatStateChanged();
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/// <summary>
@@ -1643,6 +1729,10 @@ public partial class CombatManager : Node
 		// 冻结意图 UI 刷新——防止执行动画期间数值跳变
 		_isEnemyTurnAnimating = true;
 
+		// 接化发领域：重置本回合敌方英雄攻击追踪
+		_domainTriggerManager.OnEnemyTurnStart();
+		_chansuTriggeredThisEnemyTurn = false;
+
 		// 状态效果 — 敌方回合开始时（持续伤害先造成伤害，再减少层数）
 		TickTurnStartStatusEffects(TickTiming.EnemyTurnStart);
 		CheckDeaths();
@@ -1710,6 +1800,7 @@ public partial class CombatManager : Node
 		// 7.5 热力值自然增长 + 藏品敌方回合结束触发
 		_heatSystem.OnEnemyTurnEnd();
 		_relicManager.TriggerEnemyTurnEnd(this);
+		_domainTriggerManager.OnEnemyTurnEnd();
 
 		// 8. 通知 UI 刷新意图显示（解冻后触发）
 		NotifyCombatStateChanged();

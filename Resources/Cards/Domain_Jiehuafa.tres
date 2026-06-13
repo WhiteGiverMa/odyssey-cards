@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+Value = 1
+TargetType = "res://Resources/Cards/Spell_Ukemi.tres"
+CustomEffectName = "Jiehuafa"
+
+[resource]
+script = ExtResource("1_data")
+Id = "domain_jiehuafa"
+DomainId = "jiehuafa"
+CardName = "接化发"
+Description = "领域：敌方回合结束时，若敌方英雄本回合的所有攻击均被完全格挡（无HP穿透），将1张「受身」加入手牌。"
+Rarity = 2
+Cost = 2
+Type = 2
+Effects = [SubResource("SubResource_1")]
