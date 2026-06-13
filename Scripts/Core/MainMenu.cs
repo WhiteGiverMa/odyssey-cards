@@ -19,6 +19,12 @@ public partial class MainMenu : Control
 	private Label _titleLabel;
 	private Control _mainMenuContainer;
 	private VBoxContainer _buttonContainer;
+	private Control? _heroSelectOverlay;
+	private Label? _heroSelectTitleLabel;
+	private Label? _heroDescriptionLabel;
+	private Button? _heroConfirmButton;
+	private Button? _heroCancelButton;
+	private readonly List<Button> _heroOptionButtons = new();
 
 	/// <summary>移动端 TouchZone 注册 token，ExitTree 时释放。</summary>
 	private readonly List<IDisposable> _zoneTokens = new();
@@ -153,6 +159,8 @@ public partial class MainMenu : Control
 	private void OnStartPressed()
 	{
 		GD.Print("[MainMenu] OnStartPressed called");
+		if (IsSettingsOverlayActive() || IsHeroSelectorActive())
+			return;
 
 		var gm = GameManager.Instance;
 		var deck = gm?.ActiveDeck;
@@ -166,9 +174,198 @@ public partial class MainMenu : Control
 			return;
 		}
 
-		gm?.ClearActiveRun();
-		gm?.StartNewRun();
+		ShowHeroSelectOverlay();
+	}
+
+	private bool IsHeroSelectorActive()
+	{
+		return _heroSelectOverlay != null
+			&& GodotObject.IsInstanceValid(_heroSelectOverlay)
+			&& _heroSelectOverlay.IsInsideTree();
+	}
+
+	private void ShowHeroSelectOverlay()
+	{
+		if (IsHeroSelectorActive())
+			return;
+
+		var gm = GameManager.Instance;
+		if (gm == null)
+			return;
+
+		var overlay = new ColorRect
+		{
+			Name = "HeroSelectOverlay",
+			Color = new Color(0f, 0f, 0f, 0.78f),
+			MouseFilter = MouseFilterEnum.Stop,
+		};
+		overlay.SetAnchorsPreset(LayoutPreset.FullRect);
+
+		var panel = new PanelContainer();
+		panel.SetAnchorsPreset(LayoutPreset.Center);
+		panel.CustomMinimumSize = new Vector2(520f, 420f);
+		panel.OffsetLeft = -260f;
+		panel.OffsetTop = -210f;
+		panel.OffsetRight = 260f;
+		panel.OffsetBottom = 210f;
+		overlay.AddChild(panel);
+
+		var root = new VBoxContainer();
+		root.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		root.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		root.AddThemeConstantOverride("separation", 14);
+		panel.AddChild(root);
+
+		_heroSelectTitleLabel = new Label
+		{
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		_heroSelectTitleLabel.AddThemeFontSizeOverride("font_size", 28);
+		root.AddChild(_heroSelectTitleLabel);
+
+		var optionList = new VBoxContainer();
+		optionList.AddThemeConstantOverride("separation", 10);
+		root.AddChild(optionList);
+		_heroOptionButtons.Clear();
+		foreach (var hero in HeroProfile.All)
+		{
+			var button = new Button
+			{
+				ToggleMode = true,
+				Text = hero.DisplayName,
+			};
+			button.Pressed += () => SelectHero(hero.Id);
+			optionList.AddChild(button);
+			_heroOptionButtons.Add(button);
+		}
+
+		_heroDescriptionLabel = new Label
+		{
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			HorizontalAlignment = HorizontalAlignment.Left,
+			VerticalAlignment = VerticalAlignment.Top,
+			CustomMinimumSize = new Vector2(0f, 120f),
+		};
+		root.AddChild(_heroDescriptionLabel);
+
+		var actions = new HBoxContainer();
+		actions.Alignment = BoxContainer.AlignmentMode.End;
+		actions.AddThemeConstantOverride("separation", 12);
+		root.AddChild(actions);
+
+		_heroCancelButton = new Button();
+		_heroCancelButton.Pressed += HideHeroSelectOverlay;
+		actions.AddChild(_heroCancelButton);
+
+		_heroConfirmButton = new Button();
+		_heroConfirmButton.Pressed += StartSelectedHeroRun;
+		actions.AddChild(_heroConfirmButton);
+
+		AddChild(overlay);
+		_heroSelectOverlay = overlay;
+		_mainMenuContainer.Visible = false;
+
+		if (MobileInputRouter.IsMobile)
+		{
+			_activeModalOverlay = overlay;
+			MobileInputRouter.Instance.PushModalLayer(overlay);
+		}
+
+		SelectHero(gm.SelectedHeroId);
+		UpdateHeroSelectorTexts();
+	}
+
+	private void SelectHero(string heroId)
+	{
+		var gm = GameManager.Instance;
+		if (gm == null)
+			return;
+
+		gm.SelectedHeroId = HeroProfile.Get(heroId).Id;
+		gm.SaveToDisk();
+		for (int i = 0; i < _heroOptionButtons.Count; i++)
+		{
+			var profile = HeroProfile.All[i];
+			_heroOptionButtons[i].ButtonPressed = profile.Id == gm.SelectedHeroId;
+		}
+
+		UpdateHeroSelectorTexts();
+	}
+
+	private void UpdateHeroSelectorTexts()
+	{
+		var gm = GameManager.Instance;
+		if (gm == null)
+			return;
+
+		var hero = gm.SelectedHeroProfile;
+		if (_heroSelectTitleLabel != null)
+			_heroSelectTitleLabel.Text = Localization.Localization.T("ui.menu.hero_select_title", "选择英雄");
+
+		for (int i = 0; i < _heroOptionButtons.Count && i < HeroProfile.All.Count; i++)
+		{
+			var profile = HeroProfile.All[i];
+			string localName = Localization.Localization.T(profile.NameKey, profile.DisplayName);
+			_heroOptionButtons[i].Text = Localization.Localization.T("ui.menu.hero_option_format", "{name} / {romanized}")
+				.Replace("{name}", localName)
+				.Replace("{romanized}", profile.RomanizedName);
+		}
+
+		if (_heroDescriptionLabel != null)
+		{
+			string localName = Localization.Localization.T(hero.NameKey, hero.DisplayName);
+			string desc = Localization.Localization.T(hero.DescriptionKey, hero.DefaultDescription);
+			var weapon = hero.CreateWeapon();
+			string weaponName = Localization.Localization.T(weapon.NameKey, weapon.Name);
+			string heroPowerName = hero.CreateHeroPower().Name;
+			_heroDescriptionLabel.Text = Localization.Localization.T("ui.menu.hero_detail_format", "{name}\n生命值：{hp}\n武器：{weapon}\n英雄技能：{power}\n\n{desc}")
+				.Replace("{name}", localName)
+				.Replace("{hp}", hero.MaxHealth.ToString())
+				.Replace("{weapon}", weaponName)
+				.Replace("{power}", heroPowerName)
+				.Replace("{desc}", desc);
+		}
+
+		if (_heroCancelButton != null)
+			_heroCancelButton.Text = Localization.Localization.T("ui.hand_select.cancel", "取消");
+		if (_heroConfirmButton != null)
+			_heroConfirmButton.Text = Localization.Localization.T("ui.menu.start_selected_hero", "以该英雄开始");
+	}
+
+	private void StartSelectedHeroRun()
+	{
+		var gm = GameManager.Instance;
+		if (gm == null)
+			return;
+		string heroId = gm.SelectedHeroId;
+
+		gm.ClearActiveRun();
+		gm.SelectedHeroId = heroId;
+		gm.StartNewRun();
+		HideHeroSelectOverlay();
 		GetTree().ChangeSceneToFile("res://Scenes/Map.tscn");
+	}
+
+	private void HideHeroSelectOverlay()
+	{
+		if (!IsHeroSelectorActive())
+		{
+			ShowMainMenu();
+			return;
+		}
+
+		if (MobileInputRouter.IsMobile && _heroSelectOverlay != null)
+			MobileInputRouter.Instance.PopModalLayer(_heroSelectOverlay);
+
+		_heroSelectOverlay?.QueueFree();
+		_heroSelectOverlay = null;
+		_activeModalOverlay = null;
+		_heroSelectTitleLabel = null;
+		_heroDescriptionLabel = null;
+		_heroConfirmButton = null;
+		_heroCancelButton = null;
+		_heroOptionButtons.Clear();
+		ShowMainMenu();
 	}
 
 	private void ShowDeckNotReadyDialog(string description)
@@ -296,6 +493,8 @@ public partial class MainMenu : Control
 		_collectionButton.Text = Localization.Localization.T("ui.menu.collection", "我的收藏");
 		_settingsButton.Text = Localization.Localization.T("ui.menu.settings", "Settings");
 		_quitButton.Text = Localization.Localization.T("ui.menu.quit", "退出");
+		if (IsHeroSelectorActive())
+			UpdateHeroSelectorTexts();
 	}
 
 	public override void _ExitTree()
@@ -320,6 +519,12 @@ public partial class MainMenu : Control
 		_mainMenuContainer = null!;
 		_buttonContainer = null!;
 		_activeModalOverlay = null;
+		_heroSelectOverlay = null;
+		_heroSelectTitleLabel = null;
+		_heroDescriptionLabel = null;
+		_heroConfirmButton = null;
+		_heroCancelButton = null;
+		_heroOptionButtons.Clear();
 
 		Localization.Localization.OnLanguageChanged -= OnLanguageChanged;
 		if (GameManager.Instance != null)

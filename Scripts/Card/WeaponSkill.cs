@@ -1,4 +1,7 @@
 using Godot;
+using System.Collections.Generic;
+using System.Linq;
+using OdysseyCards.Combat;
 using OdysseyCards.Core;
 
 namespace OdysseyCards.Card;
@@ -42,6 +45,14 @@ public interface IWeaponPassive
 }
 
 /// <summary>
+/// 仅在普通武器攻击结算后触发的被动扩展接口。
+/// </summary>
+public interface IWeaponAttackPassive : IWeaponPassive
+{
+	void OnWeaponAttackResolved(Hero wielder, CombatManager combat);
+}
+
+/// <summary>
 /// 武器主动技能接口。
 /// 主动技能需要手动触发，有法力消耗和冷却时间。
 /// </summary>
@@ -68,6 +79,9 @@ public interface IWeaponActive
 	/// <summary>当前剩余冷却回合数。0 表示可用。</summary>
 	int CurrentCooldown { get; set; }
 
+	/// <summary>是否需要玩家先选定目标。</summary>
+	bool RequiresTarget => true;
+
 	/// <summary>
 	/// 检查技能是否可在当前状态下使用。
 	/// </summary>
@@ -81,6 +95,13 @@ public interface IWeaponActive
 	/// <param name="wielder">使用该武器的英雄</param>
 	/// <param name="combat">战斗管理器</param>
 	void Execute(Hero wielder, Combat.CombatManager combat);
+}
+
+/// <summary>
+/// 武器主动技能的可存储冷却层数。
+/// </summary>
+public interface IWeaponChargeSkill : IChargeCooldownSkill
+{
 }
 
 // ====================================================================
@@ -175,6 +196,7 @@ public class IonPulse : IWeaponActive
 	public int Cost => 4;
 	public int Cooldown => 3;
 	public int CurrentCooldown { get; set; }
+	public bool RequiresTarget => true;
 
 	public bool CanUse(Hero wielder)
 	{
@@ -271,4 +293,170 @@ public class RollingLog : Weapon
 	}
 
 	public override string NameKey => "weapon.rolling_log.name";
+}
+
+// ====================================================================
+// 理恵武器：SVDS-M338
+// ====================================================================
+
+/// <summary>
+/// 连射与撕裂：武器命中后施加持续伤害，并额外随机打击敌方目标。
+/// </summary>
+public class SvdsM338Passive : IWeaponAttackPassive
+{
+	private const int ExtraHitCount = 1;
+	private const int DamageOverTimeAmount = 1;
+
+	public string Name => "连射·撕裂";
+	public string Description => "攻击时额外随机造成1次武器伤害；被命中的单位获得1层持续伤害1。";
+	public string NameKey => "weapon.passive.svds_m338.name";
+	public string DescKey => "weapon.passive.svds_m338.desc";
+
+	public int ModifyWeaponDamage(int baseDamage) => baseDamage;
+
+	public void OnWeaponHit(IDamageTarget target, Hero wielder)
+	{
+		ApplyDamageOverTime(target);
+	}
+
+	public void OnWeaponAttackResolved(Hero wielder, CombatManager combat)
+	{
+		if (wielder.Weapon == null)
+			return;
+
+		int damage = wielder.Weapon.GetModifiedDamage(wielder.Weapon.Attack);
+		for (int i = 0; i < ExtraHitCount; i++)
+		{
+			var randomTarget = PickRandomEnemyTarget(combat);
+			if (randomTarget == null)
+				return;
+
+			GD.Print($"[SVDS-M338] 连射命中随机目标，造成 {damage} 点效果伤害");
+			combat.RequestDamageVfx(wielder, randomTarget, DamageKind.Effect, CombatDamageVfxKind.Spell);
+			randomTarget.TakeDamage(damage, wielder, DamageKind.Effect);
+			ApplyDamageOverTime(randomTarget);
+		}
+	}
+
+	internal static void ApplyDamageOverTime(IDamageTarget target)
+	{
+		TickTiming tickOn = target switch
+		{
+			Hero heroTarget => heroTarget.IsPlayerSide ? TickTiming.PlayerTurnStart : TickTiming.EnemyTurnStart,
+			Minion minionTarget => minionTarget.IsPlayerSide ? TickTiming.PlayerTurnStart : TickTiming.EnemyTurnStart,
+			_ => TickTiming.EnemyTurnStart,
+		};
+		var effect = new StatusEffect("damage_over_time", DamageOverTimeAmount, tickOn);
+
+		if (target is Hero hero)
+		{
+			GD.Print($"[SVDS-M338] 对英雄附加持续伤害1，tick={tickOn}");
+			hero.AddStatusEffect(effect);
+			return;
+		}
+
+		if (target is Minion minion)
+		{
+			GD.Print($"[SVDS-M338] 对随从「{minion.CardName}」附加持续伤害1，tick={tickOn}");
+			minion.AddStatusEffect(effect);
+		}
+	}
+
+	private static IDamageTarget? PickRandomEnemyTarget(CombatManager combat)
+	{
+		var targets = new List<IDamageTarget>();
+		targets.AddRange(combat.EnemyUnits.Where(unit => !unit.Body.IsDead).Select(unit => unit.Body));
+		targets.AddRange(combat.Board.GetEnemyMinions().Where(minion => !minion.IsDead));
+
+		if (targets.Count == 0)
+			return null;
+
+		int index = (int)GD.RandRange(0, targets.Count - 1);
+		return targets[index];
+	}
+}
+
+/// <summary>
+/// 压制射击：6费，对所有敌方目标造成一次武器伤害。冷却1回合，最多存储2层。
+/// </summary>
+public class SuppressiveBarrage : IWeaponActive, IWeaponChargeSkill
+{
+	public string Name => "压制射击";
+	public string Description => "对全体敌方目标造成1次武器伤害。冷却1回合，最多存储2层。";
+	public string NameKey => "weapon.skill.suppressive_barrage.name";
+	public string DescKey => "weapon.skill.suppressive_barrage.desc";
+	public int Cost => 6;
+	public int Cooldown => 1;
+	public int CurrentCooldown { get; set; } = 1;
+	public int Charges { get; private set; } = 1;
+	public int MaxCharges => 2;
+	public bool RequiresTarget => false;
+
+	public bool CanUse(Hero wielder)
+	{
+		return Charges > 0 && wielder.CurrentMana >= Cost && !wielder.IsDead;
+	}
+
+	public void Execute(Hero wielder, CombatManager combat)
+	{
+		if (!CanUse(wielder) || wielder.Weapon == null)
+			return;
+
+		Charges--;
+		if (Charges < MaxCharges && CurrentCooldown <= 0)
+			CurrentCooldown = Cooldown;
+		wielder.SpendMana(Cost);
+
+		int damage = wielder.Weapon.GetModifiedDamage(wielder.Weapon.Attack);
+		var targets = new List<IDamageTarget>();
+		targets.AddRange(combat.EnemyUnits.Where(unit => !unit.Body.IsDead).Select(unit => unit.Body));
+		targets.AddRange(combat.Board.GetEnemyMinions().Where(minion => !minion.IsDead));
+
+		foreach (var target in targets)
+		{
+			combat.RequestDamageVfx(wielder, target, DamageKind.Effect, CombatDamageVfxKind.Spell);
+			target.TakeDamage(damage, wielder, DamageKind.Effect);
+			wielder.Weapon.PassiveSkill?.OnWeaponHit(target, wielder);
+		}
+
+		combat.CheckDeaths();
+		GD.Print($"[SuppressiveBarrage] 消耗1层，对 {targets.Count} 个敌方目标造成 {damage} 点武器伤害，剩余层数 {Charges}/{MaxCharges}");
+	}
+
+	public void TickChargeCooldown()
+	{
+		if (Charges >= MaxCharges)
+		{
+			CurrentCooldown = 0;
+			return;
+		}
+
+		if (CurrentCooldown > 0)
+			CurrentCooldown--;
+
+		if (CurrentCooldown <= 0)
+		{
+			Charges++;
+			GD.Print($"[SuppressiveBarrage] 回复1层，当前 {Charges}/{MaxCharges}");
+			CurrentCooldown = Charges < MaxCharges ? Cooldown : 0;
+		}
+	}
+}
+
+/// <summary>
+/// SVDS-M338 — 理恵初始武器。
+/// </summary>
+public class SvdsM338 : Weapon
+{
+	public SvdsM338()
+		: base(
+			name: "SVDS-M338",
+			attack: 2,
+			attackCost: 4,
+			passive: new SvdsM338Passive(),
+			active: new SuppressiveBarrage())
+	{
+	}
+
+	public override string NameKey => "weapon.svds_m338.name";
 }

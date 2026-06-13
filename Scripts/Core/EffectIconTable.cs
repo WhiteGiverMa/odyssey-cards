@@ -31,6 +31,7 @@ public static class EffectIconTable
 		["fragile"] = new() { Icon = "🛡", NameKey = "effect.fragile", DescKey = "effect.fragile_desc", IsBuff = false },
 		["total_observation"] = new() { Icon = "👁", NameKey = "effect.total_observation", DescKey = "effect.total_observation_desc", IsBuff = false },
 		["attack_ban"] = new() { Icon = "🚫", NameKey = "effect.attack_ban", DescKey = "effect.attack_ban_desc", IsBuff = false },
+		["damage_over_time"] = new() { Icon = "🩸", NameKey = "effect.damage_over_time", DescKey = "effect.damage_over_time_desc", IsBuff = false },
 	};
 
 	private static readonly Dictionary<string, EffectIconData> _domains = new()

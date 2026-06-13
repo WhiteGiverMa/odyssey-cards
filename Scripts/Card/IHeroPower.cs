@@ -38,3 +38,15 @@ public interface IHeroPower
 	/// </param>
 	void Execute(Hero hero, object combatManager);
 }
+
+/// <summary>
+/// 有冷却与可存储层数的技能。
+/// </summary>
+public interface IChargeCooldownSkill
+{
+	int Charges { get; }
+	int MaxCharges { get; }
+	int Cooldown { get; }
+	int CurrentCooldown { get; }
+	void TickChargeCooldown();
+}

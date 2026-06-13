@@ -90,16 +90,32 @@ internal sealed class WeaponAttackSystem
 		GD.Print($"[CombatManager] ⚔ 玩家英雄使用 {_playerHero.Weapon.Name} 攻击敌方英雄，造成 {weaponDamage} 点伤害");
 
 		// 对敌方英雄造成伤害（敌方英雄的武器反击由 Hero.TakeDamage → CounterAttack 自动处理）
+		bool targetWasSuppressingCounter = target.SuppressWeaponCounter;
+		target.SuppressWeaponCounter = true;
 		_combatManager.RequestDamageVfx(_playerHero, target, DamageKind.Attack, CombatDamageVfxKind.Attack);
 		target.TakeDamage(weaponDamage, _playerHero);
+		target.SuppressWeaponCounter = targetWasSuppressingCounter;
 
 		// 触发武器被动命中效果（如熔毁：目标防御-1）
 		_playerHero.Weapon?.PassiveSkill?.OnWeaponHit(target, _playerHero);
+		if (_playerHero.Weapon?.PassiveSkill is IWeaponAttackPassive attackPassive)
+			attackPassive.OnWeaponAttackResolved(_playerHero, _combatManager);
 
 		// 记录武器攻击
 		_playerHero.RecordWeaponAttack();
 
 		GD.Print($"[CombatManager]   敌方英雄剩余生命值：{target.CurrentHealth}（护甲：{target.CurrentArmor}）");
+
+		// 敌方英雄武器反击：显式结算，避免完全依赖隐式链路。
+		if (!target.IsDead && target.Weapon != null && target.Weapon.CanCounter)
+		{
+			int counterDamage = target.Weapon.GetModifiedDamage(target.Weapon.Attack);
+			GD.Print($"[CombatManager]   ⚔ 敌方英雄武器反击，造成 {counterDamage} 点伤害");
+			bool wasSuppressing = _playerHero.SuppressWeaponCounter;
+			_playerHero.SuppressWeaponCounter = true;
+			_playerHero.TakeDamage(counterDamage, target, DamageKind.Attack);
+			_playerHero.SuppressWeaponCounter = wasSuppressing;
+		}
 
 		// 检查我方英雄是否被敌方武器反击致死
 		if (_playerHero.IsDead)
@@ -201,6 +217,8 @@ internal sealed class WeaponAttackSystem
 
 		// 触发武器被动命中效果（如熔毁：目标防御-1）
 		_playerHero.Weapon?.PassiveSkill?.OnWeaponHit(target, _playerHero);
+		if (_playerHero.Weapon?.PassiveSkill is IWeaponAttackPassive attackPassive)
+			attackPassive.OnWeaponAttackResolved(_playerHero, _combatManager);
 
 		// 随从反击英雄（第二次伤害：随从→英雄）。
 		// 如果伏击已触发则跳过——伏击先手已经完成了随从的反击。
@@ -265,9 +283,6 @@ internal sealed class WeaponAttackSystem
 			return false;
 		}
 
-		// 清除上一帧残留的目标选择
-		_combatManager.ActiveSkillTarget = null;
-
 		GD.Print($"[CombatManager] ★ 使用武器主动技能：{active.Name}");
 		active.Execute(_playerHero, _combatManager);
 
@@ -275,8 +290,9 @@ internal sealed class WeaponAttackSystem
 		if (_combatManager.ActiveSkillTarget != null)
 		{
 			_playerHero.Weapon?.PassiveSkill?.OnWeaponHit(_combatManager.ActiveSkillTarget, _playerHero);
-			_combatManager.ActiveSkillTarget = null;
 		}
+
+		_combatManager.ActiveSkillTarget = null;
 
 		return true;
 	}

@@ -357,6 +357,7 @@ public partial class CombatUI : Control
 	/// 武器攻击按钮——点击后进入武器目标选择模式。
 	/// </summary>
 	private Button _weaponAttackButton = null!;
+	private bool _ignoreNextWeaponAttackPressed;
 
 	/// <summary>
 	/// 武器主动技能按钮——点击后使用武器主动技能。
@@ -425,11 +426,12 @@ public partial class CombatUI : Control
 	{
 		if (!MobileInputRouter.IsMobile && @event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Right && mb.Pressed)
 		{
-			if (_selectionMode == SelectionMode.SelectingAttackTarget)
+			if (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget)
 			{
-				GD.Print("[CombatUI] 右键取消攻击选择");
+				GD.Print($"[CombatUI] 右键取消攻击选择，mode={_selectionMode}");
 				ResetSelection();
 				_handUI.RefreshHand();
+				GetViewport().SetInputAsHandled();
 			}
 			else if (_selectionMode == SelectionMode.DevDamageTargeting)
 			{
@@ -490,15 +492,32 @@ public partial class CombatUI : Control
 			if (@event is InputEventMouseButton mb3
 				&& mb3.ButtonIndex == MouseButton.Right
 				&& mb3.Pressed
-				&& _selectionMode == SelectionMode.SelectingAttackTarget)
+				&& (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
 			{
-				GD.Print("[CombatUI] 右键取消攻击选择");
+				GD.Print($"[CombatUI] _UnhandledInput 右键取消攻击选择，mode={_selectionMode}");
 				ResetSelection();
 				_handUI.RefreshHand();
 				GetViewport().SetInputAsHandled();
 				return;
 			}
 		}
+	}
+
+	private void OnWeaponAttackButtonGuiInput(InputEvent @event)
+	{
+		if (@event is not InputEventMouseButton mb || mb.ButtonIndex != MouseButton.Left || !mb.Pressed)
+			return;
+
+		if (_combat == null || _combat.State.IsGameOver)
+			return;
+
+		if (_selectionMode == SelectionMode.SelectingWeaponTarget)
+			return;
+
+		GD.Print($"[CombatUI] 武器攻击按钮左键按下，进入可拖拽目标选择，pos=({mb.GlobalPosition.X:F0},{mb.GlobalPosition.Y:F0})");
+		_ignoreNextWeaponAttackPressed = true;
+		EnterWeaponAttackTargetMode(mb.GlobalPosition);
+		GetViewport().SetInputAsHandled();
 	}
 
 	/// <summary>
@@ -530,11 +549,17 @@ public partial class CombatUI : Control
 			return;
 
 		// --- 攻击选择箭头 ---
-		if (_selectionMode == SelectionMode.SelectingAttackTarget && _selectedAttacker != null && _arrowRenderer != null)
+		if ((_selectionMode == SelectionMode.SelectingAttackTarget && _selectedAttacker != null)
+			|| _selectionMode == SelectionMode.SelectingWeaponTarget)
 		{
-			var sourcePos = GetMinionScreenCenter(_selectedAttacker);
-			var inputPos = GetInputPosition();
-			_arrowRenderer.AddArrow("attack_select", sourcePos, inputPos, ArrowRenderer.AttackSelectColor);
+			if (_arrowRenderer != null)
+			{
+				var sourcePos = _selectionMode == SelectionMode.SelectingWeaponTarget
+					? _weaponAttackButton.GlobalPosition + _weaponAttackButton.Size * 0.5f
+					: GetMinionScreenCenter(_selectedAttacker!);
+				var inputPos = GetInputPosition();
+				_arrowRenderer.AddArrow("attack_select", sourcePos, inputPos, ArrowRenderer.AttackSelectColor);
+			}
 		}
 		else if (_arrowRenderer != null && _arrowRenderer.HasArrow("attack_select"))
 		{
@@ -607,7 +632,7 @@ public partial class CombatUI : Control
 			if (released)
 			{
 				_isAttackDragPressed = false;
-				if (_attackDragHasMoved && _selectionMode == SelectionMode.SelectingAttackTarget)
+				if (_attackDragHasMoved && (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
 				{
 					// 拖拽路径：松手时检查落点，有效目标→攻击，无效→取消
 					HandleAttackDrop(releaseOrInputPos);
@@ -843,6 +868,8 @@ public partial class CombatUI : Control
 		_unsubscribeActions.Add(() => _playerHeroSpellButton.Pressed -= OnPlayerHeroSpellTarget);
 
 		// 武器攻击按钮
+		_weaponAttackButton.GuiInput += OnWeaponAttackButtonGuiInput;
+		_unsubscribeActions.Add(() => _weaponAttackButton.GuiInput -= OnWeaponAttackButtonGuiInput);
 		_weaponAttackButton.Pressed += OnWeaponAttackPressed;
 		_unsubscribeActions.Add(() => _weaponAttackButton.Pressed -= OnWeaponAttackPressed);
 

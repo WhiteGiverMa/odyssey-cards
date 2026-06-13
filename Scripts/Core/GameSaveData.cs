@@ -42,6 +42,10 @@ public class GameSaveData
 	[JsonPropertyName("run_gold")]
 	public int RunGold { get; set; }
 
+	/// <summary>上次选择的英雄。</summary>
+	[JsonPropertyName("selected_hero_id")]
+	public string SelectedHeroId { get; set; } = "qimeng";
+
 	/// <summary>当前冒险的存档快照。null = 没有进行中的冒险。</summary>
 	[JsonPropertyName("active_run")]
 	public RunSaveData? ActiveRun { get; set; }

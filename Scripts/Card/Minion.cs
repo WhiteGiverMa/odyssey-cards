@@ -350,6 +350,19 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		}
 	}
 
+	/// <summary>
+	/// 状态直接伤害：绕过伤害管线、护甲与状态修饰。
+	/// </summary>
+	public void ApplyStatusDamage(int amount, string statusId)
+	{
+		if (amount <= 0 || IsDead)
+			return;
+
+		CurrentHealth -= amount;
+		GD.Print($"[Minion:{CardName}] 状态「{statusId}」造成 {amount} 点直接伤害，剩余生命值：{CurrentHealth}");
+		OnDamageTaken?.Invoke(new DamageEventInfo(amount, 0, false), null);
+	}
+
 	public bool HasStatusEffect(string id)
 	{
 		return _statusEffects.ContainsKey(id) && !_statusEffects[id].IsExpired;

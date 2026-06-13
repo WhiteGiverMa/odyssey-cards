@@ -27,6 +27,6 @@ public class VulnerableDamageModifier : IDamageModifier
 	{
 		if (!IsActive || context.Kind != DamageKind.Attack)
 			return currentDamage;
-		return (int)(currentDamage * EffectiveMultiplier);
+		return (int)System.MathF.Round(currentDamage * EffectiveMultiplier, System.MidpointRounding.AwayFromZero);
 	}
 }

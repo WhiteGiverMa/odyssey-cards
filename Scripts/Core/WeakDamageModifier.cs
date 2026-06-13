@@ -25,7 +25,7 @@ public class WeakDamageModifier : IDamageModifier
 	{
 		if (!IsActive || context.Kind != DamageKind.Attack)
 			return currentDamage;
-		return (int)(currentDamage * EffectiveMultiplier);
+		return (int)System.MathF.Round(currentDamage * EffectiveMultiplier, System.MidpointRounding.AwayFromZero);
 	}
 
 	public int ModifyDamageTaken(int currentDamage, DamageContext context) => currentDamage;

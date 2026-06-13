@@ -31,6 +31,9 @@ public class RunSaveData
 	public bool IsRunFailed { get; set; }
 
 	// 玩家状态
+	[JsonPropertyName("hero_id")]
+	public string HeroId { get; set; } = "qimeng";
+
 	[JsonPropertyName("player_health")]
 	public int PlayerHealth { get; set; } = 30;
 

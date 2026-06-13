@@ -289,6 +289,7 @@ public class GameRunState
 		var gm = GameManager.Instance;
 		if (gm != null)
 		{
+			data.HeroId = gm.SelectedHeroId;
 			data.PlayerHealth = gm.PlayerHealth;
 			data.PlayerMaxHealth = gm.PlayerMaxHealth;
 			data.RunGold = gm.RunGold;
@@ -307,6 +308,7 @@ public class GameRunState
 		CurrentLayerIndex = data.CurrentLayerIndex;
 		IsRunComplete = data.IsRunComplete;
 		IsRunFailed = data.IsRunFailed;
+		GameManager.Instance.SelectedHeroId = HeroProfile.Get(data.HeroId).Id;
 		// 恢复已完成房间
 		foreach (var entry in data.CompletedRooms)
 		{

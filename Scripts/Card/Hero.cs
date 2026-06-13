@@ -687,6 +687,22 @@ public class Hero : IDamageTarget, IDamageSource
 	}
 
 	/// <summary>
+	/// 状态直接伤害：绕过伤害管线、护甲、反击与状态修饰。
+	/// </summary>
+	public void ApplyStatusDamage(int amount, string statusId)
+	{
+		if (amount <= 0 || IsDead)
+			return;
+
+		_core.ApplyDamage(amount);
+		GD.Print($"[Hero:{(IsPlayerSide ? "玩家英雄" : "敌方英雄")}] 状态「{statusId}」造成 {amount} 点直接伤害，剩余生命值：{CurrentHealth}");
+		OnDamageTaken?.Invoke(new DamageEventInfo(amount, 0, false), null);
+
+		if (IsDead)
+			OnDeath?.Invoke(this);
+	}
+
+	/// <summary>
 	/// 状态效果添加时的即时应用逻辑。
 	/// 根据效果 ID 执行特定的即时行为（如武器禁用）。
 	/// </summary>
@@ -833,6 +849,12 @@ public class Hero : IDamageTarget, IDamageSource
 	{
 		if (Weapon?.ActiveSkill == null)
 			return;
+
+		if (Weapon.ActiveSkill is IChargeCooldownSkill charged)
+		{
+			charged.TickChargeCooldown();
+			return;
+		}
 
 		if (Weapon.ActiveSkill.CurrentCooldown > 0)
 		{

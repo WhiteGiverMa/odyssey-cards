@@ -2,6 +2,10 @@ ui:
   menu:
     title: "奥德赛卡牌"
     start_game: "开始游戏"
+    hero_select_title: "选择英雄"
+    hero_option_format: "{name} / {romanized}"
+    hero_detail_format: "{name}\n生命值：{hp}\n武器：{weapon}\n英雄技能：{power}\n\n{desc}"
+    start_selected_hero: "以该英雄开始"
     collection: "我的收藏"
     settings: "设置"
     quit: "退出"
@@ -83,6 +87,8 @@ ui:
     weapon_disabled: "⚔ 武器攻击 [禁用]"
     skill_cooldown: "✦ {name} (冷却{cooldown})"
     skill_cost: "✦ {name} ({cost}费)"
+    skill_charges_suffix: " [{charges}/{max}]"
+    hero_power_cooldown: "{name} ({cost}费) [冷却{cooldown}]"
     weapon_none: "无武器"
     enemy_weapon_format: "武器: {name} {attack}攻{disabled}"
     weapon_format: "{name} {attack}攻 {cost}"
@@ -256,12 +262,17 @@ weapon:
     name: "离子手枪"
   rolling_log:
     name: "棍木"
+  svds_m338:
+    name: "SVDS-M338"
   rail_pistol:
     name: "磁轨手枪"
   passive:
     meltdown:
       name: "熔毁"
       desc: "武器攻击或主动技能命中时，目标防御力-1（最多2层）"
+    svds_m338:
+      name: "连射·撕裂"
+      desc: "攻击时额外随机造成1次武器伤害。被该武器命中的单位获得1层持续伤害1。"
     rail_lock:
       name: "磁轨锁定"
       desc: "被此武器攻击的目标1回合内无法攻击"
@@ -269,6 +280,9 @@ weapon:
     ion_pulse:
       name: "离子脉冲"
       desc: "禁用敌人武器（对英雄）或使随从攻击力归零（对随从），持续2个敌方回合"
+    suppressive_barrage:
+      name: "压制射击"
+      desc: "对全体敌方目标造成1次武器伤害。冷却1回合，最多存储2层。"
 
 plane:
   first_plane: "第一位面"
@@ -490,6 +504,8 @@ effect:
   total_observation_desc: "易伤、虚弱、脆弱的效果翻倍。"
   attack_ban: "磁轨锁定"
   attack_ban_desc: "本回合内无法攻击。"
+  damage_over_time: "持续伤害"
+  damage_over_time_desc: "在该单位的友方回合开始时，受到1点直接伤害，然后减少1层。"
 
 domain:
   unlimited_potential: "无限潜能"
@@ -589,4 +605,15 @@ hero_power:
   iron_will:
     name: "铁腕"
     desc: "获得4点护甲"
+  rie_suppressing_fire:
+    name: "火力筛选"
+    desc: "从牌堆顶连续抽取明写直伤的法术牌，直到手牌满或遇到其他牌。每抽1张，对敌方英雄造成1点伤害。"
   use_button: "铁腕 (2费)"
+
+hero:
+  qimeng:
+    name: "绮梦"
+    desc: "标准配置英雄。30点生命值，离子手枪，英雄技能「铁腕」。"
+  rie:
+    name: "理恵"
+    desc: "25点生命值。以 SVDS-M338 进行精确连射，并用直伤法术持续压制敌方英雄。"

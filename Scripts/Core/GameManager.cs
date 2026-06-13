@@ -48,6 +48,13 @@ public partial class GameManager : Node
 	public int PlayerMaxHealth { get; set; } = 30;
 
 	/// <summary>
+	/// 当前选择的英雄 ID。新冒险开始时由主菜单英雄选择界面设置。
+	/// </summary>
+	public string SelectedHeroId { get; set; } = "qimeng";
+
+	public HeroProfile SelectedHeroProfile => HeroProfile.Get(SelectedHeroId);
+
+	/// <summary>
 	/// 牌堆变化事件。
 	/// </summary>
 	public event Action OnDeckChanged;
@@ -717,18 +724,24 @@ public partial class GameManager : Node
 	public void CreateNewPlayer()
 	{
 		GD.Print("[GameManager] CreateNewPlayer called");
+		var hero = SelectedHeroProfile;
 
 		CurrentPlayer = new Player();
-		CurrentPlayer.CharacterName = "Ironclad";
-		CurrentPlayer.InitializeHealth(30);
+		CurrentPlayer.CharacterName = hero.RomanizedName;
+		CurrentPlayer.InitializeHealth(hero.MaxHealth);
 		CurrentPlayer.SetMana(0, 3);
-		CurrentPlayer.HeroPower = new Card.HeroPowers.IronWillHeroPower();
+		CurrentPlayer.HeroPower = hero.CreateHeroPower();
 
 		var startingDeck = CreateStartingDeck();
 		CurrentPlayer.Initialize(startingDeck);
 		_playerDeck = startingDeck;
 
 		GD.Print($"[GameManager] Player created: {CurrentPlayer.CharacterName}, deck size: {startingDeck.CardCount}");
+	}
+
+	public Card.Weapon CreateSelectedHeroWeapon()
+	{
+		return SelectedHeroProfile.CreateWeapon();
 	}
 
 	/// <summary>
@@ -757,8 +770,8 @@ public partial class GameManager : Node
 
 		CreateNewPlayer();
 		Relics.Clear();
-		PlayerHealth = 30;
-		PlayerMaxHealth = 30;
+		PlayerHealth = SelectedHeroProfile.MaxHealth;
+		PlayerMaxHealth = SelectedHeroProfile.MaxHealth;
 		RunGold = 0;
 
 		RunState = new GameRunState();
@@ -810,6 +823,7 @@ public partial class GameManager : Node
 			EmoteIdleTimeSeconds = EmoteIdleTimeSeconds,
 			EmoteIdleVariationMin = EmoteIdleVariationMin,
 			EmoteIdleVariationMax = EmoteIdleVariationMax,
+			SelectedHeroId = SelectedHeroId,
 			RunGold = 0,
 			ActiveRun = null,
 		};
@@ -916,6 +930,7 @@ public partial class GameManager : Node
 			EmoteIdleVariationMin = EmoteIdleVariationMin,
 			EmoteIdleVariationMax = EmoteIdleVariationMax,
 			RunGold = RunGold,
+			SelectedHeroId = SelectedHeroId,
 		};
 
 		// 序列化当前跑状态
@@ -958,12 +973,14 @@ public partial class GameManager : Node
 		EmoteIdleVariationMin = data.EmoteIdleVariationMin;
 		EmoteIdleVariationMax = data.EmoteIdleVariationMax;
 		RunGold = data.RunGold;
+		SelectedHeroId = HeroProfile.Get(data.SelectedHeroId).Id;
 
 		// 恢复进行中的冒险
 		if (data.ActiveRun != null)
 		{
 			RunState = new GameRunState();
 			RunState.Restore(data.ActiveRun);
+			SelectedHeroId = HeroProfile.Get(data.ActiveRun.HeroId).Id;
 			PlayerHealth = data.ActiveRun.PlayerHealth;
 			PlayerMaxHealth = data.ActiveRun.PlayerMaxHealth;
 			RunGold = data.ActiveRun.RunGold;

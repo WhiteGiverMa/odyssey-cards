@@ -15,6 +15,6 @@ public class FragileArmorModifier
 	{
 		if (!IsActive || amount <= 0)
 			return amount;
-		return (int)(amount * EffectiveMultiplier);
+		return (int)System.MathF.Round(amount * EffectiveMultiplier, System.MidpointRounding.AwayFromZero);
 	}
 }

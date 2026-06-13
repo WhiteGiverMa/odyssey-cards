@@ -462,6 +462,9 @@ public partial class CombatManager : Node
 
 		// 从 Player 复制英雄技能设置（由 GameManager.CreateNewPlayer 注入）
 		PlayerHero.HeroPower = Player.HeroPower;
+		var heroProfile = GameManager.Instance?.SelectedHeroProfile ?? HeroProfile.Get(null);
+		if (heroProfile.StartingDefense != 0)
+			PlayerHero.ModifyDefense(heroProfile.StartingDefense);
 
 		// 奇巧关键词回调：被弃牌时自动打出
 		_playerCore.CombatDeckState.OnBeforeDiscard = HandleQiqiaoDiscard;
@@ -509,8 +512,8 @@ public partial class CombatManager : Node
 		// 机械蜈蚣-防空型自动拦截：敌方部署低费随从时自动触发战斗
 		Board.OnMinionPlaced += OnMinionPlacedForCentipede;
 
-		// 装配默认武器
-		PlayerHero.Weapon = new IonPistol();
+		// 装配所选英雄的初始武器
+		PlayerHero.Weapon = GameManager.Instance?.CreateSelectedHeroWeapon() ?? new IonPistol();
 
 		// 初始化热力值系统
 		_heatSystem = new HeatSystem();
@@ -643,6 +646,12 @@ public partial class CombatManager : Node
 		// 藏品 — 回合开始时触发（在法力设置之后，以便战术核显卡等修改法力值）
 		_relicManager.TriggerTurnStart(this);
 
+		// 状态效果 — 友方回合开始时（持续伤害先造成伤害，再减少层数）
+		TickTurnStartStatusEffects(TickTiming.PlayerTurnStart);
+		CheckDeaths();
+		if (_victoryResolver.CheckVictoryOrDefeat())
+			return;
+
 		// 回合开始抽 1 张牌
 		PlayerHero.DrawCards(1);
 
@@ -666,6 +675,8 @@ public partial class CombatManager : Node
 		// 重置武器攻击次数 + 冷却衰减
 		PlayerHero.ResetWeaponAttacks();
 		PlayerHero.TickWeaponCooldown();
+		if (PlayerHero.HeroPower is IChargeCooldownSkill chargedHeroPower)
+			chargedHeroPower.TickChargeCooldown();
 
 		// 启动表情空闲计时器
 		_emoteSystem?.StartIdleTimer();
@@ -1632,6 +1643,15 @@ public partial class CombatManager : Node
 		// 冻结意图 UI 刷新——防止执行动画期间数值跳变
 		_isEnemyTurnAnimating = true;
 
+		// 状态效果 — 敌方回合开始时（持续伤害先造成伤害，再减少层数）
+		TickTurnStartStatusEffects(TickTiming.EnemyTurnStart);
+		CheckDeaths();
+		if (_victoryResolver.CheckVictoryOrDefeat())
+		{
+			_isEnemyTurnAnimating = false;
+			return;
+		}
+
 		// 0. 快照本回合开始时已存在的敌方随从——只有它们可以攻击
 		_enemyMinionsCanAttack.Clear();
 		foreach (var m in Board.GetEnemyMinions())
@@ -1693,6 +1713,47 @@ public partial class CombatManager : Node
 
 		// 8. 通知 UI 刷新意图显示（解冻后触发）
 		NotifyCombatStateChanged();
+	}
+
+	private void TickTurnStartStatusEffects(TickTiming timing)
+	{
+		ApplyTurnStartStatusDamage(PlayerHero, timing);
+		foreach (var unit in EnemyUnits)
+			ApplyTurnStartStatusDamage(unit.Body, timing);
+
+		foreach (var minion in Board.GetPlayerMinions())
+			ApplyTurnStartStatusDamage(minion, timing);
+		foreach (var minion in Board.GetEnemyMinions())
+			ApplyTurnStartStatusDamage(minion, timing);
+
+		PlayerHero.TickStatusEffects(timing);
+		foreach (var unit in EnemyUnits)
+			unit.Body.TickStatusEffects(timing);
+
+		foreach (var minion in Board.GetPlayerMinions())
+			minion.TickStatusEffects(timing);
+		foreach (var minion in Board.GetEnemyMinions())
+			minion.TickStatusEffects(timing);
+	}
+
+	private static void ApplyTurnStartStatusDamage(Hero hero, TickTiming timing)
+	{
+		if (hero.StatusEffects.TryGetValue("damage_over_time", out var effect)
+			&& effect.TickOn == timing
+			&& effect.Stacks > 0)
+		{
+			hero.ApplyStatusDamage(1, effect.Id);
+		}
+	}
+
+	private static void ApplyTurnStartStatusDamage(Minion minion, TickTiming timing)
+	{
+		if (minion.StatusEffects.TryGetValue("damage_over_time", out var effect)
+			&& effect.TickOn == timing
+			&& effect.Stacks > 0)
+		{
+			minion.ApplyStatusDamage(1, effect.Id);
+		}
 	}
 
 	/// <summary>

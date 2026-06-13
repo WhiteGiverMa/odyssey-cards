@@ -2,6 +2,10 @@ ui:
   menu:
     title: "Odyssey Cards"
     start_game: "Start Game"
+    hero_select_title: "Choose Hero"
+    hero_option_format: "{name} / {romanized}"
+    hero_detail_format: "{name}\nHP: {hp}\nWeapon: {weapon}\nHero Power: {power}\n\n{desc}"
+    start_selected_hero: "Start with this Hero"
     collection: "Collection"
     settings: "Settings"
     quit: "Quit"
@@ -83,6 +87,8 @@ ui:
     weapon_disabled: "⚔ Weapon Attack [Disabled]"
     skill_cooldown: "✦ {name} (CD {cooldown})"
     skill_cost: "✦ {name} ({cost} MP)"
+    skill_charges_suffix: " [{charges}/{max}]"
+    hero_power_cooldown: "{name} ({cost} MP) [CD {cooldown}]"
     weapon_none: "No Weapon"
     enemy_weapon_format: "Weapon: {name} {attack} ATK{disabled}"
     weapon_format: "{name} {attack} ATK {cost}"
@@ -256,12 +262,17 @@ weapon:
     name: "Ion Pistol"
   rolling_log:
     name: "Stick Wood"
+  svds_m338:
+    name: "SVDS-M338"
   rail_pistol:
     name: "Rail Pistol"
   passive:
     meltdown:
       name: "Meltdown"
       desc: "On weapon hit: target's Defense -1 (max 2 stacks per target)"
+    svds_m338:
+      name: "Double Tap · Rending"
+      desc: "When attacking, deal 1 extra random weapon hit. Units hit by this weapon gain 1 stack of Damage over Time 1."
     rail_lock:
       name: "Rail Lock"
       desc: "Target attacked by this weapon cannot attack for 1 turn."
@@ -269,6 +280,9 @@ weapon:
     ion_pulse:
       name: "Ion Pulse"
       desc: "Disable enemy weapon (vs Hero) or reduce minion Attack to 0 (vs minion), lasts 2 enemy turns"
+    suppressive_barrage:
+      name: "Suppressive Barrage"
+      desc: "Deal weapon damage once to all enemy targets. Cooldown 1 turn, stores up to 2 charges."
 
 plane:
   first_plane: "First Plane"
@@ -487,6 +501,8 @@ effect:
   total_observation_desc: "Vulnerable, Weak, and Fragile effects are doubled."
   attack_ban: "Rail Lock"
   attack_ban_desc: "Cannot attack this turn."
+  damage_over_time: "Damage over Time"
+  damage_over_time_desc: "At the start of this unit's friendly turn, it takes 1 direct damage, then loses 1 stack."
 
 domain:
   unlimited_potential: "Unlimited Potential"
@@ -586,4 +602,15 @@ hero_power:
   iron_will:
     name: "Iron Will"
     desc: "Gain 4 Armor"
+  rie_suppressing_fire:
+    name: "Fire Sorting"
+    desc: "Draw direct-damage spells from the top of your deck until your hand is full or you hit another kind of card. Each card drawn this way deals 1 damage to the enemy hero."
   use_button: "Iron Will (2)"
+
+hero:
+  qimeng:
+    name: "Qimeng"
+    desc: "Standard configuration hero. 30 HP, Ion Pistol, and Iron Will."
+  rie:
+    name: "Rie"
+    desc: "25 HP. Uses the SVDS-M338 for precision follow-up fire and suppresses enemies with direct-damage spells."

@@ -64,6 +64,11 @@ public partial class CombatUI
 	{
 		if (_combat.State.IsGameOver)
 			return;
+		if (_isAttackDragPressed && (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
+		{
+			GD.Print($"[CombatUI] 忽略槽位点击：攻击拖拽尚未松手，mode={_selectionMode}, slot={slotIndex}, side={(isPlayerSide ? "P" : "E")}");
+			return;
+		}
 		switch (_selectionMode)
 		{
 			case SelectionMode.PlacingMinion:
@@ -668,6 +673,7 @@ public partial class CombatUI
 	/// </summary>
 	private void HandleAttackDrop(Vector2 screenPos)
 	{
+		GD.Print($"[CombatUI] HandleAttackDrop mode={_selectionMode}, pos=({screenPos.X:F0},{screenPos.Y:F0})");
 		var hit = _boardUI.GetSlotAtPosition(screenPos);
 		if (hit != null && !hit.Value.isPlayerSide)
 		{
@@ -925,6 +931,11 @@ public partial class CombatUI
 
 	private void OnEnemyHeroCardActionPressed(int enemyIndex)
 	{
+		if (_isAttackDragPressed && (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
+		{
+			GD.Print($"[CombatUI] 忽略敌方英雄点击：攻击拖拽尚未松手，mode={_selectionMode}, enemy={enemyIndex}");
+			return;
+		}
 		_activeEnemyTargetIndex = enemyIndex;
 		_enemyHeroCardAction?.Invoke();
 	}
@@ -1095,8 +1106,23 @@ public partial class CombatUI
 	/// </summary>
 	private void OnWeaponAttackPressed()
 	{
+		if (_ignoreNextWeaponAttackPressed)
+		{
+			_ignoreNextWeaponAttackPressed = false;
+			GD.Print("[CombatUI] 忽略武器攻击按钮的同次鼠标 Pressed 事件，避免与按下拖拽入口冲突");
+			return;
+		}
+
 		if (_combat.State.IsGameOver)
 			return;
+		if (_selectionMode == SelectionMode.SelectingWeaponTarget)
+		{
+			GD.Print("[CombatUI] 再次点击武器攻击按钮 → 取消武器攻击选择");
+			ResetSelection();
+			_handUI.RefreshHand();
+			RefreshAll();
+			return;
+		}
 		if (!_combat.PlayerHero.CanWeaponAttack())
 			return;
 
@@ -1106,11 +1132,23 @@ public partial class CombatUI
 		if (!_combat.PlayerHero.CanSpendMana(weapon.AttackCost))
 			return;
 
-		GD.Print($"[CombatUI] 进入武器攻击目标选择模式 — {weapon.Name}");
+		EnterWeaponAttackTargetMode(GetInputPosition());
+	}
+
+	private void EnterWeaponAttackTargetMode(Vector2 startPos)
+	{
+		var weapon = _combat.PlayerHero.Weapon;
+		if (weapon == null)
+			return;
+
+		GD.Print($"[CombatUI] 进入武器攻击目标选择模式 — {weapon.Name}，start=({startPos.X:F0},{startPos.Y:F0})");
 
 		_selectionMode = SelectionMode.SelectingWeaponTarget;
 		_selectedAttacker = null;
 		_selectedCard = null;
+		_isAttackDragPressed = true;
+		_attackDragHasMoved = false;
+		_attackDragStartPos = startPos;
 
 		// 高亮合法攻击目标
 		HighlightWeaponTargets();
@@ -1133,6 +1171,13 @@ public partial class CombatUI
 			return;
 		if (!weapon.ActiveSkill.CanUse(_combat.PlayerHero))
 			return;
+		if (!weapon.ActiveSkill.RequiresTarget)
+		{
+			_combat.ActiveSkillTarget = null;
+			_combat.UseWeaponActiveSkill();
+			RefreshAll();
+			return;
+		}
 
 		GD.Print($"[CombatUI] 进入主动技能目标选择模式 — {weapon.ActiveSkill.Name}");
 
@@ -1173,7 +1218,11 @@ public partial class CombatUI
 		// 显示敌方英雄按钮作为目标（复用，修改文本和事件）
 		_enemyHeroCardAction = OnActiveSkillHeroPressed;
 		foreach (var card in _enemyCards)
-			card.AttackButton.Text = Loc.T("ui.combat.ion_pulse", "✦ 离子脉冲");
+		{
+			string activeName = _combat.PlayerHero.Weapon?.ActiveSkill?.Name
+				?? Loc.T("ui.combat.weapon_skill", "✦ 技能");
+			card.AttackButton.Text = $"✦ {activeName}";
+		}
 		SetEnemyHeroAttackTargetsVisible(true);
 
 		GD.Print("[CombatUI] 主动技能目标模式——可对敌方英雄或任意随从释放");
@@ -1260,6 +1309,7 @@ public partial class CombatUI
 		GD.Print($"[CombatUI] 武器攻击敌方英雄[{_activeEnemyTargetIndex}]");
 		_combat.HeroWeaponAttackHero(target);
 		_enemyHeroCardAction = OnEnemyHeroAttackPressed;
+		ResetSelection();
 
 		RefreshAll();
 	}

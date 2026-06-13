@@ -74,6 +74,8 @@ public partial class CombatUI
 
 		UpdateWeaponDisplay();
 		UpdateStatusEffectDisplay();
+		RefreshIntentDisplay();
+		RefreshIntentArrows();
 		UpdateHeatDisplay();
 		UpdateRelicDisplay();
 
@@ -451,8 +453,15 @@ public partial class CombatUI
 					string localActiveName = !string.IsNullOrEmpty(active.NameKey)
 						? Localization.Localization.T(active.NameKey, active.Name)
 						: active.Name;
-					_weaponActiveSkillButton.Text = Localization.Localization.T("ui.combat.skill_cost", "✦ {name} ({cost}费)")
+					string text = Localization.Localization.T("ui.combat.skill_cost", "✦ {name} ({cost}费)")
 						.Replace("{name}", localActiveName).Replace("{cost}", active.Cost.ToString());
+					if (active is IChargeCooldownSkill chargeSkill)
+					{
+						text += Localization.Localization.T("ui.combat.skill_charges_suffix", " [{charges}/{max}]")
+							.Replace("{charges}", chargeSkill.Charges.ToString())
+							.Replace("{max}", chargeSkill.MaxCharges.ToString());
+					}
+					_weaponActiveSkillButton.Text = text;
 				}
 			}
 		}
@@ -538,20 +547,45 @@ public partial class CombatUI
 		bool canAfford = _combat.PlayerHero.CurrentMana >= heroPower.Cost;
 		bool isDiscovering = _combat.IsDiscovering;
 		bool gameOver = _combat.State.IsGameOver;
+		IChargeCooldownSkill? chargeSkill = heroPower as IChargeCooldownSkill;
+		bool hasCharges = chargeSkill == null || chargeSkill.Charges > 0;
 
-		bool canUse = isPlayerTurn && !alreadyUsed && canAfford && !isDiscovering && !gameOver;
+		bool canUse = isPlayerTurn && !alreadyUsed && canAfford && hasCharges && !isDiscovering && !gameOver;
 
 		_heroPowerButton.Disabled = !canUse;
 
 		// 更新按钮文本：显示技能名称 + 费用 + 状态
 		string name = heroPower.Name;
 		string costStr = heroPower.Cost.ToString();
-		if (alreadyUsed)
-			_heroPowerButton.Text = $"{name} ({costStr}费) [已用]";
+		string text;
+		if (chargeSkill != null && chargeSkill.Charges <= 0)
+		{
+			text = Localization.Localization.T("ui.combat.hero_power_cooldown", "{name} ({cost}费) [冷却{cooldown}]")
+				.Replace("{name}", name)
+				.Replace("{cost}", costStr)
+				.Replace("{cooldown}", chargeSkill.CurrentCooldown.ToString());
+		}
+		else if (alreadyUsed)
+		{
+			text = $"{name} ({costStr}费) [已用]";
+		}
 		else if (!canAfford)
-			_heroPowerButton.Text = $"{name} ({costStr}费) [法力不足]";
+		{
+			text = $"{name} ({costStr}费) [法力不足]";
+		}
 		else
-			_heroPowerButton.Text = $"{name} ({costStr}费)";
+		{
+			text = $"{name} ({costStr}费)";
+		}
+
+		if (heroPower is IChargeCooldownSkill chargeDisplay)
+		{
+			text += Localization.Localization.T("ui.combat.skill_charges_suffix", " [{charges}/{max}]")
+				.Replace("{charges}", chargeDisplay.Charges.ToString())
+				.Replace("{max}", chargeDisplay.MaxCharges.ToString());
+		}
+
+		_heroPowerButton.Text = text;
 	}
 
 	/// <summary>

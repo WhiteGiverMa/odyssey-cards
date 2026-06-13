@@ -71,12 +71,12 @@ public partial class SettingsPage : Control
 	/// <summary>可重绑定的动作列表，按显示顺序排列。</summary>
 	private static readonly List<StringName> RebindableActions = new()
 	{
-        // 导航
-        OdysseyInput.Up, OdysseyInput.Down, OdysseyInput.Left, OdysseyInput.Right,
-        // 动作
-        OdysseyInput.Accept, OdysseyInput.Cancel, OdysseyInput.Select,
-        // 战斗 — 手牌
-        OdysseyInput.SelectCard1, OdysseyInput.SelectCard2, OdysseyInput.SelectCard3,
+		// 导航
+		OdysseyInput.Up, OdysseyInput.Down, OdysseyInput.Left, OdysseyInput.Right,
+		// 动作
+		OdysseyInput.Accept, OdysseyInput.Cancel, OdysseyInput.Select,
+		// 战斗 — 手牌
+		OdysseyInput.SelectCard1, OdysseyInput.SelectCard2, OdysseyInput.SelectCard3,
 		OdysseyInput.SelectCard4, OdysseyInput.SelectCard5, OdysseyInput.SelectCard6,
 		OdysseyInput.SelectCard7, OdysseyInput.SelectCard8, OdysseyInput.SelectCard9,
 		OdysseyInput.SelectCard10,
@@ -1094,7 +1094,8 @@ public partial class SettingsPage : Control
 			if (key.Keycode == Key.Escape || key.Keycode == Key.Back)
 			{
 				OnBackPressed();
-				GetViewport().SetInputAsHandled();
+				if (IsInsideTree())
+					GetViewport()?.SetInputAsHandled();
 				return;
 			}
 		}
