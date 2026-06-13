@@ -23,6 +23,10 @@ internal sealed class DomainTriggerManager
 	private readonly IReadOnlyList<EnemyUnit> _enemyUnits;
 	private readonly Action _notifyCombatStateChanged;
 
+	// 接化发领域追踪：敌方回合中英雄是否攻击过 / 是否有穿透HP的攻击
+	private bool _enemyHeroAttackedThisTurn;
+	private bool _enemyHeroAttackPenetratedThisTurn;
+
 	public DomainTriggerManager(
 		CommanderCore playerCore,
 		Hero playerHero,
@@ -101,7 +105,7 @@ internal sealed class DomainTriggerManager
 		_playerHero.DrawCards(drawCount);
 
 		string tokenPath = string.IsNullOrWhiteSpace(domain.EffectData.TargetType)
-			? "res://Resources/Cards/Spell_Shoushen.tres"
+			? "res://Resources/Cards/Spell_Ukemi.tres"
 			: domain.EffectData.TargetType;
 		var tokenData = GD.Load<CardData>(tokenPath);
 		if (tokenData != null)
@@ -122,6 +126,69 @@ internal sealed class DomainTriggerManager
 		{
 			domain.StackCount--;
 			GD.Print($"[DomainTriggerManager] 「飞远」剩余 {domain.StackCount} 层");
+		}
+
+		_notifyCombatStateChanged();
+	}
+
+	/// <summary>
+	/// 敌方回合开始时重置接化发追踪状态。
+	/// </summary>
+	public void OnEnemyTurnStart()
+	{
+		_enemyHeroAttackedThisTurn = false;
+		_enemyHeroAttackPenetratedThisTurn = false;
+	}
+
+	/// <summary>
+	/// 玩家英雄受到伤害时，追踪敌方英雄攻击是否穿透HP（用于接化发领域）。
+	/// 应订阅 PlayerHero.OnDamageTaken 事件。
+	/// </summary>
+	public void HandlePlayerHeroDamageTaken(DamageEventInfo info, IDamageSource? source)
+	{
+		// 仅追踪敌方回合
+		if (_state.IsPlayerTurn)
+			return;
+
+		// 仅追踪敌方英雄来源的攻击
+		bool isEnemyHeroSource = source is Hero h && _enemyUnits.Any(eu => ReferenceEquals(eu.Body, h));
+		if (!isEnemyHeroSource)
+			return;
+
+		_enemyHeroAttackedThisTurn = true;
+		if (!info.WasFullyBlocked)
+			_enemyHeroAttackPenetratedThisTurn = true;
+	}
+
+	/// <summary>
+	/// 敌方回合结束时检查「接化发」领域触发条件。
+	/// </summary>
+	public void OnEnemyTurnEnd()
+	{
+		if (!_playerHero.ActiveDomains.TryGetValue("jiehuafa", out var domain))
+			return;
+
+		// 条件：敌方英雄本回合攻击过，且所有攻击均未穿透HP
+		if (!_enemyHeroAttackedThisTurn || _enemyHeroAttackPenetratedThisTurn)
+			return;
+
+		if (domain.LastTriggeredTurn == _state.TurnCount)
+			return;
+
+		domain.LastTriggeredTurn = _state.TurnCount;
+
+		string tokenPath = string.IsNullOrWhiteSpace(domain.EffectData.TargetType)
+			? "res://Resources/Cards/Spell_Ukemi.tres"
+			: domain.EffectData.TargetType;
+		var tokenData = GD.Load<CardData>(tokenPath);
+		if (tokenData != null)
+		{
+			_playerCore.AddToHand(new Card.Card(tokenData));
+			GD.Print($"[DomainTriggerManager] 「接化发」触发：敌方英雄攻击全被格挡，将「{tokenData.GetLocalizedName()}」加入手牌");
+		}
+		else
+		{
+			GD.PrintErr($"[DomainTriggerManager] 「接化发」触发失败：无法加载 {tokenPath}");
 		}
 
 		_notifyCombatStateChanged();

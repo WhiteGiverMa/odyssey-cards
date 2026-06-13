@@ -8,7 +8,7 @@ script = ExtResource("2_effect")
 EffectType = 17
 Value = 5
 SecondaryValue = 2
-TargetType = "res://Resources/Cards/Spell_Shoushen.tres"
+TargetType = "res://Resources/Cards/Spell_Ukemi.tres"
 CustomEffectName = "FlyingAway"
 
 [resource]

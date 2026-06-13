@@ -372,7 +372,10 @@ cards:
   domain_flying_away:
     name: "飞远"
     description: "领域：获得5点格挡。下一次被敌方随从或英雄攻击时，抽2张牌，将一张「受身」加入手牌。"
-  spell_shoushen:
+  domain_jiehuafa:
+    name: "接化发"
+    description: "领域：敌方回合结束时，若敌方英雄本回合的所有攻击均被完全格挡（无HP穿透），将1张「受身」加入手牌。"
+  spell_ukemi:
     name: "受身"
     description: "获得3点格挡，抽1张牌"
   spell_Expose:
@@ -416,6 +419,9 @@ cards:
   spell_boundless_darkness:
     name: "无边黑暗"
     description: "使所有敌人获得3层易伤和3层脆弱。"
+  spell_chansu:
+    name: "机会~"
+    description: "回复2点生命，获得2点格挡，抽1张牌。每回合首次对热力值大于100%的敌人造成伤害时，将牌库或弃牌堆中的这张牌加入手牌。"
   spell_explain:
     name: "解释"
     description: "奇巧。打出时使敌方英雄获得1层总观效应。\n回到手牌。"
@@ -519,6 +525,8 @@ domain:
   flying_away_desc: "被攻击后抽2张牌并获得「受身」。"
   idol_twilight: "偶像的黄昏"
   idol_twilight_desc: "被攻击后获得+1/+1。"
+  jiehuafa: "接化发"
+  jiehuafa_desc: "敌全攻击被格挡后获「受身」。"
 
 stat:
   attack_up: "攻击力+{value}"

@@ -372,7 +372,10 @@ cards:
   domain_flying_away:
     name: "Fly Away"
     description: "Domain: Gain 5 Block. The next time an enemy minion or hero attacks you, draw 2 cards and add a Body Roll to your hand."
-  spell_shoushen:
+  domain_jiehuafa:
+    name: "Jie Hua Fa"
+    description: "Domain: At end of enemy turn, if all enemy hero attacks this turn were fully blocked (no HP damage taken), add a Body Roll to your hand."
+  spell_ukemi:
     name: "Body Roll"
     description: "Gain 3 Block. Draw 1 card."
   spell_Expose:
@@ -413,6 +416,9 @@ cards:
   spell_boundless_darkness:
     name: "Boundless Darkness"
     description: "Apply 3 Vulnerable and 3 Fragile to all enemies."
+  spell_chansu:
+    name: "CHANSU~"
+    description: "Restore 2 HP, gain 2 Block, draw 1 card. The first time each turn you deal damage to an enemy with Heat > 100%, add this card to your hand from your draw or discard pile."
   spell_explain:
     name: "Explanation"
     description: "Qiqiao. Apply 1 Total Observation to the enemy hero.\nReturn to hand."
@@ -516,6 +522,8 @@ domain:
   flying_away_desc: "When attacked, draw 2 cards and gain Ukemi."
   idol_twilight: "Idol's Twilight"
   idol_twilight_desc: "After being attacked, gain +1/+1."
+  jiehuafa: "Jie Hua Fa"
+  jiehuafa_desc: "When all attacks blocked, gain Ukemi."
 
 stat:
   attack_up: "Attack +{value}"
