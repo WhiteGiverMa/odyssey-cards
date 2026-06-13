@@ -296,7 +296,7 @@ public class RollingLog : Weapon
 }
 
 // ====================================================================
-// 理恵武器：SVDS-M338
+// 理惠武器：SVDS-M338
 // ====================================================================
 
 /// <summary>
@@ -444,7 +444,7 @@ public class SuppressiveBarrage : IWeaponActive, IWeaponChargeSkill
 }
 
 /// <summary>
-/// SVDS-M338 — 理恵初始武器。
+/// SVDS-M338 — 理惠初始武器。
 /// </summary>
 public class SvdsM338 : Weapon
 {

@@ -5,7 +5,7 @@ using OdysseyCards.Core;
 namespace OdysseyCards.Card.HeroPowers;
 
 /// <summary>
-/// 理恵英雄技能：抽取牌堆顶连续的直伤法术，每抽一张对敌方英雄造成1点效果伤害。
+/// 理惠英雄技能：抽取牌堆顶连续的直伤法术，每抽一张对敌方英雄造成1点效果伤害。
 /// </summary>
 public class RieSuppressingFireHeroPower : IHeroPower, IChargeCooldownSkill
 {

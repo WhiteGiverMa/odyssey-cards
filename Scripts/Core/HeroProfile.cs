@@ -28,7 +28,7 @@ public sealed class HeroProfile
 		{
 			Id = "rie",
 			NameKey = "hero.rie.name",
-			DisplayName = "理恵",
+			DisplayName = "理惠",
 			RomanizedName = "Rie",
 			DescriptionKey = "hero.rie.desc",
 			DefaultDescription = "25点生命，SVDS-M338。擅长连射、撕裂与直伤法术检索。",

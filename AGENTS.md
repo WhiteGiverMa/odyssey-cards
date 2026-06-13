@@ -52,7 +52,7 @@ Tests/              # tests/csharp：xUnit 5 Unit + 1 Integration(跳过)
 | 卡牌数据 | `Core/CardData.cs`, `Core/CardEffectData.cs` | Godot Resource, `[Export]`，效果枚举→分发器 |
 | 卡牌运行时 | `Card/Card.cs` → `Minion.cs` | **纯 C#，不继承 Node**；`Spell.cs` 是死代码 |
 | 英雄/护甲 | `Card/Hero.cs` | 包装 CommanderCore；护甲吸收在 DamageResolver 后 |
-| 英雄技能 | `Card/IHeroPower.cs`, `Card/HeroPowers/` | 当前有 IronWill + 理恵的「火力筛选」；带冷却/存储层数的技能看 `IChargeCooldownSkill` |
+| 英雄技能 | `Card/IHeroPower.cs`, `Card/HeroPowers/` | 当前有 IronWill + 理惠的「火力筛选」；带冷却/存储层数的技能看 `IChargeCooldownSkill` |
 | 武器 | `Card/Weapon.cs`, `WeaponSkill.cs` | 当前有离子手枪、SVDS-M338、棍木；`RailPistolPassive.cs` 仍孤立 |
 | 战斗主循环 | `Combat/CombatManager.cs` | 仍是中介；详见 `Scripts/Combat/AGENTS.md` |
 | 战斗拆分模块 | `Combat/AttackTracker.cs`, `SelectionSystem.cs`, `DeathHandler.cs`, `WeaponAttackSystem.cs`… | 纯 C# + 构造注入 + Action 回调 |
@@ -278,8 +278,8 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 ## State
 
 - ✅ 全面键盘支持：InputManager→HotkeyManager→各场景，对齐 STS2 键位。
-- ✅ 主菜单英雄选择：当前可选绮梦 / 理恵，选择结果持久化到存档。
-- ✅ 新英雄理恵：25HP，SVDS-M338，持续伤害状态，英雄技能「火力筛选」。
+- ✅ 主菜单英雄选择：当前可选绮梦 / 理惠，选择结果持久化到存档。
+- ✅ 新英雄理惠：25HP，SVDS-M338，持续伤害状态，英雄技能「火力筛选」。
 - ✅ 本地化全场景接线；YAML include_filter 已处理导出。
 - ✅ 卡牌选中/拖拽、攻击双交互、右键取消、敌方英雄攻击绿框已修复。
 - ✅ 意图图标 hover 稳定；设置页支持开关图标/伤害数字浮动视觉风格。
