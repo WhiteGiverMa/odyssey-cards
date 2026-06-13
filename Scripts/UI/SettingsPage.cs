@@ -53,6 +53,21 @@ public partial class SettingsPage : Control
 	private HSlider _emoteVarMaxSlider = null!;
 	private Label _emoteVarMaxValueLabel = null!;
 
+	// ===== 粒子特效缩放控件 =====
+
+	private Label _projectileScaleLabel = null!;
+	private HSlider _projectileScaleSlider = null!;
+	private Label _projectileScaleValueLabel = null!;
+	private Label _cardFlyScaleLabel = null!;
+	private HSlider _cardFlyScaleSlider = null!;
+	private Label _cardFlyScaleValueLabel = null!;
+	private Label _damageNumberScaleLabel = null!;
+	private HSlider _damageNumberScaleSlider = null!;
+	private Label _damageNumberScaleValueLabel = null!;
+	private Label _emoteScaleLabel = null!;
+	private HSlider _emoteScaleSlider = null!;
+	private Label _emoteScaleValueLabel = null!;
+
 	// ===== 键位设置控件 =====
 
 	/// <summary>子菜单栈返回回调（Set by SubmenuStack）。为 null 时走默认 QueueFree 路径。</summary>
@@ -221,6 +236,10 @@ public partial class SettingsPage : Control
 		_newProfileBtn.Pressed -= OnNewProfile;
 		_deleteProfileBtn.Pressed -= OnDeleteProfile;
 		_resetDefaultsBtn.Pressed -= OnResetDefaults;
+		_projectileScaleSlider.ValueChanged -= OnProjectileScaleChanged;
+		_cardFlyScaleSlider.ValueChanged -= OnCardFlyScaleChanged;
+		_damageNumberScaleSlider.ValueChanged -= OnDamageNumberScaleChanged;
+		_emoteScaleSlider.ValueChanged -= OnEmoteScaleChanged;
 	}
 
 	/// <summary>
@@ -427,6 +446,26 @@ public partial class SettingsPage : Control
 		};
 		_intentValueFloatingToggle.AddThemeFontSizeOverride("font_size", 18);
 		_displayContainer.AddChild(CreateCenteredRow(_intentValueFloatingToggle));
+
+		// === 特效缩放滑块 ===
+		_displayContainer.AddChild(CreateSectionHeader("ui.settings.section_vfx", "特效"));
+
+		SetupParticleScaleSlider(
+			ref _projectileScaleLabel, ref _projectileScaleSlider, ref _projectileScaleValueLabel,
+			"ui.settings.projectile_scale", "弹道特效尺寸",
+			UIScaler.Instance?.ProjectileScale ?? 1.0f);
+		SetupParticleScaleSlider(
+			ref _cardFlyScaleLabel, ref _cardFlyScaleSlider, ref _cardFlyScaleValueLabel,
+			"ui.settings.card_fly_scale", "卡牌飞行粒子尺寸",
+			UIScaler.Instance?.CardFlyScale ?? 1.0f);
+		SetupParticleScaleSlider(
+			ref _damageNumberScaleLabel, ref _damageNumberScaleSlider, ref _damageNumberScaleValueLabel,
+			"ui.settings.damage_number_scale", "伤害数字尺寸",
+			UIScaler.Instance?.DamageNumberScale ?? 1.0f);
+		SetupParticleScaleSlider(
+			ref _emoteScaleLabel, ref _emoteScaleSlider, ref _emoteScaleValueLabel,
+			"ui.settings.emote_effect_scale", "表情文字尺寸",
+			UIScaler.Instance?.EmoteScale ?? 1.0f);
 	}
 
 	// ===== 游戏设置 UI =====
@@ -782,6 +821,25 @@ public partial class SettingsPage : Control
 		return row;
 	}
 
+	/// <summary>创建一个粒子缩放滑块的标签、滑块和值标签，并加入显示容器。</summary>
+	private void SetupParticleScaleSlider(ref Label label, ref HSlider slider, ref Label valueLabel,
+		string key, string fallback, float currentValue)
+	{
+		label = CreateSettingLabel(key, fallback);
+		slider = new HSlider
+		{
+			MinValue = 0.0, MaxValue = 2.0, Step = 0.1,
+			Value = currentValue, CustomMinimumSize = new Vector2(160, 0),
+		};
+		valueLabel = new Label
+		{
+			Text = $"×{currentValue:F1}",
+			CustomMinimumSize = new Vector2(50, 0),
+		};
+		valueLabel.AddThemeFontSizeOverride("font_size", 16);
+		_displayContainer.AddChild(CreateSliderRow(label, slider, valueLabel));
+	}
+
 	// ===== 信号连接 =====
 
 	private void ConnectSignals()
@@ -798,6 +856,10 @@ public partial class SettingsPage : Control
 		_emoteIdleTimeSlider.ValueChanged += OnEmoteIdleTimeChanged;
 		_emoteVarMinSlider.ValueChanged += OnEmoteVarMinChanged;
 		_emoteVarMaxSlider.ValueChanged += OnEmoteVarMaxChanged;
+		_projectileScaleSlider.ValueChanged += OnProjectileScaleChanged;
+		_cardFlyScaleSlider.ValueChanged += OnCardFlyScaleChanged;
+		_damageNumberScaleSlider.ValueChanged += OnDamageNumberScaleChanged;
+		_emoteScaleSlider.ValueChanged += OnEmoteScaleChanged;
 		_profileSelector.ItemSelected += OnProfileSelected;
 		_newProfileBtn.Pressed += OnNewProfile;
 		_deleteProfileBtn.Pressed += OnDeleteProfile;
@@ -909,6 +971,34 @@ public partial class SettingsPage : Control
 		_emoteVarMaxValueLabel.Text = $"×{v:F1}";
 		if (gm != null)
 			gm.EmoteIdleVariationMax = v;
+	}
+
+	private void OnProjectileScaleChanged(double value)
+	{
+		float v = (float)value;
+		_projectileScaleValueLabel.Text = $"×{v:F1}";
+		UIScaler.Instance?.SetProjectileScale(v);
+	}
+
+	private void OnCardFlyScaleChanged(double value)
+	{
+		float v = (float)value;
+		_cardFlyScaleValueLabel.Text = $"×{v:F1}";
+		UIScaler.Instance?.SetCardFlyScale(v);
+	}
+
+	private void OnDamageNumberScaleChanged(double value)
+	{
+		float v = (float)value;
+		_damageNumberScaleValueLabel.Text = $"×{v:F1}";
+		UIScaler.Instance?.SetDamageNumberScale(v);
+	}
+
+	private void OnEmoteScaleChanged(double value)
+	{
+		float v = (float)value;
+		_emoteScaleValueLabel.Text = $"×{v:F1}";
+		UIScaler.Instance?.SetEmoteScale(v);
 	}
 
 	private void OnProfileSelected(long index)
@@ -1054,6 +1144,10 @@ public partial class SettingsPage : Control
 		_backButton.Text = Loc.T("ui.settings.back", "Back");
 		_devModeToggle.Text = Loc.T("ui.settings.dev_mode", "开发者模式");
 		_consoleButton.Text = Loc.T("ui.settings.open_console", "打开控制台");
+		_projectileScaleLabel.Text = Loc.T("ui.settings.projectile_scale", "弹道特效尺寸");
+		_cardFlyScaleLabel.Text = Loc.T("ui.settings.card_fly_scale", "卡牌飞行粒子尺寸");
+		_damageNumberScaleLabel.Text = Loc.T("ui.settings.damage_number_scale", "伤害数字尺寸");
+		_emoteScaleLabel.Text = Loc.T("ui.settings.emote_effect_scale", "表情文字尺寸");
 	}
 
 	private void UpdateCurrentLanguage()

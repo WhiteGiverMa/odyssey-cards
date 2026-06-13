@@ -25,6 +25,7 @@ public partial class CardFlyVfx : Control
 	// ===== 实例字段 =====
 	private CardUI _card = null!;
 	private int _frameCounter;
+	private float _scale = 1.0f; // 来自 UIScaler 的卡牌飞行粒子缩放系数
 
 	// ===== 静态数学工具 =====
 
@@ -83,6 +84,10 @@ public partial class CardFlyVfx : Control
 	private void Initialize(CardUI card, Vector2 targetPos)
 	{
 		_card = card;
+
+		// 读取卡牌飞行缩放设置
+		_scale = UIScaler.Instance?.CardFlyScale ?? 1.0f;
+		if (_scale < 0.01f) _scale = 1.0f;
 
 		// 全屏覆盖，不拦截鼠标事件
 		MouseFilter = MouseFilterEnum.Ignore;
@@ -174,6 +179,10 @@ public partial class CardFlyVfx : Control
 	private void InitializeDrawAnimation(CardUI tempCard, Vector2 fromPos, Vector2 toPos)
 	{
 		_card = tempCard;
+
+		// 读取卡牌飞行缩放设置
+		_scale = UIScaler.Instance?.CardFlyScale ?? 1.0f;
+		if (_scale < 0.01f) _scale = 1.0f;
 		MouseFilter = MouseFilterEnum.Ignore;
 		SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 		AddChild(_card);
@@ -229,11 +238,12 @@ public partial class CardFlyVfx : Control
 
 	private void SpawnTrailParticle(Vector2 localPos)
 	{
+		var particleSize = TrailParticleSize * _scale;
 		var particle = new ColorRect
 		{
-			Size = new Vector2(TrailParticleSize, TrailParticleSize),
+			Size = new Vector2(particleSize, particleSize),
 			Color = TrailColor,
-			Position = localPos - new Vector2(TrailParticleSize / 2f, TrailParticleSize / 2f),
+			Position = localPos - new Vector2(particleSize / 2f, particleSize / 2f),
 			MouseFilter = MouseFilterEnum.Ignore,
 		};
 		AddChild(particle);

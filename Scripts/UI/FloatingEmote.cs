@@ -42,13 +42,22 @@ public partial class FloatingEmote : Control
 
 	private void Initialize(string text, Vector2 screenPosition)
 	{
+		// 读取表情缩放设置
+		float vfxScale = UIScaler.Instance?.EmoteScale ?? 1.0f;
+		if (vfxScale < 0.01f) vfxScale = 1.0f;
+
+		int scaledFontSize = Mathf.RoundToInt(FontSize * vfxScale);
+		int scaledBgPaddingH = Mathf.RoundToInt(BgPaddingH * vfxScale);
+		int scaledBgPaddingV = Mathf.RoundToInt(BgPaddingV * vfxScale);
+		int scaledCornerRadius = Mathf.RoundToInt(CornerRadius * vfxScale);
+
 		MouseFilter = MouseFilterEnum.Ignore;
 
-		// 估算文本尺寸（中文字符按 FontSize*0.7 宽估算）
-		float textW = text.Length * FontSize * CharWidthEstimate;
-		float textH = FontSize + 4;
-		float bgW = textW + BgPaddingH * 2;
-		float bgH = textH + BgPaddingV * 2;
+		// 估算文本尺寸
+		float textW = text.Length * scaledFontSize * CharWidthEstimate;
+		float textH = scaledFontSize + 4;
+		float bgW = textW + scaledBgPaddingH * 2;
+		float bgH = textH + scaledBgPaddingV * 2;
 
 		// 自身尺寸
 		Size = new Vector2(bgW, bgH);
@@ -66,10 +75,10 @@ public partial class FloatingEmote : Control
 		var style = new StyleBoxFlat
 		{
 			BgColor = _bgColor,
-			CornerRadiusTopLeft = CornerRadius,
-			CornerRadiusTopRight = CornerRadius,
-			CornerRadiusBottomLeft = CornerRadius,
-			CornerRadiusBottomRight = CornerRadius,
+			CornerRadiusTopLeft = scaledCornerRadius,
+			CornerRadiusTopRight = scaledCornerRadius,
+			CornerRadiusBottomLeft = scaledCornerRadius,
+			CornerRadiusBottomRight = scaledCornerRadius,
 		};
 		bgPanel.AddThemeStyleboxOverride("panel", style);
 		AddChild(bgPanel);
@@ -84,25 +93,27 @@ public partial class FloatingEmote : Control
 			Position = Vector2.Zero,
 		};
 		label.AddThemeColorOverride("font_color", _textColor);
-		label.AddThemeFontSizeOverride("font_size", FontSize);
+		label.AddThemeFontSizeOverride("font_size", scaledFontSize);
 		// 细描边增强可读性
 		label.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.4f));
-		label.AddThemeConstantOverride("outline_size", 1);
+		label.AddThemeConstantOverride("outline_size", Mathf.Max(1, Mathf.RoundToInt(1 * vfxScale)));
 		AddChild(label);
 
 		// 开始动画
-		Animate();
+		Animate(vfxScale);
 	}
 
 	// ===== 动画 =====
 
-	private void Animate()
+	private void Animate(float vfxScale)
 	{
+		float scaledFloatDistance = FloatDistance * vfxScale;
+
 		var tween = CreateTween();
 		tween.SetParallel(true);
 
 		// 向上缓缓浮动
-		tween.TweenProperty(this, "position:y", Position.Y - FloatDistance, Duration)
+		tween.TweenProperty(this, "position:y", Position.Y - scaledFloatDistance, Duration)
 			 .SetEase(Tween.EaseType.Out)
 			 .SetTrans(Tween.TransitionType.Sine);
 
@@ -113,7 +124,7 @@ public partial class FloatingEmote : Control
 			 .SetTrans(Tween.TransitionType.Sine);
 
 		// 初始微缩放弹入
-		Scale = new Vector2(0.85f, 0.85f);
+		Scale = new Vector2(0.85f * vfxScale, 0.85f * vfxScale);
 		var scaleTween = CreateTween();
 		scaleTween.TweenProperty(this, "scale", Vector2.One, Duration * 0.3f)
 				  .SetEase(Tween.EaseType.Out)

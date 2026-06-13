@@ -25,6 +25,7 @@ public partial class AttackProjectileVfx : Control
 	private Color _coreColor;
 	private Color _trailColor;
 	private CombatDamageVfxKind _kind;
+	private float _scale = 1.0f; // 来自 UIScaler 的弹道缩放系数
 
 	public static void Play(Vector2 from, Vector2 to, CombatDamageVfxKind kind, Node parent)
 	{
@@ -45,12 +46,16 @@ public partial class AttackProjectileVfx : Control
 		_to = to;
 		_kind = kind;
 
+		// 读取弹道缩放设置
+		_scale = UIScaler.Instance?.ProjectileScale ?? 1.0f;
+		if (_scale < 0.01f) _scale = 1.0f;
+
 		var mid = (_from + _to) * 0.5f;
 		var direction = _to - _from;
 		var normal = direction.LengthSquared() > 0.01f
 			? new Vector2(-direction.Y, direction.X).Normalized()
 			: Vector2.Up;
-		_control = mid + normal * ArcHeight;
+		_control = mid + normal * ArcHeight * _scale;
 
 		(_coreColor, _trailColor) = kind switch
 		{
@@ -110,7 +115,7 @@ public partial class AttackProjectileVfx : Control
 			Vector2 current = QuadraticBezier(t);
 			float alpha = Mathf.Clamp(1f - i / (float)(TrailSegments + 1), 0f, 1f) * _trailColor.A;
 			var color = new Color(_trailColor.R, _trailColor.G, _trailColor.B, alpha);
-			DrawLine(previous, current, color, Mathf.Lerp(5f, 1f, i / (float)TrailSegments), antialiased: true);
+			DrawLine(previous, current, color, Mathf.Lerp(5f, 1f, i / (float)TrailSegments) * _scale, antialiased: true);
 			previous = current;
 		}
 	}
@@ -118,8 +123,9 @@ public partial class AttackProjectileVfx : Control
 	private void DrawProjectileCore()
 	{
 		Vector2 pos = QuadraticBezier(Mathf.Clamp(_progress, 0f, 1f));
-		float radius = _kind == CombatDamageVfxKind.Spell ? 6f : 4.5f;
-		DrawCircle(pos, radius + 4f, new Color(_coreColor.R, _coreColor.G, _coreColor.B, 0.16f));
+		float baseRadius = _kind == CombatDamageVfxKind.Spell ? 6f : 4.5f;
+		float radius = baseRadius * _scale;
+		DrawCircle(pos, radius + 4f * _scale, new Color(_coreColor.R, _coreColor.G, _coreColor.B, 0.16f));
 		DrawCircle(pos, radius, _coreColor);
 		DrawCircle(pos, radius * 0.45f, Colors.White);
 	}
@@ -130,9 +136,9 @@ public partial class AttackProjectileVfx : Control
 			return;
 
 		float alpha = 1f - _impactProgress;
-		float radius = Mathf.Lerp(5f, 22f, _impactProgress);
+		float radius = Mathf.Lerp(5f, 22f, _impactProgress) * _scale;
 		var color = new Color(_coreColor.R, _coreColor.G, _coreColor.B, alpha * 0.55f);
-		DrawArc(_to, radius, 0f, MathF.Tau, 24, color, 2.5f, antialiased: true);
+		DrawArc(_to, radius, 0f, MathF.Tau, 24, color, 2.5f * _scale, antialiased: true);
 		DrawCircle(_to, radius * 0.35f, new Color(1f, 1f, 1f, alpha * 0.28f));
 	}
 

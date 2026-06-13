@@ -36,6 +36,7 @@ namespace OdysseyCards.UI
 		public event Action OnResolutionChanged;
 		public event Action OnIntentVisualSettingsChanged;
 		public event Action OnCardDescriptionSettingsChanged;
+		public event Action OnParticleEffectSettingsChanged;
 
 		public float CurrentScale { get; private set; } = 1f;
 		public Vector2 CurrentCardSize => _currentCardSize;
@@ -43,6 +44,15 @@ namespace OdysseyCards.UI
 		public bool IntentValueFloatingEnabled { get; private set; } = true;
 		public bool CardDescriptionCentered { get; private set; }
 		public bool DevModeEnabled { get; private set; }
+
+		/// <summary>弹道特效缩放（攻击/法术/战斗弹道的粒子半径、尾迹、弧高）</summary>
+		public float ProjectileScale { get; private set; } = 1.0f;
+		/// <summary>卡牌飞行粒子缩放（抽牌/弃牌/领域/死亡飞行的尾迹粒子大小）</summary>
+		public float CardFlyScale { get; private set; } = 1.0f;
+		/// <summary>伤害数字缩放（浮动伤害/治疗/护甲数字的字号和浮动距离）</summary>
+		public float DamageNumberScale { get; private set; } = 1.0f;
+		/// <summary>表情文字缩放（浮动表情弹幕的字号和浮动距离）</summary>
+		public float EmoteScale { get; private set; } = 1.0f;
 
 		public override void _Ready()
 		{
@@ -289,6 +299,46 @@ namespace OdysseyCards.UI
 			SaveSettings();
 		}
 
+		/// <summary>设置弹道特效缩放并持久化（范围 0.0~2.0）。</summary>
+		public void SetProjectileScale(float scale)
+		{
+			scale = Mathf.Clamp(scale, 0.0f, 2.0f);
+			if (Mathf.Abs(ProjectileScale - scale) < 0.001f) return;
+			ProjectileScale = scale;
+			SaveSettings();
+			OnParticleEffectSettingsChanged?.Invoke();
+		}
+
+		/// <summary>设置卡牌飞行粒子缩放并持久化（范围 0.0~2.0）。</summary>
+		public void SetCardFlyScale(float scale)
+		{
+			scale = Mathf.Clamp(scale, 0.0f, 2.0f);
+			if (Mathf.Abs(CardFlyScale - scale) < 0.001f) return;
+			CardFlyScale = scale;
+			SaveSettings();
+			OnParticleEffectSettingsChanged?.Invoke();
+		}
+
+		/// <summary>设置伤害数字缩放并持久化（范围 0.0~2.0）。</summary>
+		public void SetDamageNumberScale(float scale)
+		{
+			scale = Mathf.Clamp(scale, 0.0f, 2.0f);
+			if (Mathf.Abs(DamageNumberScale - scale) < 0.001f) return;
+			DamageNumberScale = scale;
+			SaveSettings();
+			OnParticleEffectSettingsChanged?.Invoke();
+		}
+
+		/// <summary>设置表情文字缩放并持久化（范围 0.0~2.0）。</summary>
+		public void SetEmoteScale(float scale)
+		{
+			scale = Mathf.Clamp(scale, 0.0f, 2.0f);
+			if (Mathf.Abs(EmoteScale - scale) < 0.001f) return;
+			EmoteScale = scale;
+			SaveSettings();
+			OnParticleEffectSettingsChanged?.Invoke();
+		}
+
 		#endregion
 
 		#region 持久化
@@ -313,6 +363,10 @@ namespace OdysseyCards.UI
 			config.SetValue("visual", "intent_value_floating", IntentValueFloatingEnabled);
 			config.SetValue("visual", "card_description_centered", CardDescriptionCentered);
 			config.SetValue("visual", "dev_mode", DevModeEnabled);
+			config.SetValue("visual", "projectile_scale", ProjectileScale);
+			config.SetValue("visual", "card_fly_scale", CardFlyScale);
+			config.SetValue("visual", "damage_number_scale", DamageNumberScale);
+			config.SetValue("visual", "emote_scale", EmoteScale);
 
 			Error err = config.Save(ConfigPath);
 			if (err != Error.Ok)
@@ -342,6 +396,10 @@ namespace OdysseyCards.UI
 			IntentValueFloatingEnabled = config.GetValue("visual", "intent_value_floating", true).AsBool();
 			CardDescriptionCentered = config.GetValue("visual", "card_description_centered", false).AsBool();
 			DevModeEnabled = config.GetValue("visual", "dev_mode", false).AsBool();
+			ProjectileScale = (float)config.GetValue("visual", "projectile_scale", 1.0).AsDouble();
+			CardFlyScale = (float)config.GetValue("visual", "card_fly_scale", 1.0).AsDouble();
+			DamageNumberScale = (float)config.GetValue("visual", "damage_number_scale", 1.0).AsDouble();
+			EmoteScale = (float)config.GetValue("visual", "emote_scale", 1.0).AsDouble();
 
 			if (IsMobile)
 				return;

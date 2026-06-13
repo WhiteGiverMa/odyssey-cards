@@ -112,15 +112,22 @@ public partial class FloatingDamageNumber : Control
 
 	private void Initialize(string text, Vector2 screenPosition, Color color, int fontSize, float duration)
 	{
-		// 随机散射偏移（避免重叠时完全一致）
-		float scatterX = (_rng.NextSingle() - 0.5f) * 16f;
-		float scatterY = (_rng.NextSingle() - 0.5f) * 8f;
+		// 读取伤害数字缩放设置
+		float vfxScale = UIScaler.Instance?.DamageNumberScale ?? 1.0f;
+		if (vfxScale < 0.01f) vfxScale = 1.0f;
+
+		int scaledFontSize = Mathf.RoundToInt(fontSize * vfxScale);
+		float scaledFloatDistance = FloatDistance * vfxScale;
+
+		// 随机散射偏移（避免重叠时完全一致），也应用缩放
+		float scatterX = (_rng.NextSingle() - 0.5f) * 16f * vfxScale;
+		float scatterY = (_rng.NextSingle() - 0.5f) * 8f * vfxScale;
 
 		Position = screenPosition + new Vector2(scatterX, scatterY);
 		MouseFilter = MouseFilterEnum.Ignore;
 
-		// 初始缩放（稍大，然后动画缩小）
-		Scale = new Vector2(1.5f, 1.5f);
+		// 初始缩放
+		Scale = new Vector2(1.5f * vfxScale, 1.5f * vfxScale);
 
 		_label = new Label
 		{
@@ -129,27 +136,27 @@ public partial class FloatingDamageNumber : Control
 			VerticalAlignment = VerticalAlignment.Center,
 		};
 		_label.AddThemeColorOverride("font_color", color);
-		_label.AddThemeFontSizeOverride("font_size", fontSize);
+		_label.AddThemeFontSizeOverride("font_size", scaledFontSize);
 
 		// 添加描边效果使数字更清晰
 		_label.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.4f));
-		_label.AddThemeConstantOverride("outline_size", 2);
+		_label.AddThemeConstantOverride("outline_size", Mathf.Max(1, Mathf.RoundToInt(2 * vfxScale)));
 
 		AddChild(_label);
 
 		// 开始动画
-		Animate(duration);
+		Animate(duration, scaledFloatDistance);
 	}
 
 	// ===== 动画 =====
 
-	private void Animate(float duration)
+	private void Animate(float duration, float scaledFloatDistance)
 	{
 		var tween = CreateTween();
 		tween.SetParallel(true);
 
 		// 向上浮动
-		tween.TweenProperty(this, "position:y", Position.Y - FloatDistance, duration)
+		tween.TweenProperty(this, "position:y", Position.Y - scaledFloatDistance, duration)
 			 .SetEase(Tween.EaseType.Out)
 			 .SetTrans(Tween.TransitionType.Cubic);
 
