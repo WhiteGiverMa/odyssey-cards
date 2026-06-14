@@ -64,6 +64,14 @@ public class Weapon
 	}
 
 	/// <summary>
+	/// 计算最终武器伤害。需要持有者上下文的武器被动可重写此方法。
+	/// </summary>
+	public virtual int GetModifiedDamage(int baseDamage, Hero wielder)
+	{
+		return GetModifiedDamage(baseDamage);
+	}
+
+	/// <summary>
 	/// 武器是否可以造成反击伤害。
 	/// 条件：未被禁用且攻击力大于 0。
 	/// </summary>

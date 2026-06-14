@@ -324,7 +324,7 @@ public class SvdsM338Passive : IWeaponAttackPassive
 		if (wielder.Weapon == null)
 			return;
 
-		int damage = wielder.Weapon.GetModifiedDamage(wielder.Weapon.Attack);
+		int damage = wielder.Weapon.GetModifiedDamage(wielder.Weapon.Attack, wielder);
 		for (int i = 0; i < ExtraHitCount; i++)
 		{
 			var randomTarget = PickRandomEnemyTarget(combat);
@@ -407,7 +407,7 @@ public class SuppressiveBarrage : IWeaponActive, IWeaponChargeSkill
 			CurrentCooldown = Cooldown;
 		wielder.SpendMana(Cost);
 
-		int damage = wielder.Weapon.GetModifiedDamage(wielder.Weapon.Attack);
+		int damage = wielder.Weapon.GetModifiedDamage(wielder.Weapon.Attack, wielder);
 		var targets = new List<IDamageTarget>();
 		targets.AddRange(combat.EnemyUnits.Where(unit => !unit.Body.IsDead).Select(unit => unit.Body));
 		targets.AddRange(combat.Board.GetEnemyMinions().Where(minion => !minion.IsDead));
@@ -459,4 +459,134 @@ public class SvdsM338 : Weapon
 	}
 
 	public override string NameKey => "weapon.svds_m338.name";
+}
+
+// ====================================================================
+// 溯光武器：射线手枪
+// ====================================================================
+
+/// <summary>
+/// 铭记：弃牌堆中每有2张轮战牌，武器攻击力+1。
+/// </summary>
+public class RememberPassive : IWeaponPassive
+{
+	public string Name => "铭记";
+	public string Description => "弃牌堆中每有2张轮战牌，攻击力+1。";
+	public string NameKey => "weapon.passive.remember.name";
+	public string DescKey => "weapon.passive.remember.desc";
+
+	public int ModifyWeaponDamage(int baseDamage) => baseDamage;
+
+	public int ModifyWeaponDamage(int baseDamage, Hero wielder)
+	{
+		int recycleCount = wielder.DeckState.DiscardPile.Count(card => card.HasRecycle);
+		return baseDamage + recycleCount / 2;
+	}
+}
+
+/// <summary>
+/// 致盲：2费，使一个敌方单位攻击力-2。冷却1回合，最多存储3层。
+/// </summary>
+public class BlindShot : IWeaponActive, IWeaponChargeSkill
+{
+	public string Name => "致盲";
+	public string Description => "使一个敌方单位攻击力-2。冷却1回合，最多存储3层。";
+	public string NameKey => "weapon.skill.blind_shot.name";
+	public string DescKey => "weapon.skill.blind_shot.desc";
+	public int Cost => 2;
+	public int Cooldown => 1;
+	public int CurrentCooldown { get; set; }
+	public int Charges { get; private set; } = 1;
+	public int MaxCharges => 3;
+	public bool RequiresTarget => true;
+
+	public bool CanUse(Hero wielder)
+	{
+		return wielder != null && !wielder.IsDead && Charges > 0 && wielder.CurrentMana >= Cost;
+	}
+
+	public void Execute(Hero wielder, CombatManager combat)
+	{
+		if (!CanUse(wielder))
+			return;
+
+		var target = combat.ActiveSkillTarget;
+		if (target == null)
+			return;
+
+		Charges--;
+		if (Charges < MaxCharges && CurrentCooldown <= 0)
+			CurrentCooldown = Cooldown;
+		wielder.SpendMana(Cost);
+
+		ApplyAttackDown(target);
+		GD.Print($"[BlindShot] 致盲命中，剩余层数 {Charges}/{MaxCharges}");
+	}
+
+	public void TickChargeCooldown()
+	{
+		if (Charges >= MaxCharges)
+		{
+			CurrentCooldown = 0;
+			return;
+		}
+
+		if (CurrentCooldown > 0)
+			CurrentCooldown--;
+
+		if (CurrentCooldown <= 0)
+		{
+			Charges++;
+			CurrentCooldown = Charges < MaxCharges ? Cooldown : 0;
+			GD.Print($"[BlindShot] 回复1层，当前 {Charges}/{MaxCharges}");
+		}
+	}
+
+	private static void ApplyAttackDown(IDamageTarget target)
+	{
+		switch (target)
+		{
+			case Hero hero when hero.Weapon != null:
+				hero.Weapon.Attack = Mathf.Max(0, hero.Weapon.Attack - 2);
+				GD.Print($"[BlindShot] 英雄武器攻击力-2，当前 {hero.Weapon.Attack}");
+				break;
+			case Minion minion:
+				minion.ModifyAttack(-2);
+				GD.Print($"[BlindShot] 随从「{minion.CardName}」攻击力-2，当前 {minion.Attack}");
+				break;
+		}
+	}
+}
+
+/// <summary>
+/// 射线手枪 — 溯光初始武器。
+/// </summary>
+public class RayPistol : Weapon
+{
+	private readonly RememberPassive _rememberPassive;
+
+	public RayPistol()
+		: this(new RememberPassive())
+	{
+	}
+
+	private RayPistol(RememberPassive passive)
+		: base(
+			name: "射线手枪",
+			attack: 1,
+			attackCost: 2,
+			passive: passive,
+			active: new BlindShot())
+	{
+		_rememberPassive = passive;
+	}
+
+	public override string NameKey => "weapon.ray_pistol.name";
+
+	public override int GetModifiedDamage(int baseDamage, Hero wielder)
+	{
+		if (IsDisabled)
+			return 0;
+		return _rememberPassive.ModifyWeaponDamage(baseDamage, wielder);
+	}
 }
