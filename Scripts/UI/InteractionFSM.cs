@@ -145,7 +145,7 @@ public sealed class InteractionFsm
 		float distSq = DistanceSquaredTo(_anchorPos, inputPosition);
 		float dragThresholdSq = DragThreshold * DragThreshold;
 
-		if (distSq > dragThresholdSq && !HasDragged && !_isClickSelect)
+		if (distSq > dragThresholdSq && !HasDragged)
 		{
 			HasDragged = true;
 			_hasMovedFromOrigin = true;

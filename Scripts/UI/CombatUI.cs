@@ -482,7 +482,12 @@ public partial class CombatUI : Control
 			return;
 
 		if (_selectionMode == SelectionMode.SelectingWeaponTarget)
+		{
+			GD.Print("[CombatUI] 武器攻击按钮再次点击，取消目标选择");
+			_attackDragFsm.Cancel();
+			GetViewport().SetInputAsHandled();
 			return;
+		}
 
 		GD.Print($"[CombatUI] 武器攻击按钮左键按下，进入可拖拽目标选择，pos=({mb.GlobalPosition.X:F0},{mb.GlobalPosition.Y:F0})");
 		_ignoreNextWeaponAttackPressed = true;
