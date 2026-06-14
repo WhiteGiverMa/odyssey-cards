@@ -677,7 +677,15 @@ public partial class CombatUI
 			if (attackTargetIndex >= 0)
 			{
 				_activeEnemyTargetIndex = attackTargetIndex;
-				OnEnemyHeroAttackPressed();
+				if (_selectionMode == SelectionMode.SelectingWeaponTarget)
+				{
+					// 武器攻击——英雄直接攻击，无 _selectedAttacker
+					_enemyHeroCardAction?.Invoke();
+				}
+				else
+				{
+					OnEnemyHeroAttackPressed();
+				}
 			}
 			else
 			{
