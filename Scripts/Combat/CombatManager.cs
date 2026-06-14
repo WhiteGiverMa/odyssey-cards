@@ -243,7 +243,9 @@ public partial class CombatManager : Node
 		Discover,
 		Discard,
 		ChooseDiscard,
-		BladeCrisis
+		BladeCrisis,
+		RestructureDiscard,
+		DevDiscard
 	}
 
 	/// <summary>
@@ -1989,6 +1991,30 @@ public partial class CombatManager : Node
 	public void ConfirmHandDiscardSelection(IReadOnlyList<Card.Card> selectedCards)
 	{
 		_selectionSystem.ConfirmHandDiscardSelection(selectedCards);
+	}
+
+	/// <summary>
+	/// 开始一次强制手牌弃牌选择。用于技能已支付后必须弃牌的效果。
+	/// </summary>
+	public void BeginForcedHandDiscardSelection(
+		List<Card.Card> handOptions,
+		int count,
+		PendingSelectionMode mode,
+		Action<IReadOnlyList<Card.Card>> onConfirmed)
+	{
+		_selectionSystem.BeginCustomHandDiscardSelection(handOptions, count, count, mode, canCancel: false, onConfirmed);
+	}
+
+	/// <summary>
+	/// 开发者命令用手牌弃牌选择。允许取消，可选择任意范围张数。
+	/// </summary>
+	public void BeginDevHandDiscardSelection(
+		List<Card.Card> handOptions,
+		int min,
+		int max,
+		Action<IReadOnlyList<Card.Card>> onConfirmed)
+	{
+		_selectionSystem.BeginCustomHandDiscardSelection(handOptions, min, max, PendingSelectionMode.DevDiscard, canCancel: true, onConfirmed);
 	}
 
 	/// <summary>

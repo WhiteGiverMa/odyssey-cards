@@ -69,6 +69,16 @@ internal sealed class SelectionSystem
 	/// </summary>
 	private bool _pendingDiscardIsBladeCrisis;
 
+	/// <summary>
+	/// 手牌选择是否允许取消。强制弃牌效果支付后不能取消。
+	/// </summary>
+	private bool _pendingHandSelectCanCancel = true;
+
+	/// <summary>
+	/// 自定义手牌选择完成回调。为空时使用默认弃牌/刀盾危机结算。
+	/// </summary>
+	private Action<IReadOnlyList<Card.Card>>? _pendingHandSelectConfirmed;
+
 	// ===== 公开属性 =====
 
 	/// <summary>
@@ -347,6 +357,29 @@ internal sealed class SelectionSystem
 		_pendingDiscardMin = min;
 		_pendingDiscardMax = max;
 		_pendingDiscardIsBladeCrisis = isBladeCrisis;
+		_pendingHandSelectCanCancel = true;
+		_pendingHandSelectConfirmed = null;
+		SetHandSelectingState();
+	}
+
+	/// <summary>
+	/// 开始自定义手牌弃牌选择。规则由调用方在确认回调中结算。
+	/// </summary>
+	public void BeginCustomHandDiscardSelection(
+		List<Card.Card> handOptions,
+		int min,
+		int max,
+		CombatManager.PendingSelectionMode mode,
+		bool canCancel,
+		Action<IReadOnlyList<Card.Card>> onConfirmed)
+	{
+		_pendingHandDiscardSelection = handOptions;
+		_pendingDiscardMin = min;
+		_pendingDiscardMax = max;
+		_pendingDiscardIsBladeCrisis = false;
+		_pendingSelectionMode = mode;
+		_pendingHandSelectCanCancel = canCancel;
+		_pendingHandSelectConfirmed = onConfirmed;
 		SetHandSelectingState();
 	}
 
@@ -381,7 +414,12 @@ internal sealed class SelectionSystem
 			return;
 		}
 
-		if (_pendingDiscardIsBladeCrisis)
+		if (_pendingHandSelectConfirmed != null)
+		{
+			_pendingHandSelectConfirmed(selectedCards);
+			GD.Print($"[SelectionSystem] ◆ 自定义手牌选择完成：选择 {count} 张");
+		}
+		else if (_pendingDiscardIsBladeCrisis)
 		{
 			// 刀盾危机：弃牌 + 放置Token + 抽牌
 			int discarded = 0;
@@ -442,6 +480,9 @@ internal sealed class SelectionSystem
 		_pendingDiscardMin = 0;
 		_pendingDiscardMax = 0;
 		_pendingDiscardIsBladeCrisis = false;
+		_pendingSelectionMode = CombatManager.PendingSelectionMode.Discover;
+		_pendingHandSelectCanCancel = true;
+		_pendingHandSelectConfirmed = null;
 		_state.ResumePlayerTurn();
 
 		_checkDeaths();
@@ -462,6 +503,12 @@ internal sealed class SelectionSystem
 			return;
 		}
 
+		if (!_pendingHandSelectCanCancel)
+		{
+			GD.Print("[SelectionSystem] CancelHandDiscardSelection 跳过 — 当前手牌选择必须完成");
+			return;
+		}
+
 		// 清理触发法术牌（取消时法术仍进入弃牌堆）
 		if (_pendingDiscoverSpellCard != null)
 		{
@@ -473,6 +520,9 @@ internal sealed class SelectionSystem
 		_pendingDiscardMin = 0;
 		_pendingDiscardMax = 0;
 		_pendingDiscardIsBladeCrisis = false;
+		_pendingSelectionMode = CombatManager.PendingSelectionMode.Discover;
+		_pendingHandSelectCanCancel = true;
+		_pendingHandSelectConfirmed = null;
 		_state.ResumePlayerTurn();
 		_notifyCombatStateChanged();
 		GD.Print("[SelectionSystem] 手牌选择已取消");
