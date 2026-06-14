@@ -484,7 +484,9 @@ public partial class CombatUI : Control
 		if (_selectionMode == SelectionMode.SelectingWeaponTarget)
 		{
 			GD.Print("[CombatUI] 武器攻击按钮再次点击，取消目标选择");
+			_ignoreNextWeaponAttackPressed = true;
 			_attackDragFsm.Cancel();
+			RefreshAll();
 			GetViewport().SetInputAsHandled();
 			return;
 		}
@@ -557,11 +559,8 @@ public partial class CombatUI : Control
 		if (_attackDragFsm.CurrentPhase != InteractionPhase.Idle)
 		{
 			var inputPos = GetInputPosition();
-			bool pointerDown;
-			if (MobileInputRouter.IsMobile)
-				pointerDown = MobileInputRouter.Instance.IsTouchActive;
-			else
-				pointerDown = Input.IsMouseButtonPressed(MouseButton.Left);
+			// 攻击拖拽始终通过主指针（鼠标/触控）追踪——Godot 移动端触控→鼠标模拟保证一致性
+			bool pointerDown = Input.IsMouseButtonPressed(MouseButton.Left);
 
 			float viewportH = GetViewportRect().Size.Y;
 			_attackDragFsm.Tick(inputPos, pointerDown, isRightDown: false, viewportH, dragStartY: 0f);
