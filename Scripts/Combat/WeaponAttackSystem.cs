@@ -85,7 +85,7 @@ internal sealed class WeaponAttackSystem
 		_playerHero.SpendMana(_playerHero.Weapon.AttackCost);
 
 		// 计算武器伤害
-		int weaponDamage = _playerHero.Weapon.GetModifiedDamage(_playerHero.Weapon.Attack);
+		int weaponDamage = _playerHero.Weapon.GetModifiedDamage(_playerHero.Weapon.Attack, _playerHero);
 
 		GD.Print($"[CombatManager] ⚔ 玩家英雄使用 {_playerHero.Weapon.Name} 攻击敌方英雄，造成 {weaponDamage} 点伤害");
 
@@ -109,7 +109,7 @@ internal sealed class WeaponAttackSystem
 		// 敌方英雄武器反击：显式结算，避免完全依赖隐式链路。
 		if (!target.IsDead && target.Weapon != null && target.Weapon.CanCounter)
 		{
-			int counterDamage = target.Weapon.GetModifiedDamage(target.Weapon.Attack);
+			int counterDamage = target.Weapon.GetModifiedDamage(target.Weapon.Attack, target);
 			GD.Print($"[CombatManager]   ⚔ 敌方英雄武器反击，造成 {counterDamage} 点伤害");
 			bool wasSuppressing = _playerHero.SuppressWeaponCounter;
 			_playerHero.SuppressWeaponCounter = true;
@@ -187,7 +187,7 @@ internal sealed class WeaponAttackSystem
 		_playerHero.SpendMana(_playerHero.Weapon.AttackCost);
 
 		// 计算武器伤害
-		int weaponDamage = _playerHero.Weapon.GetModifiedDamage(_playerHero.Weapon.Attack);
+		int weaponDamage = _playerHero.Weapon.GetModifiedDamage(_playerHero.Weapon.Attack, _playerHero);
 
 		GD.Print($"[CombatManager] ⚔ 玩家英雄使用 {_playerHero.Weapon.Name} 攻击 {target.CardName}，造成 {weaponDamage} 点伤害");
 

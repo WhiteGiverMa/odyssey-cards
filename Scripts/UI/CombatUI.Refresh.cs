@@ -407,10 +407,17 @@ public partial class CombatUI
 			string localWeaponName = !string.IsNullOrEmpty(weapon.NameKey)
 				? Localization.Localization.T(weapon.NameKey, weapon.Name)
 				: weapon.Name;
+			int displayedAttack = weapon.GetModifiedDamage(weapon.Attack, _combat.PlayerHero);
+			string attackText = displayedAttack == weapon.Attack
+				? weapon.Attack.ToString()
+				: $"{displayedAttack}（{weapon.Attack}+{displayedAttack - weapon.Attack}）";
 			_weaponInfoLabel.Text = Localization.Localization.T("ui.combat.weapon_format", "{name} {attack}攻 {cost}")
 				.Replace("{name}", localWeaponName)
-				.Replace("{attack}", weapon.Attack.ToString())
+				.Replace("{attack}", attackText)
 				.Replace("{cost}", costText) + disabledText;
+			_weaponInfoLabel.AddThemeColorOverride("font_color", displayedAttack > weapon.Attack
+				? new Color(0.45f, 1f, 0.45f)
+				: Colors.White);
 
 			if (weapon.PassiveSkill != null)
 			{
