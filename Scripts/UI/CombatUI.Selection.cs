@@ -692,7 +692,6 @@ public partial class CombatUI
 				GD.Print("[CombatUI] 攻击松手位置无效，取消选择");
 				ResetSelection();
 				_handUI.RefreshHand();
-				UpdateWeaponDisplay();
 			}
 		}
 	}
@@ -1506,8 +1505,9 @@ public partial class CombatUI
 		SetEnemyHeroAttackTargetsVisible(false);
 		SetEnemyHeroSpellTargetsVisible(false, "");
 		_playerHeroSpellButton.Visible = false;
-		_weaponAttackButton.Visible = false;
-		_weaponActiveSkillButton.Visible = false;
+
+		// 武器按钮可见性交由 UpdateWeaponDisplay() 根据 selectionMode + 武器状态统一管理
+		UpdateWeaponDisplay();
 
 		// 清除敌方英雄卡片绿色高亮
 		foreach (var card in _enemyCards)

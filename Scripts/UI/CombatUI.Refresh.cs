@@ -432,12 +432,17 @@ public partial class CombatUI
 					? Localization.Localization.T("ui.combat.weapon_disabled", "⚔ 武器攻击 [禁用]")
 					: Localization.Localization.T("ui.combat.weapon_attack_cost", "⚔ 武器攻击 ({cost}费)").Replace("{cost}", weapon.AttackCost.ToString());
 			}
+			else
+			{
+				_weaponAttackButton.Visible = false;
+			}
 
 			// 主动技能按钮
 			if (weapon.ActiveSkill != null)
 			{
 				var active = weapon.ActiveSkill;
-				_weaponActiveSkillButton.Visible = (_selectionMode == SelectionMode.Normal || _selectionMode == SelectionMode.SelectingActiveSkillTarget) && !_combat.State.IsGameOver;
+				bool skillVisible = (_selectionMode == SelectionMode.Normal || _selectionMode == SelectionMode.SelectingActiveSkillTarget) && !_combat.State.IsGameOver;
+				_weaponActiveSkillButton.Visible = skillVisible;
 				_weaponActiveSkillButton.Disabled = !active.CanUse(_combat.PlayerHero);
 
 				if (active.CurrentCooldown > 0)
@@ -463,11 +468,17 @@ public partial class CombatUI
 					}
 					_weaponActiveSkillButton.Text = text;
 				}
+		}
+			else
+			{
+				_weaponActiveSkillButton.Visible = false;
 			}
 		}
 		else
 		{
 			_weaponInfoLabel.Text = Localization.Localization.T("ui.combat.weapon_none", "无武器");
+			_weaponAttackButton.Visible = false;
+			_weaponActiveSkillButton.Visible = false;
 		}
 
 		// --- 敌方武器（已迁移到 EnemyIdentityCard） ---
