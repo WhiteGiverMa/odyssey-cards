@@ -87,6 +87,8 @@ ui:
     discard_select_title: "Choose to Discard"
     discard_select_format: "Choose {count} card(s) to discard"
     discard_select_format_blade: "Choose up to {count} card(s) to discard"
+    restructure_discard_title: "Restructure: choose 1 card to discard"
+    dev_discard_title: "Dev discard: choose any cards to discard"
     disabled_suffix: " [Disabled]"
     weapon_attack_cost: "⚔ Weapon Attack ({cost} MP)"
     weapon_disabled: "⚔ Weapon Attack [Disabled]"
@@ -269,6 +271,8 @@ weapon:
     name: "Stick Wood"
   svds_m338:
     name: "SVDS-M338"
+  ray_pistol:
+    name: "Ray Pistol"
   rail_pistol:
     name: "Rail Pistol"
   passive:
@@ -278,6 +282,9 @@ weapon:
     svds_m338:
       name: "Double Tap · Rending"
       desc: "When attacking, deal 1 extra random weapon hit. Units hit by this weapon gain 1 stack of Damage over Time 1."
+    remember:
+      name: "Remember"
+      desc: "+1 Attack for every 2 Recycle cards in your discard pile."
     rail_lock:
       name: "Rail Lock"
       desc: "Target attacked by this weapon cannot attack for 1 turn."
@@ -288,6 +295,9 @@ weapon:
     suppressive_barrage:
       name: "Suppressive Barrage"
       desc: "Deal weapon damage once to all enemy targets. Cooldown 1 turn, stores up to 2 charges."
+    blind_shot:
+      name: "Blind"
+      desc: "Give an enemy unit -2 Attack. Cooldown 1 turn, stores up to 3 charges."
 
 plane:
   first_plane: "First Plane"
@@ -618,6 +628,9 @@ hero_power:
   rie_suppressing_fire:
     name: "Fire Sorting"
     desc: "Draw direct-damage spells from the top of your deck until your hand is full or you hit another kind of card. Each card drawn this way deals 1 damage to the enemy hero."
+  sokou_restructure:
+    name: "Restructure"
+    desc: "Shuffle your draw pile, draw 2 cards, then discard 1 card. Cooldown 1 turn, stores up to 2 charges."
   use_button: "Iron Will (2)"
 
 hero:
@@ -627,3 +640,6 @@ hero:
   rie:
     name: "Rie"
     desc: "25 HP. Uses the SVDS-M338 for precision follow-up fire and suppresses enemies with direct-damage spells."
+  sokou:
+    name: "Sokou"
+    desc: "25 HP. Uses the Ray Pistol to gain Attack from Recycle cards in the discard pile, then Restructures the deck with shuffle, draw, and discard."

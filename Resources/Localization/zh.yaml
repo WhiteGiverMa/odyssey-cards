@@ -87,6 +87,8 @@ ui:
     discard_select_title: "选择弃牌"
     discard_select_format: "选择 {count} 张手牌弃掉"
     discard_select_format_blade: "选择最多 {count} 张手牌弃掉"
+    restructure_discard_title: "重整：选择 1 张手牌弃掉"
+    dev_discard_title: "调试弃牌：选择任意张手牌弃掉"
     disabled_suffix: " [禁用]"
     weapon_attack_cost: "⚔ 武器攻击 ({cost}费)"
     weapon_disabled: "⚔ 武器攻击 [禁用]"
@@ -269,6 +271,8 @@ weapon:
     name: "棍木"
   svds_m338:
     name: "SVDS-M338"
+  ray_pistol:
+    name: "射线手枪"
   rail_pistol:
     name: "磁轨手枪"
   passive:
@@ -278,6 +282,9 @@ weapon:
     svds_m338:
       name: "连射·撕裂"
       desc: "攻击时额外随机造成1次武器伤害。被该武器命中的单位获得1层持续伤害1。"
+    remember:
+      name: "铭记"
+      desc: "弃牌堆中每有2张轮战牌，攻击力+1。"
     rail_lock:
       name: "磁轨锁定"
       desc: "被此武器攻击的目标1回合内无法攻击"
@@ -288,6 +295,9 @@ weapon:
     suppressive_barrage:
       name: "压制射击"
       desc: "对全体敌方目标造成1次武器伤害。冷却1回合，最多存储2层。"
+    blind_shot:
+      name: "致盲"
+      desc: "使一个敌方单位攻击力-2。冷却1回合，最多存储3层。"
 
 plane:
   first_plane: "第一位面"
@@ -621,6 +631,9 @@ hero_power:
   rie_suppressing_fire:
     name: "火力筛选"
     desc: "从牌堆顶连续抽取明写直伤的法术牌，直到手牌满或遇到其他牌。每抽1张，对敌方英雄造成1点伤害。"
+  sokou_restructure:
+    name: "重整"
+    desc: "洗切抽牌堆，抽2张牌，然后弃1张牌。冷却1回合，最多存储2层。"
   use_button: "铁腕 (2费)"
 
 hero:
@@ -630,3 +643,6 @@ hero:
   rie:
     name: "理惠"
     desc: "25点生命值。以 SVDS-M338 进行精确连射，并用直伤法术持续压制敌方英雄。"
+  sokou:
+    name: "溯光"
+    desc: "25点生命值。使用射线手枪从弃牌堆中的轮战牌获得攻击力，并用「重整」洗切牌堆、抽牌弃牌。"
