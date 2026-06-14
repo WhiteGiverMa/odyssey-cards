@@ -828,7 +828,7 @@ public partial class SettingsPage : Control
 		label = CreateSettingLabel(key, fallback);
 		slider = new HSlider
 		{
-			MinValue = 0.0, MaxValue = 2.0, Step = 0.1,
+			MinValue = 0.0, MaxValue = 5.0, Step = 0.1,
 			Value = currentValue, CustomMinimumSize = new Vector2(160, 0),
 		};
 		valueLabel = new Label

@@ -299,40 +299,40 @@ namespace OdysseyCards.UI
 			SaveSettings();
 		}
 
-		/// <summary>设置弹道特效缩放并持久化（范围 0.0~2.0）。</summary>
+		/// <summary>设置弹道特效缩放并持久化（范围 0.0~5.0）。</summary>
 		public void SetProjectileScale(float scale)
 		{
-			scale = Mathf.Clamp(scale, 0.0f, 2.0f);
+			scale = Mathf.Clamp(scale, 0.0f, 5.0f);
 			if (Mathf.Abs(ProjectileScale - scale) < 0.001f) return;
 			ProjectileScale = scale;
 			SaveSettings();
 			OnParticleEffectSettingsChanged?.Invoke();
 		}
 
-		/// <summary>设置卡牌飞行粒子缩放并持久化（范围 0.0~2.0）。</summary>
+		/// <summary>设置卡牌飞行粒子缩放并持久化（范围 0.0~5.0）。</summary>
 		public void SetCardFlyScale(float scale)
 		{
-			scale = Mathf.Clamp(scale, 0.0f, 2.0f);
+			scale = Mathf.Clamp(scale, 0.0f, 5.0f);
 			if (Mathf.Abs(CardFlyScale - scale) < 0.001f) return;
 			CardFlyScale = scale;
 			SaveSettings();
 			OnParticleEffectSettingsChanged?.Invoke();
 		}
 
-		/// <summary>设置伤害数字缩放并持久化（范围 0.0~2.0）。</summary>
+		/// <summary>设置伤害数字缩放并持久化（范围 0.0~5.0）。</summary>
 		public void SetDamageNumberScale(float scale)
 		{
-			scale = Mathf.Clamp(scale, 0.0f, 2.0f);
+			scale = Mathf.Clamp(scale, 0.0f, 5.0f);
 			if (Mathf.Abs(DamageNumberScale - scale) < 0.001f) return;
 			DamageNumberScale = scale;
 			SaveSettings();
 			OnParticleEffectSettingsChanged?.Invoke();
 		}
 
-		/// <summary>设置表情文字缩放并持久化（范围 0.0~2.0）。</summary>
+		/// <summary>设置表情文字缩放并持久化（范围 0.0~5.0）。</summary>
 		public void SetEmoteScale(float scale)
 		{
-			scale = Mathf.Clamp(scale, 0.0f, 2.0f);
+			scale = Mathf.Clamp(scale, 0.0f, 5.0f);
 			if (Mathf.Abs(EmoteScale - scale) < 0.001f) return;
 			EmoteScale = scale;
 			SaveSettings();
