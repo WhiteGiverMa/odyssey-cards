@@ -47,7 +47,7 @@ Tests/              # tests/csharp：xUnit 5 Unit + 1 Integration(跳过)
 ## WHERE TO LOOK
 
 | 做什么 | 位置 | 注意 |
-|--------|------|------|
+|-------|------|------|
 | 入口/主菜单 | `Core/MainMenu.cs`, `Scenes/Main.tscn` | `project.godot` main_scene；开始游戏前有英雄选择覆盖层 |
 | 卡牌数据 | `Core/CardData.cs`, `Core/CardEffectData.cs` | Godot Resource, `[Export]`，效果枚举→分发器 |
 | 卡牌运行时 | `Card/Card.cs` → `Minion.cs` | **纯 C#，不继承 Node**；`Spell.cs` 是死代码 |
@@ -259,8 +259,6 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - **禁止** 非 Container 父控件用 `Offset*` → 只 `Position`。
 - **禁止** DragLayer 同时持有多张卡 → 先归还旧卡再取新卡。
 - **禁止** 用 `GetGlobalMousePosition()` 替代 `InputEventMouseButton.GlobalPosition` 做点击初始坐标。
-- **禁止** 新增卡牌不同步 `CardResourcePaths[]`。
-- **禁止** 新增语言不同步 `TryLoadTranslationsViaDirAccess()` 回退。
 - **禁止** 用 `_Input` 的原始 `Key.` 枚举处理新功能 → 必须走 `OdysseyInput` + `HotkeyManager`。
 - **禁止** 同一栈帧内 `QueueFree` + `AddChild` 混用 → deferred 批处理。
 - **禁止** 为当前周期草稿写兼容层；项目膨胀期直接删除旧形状。
@@ -315,3 +313,5 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 ## 杂项
 
 - **必须** 在 `_ExitTree` 中注销 `_EnterTree`/`_Ready` 注册的 HotkeyManager 绑定 → `PushPressedBinding`/`RemovePressedBinding` 配对。
+- 新增卡牌**必须**同步 `CardResourcePaths[]`。
+- 新增语言**必须**同步 `TryLoadTranslationsViaDirAccess()` 回退。
