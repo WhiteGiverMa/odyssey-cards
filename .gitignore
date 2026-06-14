@@ -77,3 +77,6 @@ docs/notepads
 
 # Local reference source (decompiled)
 skills/
+
+# agents
+.agents/
