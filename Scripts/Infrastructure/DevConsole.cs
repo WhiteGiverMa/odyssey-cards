@@ -430,6 +430,7 @@ public partial class DevConsole : Node
 		_engine.Register(new Commands.IntentDebugCommand());
 		_engine.Register(new Commands.TokenCommand());
 		_engine.Register(new Commands.PlayCommand());
+		_engine.Register(new Commands.DiscardCommand());
 		_engine.Register(new Commands.SummonPlayerCommand());
 		_engine.Register(new Commands.QaTombstoneCommand());
 		_engine.Register(new Commands.QaBaitTacticsCommand());

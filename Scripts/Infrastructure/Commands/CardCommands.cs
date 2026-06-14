@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using static OdysseyCards.Infrastructure.Commands.CombatUIHelper;
-using Card = OdysseyCards.Card.Card;
+using RuntimeCard = OdysseyCards.Card.Card;
 using Minion = OdysseyCards.Card.Minion;
 using CardType = OdysseyCards.Core.CardType;
 
@@ -124,6 +124,146 @@ public class PlayCommand : DevConsoleCommand
 		return played
 			? CommandResult.Ok($"打出「{cardToPlay.GetLocalizedName()}」")
 			: CommandResult.Fail($"无法通过 /play 打出「{cardToPlay.GetLocalizedName()}」");
+	}
+}
+
+public class DiscardCommand : DevConsoleCommand
+{
+	public override string Name => "discard";
+	public override string[] Aliases => ["dc"];
+	public override string Signature => "/discard select | /discard <i...> | /discard <n-m> | /discard range <n> <m>";
+	public override string Description => "调试弃牌：选择任意张手牌弃掉，或按1基手牌位置/范围直接弃牌。";
+
+	public override CompletionCandidate[]? GetArgCandidates(string partialArg)
+	{
+		return new[]
+		{
+			new CompletionCandidate("select", "select", "打开手牌选择，任意选择后弃掉"),
+			new CompletionCandidate("range ", "range <n> <m>", "弃掉第 n 到第 m 张手牌"),
+			new CompletionCandidate("1", "1 3 5", "弃掉指定1基位置手牌"),
+			new CompletionCandidate("1-3", "1-3", "弃掉连续范围手牌"),
+		};
+	}
+
+	public override CommandResult Execute(string[] args)
+	{
+		var cm = CombatManager.Instance;
+		if (cm == null)
+			return CommandResult.Fail("未在战斗中");
+		if (cm.IsDiscovering)
+			return CommandResult.Fail("当前正在选牌/弃牌，先完成或取消当前选择");
+
+		var hand = cm.PlayerHero.Hand.ToList();
+		if (hand.Count == 0)
+			return CommandResult.Fail("手牌为空");
+
+		if (args.Length == 0 || IsSelectMode(args[0]))
+			return BeginSelectionDiscard(cm, hand);
+
+		if (!TryParseIndexes(args, hand.Count, out var indexes, out var error))
+			return CommandResult.Fail(error);
+
+		var selected = indexes
+			.Distinct()
+			.OrderBy(i => i)
+			.Select(i => hand[i - 1])
+			.ToList();
+
+		DiscardCards(cm, selected);
+		RefreshCombatUI(cm);
+		return CommandResult.Ok($"弃掉 {selected.Count} 张手牌：{DescribeCards(selected)}");
+	}
+
+	private static bool IsSelectMode(string arg)
+	{
+		return string.Equals(arg, "select", StringComparison.OrdinalIgnoreCase)
+			|| string.Equals(arg, "choose", StringComparison.OrdinalIgnoreCase)
+			|| string.Equals(arg, "s", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static CommandResult BeginSelectionDiscard(CombatManager cm, List<RuntimeCard> hand)
+	{
+		cm.BeginDevHandDiscardSelection(hand, 0, hand.Count, selected =>
+		{
+			DiscardCards(cm, selected);
+			RefreshCombatUI(cm);
+			GD.Print($"[DiscardCommand] 选择弃牌完成：{selected.Count} 张");
+		});
+		return CommandResult.Ok($"进入调试弃牌选择：可选 0-{hand.Count} 张手牌");
+	}
+
+	private static void DiscardCards(CombatManager cm, IReadOnlyList<RuntimeCard> cards)
+	{
+		foreach (var card in cards)
+			cm.PlayerHero.DiscardCard(card);
+	}
+
+	private static bool TryParseIndexes(string[] args, int handCount, out List<int> indexes, out string error)
+	{
+		indexes = [];
+		error = "";
+
+		if (args.Length == 3 && string.Equals(args[0], "range", StringComparison.OrdinalIgnoreCase))
+			return TryAddRange(args[1], args[2], handCount, indexes, out error);
+
+		foreach (var arg in args)
+		{
+			if (arg.Contains('-'))
+			{
+				var parts = arg.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+				if (parts.Length != 2 || !TryAddRange(parts[0], parts[1], handCount, indexes, out error))
+					return false;
+				continue;
+			}
+
+			if (!TryParseIndex(arg, handCount, out var index, out error))
+				return false;
+			indexes.Add(index);
+		}
+
+		if (indexes.Count == 0)
+		{
+			error = "未指定要弃掉的手牌位置";
+			return false;
+		}
+
+		return true;
+	}
+
+	private static bool TryAddRange(string startText, string endText, int handCount, List<int> indexes, out string error)
+	{
+		if (!TryParseIndex(startText, handCount, out var start, out error)
+			|| !TryParseIndex(endText, handCount, out var end, out error))
+			return false;
+
+		int low = Math.Min(start, end);
+		int high = Math.Max(start, end);
+		for (int i = low; i <= high; i++)
+			indexes.Add(i);
+		return true;
+	}
+
+	private static bool TryParseIndex(string text, int handCount, out int index, out string error)
+	{
+		if (!int.TryParse(text, out index))
+		{
+			error = $"无效手牌位置: {text}";
+			return false;
+		}
+
+		if (index < 1 || index > handCount)
+		{
+			error = $"手牌位置越界: {index}，当前手牌 1-{handCount}";
+			return false;
+		}
+
+		error = "";
+		return true;
+	}
+
+	private static string DescribeCards(IReadOnlyList<RuntimeCard> cards)
+	{
+		return string.Join("、", cards.Select(card => $"「{card.GetLocalizedName()}」"));
 	}
 }
 
