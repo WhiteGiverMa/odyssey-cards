@@ -684,6 +684,7 @@ public partial class CombatUI
 				GD.Print("[CombatUI] 攻击松手位置无效，取消选择");
 				ResetSelection();
 				_handUI.RefreshHand();
+				UpdateWeaponDisplay();
 			}
 		}
 	}
