@@ -37,6 +37,19 @@ public sealed class HeroProfile
 			CreateHeroPower = () => new RieSuppressingFireHeroPower(),
 			CreateWeapon = () => new SvdsM338(),
 		},
+		new HeroProfile
+		{
+			Id = "sokou",
+			NameKey = "hero.sokou.name",
+			DisplayName = "溯光",
+			RomanizedName = "Sokou",
+			DescriptionKey = "hero.sokou.desc",
+			DefaultDescription = "25点生命，射线手枪。依靠轮战牌积蓄火力，并用重整重排牌堆。",
+			MaxHealth = 25,
+			StartingDefense = 0,
+			CreateHeroPower = () => new SokouRestructureHeroPower(),
+			CreateWeapon = () => new RayPistol(),
+		},
 	};
 
 	public static HeroProfile Get(string? id)

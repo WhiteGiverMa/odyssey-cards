@@ -431,7 +431,7 @@ public class Hero : IDamageTarget, IDamageSource
 		if (ReferenceEquals(target, this))
 			return;
 
-		int counterDamage = Weapon.GetModifiedDamage(Weapon.Attack);
+		int counterDamage = Weapon.GetModifiedDamage(Weapon.Attack, this);
 		if (counterDamage <= 0)
 			return;
 
