@@ -1512,7 +1512,7 @@ public partial class CollectionUI : Control
 	private void StartDeckDragClone(CardData cardData, Vector2 startScreenPos)
 	{
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
-		var cardSize = new Vector2(CardGrid_CardWidth * s, CardGrid_CardHeight * s);
+		var cardSize = new Vector2(CardUI.DESIGN_WIDTH * s, CardUI.DESIGN_HEIGHT * s);
 
 		var card = new OdysseyCards.Card.Card(cardData);
 		_deckDragClone = new CardUI
@@ -1537,8 +1537,6 @@ public partial class CollectionUI : Control
 		}
 	}
 
-	private const float CardGrid_CardWidth = 120f;
-	private const float CardGrid_CardHeight = 180f;
 
 	private void OnDeckNameSubmitted(string newName)
 	{

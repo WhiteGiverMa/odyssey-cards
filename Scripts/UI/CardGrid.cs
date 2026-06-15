@@ -22,10 +22,16 @@ namespace OdysseyCards.UI
 	{
 		// ===== 常量 =====
 
-		private const float CardWidth = 120f;
-		private const float CardHeight = 180f;
-		private const float GridSpacing = 12f;
+		/// <summary>卡牌设计宽度（引用 CardUI 基准尺寸，保持一致性）。</summary>
+		private static float CardWidth => CardUI.DESIGN_WIDTH;
+		/// <summary>卡牌设计高度。</summary>
+		private static float CardHeight => CardUI.DESIGN_HEIGHT;
+		/// <summary>网格间距（与卡牌宽度比例约 10%）。</summary>
+		private const float GridSpacing = 14f;
 		private const int CardsPerPage = 20;
+
+		/// <summary>滚动到底部时的额外留白高度（设计尺寸，约 3 行卡）。</summary>
+		private const float ScrollBottomPadding = 640f;
 
 		// ===== 子控件 =====
 
@@ -600,6 +606,14 @@ namespace OdysseyCards.UI
 				_cardUIs.Add(cardUI);
 				_flowContainer.AddChild(wrapper);
 			}
+
+			// 底部留白：确保滚动到底部时最后一行卡牌不紧贴屏幕底部边缘
+			var bottomSpacer = new Control
+			{
+				CustomMinimumSize = new Vector2(0, ScrollBottomPadding * s),
+				MouseFilter = MouseFilterEnum.Ignore,
+			};
+			_flowContainer.AddChild(bottomSpacer);
 
 			_pageLabel.Text = $"{_currentPage + 1}/{_totalPages}";
 			UpdatePageButtons();
