@@ -145,14 +145,14 @@ public sealed class InteractionFsm
 		float distSq = DistanceSquaredTo(_anchorPos, inputPosition);
 		float dragThresholdSq = DragThreshold * DragThreshold;
 
-		if (distSq > dragThresholdSq && !HasDragged)
+		if (isPointerDown && distSq > dragThresholdSq && !HasDragged)
 		{
 			HasDragged = true;
 			_hasMovedFromOrigin = true;
 			if (_currentPhase == InteractionPhase.CardPickedUp)
 				SetPhase(InteractionPhase.BoardDrag);
 		}
-		else if (distSq > MinMoveFromOriginThresholdSq)
+		else if (isPointerDown && distSq > MinMoveFromOriginThresholdSq)
 		{
 			_hasMovedFromOrigin = true;
 		}

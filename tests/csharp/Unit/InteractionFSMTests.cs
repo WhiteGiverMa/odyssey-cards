@@ -147,6 +147,19 @@ public class InteractionFsmTests
 	}
 
 	[Fact]
+	public void ClickSelect_MouseMoveWithoutPointerDown_DoesNotTriggerDragged()
+	{
+		var fsm = new InteractionFsm();
+		fsm.PickUpCard(new Vector2(100, 500), isClickSelect: true, isMobile: false);
+
+		// 点击选中后，玩家会把鼠标移动到目标上再第二击；未按住主按钮时不应被判定为拖拽。
+		fsm.Tick(new Vector2(400, 200), isPointerDown: false, isRightDown: false, 1080f, 500f);
+
+		Assert.False(fsm.HasDragged, "未按住主按钮时移动鼠标不应触发拖拽状态");
+		Assert.Equal(InteractionPhase.CardPickedUp, fsm.CurrentPhase);
+	}
+
+	[Fact]
 	public void MobileDrag_19px_DoesNotTrigger()
 	{
 		var fsm = new InteractionFsm();
