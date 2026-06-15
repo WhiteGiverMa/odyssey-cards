@@ -195,7 +195,12 @@ public partial class CombatUI
 		if (success)
 		{
 			GD.Print($"[CombatUI] ✓ 随从 {_selectedCard.CardName} 已放置到槽位 {slotIndex}");
-			// 随从上场不走飞行动画——随从死亡时才飞向牌堆
+			// 部署动画：从拖拽卡牌当前位置飞向目标槽位
+			if (_dragCardUI != null)
+			{
+				Vector2 fromPos = _dragCardUI.GlobalPosition + _dragCardUI.Size * _dragCardUI.Scale * 0.5f;
+				PlayMinionDeployAnimation(_selectedCard, fromPos, slotIndex, isPlayerSide: true);
+			}
 		}
 		else
 		{

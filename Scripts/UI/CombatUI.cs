@@ -187,6 +187,12 @@ public partial class CombatUI : Control
 	private Control _cardFlyLayer = null!;
 
 	/// <summary>
+	/// 随从部署动画 VFX 的父容器（独立 CanvasLayer，Layer=18），用于随从打出→棋盘槽位飞行动画。
+	/// 位于弹道层(14)和伤害数字层(15)之上，低于卡牌飞行层(20)。
+	/// </summary>
+	private Control _deployVfxLayer = null!;
+
+	/// <summary>
 	/// 棋盘运行时引用——用于订阅随从放置/移除事件。
 	/// </summary>
 	private Board? _board;
@@ -640,6 +646,13 @@ public partial class CombatUI : Control
 		_cardFlyLayer.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 		cardFlyLayer.AddChild(_cardFlyLayer);
 
+		// 随从部署动画层（Layer=18，介于伤害跳字 15 和卡牌飞行 20 之间）
+		var deployVfxLayer = new CanvasLayer { Name = "DeployVfxLayer", Layer = 18 };
+		AddChild(deployVfxLayer);
+		_deployVfxLayer = new Control { Name = "DeployVfxContainer", MouseFilter = MouseFilterEnum.Ignore };
+		_deployVfxLayer.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		deployVfxLayer.AddChild(_deployVfxLayer);
+
 		// 意图悬浮提示层（Layer=26，高于意图图标）
 		var intentTooltipLayer = new CanvasLayer { Name = "IntentTooltipLayer", Layer = 26 };
 		var tooltipParent = new Control { Name = "IntentTooltipContent", MouseFilter = MouseFilterEnum.Ignore };
@@ -865,6 +878,9 @@ public partial class CombatUI : Control
 		// 随从伤害跳字 — 随从放置时通过闭包捕获 minion 引用订阅事件
 		_board!.OnMinionPlaced += OnBoardMinionPlacedSubscribeDamage;
 		_unsubscribeActions.Add(() => _board.OnMinionPlaced -= OnBoardMinionPlacedSubscribeDamage);
+		// 随从部署动画 — 双方随从上场时播放飞行→落地动画
+		_board.OnMinionPlaced += OnBoardMinionPlacedForDeployAnimation;
+		_unsubscribeActions.Add(() => _board.OnMinionPlaced -= OnBoardMinionPlacedForDeployAnimation);
 		_board.OnMinionRemoved += OnBoardMinionRemovedUnsubscribeDamage;
 		_unsubscribeActions.Add(() => _board.OnMinionRemoved -= OnBoardMinionRemovedUnsubscribeDamage);
 
@@ -1057,6 +1073,46 @@ public partial class CombatUI : Control
 	private void OnBoardMinionPlacedSubscribeDamage(Minion minion, int slotIndex)
 	{
 		SubscribeMinionDamageEvents(minion);
+	}
+
+	/// <summary>
+	/// 随从放置时触发部署动画——从来源中心飞向棋盘槽位中心，落地弹性缩放。
+	/// 玩家侧：动画由 HandleMinionPlacement 在 RefreshAll 前显式调用，使用拖拽卡牌位置作为起点。
+	/// 敌方侧：由 Board.OnMinionPlaced 事件触发，从屏幕上方飞入。
+	/// </summary>
+	private void OnBoardMinionPlacedForDeployAnimation(Minion minion, int slotIndex)
+	{
+		// 玩家侧：由 HandleMinionPlacement 显式调用，不在此处重复触发
+		if (minion.IsPlayerSide)
+			return;
+
+		// 敌方侧：从屏幕上方飞入
+		var card = minion.ToRuntimeCard();
+		var viewportSize = GetViewportRect().Size;
+		Vector2 fromPos = new(viewportSize.X * 0.5f, -CardUI.DESIGN_HEIGHT * 0.5f);
+		PlayMinionDeployAnimation(card, fromPos, slotIndex, isPlayerSide: false);
+	}
+
+	/// <summary>
+	/// 播放随从部署动画：在 fromPos 创建临时 CardUI，沿贝塞尔曲线飞向目标槽位，
+	/// 到达后弹性缩放落地并溅射微尘粒子。动画不阻塞游戏操作。
+	/// </summary>
+	/// <param name="card">要展示的卡牌数据（仅用于渲染）</param>
+	/// <param name="fromPos">动画起始屏幕中心位置</param>
+	/// <param name="slotIndex">目标槽位索引（0-4）</param>
+	/// <param name="isPlayerSide">是否玩家方（控制贝塞尔曲线拱起方向）</param>
+	public void PlayMinionDeployAnimation(OdysseyCards.Card.Card card, Vector2 fromPos, int slotIndex, bool isPlayerSide)
+	{
+		Rect2 slotRect = _boardUI.GetSlotScreenRect(slotIndex, isPlayerSide);
+		if (slotRect.Size == Vector2.Zero)
+		{
+			GD.Print("[CombatUI] PlayMinionDeployAnimation 跳过——目标槽位屏幕坐标无效");
+			return;
+		}
+
+		Vector2 toPos = slotRect.Position + slotRect.Size * 0.5f;
+		float speed = UIScaler.Instance?.DeployAnimationSpeed ?? 1.0f;
+		MinionDeployVfx.Play(card, fromPos, toPos, slotRect.Size, isPlayerSide, speed, _deployVfxLayer);
 	}
 
 	private void OnBoardMinionRemovedUnsubscribeDamage(Minion minion)
