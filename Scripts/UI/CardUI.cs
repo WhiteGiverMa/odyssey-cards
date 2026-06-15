@@ -168,6 +168,9 @@ public partial class CardUI : Control
 	private ColorRect _rarityBg = null!;
 	private Label _rarityLabel = null!;
 
+	// 播放区高亮缓存的 StyleBoxFlat（复用避免每帧分配新对象）
+	private StyleBoxFlat? _playZoneHighlightStyle;
+
 	// ============================================================
 	// 内部状态
 	// ============================================================
@@ -273,6 +276,14 @@ public partial class CardUI : Control
 
 	public override void _ExitTree()
 	{
+		// 移除主题重载，释放 Godot 原生层持有的 StyleBoxFlat 引用，减少 Mono 退出泄露
+		if (_bgPanel != null && GodotObject.IsInstanceValid(_bgPanel))
+		{
+			_bgPanel.RemoveThemeStyleboxOverride("panel");
+		}
+		_playZoneHighlightStyle?.Dispose();
+		_playZoneHighlightStyle = null;
+
 		if (UIScaler.Instance != null)
 		{
 			UIScaler.Instance.OnCardDescriptionSettingsChanged -= OnCardDescriptionSettingsChanged;
@@ -1063,20 +1074,26 @@ public partial class CardUI : Control
 		if (_bgPanel == null)
 			return;
 
-		var style = new StyleBoxFlat
+		// 复用缓存的 StyleBoxFlat，避免每帧分配新对象导致 Mono 泄露
+		if (_playZoneHighlightStyle == null)
 		{
-			BgColor = ClrBg,
-			CornerRadiusTopLeft = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
-			CornerRadiusTopRight = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
-			CornerRadiusBottomLeft = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
-			CornerRadiusBottomRight = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
-			BorderWidthBottom = active ? 3 : 1,
-			BorderWidthLeft = active ? 3 : 1,
-			BorderWidthRight = active ? 3 : 1,
-			BorderWidthTop = active ? 3 : 1,
-			BorderColor = active ? new Color(0.3f, 0.9f, 0.3f, 0.8f) : ClrBorder,
-		};
-		_bgPanel.AddThemeStyleboxOverride("panel", style);
+			_playZoneHighlightStyle = new StyleBoxFlat
+			{
+				BgColor = ClrBg,
+				CornerRadiusTopLeft = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
+				CornerRadiusTopRight = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
+				CornerRadiusBottomLeft = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
+				CornerRadiusBottomRight = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
+			};
+		}
+
+		_playZoneHighlightStyle.BorderWidthBottom = active ? 3 : 1;
+		_playZoneHighlightStyle.BorderWidthLeft = active ? 3 : 1;
+		_playZoneHighlightStyle.BorderWidthRight = active ? 3 : 1;
+		_playZoneHighlightStyle.BorderWidthTop = active ? 3 : 1;
+		_playZoneHighlightStyle.BorderColor = active ? new Color(0.3f, 0.9f, 0.3f, 0.8f) : ClrBorder;
+
+		_bgPanel.AddThemeStyleboxOverride("panel", _playZoneHighlightStyle);
 	}
 
 	// ============================================================
