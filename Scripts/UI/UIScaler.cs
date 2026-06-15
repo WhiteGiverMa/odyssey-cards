@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using OdysseyCards.Core;
 
 namespace OdysseyCards.UI
 {
@@ -19,7 +20,7 @@ namespace OdysseyCards.UI
 		private const float _designWidth = 1152f;
 		private const float _designHeight = 648f;
 		private const float _cardWidthRatio = 5f / 7f;
-		private Vector2 _currentCardSize = new(180, 260);
+		private Vector2 _currentCardSize = new(175, 245);
 		private const string ConfigPath = "user://settings.cfg";
 
 		/// <summary>预设分辨率列表（从高到低）</summary>
@@ -37,6 +38,7 @@ namespace OdysseyCards.UI
 		public event Action OnIntentVisualSettingsChanged;
 		public event Action OnCardDescriptionSettingsChanged;
 		public event Action OnParticleEffectSettingsChanged;
+		public event Action OnRarityColorSchemeChanged;
 
 		public float CurrentScale { get; private set; } = 1f;
 		public Vector2 CurrentCardSize => _currentCardSize;
@@ -44,6 +46,9 @@ namespace OdysseyCards.UI
 		public bool IntentValueFloatingEnabled { get; private set; } = true;
 		public bool CardDescriptionCentered { get; private set; }
 		public bool DevModeEnabled { get; private set; }
+
+		/// <summary>稀有度颜色方案索引：0=经典（金/银/铜），1=新版（紫/蓝/绿）。</summary>
+		public int RarityColorSchemeIndex { get; private set; }
 
 		/// <summary>弹道特效缩放（攻击/法术/战斗弹道的粒子半径、尾迹、弧高）</summary>
 		public float ProjectileScale { get; private set; } = 1.0f;
@@ -351,6 +356,16 @@ namespace OdysseyCards.UI
 			OnParticleEffectSettingsChanged?.Invoke();
 		}
 
+		/// <summary>设置稀有度颜色方案并持久化（0=经典, 1=新版）。</summary>
+		public void SetRarityColorScheme(int schemeIndex)
+		{
+			schemeIndex = Mathf.Clamp(schemeIndex, 0, RarityColorScheme.SchemeCount - 1);
+			if (RarityColorSchemeIndex == schemeIndex) return;
+			RarityColorSchemeIndex = schemeIndex;
+			SaveSettings();
+			OnRarityColorSchemeChanged?.Invoke();
+		}
+
 		#endregion
 
 		#region 持久化
@@ -380,6 +395,7 @@ namespace OdysseyCards.UI
 			config.SetValue("visual", "damage_number_scale", DamageNumberScale);
 			config.SetValue("visual", "emote_scale", EmoteScale);
 			config.SetValue("visual", "deploy_animation_speed", DeployAnimationSpeed);
+			config.SetValue("visual", "rarity_color_scheme", RarityColorSchemeIndex);
 
 			Error err = config.Save(ConfigPath);
 			if (err != Error.Ok)
@@ -414,6 +430,7 @@ namespace OdysseyCards.UI
 			DamageNumberScale = (float)config.GetValue("visual", "damage_number_scale", 1.0).AsDouble();
 			EmoteScale = (float)config.GetValue("visual", "emote_scale", 1.0).AsDouble();
 			DeployAnimationSpeed = (float)config.GetValue("visual", "deploy_animation_speed", 1.0).AsDouble();
+			RarityColorSchemeIndex = (int)config.GetValue("visual", "rarity_color_scheme", 0).AsInt32();
 
 			if (IsMobile)
 				return;

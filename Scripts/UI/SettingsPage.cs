@@ -39,6 +39,9 @@ public partial class SettingsPage : Control
 	private HBoxContainer _windowModeRow = null!;
 	private HBoxContainer _cardDescriptionAlignmentRow = null!;
 	private OptionButton _cardDescriptionAlignmentOptionButton = null!;
+	private Label _rarityColorSchemeLabel = null!;
+	private OptionButton _rarityColorSchemeOptionButton = null!;
+	private HBoxContainer _rarityColorSchemeRow = null!;
 	private CheckBox _intentIconFloatingToggle = null!;
 	private CheckBox _intentValueFloatingToggle = null!;
 	private CheckBox _devModeToggle = null!;
@@ -227,6 +230,7 @@ public partial class SettingsPage : Control
 		_resolutionOptionButton.ItemSelected -= OnResolutionSelected;
 		_windowModeOptionButton.ItemSelected -= OnWindowModeSelected;
 		_cardDescriptionAlignmentOptionButton.ItemSelected -= OnCardDescriptionAlignmentSelected;
+		_rarityColorSchemeOptionButton.ItemSelected -= OnRarityColorSchemeSelected;
 		_intentIconFloatingToggle.Toggled -= OnIntentIconFloatingToggled;
 		_intentValueFloatingToggle.Toggled -= OnIntentValueFloatingToggled;
 		_backButton.Pressed -= OnBackPressed;
@@ -429,6 +433,13 @@ public partial class SettingsPage : Control
 		_cardDescriptionAlignmentRow = CreateSettingRow(_cardDescriptionAlignmentLabel, _cardDescriptionAlignmentOptionButton);
 		LoadCardDescriptionAlignmentOptions();
 		_displayContainer.AddChild(_cardDescriptionAlignmentRow);
+
+		// 稀有度颜色方案
+		_rarityColorSchemeLabel = CreateSettingLabel("ui.settings.rarity_color_scheme", "Rarity Color Scheme");
+		_rarityColorSchemeOptionButton = new OptionButton { CustomMinimumSize = new Vector2(200, 0) };
+		LoadRarityColorSchemeOptions();
+		_rarityColorSchemeRow = CreateSettingRow(_rarityColorSchemeLabel, _rarityColorSchemeOptionButton);
+		_displayContainer.AddChild(_rarityColorSchemeRow);
 
 		// 意图视觉效果
 		bool iconFloating = UIScaler.Instance?.IntentIconFloatingEnabled ?? true;
@@ -858,6 +869,7 @@ public partial class SettingsPage : Control
 		_resolutionOptionButton.ItemSelected += OnResolutionSelected;
 		_windowModeOptionButton.ItemSelected += OnWindowModeSelected;
 		_cardDescriptionAlignmentOptionButton.ItemSelected += OnCardDescriptionAlignmentSelected;
+		_rarityColorSchemeOptionButton.ItemSelected += OnRarityColorSchemeSelected;
 		_intentIconFloatingToggle.Toggled += OnIntentIconFloatingToggled;
 		_intentValueFloatingToggle.Toggled += OnIntentValueFloatingToggled;
 		_backButton.Pressed += OnBackPressed;
@@ -911,6 +923,12 @@ public partial class SettingsPage : Control
 	{
 		bool centered = _cardDescriptionAlignmentOptionButton.GetItemMetadata((int)index).AsBool();
 		UIScaler.Instance?.SetCardDescriptionCentered(centered);
+	}
+
+	private void OnRarityColorSchemeSelected(long index)
+	{
+		int schemeIndex = _rarityColorSchemeOptionButton.GetItemMetadata((int)index).AsInt32();
+		UIScaler.Instance?.SetRarityColorScheme(schemeIndex);
 	}
 
 	private void OnIntentIconFloatingToggled(bool on)
@@ -1191,6 +1209,18 @@ public partial class SettingsPage : Control
 
 		bool centered = UIScaler.Instance?.CardDescriptionCentered ?? false;
 		_cardDescriptionAlignmentOptionButton.Selected = centered ? 1 : 0;
+	}
+
+	private void LoadRarityColorSchemeOptions()
+	{
+		_rarityColorSchemeOptionButton.Clear();
+		_rarityColorSchemeOptionButton.AddItem(Loc.T("ui.settings.rarity_color_classic", "经典（金/银/铜/铁）"));
+		_rarityColorSchemeOptionButton.SetItemMetadata(0, 0);
+		_rarityColorSchemeOptionButton.AddItem(Loc.T("ui.settings.rarity_color_new", "新版（紫/蓝/绿）"));
+		_rarityColorSchemeOptionButton.SetItemMetadata(1, 1);
+
+		int scheme = UIScaler.Instance?.RarityColorSchemeIndex ?? 0;
+		_rarityColorSchemeOptionButton.Selected = scheme;
 	}
 
 	// ===== 键盘 / 系统返回 =====
