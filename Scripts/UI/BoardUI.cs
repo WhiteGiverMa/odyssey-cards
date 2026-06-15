@@ -329,6 +329,21 @@ public partial class BoardUI : Control
 	}
 
 	/// <summary>
+	/// 获取指定槽位的屏幕矩形。
+	/// 用于部署动画计算最终卡牌尺寸，使临时卡牌精确 fit 槽位。
+	/// </summary>
+	/// <param name="slotIndex">槽位索引（0-4）</param>
+	/// <param name="isPlayerSide">是否玩家方</param>
+	/// <returns>槽位屏幕矩形；索引越界返回默认空矩形</returns>
+	public Rect2 GetSlotScreenRect(int slotIndex, bool isPlayerSide)
+	{
+		var slots = isPlayerSide ? _playerSlots : _enemySlots;
+		if (slotIndex < 0 || slotIndex >= slots.Length)
+			return default;
+		return slots[slotIndex].GetGlobalRect();
+	}
+
+	/// <summary>
 	/// 设置指定槽位的意图文字——仅敌方槽位需要意图显示。
 	/// </summary>
 	/// <param name="slotIndex">槽位索引（0-4）</param>
