@@ -26,8 +26,8 @@ namespace OdysseyCards.UI
 		private static float CardWidth => CardUI.DESIGN_WIDTH;
 		/// <summary>卡牌设计高度。</summary>
 		private static float CardHeight => CardUI.DESIGN_HEIGHT;
-		/// <summary>网格间距（与卡牌宽度比例约 10%）。</summary>
-		private const float GridSpacing = 14f;
+		/// <summary>网格间距（设计尺寸像素，卡牌四周各留一半间距）。</summary>
+		private const float GridSpacing = 20f;
 		private const int CardsPerPage = 20;
 
 		/// <summary>滚动到底部时的额外留白高度（设计尺寸，约 3 行卡）。</summary>
@@ -274,7 +274,6 @@ namespace OdysseyCards.UI
 			{
 				SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			};
-			_flowContainer.AddThemeConstantOverride("separation", Mathf.RoundToInt(GridSpacing * s));
 			_scrollContainer.AddChild(_flowContainer);
 
 			// 拖拽层（浮动在所有内容上方）
@@ -409,6 +408,8 @@ namespace OdysseyCards.UI
 
 			float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
 			var cardSize = new Vector2(CardWidth * s, CardHeight * s);
+			float halfGap = GridSpacing * 0.5f * s;
+			var paddedSize = new Vector2(cardSize.X + GridSpacing * s, cardSize.Y + GridSpacing * s);
 
 			int start = _currentPage * CardsPerPage;
 			int end = Mathf.Min(start + CardsPerPage, _filteredCards.Count);
@@ -424,12 +425,13 @@ namespace OdysseyCards.UI
 				cardUI.SetCard(card);
 				cardUI.CustomMinimumSize = cardSize;
 				cardUI.Size = cardSize;
+				cardUI.Position = new Vector2(halfGap, halfGap);  // 在包装层内居中，四周留白
 
-				// 包裹在透明按钮中：点击 = 加入牌组
+				// 包装层：比卡牌大一圈，FlowContainer 按 paddedSize 排布，间距由留白自然产生
 				var wrapper = new Control
 				{
-					CustomMinimumSize = cardSize,
-					Size = cardSize,
+					CustomMinimumSize = paddedSize,
+					Size = paddedSize,
 					MouseFilter = MouseFilterEnum.Stop,
 				};
 
