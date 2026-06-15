@@ -10,23 +10,23 @@ namespace OdysseyCards.UI;
 /// <summary>
 /// 卡牌视觉组件（炉石传说风格重构版）。
 /// 在一个 Control 上程序化渲染完整卡牌：法力水晶、名称、卡图区域、攻防属性、
-/// 关键词徽章和描述文本。支持点击选择（无拖拽）与悬停动效，适配手牌布局。
+/// 稀有度标识和描述文本。支持点击选择（无拖拽）与悬停动效，适配手牌布局。
 /// </summary>
 [Tool]
 public partial class CardUI : Control
 {
 	// ============================================================
-	// 尺寸常量（设计基准 120×180，运行时通过 UIScaler 缩放）
+	// 尺寸常量（设计基准 140×196 = 5:7，运行时通过 UIScaler 缩放）
 	// ============================================================
-	public const float DESIGN_WIDTH = 120f;
-	public const float DESIGN_HEIGHT = 180f;
+	public const float DESIGN_WIDTH = 140f;
+	public const float DESIGN_HEIGHT = 196f;
 	private const float MANA_DIAMETER = 24f;
-	private const float HEADER_H = 28f;
-	private const float ARTWORK_H = 80f;
-	private const float STATS_W = 32f;
-	private const float STATS_H = 22f;
-	private const float KEYWORD_H = 18f;
-	private const float MIN_ARTWORK_H = 42f;
+	private const float HEADER_H = 30f;
+	private const float ARTWORK_H = 88f;
+	private const float STATS_W = 34f;
+	private const float STATS_H = 24f;
+	private const float RARITY_H = 22f;
+	private const float MIN_ARTWORK_H = 48f;
 	private const float DESC_SIDE_PADDING = 4f;
 	private const float DESC_TOP_BOTTOM_PADDING = 2f;
 	private const int DESC_BASE_FONT_SIZE = 7;
@@ -48,16 +48,10 @@ public partial class CardUI : Control
 	private static readonly Color ClrStatsBg = new("#1a1a10");
 	private static readonly Color ClrCannotPlay = new("#666666");
 	private static readonly Color ClrBorder = new("#555540");
-
-	// 关键词颜色
-	private static readonly Color ClrCharge = new("#cc4444");
-	private static readonly Color ClrTaunt = new("#cc8844");
-	private static readonly Color ClrBattlecry = new("#cccc44");
-	private static readonly Color ClrDeathrattle = new("#8844cc");
-	private static readonly Color ClrWindfury = new("#44cccc");
-	private static readonly Color ClrAmbush = new("#cc6644");
-	private static readonly Color ClrImpact = new("#cccc66");
 	private static readonly Color ClrActionCost = new("#cc3333");
+
+	// 稀有度标识背景
+	private static readonly Color ClrRarityBg = new("#1a1a10");
 
 	// ============================================================
 	// 公共属性与事件
@@ -170,8 +164,9 @@ public partial class CardUI : Control
 	private ColorRect _descBg = null!;
 	private Label _descLabel = null!;
 
-	// 关键词容器
-	private HBoxContainer _keywordContainer = null!;
+	// 稀有度标识（底部居中彩色数字）
+	private ColorRect _rarityBg = null!;
+	private Label _rarityLabel = null!;
 
 	// ============================================================
 	// 内部状态
@@ -236,7 +231,7 @@ public partial class CardUI : Control
 		BuildHealthStat(s, cardSize);
 		BuildSpellTypeLabel(s, cardSize);
 		BuildDescriptionArea(s, cardSize);
-		BuildKeywordContainer(s, cardSize);
+		BuildRarityIndicator(s, cardSize);
 
 		if (!DisplayOnly)
 		{
@@ -246,6 +241,7 @@ public partial class CardUI : Control
 		if (UIScaler.Instance != null)
 		{
 			UIScaler.Instance.OnCardDescriptionSettingsChanged += OnCardDescriptionSettingsChanged;
+			UIScaler.Instance.OnRarityColorSchemeChanged += OnRarityColorSchemeChanged;
 		}
 
 		_built = true;
@@ -280,6 +276,7 @@ public partial class CardUI : Control
 		if (UIScaler.Instance != null)
 		{
 			UIScaler.Instance.OnCardDescriptionSettingsChanged -= OnCardDescriptionSettingsChanged;
+			UIScaler.Instance.OnRarityColorSchemeChanged -= OnRarityColorSchemeChanged;
 		}
 
 		if (_interactionFsm != null)
@@ -526,7 +523,7 @@ public partial class CardUI : Control
 	private void BuildDescriptionArea(float s, Vector2 size)
 	{
 		float y = (HEADER_H + ARTWORK_H) * s;
-		float h = DESIGN_HEIGHT * s - y - KEYWORD_H * s;
+		float h = DESIGN_HEIGHT * s - y - RARITY_H * s;
 
 		_descBg = new ColorRect
 		{
@@ -551,20 +548,35 @@ public partial class CardUI : Control
 	}
 
 	/// <summary>
-	/// 构建关键词徽章横排容器（卡牌底部）。
+	/// 构建稀有度标识区域（卡牌底部居中彩色数字）。
+	/// 显示稀有度数字 0-6，颜色由当前选择的方案决定。
 	/// </summary>
-	private void BuildKeywordContainer(float s, Vector2 size)
+	private void BuildRarityIndicator(float s, Vector2 size)
 	{
-		float y = DESIGN_HEIGHT * s - KEYWORD_H * s;
-		float h = KEYWORD_H * s;
+		float y = DESIGN_HEIGHT * s - RARITY_H * s;
+		float h = RARITY_H * s;
+		float margin = 4f * s;
+		float w = size.X - margin * 2f;
 
-		_keywordContainer = new HBoxContainer
+		_rarityBg = new ColorRect
 		{
-			Size = new Vector2(size.X - 4f * s, h),
-			Position = new Vector2(2f * s, y),
+			Color = ClrRarityBg,
+			Size = new Vector2(w, h),
+			Position = new Vector2(margin, y),
 		};
-		_keywordContainer.AddThemeConstantOverride("separation", (int)(2 * s));
-		AddChild(_keywordContainer);
+		AddChild(_rarityBg);
+
+		_rarityLabel = new Label
+		{
+			Size = new Vector2(w, h),
+			Position = new Vector2(margin, y),
+			HorizontalAlignment = HorizontalAlignment.Center,
+			VerticalAlignment = VerticalAlignment.Center,
+			Text = "",
+			MouseFilter = MouseFilterEnum.Ignore,
+		};
+		_rarityLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(10 * s));
+		AddChild(_rarityLabel);
 	}
 
 	// ============================================================
@@ -613,8 +625,8 @@ public partial class CardUI : Control
 		// 描述文字（本地化）
 		_descLabel.Text = card.GetLocalizedDescription();
 
-		// 关键词（仅随从）
-		RebuildKeywordLabels(card, s);
+		// 稀有度标识（所有卡牌类型均显示）
+		UpdateRarityIndicator(card, s);
 		ApplyResponsiveContentLayout();
 	}
 
@@ -655,33 +667,13 @@ public partial class CardUI : Control
 		// 描述
 		_descLabel.Text = "编辑器预览\n调整布局用";
 
-		// 关键词徽章：展示嘲讽+战吼
-		if (_keywordContainer != null)
+		// 稀有度标识预览
+		if (_rarityLabel != null)
 		{
-			foreach (var child in _keywordContainer.GetChildren())
-				child.QueueFree();
-		}
-		if (_keywordContainer != null)
-		{
-			var tauntBadge = new Label
-			{
-				Text = "嘲讽",
-				HorizontalAlignment = HorizontalAlignment.Center,
-				VerticalAlignment = VerticalAlignment.Center,
-			};
-			tauntBadge.AddThemeColorOverride("font_color", ClrTaunt);
-			tauntBadge.AddThemeFontSizeOverride("font_size", 10);
-			_keywordContainer.AddChild(tauntBadge);
-
-			var bcBadge = new Label
-			{
-				Text = "战吼",
-				HorizontalAlignment = HorizontalAlignment.Center,
-				VerticalAlignment = VerticalAlignment.Center,
-			};
-			bcBadge.AddThemeColorOverride("font_color", ClrBattlecry);
-			bcBadge.AddThemeFontSizeOverride("font_size", 10);
-			_keywordContainer.AddChild(bcBadge);
+			_rarityLabel.Text = "4";
+			int scheme = UIScaler.Instance?.RarityColorSchemeIndex ?? 0;
+			_rarityLabel.AddThemeColorOverride("font_color",
+				Core.RarityColorScheme.GetColor(scheme, CardRarity.Common));
 		}
 
 		ApplyResponsiveContentLayout();
@@ -1131,7 +1123,7 @@ public partial class CardUI : Control
 	}
 
 	/// <summary>
-	/// 按描述文本长度、关键词占位和牌面可用空间重新分配卡图/描述/关键词区域。
+	/// 按描述文本长度、稀有度标识占位和牌面可用空间重新分配卡图/描述/稀有度区域。
 	/// 目标是让长描述优先获得垂直空间，其次再缩小字号，而不是依赖固定高度硬裁切。
 	/// </summary>
 	private void ApplyResponsiveContentLayout()
@@ -1144,7 +1136,7 @@ public partial class CardUI : Control
 		float s = _uiScale > 0f ? _uiScale : (UIScaler.Instance?.GetScaleFactor() ?? 1.0f);
 		Vector2 size = _cardSize == Vector2.Zero ? Size : _cardSize;
 		float headerHeight = HEADER_H * s;
-		float keywordHeight = GetKeywordAreaHeight(s);
+		float rarityHeight = GetRarityAreaHeight(s);
 		float maxArtworkHeight = ARTWORK_H * s;
 		float minArtworkHeight = MIN_ARTWORK_H * s;
 		float artworkStep = Mathf.Max(2f, 4f * s);
@@ -1157,7 +1149,7 @@ public partial class CardUI : Control
 
 		for (float artworkHeight = maxArtworkHeight; artworkHeight >= minArtworkHeight; artworkHeight -= artworkStep)
 		{
-			float descAreaHeight = Mathf.Max(0f, size.Y - headerHeight - artworkHeight - keywordHeight);
+			float descAreaHeight = Mathf.Max(0f, size.Y - headerHeight - artworkHeight - rarityHeight);
 			float descInnerHeight = Mathf.Max(0f, descAreaHeight - DESC_TOP_BOTTOM_PADDING * 2f * s);
 
 			for (int fontSize = baseFontSize; fontSize >= minFontSize; fontSize--)
@@ -1181,12 +1173,12 @@ public partial class CardUI : Control
 		}
 
 		float descTop = headerHeight + selectedArtworkHeight;
-		float descHeight = Mathf.Max(0f, size.Y - descTop - keywordHeight);
-		float keywordTop = descTop + descHeight;
+		float descHeight = Mathf.Max(0f, size.Y - descTop - rarityHeight);
+		float rarityTop = descTop + descHeight;
 
 		ApplyArtworkLayout(headerHeight, selectedArtworkHeight, size, s);
 		ApplyDescriptionLayout(descTop, descHeight, descWidth, selectedFontSize, s);
-		ApplyKeywordLayout(keywordTop, keywordHeight, size, s);
+		ApplyRarityLayout(rarityTop, rarityHeight, size, s);
 	}
 
 	/// <summary>
@@ -1234,27 +1226,26 @@ public partial class CardUI : Control
 	}
 
 	/// <summary>
-	/// 更新关键词区位置；无关键词时完全折叠，把空间还给描述文本。
+	/// 更新稀有度标识区域位置；稀有度标识始终可见。
 	/// </summary>
-	private void ApplyKeywordLayout(float keywordTop, float keywordHeight, Vector2 size, float s)
+	private void ApplyRarityLayout(float rarityTop, float rarityHeight, Vector2 size, float s)
 	{
-		if (_keywordContainer.GetChildCount() == 0)
-		{
-			_keywordContainer.Visible = false;
-			return;
-		}
+		float margin = 4f * s;
+		float w = size.X - margin * 2f;
 
-		_keywordContainer.Visible = true;
-		_keywordContainer.Position = new Vector2(2f * s, keywordTop);
-		_keywordContainer.Size = new Vector2(size.X - 4f * s, keywordHeight);
+		_rarityBg.Position = new Vector2(margin, rarityTop);
+		_rarityBg.Size = new Vector2(w, rarityHeight);
+
+		_rarityLabel.Position = new Vector2(margin, rarityTop);
+		_rarityLabel.Size = new Vector2(w, rarityHeight);
 	}
 
 	/// <summary>
-	/// 关键词区当前高度。无关键词则折叠为 0；有关键词则保留底部一行高度。
+	/// 稀有度标识区当前高度。始终占固定高度。
 	/// </summary>
-	private float GetKeywordAreaHeight(float s)
+	private float GetRarityAreaHeight(float s)
 	{
-		return _keywordContainer.GetChildCount() > 0 ? KEYWORD_H * s : 0f;
+		return RARITY_H * s;
 	}
 
 	/// <summary>
@@ -1339,69 +1330,38 @@ public partial class CardUI : Control
 	}
 
 	// ============================================================
-	// 关键词渲染
+	// 稀有度标识渲染
 	// ============================================================
 
 	/// <summary>
-	/// 根据卡牌数据重建关键词徽章列表。
-	/// 仅随从牌会显示关键词，法术牌清空关键词区域。
+	/// 根据卡牌稀有度更新底部彩色数字标识。
+	/// 所有卡牌类型均显示稀有度数字（0-6）。
 	/// </summary>
-	private void RebuildKeywordLabels(Card.Card card, float s)
+	private void UpdateRarityIndicator(Card.Card card, float s)
 	{
-		// 清空旧徽章
-		foreach (Node child in _keywordContainer.GetChildren())
-		{
-			child.QueueFree();
-		}
+		if (_rarityLabel == null) return;
 
-		if (card.Type != CardType.Minion)
-		{
-			return;
-		}
+		var rarity = card.Data.Rarity;
+		int scheme = UIScaler.Instance?.RarityColorSchemeIndex ?? 0;
+		Color clr = Core.RarityColorScheme.GetColor(scheme, rarity);
+		int num = Core.RarityColorScheme.GetNumber(rarity);
 
-		var keywords = card.Data.Keywords;
-		if (keywords == null || keywords.Count == 0)
-		{
-			return;
-		}
-
-		foreach (Keyword kw in keywords)
-		{
-			(string? text, Color color) = ResolveKeyword(kw);
-			if (string.IsNullOrEmpty(text))
-			{
-				continue;
-			}
-
-			var kwLabel = new Label
-			{
-				Text = text,
-				HorizontalAlignment = HorizontalAlignment.Center,
-				VerticalAlignment = VerticalAlignment.Center,
-				MouseFilter = MouseFilterEnum.Ignore,
-			};
-			kwLabel.AddThemeColorOverride("font_color", color);
-			kwLabel.AddThemeFontSizeOverride("font_size", (int)(7 * s));
-			_keywordContainer.AddChild(kwLabel);
-		}
+		_rarityLabel.Text = num.ToString();
+		_rarityLabel.AddThemeColorOverride("font_color", clr);
+		_rarityLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(10 * s));
 	}
 
 	/// <summary>
-	/// 将 Keyword 枚举映射为中文显示文本和主题颜色。
+	/// 响应稀有度颜色方案切换事件，刷新所有已存在 CardUI 的稀有度标识颜色。
 	/// </summary>
-	private static (string? text, Color color) ResolveKeyword(Keyword keyword)
+	private void OnRarityColorSchemeChanged()
 	{
-		return keyword switch
-		{
-			Keyword.Charge => ("闪击", ClrCharge),
-			Keyword.Taunt => ("嘲讽", ClrTaunt),
-			Keyword.Battlecry => ("战吼", ClrBattlecry),
-			Keyword.Deathrattle => ("亡语", ClrDeathrattle),
-			Keyword.Windfury => ("风怒", ClrWindfury),
-			Keyword.Ambush => ("伏击", ClrAmbush),
-			Keyword.Impact => ("冲击", ClrImpact),
-			_ => (null, Colors.White),
-		};
+		if (!_built || Card == null || _rarityLabel == null) return;
+
+		var rarity = Card.Data.Rarity;
+		int scheme = UIScaler.Instance?.RarityColorSchemeIndex ?? 0;
+		Color clr = Core.RarityColorScheme.GetColor(scheme, rarity);
+		_rarityLabel.AddThemeColorOverride("font_color", clr);
 	}
 
 	// ============================================================
