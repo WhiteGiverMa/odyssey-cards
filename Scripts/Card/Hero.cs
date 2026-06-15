@@ -881,8 +881,15 @@ public class Hero : IDamageTarget, IDamageSource
 			var data = EffectIconTable.GetStatusEffect(id);
 			if (data == null)
 				continue;
-			effects.Add(EffectIconTable.ToDisplayable(
-				data.Value, EffectCategory.StatusEffect, se.Stacks));
+			effects.Add(new DisplayableEffect
+			{
+				Icon = data.Value.Icon,
+				Name = Localization.Localization.T(data.Value.NameKey, ""),
+				Stacks = se.Stacks,
+				Description = Localization.Localization.T(data.Value.DescKey, ""),
+				IsBuff = !se.IsNegative,
+				Category = EffectCategory.StatusEffect,
+			});
 		}
 
 		// 2. ActiveDomains

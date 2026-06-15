@@ -22,6 +22,18 @@ public enum TickTiming
 }
 
 /// <summary>
+/// 状态效果阵营：负面效果可被净化；非负面效果不会被随机净化选中。
+/// </summary>
+public enum StatusEffectPolarity
+{
+	/// <summary>非负面效果，包括增益、中性标记或纯显示状态。</summary>
+	NonNegative,
+
+	/// <summary>负面效果，可被净化类技能移除。</summary>
+	Negative,
+}
+
+/// <summary>
 /// 英雄状态效果（增益/减益）。
 /// 支持同 ID 叠加层数和定时衰减。
 /// 纯 C# 类，不继承 Godot Node。
@@ -55,6 +67,16 @@ public class StatusEffect : ITemporaryEffect
 	public TickTiming TickOn { get; }
 
 	/// <summary>
+	/// 状态效果是否为负面效果。
+	/// </summary>
+	public StatusEffectPolarity Polarity { get; }
+
+	/// <summary>
+	/// 是否为负面效果。武器/技能净化逻辑以此筛选。
+	/// </summary>
+	public bool IsNegative => Polarity == StatusEffectPolarity.Negative;
+
+	/// <summary>
 	/// 效果是否已过期（层数归零）。
 	/// </summary>
 	public bool IsExpired => Stacks <= 0;
@@ -65,11 +87,30 @@ public class StatusEffect : ITemporaryEffect
 	/// <param name="id">效果标识符</param>
 	/// <param name="stacks">初始层数</param>
 	/// <param name="tickOn">衰减触发时机</param>
-	public StatusEffect(string id, int stacks, TickTiming tickOn)
+	public StatusEffect(string id, int stacks, TickTiming tickOn, StatusEffectPolarity? polarity = null)
 	{
 		Id = id;
 		Stacks = stacks;
 		TickOn = tickOn;
+		Polarity = polarity ?? InferPolarity(id);
+	}
+
+	private static StatusEffectPolarity InferPolarity(string id)
+	{
+		return id switch
+		{
+			"attack_zero" => StatusEffectPolarity.Negative,
+			"meltdown" => StatusEffectPolarity.Negative,
+			"weapon_disabled" => StatusEffectPolarity.Negative,
+			"animosity" => StatusEffectPolarity.Negative,
+			"vulnerable" => StatusEffectPolarity.Negative,
+			"weak" => StatusEffectPolarity.Negative,
+			"fragile" => StatusEffectPolarity.Negative,
+			"total_observation" => StatusEffectPolarity.Negative,
+			"attack_ban" => StatusEffectPolarity.Negative,
+			"damage_over_time" => StatusEffectPolarity.Negative,
+			_ => StatusEffectPolarity.NonNegative,
+		};
 	}
 
 	/// <summary>

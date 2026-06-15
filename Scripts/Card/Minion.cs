@@ -589,13 +589,18 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	}
 
 	/// <summary>
-	/// 为随从恢复生命值，不超过最大生命值。
+	/// 为随从恢复生命值。随从生命没有上限；超过原最大生命时同步抬高 MaxHealth，等价于贴膜。
 	/// </summary>
 	/// <param name="amount">恢复量</param>
 	public void Heal(int amount)
 	{
+		if (amount <= 0 || IsDead)
+			return;
+
 		int beforeHeal = CurrentHealth;
-		CurrentHealth = Math.Min(MaxHealth, CurrentHealth + amount);
+		CurrentHealth += amount;
+		if (CurrentHealth > MaxHealth)
+			MaxHealth = CurrentHealth;
 		int healed = CurrentHealth - beforeHeal;
 
 		if (healed > 0)
@@ -636,8 +641,15 @@ public class Minion : Card, IDamageSource, IDamageTarget
 			var data = EffectIconTable.GetStatusEffect(id);
 			if (data == null)
 				continue;
-			effects.Add(EffectIconTable.ToDisplayable(
-				data.Value, EffectCategory.StatusEffect, se.Stacks));
+			effects.Add(new DisplayableEffect
+			{
+				Icon = data.Value.Icon,
+				Name = Localization.Localization.T(data.Value.NameKey, ""),
+				Stacks = se.Stacks,
+				Description = Localization.Localization.T(data.Value.DescKey, ""),
+				IsBuff = !se.IsNegative,
+				Category = EffectCategory.StatusEffect,
+			});
 		}
 
 		// 2. Numerical stat changes (compared to CardData baseline)
