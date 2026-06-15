@@ -311,7 +311,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - `Scripts/Heat/AGENTS.md`：热力阶段。
 - `Scripts/Relic/AGENTS.md`：藏品生命周期。
 
-## 杂项
+## 杂项（待归类注意事项/notes）
 
 - **必须** 在 `_ExitTree` 中注销 `_EnterTree`/`_Ready` 注册的 HotkeyManager 绑定 → `PushPressedBinding`/`RemovePressedBinding` 配对。
 - 新增卡牌**必须**同步 `CardResourcePaths[]`。
