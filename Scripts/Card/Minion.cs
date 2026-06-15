@@ -58,7 +58,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	/// <param name="delta">增减量</param>
 	public void ModifyAttack(int delta)
 	{
-		Attack = Math.Max(0, Attack + delta);
+		Attack = Attack + delta;
 	}
 
 	/// <summary>

@@ -547,7 +547,7 @@ public class BlindShot : IWeaponActive, IWeaponChargeSkill
 		switch (target)
 		{
 			case Hero hero when hero.Weapon != null:
-				hero.Weapon.Attack = Mathf.Max(0, hero.Weapon.Attack - 2);
+				hero.Weapon.Attack -= 2;
 				GD.Print($"[BlindShot] 英雄武器攻击力-2，当前 {hero.Weapon.Attack}");
 				break;
 			case Minion minion:
