@@ -10,12 +10,12 @@ namespace OdysseyCards.Core;
 /// </summary>
 public sealed class HeroProfile
 {
-	public string Id { get; init; } = "qimeng";
-	public string NameKey { get; init; } = "hero.qimeng.name";
-	public string DisplayName { get; init; } = "绮梦";
-	public string RomanizedName { get; init; } = "Qimeng";
-	public string DescriptionKey { get; init; } = "hero.qimeng.desc";
-	public string DefaultDescription { get; init; } = "初始英雄。30点生命，离子手枪与铁腕。";
+	public string Id { get; init; } = "redpantsu";
+	public string NameKey { get; init; } = "hero.redpantsu.name";
+	public string DisplayName { get; init; } = "红裤衩";
+	public string RomanizedName { get; init; } = "RedPantsu";
+	public string DescriptionKey { get; init; } = "hero.redpantsu.desc";
+	public string DefaultDescription { get; init; } = "演示配置英雄。30点生命，离子手枪与铁腕。";
 	public int MaxHealth { get; init; } = 30;
 	public int StartingDefense { get; init; }
 	public Func<IHeroPower> CreateHeroPower { get; init; } = () => new IronWillHeroPower();
@@ -24,6 +24,19 @@ public sealed class HeroProfile
 	public static readonly IReadOnlyList<HeroProfile> All = new[]
 	{
 		new HeroProfile(),
+		new HeroProfile
+		{
+			Id = "ayame",
+			NameKey = "hero.ayame.name",
+			DisplayName = "绮梦",
+			RomanizedName = "Ayame",
+			DescriptionKey = "hero.ayame.desc",
+			DefaultDescription = "30点生命，魔法棒。用星光补给抽牌回血，并用魔法棒为随从贴膜、净化负面效果。",
+			MaxHealth = 30,
+			StartingDefense = 0,
+			CreateHeroPower = () => new AyameStarlightSupplyHeroPower(),
+			CreateWeapon = () => new MagicWand(),
+		},
 		new HeroProfile
 		{
 			Id = "rie",
@@ -54,6 +67,9 @@ public sealed class HeroProfile
 
 	public static HeroProfile Get(string? id)
 	{
+		if (string.Equals(id, "qimeng", StringComparison.OrdinalIgnoreCase))
+			id = "ayame";
+
 		foreach (var profile in All)
 		{
 			if (string.Equals(profile.Id, id, StringComparison.OrdinalIgnoreCase))

@@ -31,7 +31,7 @@ public class QaTombstoneCommand : DevConsoleCommand
 
 		var friendlyHeroCore = new CommanderCore();
 		friendlyHeroCore.InitializeHealth(30);
-		var friendlyHero = new Hero(friendlyHeroCore, isPlayerSide: true) { Weapon = new OdysseyCards.Card.IonPistol() };
+		var friendlyHero = new Hero(friendlyHeroCore, isPlayerSide: true) { Weapon = new OdysseyCards.Card.MagicWand() };
 		friendlyHero.ModifyDefense(1);
 		friendlyHero.TakeDamage(1, tombstone, DamageKind.Effect);
 		bool effectDidNotCounter = tombstone.CurrentHealth == tombstone.MaxHealth;

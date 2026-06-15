@@ -50,7 +50,7 @@ public partial class GameManager : Node
 	/// <summary>
 	/// 当前选择的英雄 ID。新冒险开始时由主菜单英雄选择界面设置。
 	/// </summary>
-	public string SelectedHeroId { get; set; } = "qimeng";
+	public string SelectedHeroId { get; set; } = "ayame";
 
 	public HeroProfile SelectedHeroProfile => HeroProfile.Get(SelectedHeroId);
 

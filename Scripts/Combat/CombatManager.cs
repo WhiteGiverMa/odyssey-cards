@@ -519,7 +519,7 @@ public partial class CombatManager : Node
 		Board.OnMinionPlaced += OnMinionPlacedForCentipede;
 
 		// 装配所选英雄的初始武器
-		PlayerHero.Weapon = GameManager.Instance?.CreateSelectedHeroWeapon() ?? new IonPistol();
+		PlayerHero.Weapon = GameManager.Instance?.CreateSelectedHeroWeapon() ?? new MagicWand();
 
 		// 初始化热力值系统
 		_heatSystem = new HeatSystem();

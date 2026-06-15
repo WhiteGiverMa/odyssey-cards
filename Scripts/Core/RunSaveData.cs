@@ -32,7 +32,7 @@ public class RunSaveData
 
 	// 玩家状态
 	[JsonPropertyName("hero_id")]
-	public string HeroId { get; set; } = "qimeng";
+	public string HeroId { get; set; } = "ayame";
 
 	[JsonPropertyName("player_health")]
 	public int PlayerHealth { get; set; } = 30;

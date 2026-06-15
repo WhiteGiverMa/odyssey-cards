@@ -84,6 +84,7 @@ ui:
     empty: "（空）"
     weapon_attack: "⚔ 武器攻击"
     weapon_skill: "✦ 技能"
+    weapon_skill_on_player_hero: "✦ 对己方英雄释放"
     free_cost: "免费"
     discard_select_title: "选择弃牌"
     discard_select_format: "选择 {count} 张手牌弃掉"
@@ -274,6 +275,8 @@ weapon:
     name: "SVDS-M338"
   ray_pistol:
     name: "射线手枪"
+  magic_wand:
+    name: "魔法棒"
   rail_pistol:
     name: "磁轨手枪"
   passive:
@@ -289,6 +292,9 @@ weapon:
     rail_lock:
       name: "磁轨锁定"
       desc: "被此武器攻击的目标1回合内无法攻击"
+    magic_film:
+      name: "贴膜魔法"
+      desc: "武器攻击可以选择友方随从；攻击友方随从时，改为使其获得攻击力+2点生命。"
   skill:
     ion_pulse:
       name: "离子脉冲"
@@ -299,6 +305,9 @@ weapon:
     blind_shot:
       name: "致盲"
       desc: "使一个敌方单位攻击力-2。冷却1回合，最多存储3层。"
+    starlight_cleanse:
+      name: "星辉净化"
+      desc: "移除任意目标身上的1个随机负面效果，抽1张牌。"
 
 plane:
   first_plane: "第一位面"
@@ -635,12 +644,18 @@ hero_power:
   sokou_restructure:
     name: "重整"
     desc: "洗切抽牌堆，抽2张牌，然后弃1张牌。冷却1回合，最多存储2层。"
-  use_button: "铁腕 (2费)"
+  ayame_starlight_supply:
+    name: "星光补给"
+    desc: "抽1张牌，回复2点生命值。"
+  use_button: "英雄技能"
 
 hero:
-  qimeng:
+  redpantsu:
+    name: "红裤衩"
+    desc: "演示配置英雄。30点生命值，离子手枪，英雄技能「铁腕」。"
+  ayame:
     name: "绮梦"
-    desc: "标准配置英雄。30点生命值，离子手枪，英雄技能「铁腕」。"
+    desc: "30点生命值。使用魔法棒为友方随从贴膜、净化负面效果，并用「星光补给」抽牌回血。"
   rie:
     name: "理惠"
     desc: "25点生命值。以 SVDS-M338 进行精确连射，并用直伤法术持续压制敌方英雄。"

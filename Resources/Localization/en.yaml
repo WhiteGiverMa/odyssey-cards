@@ -84,6 +84,7 @@ ui:
     empty: "(Empty)"
     weapon_attack: "⚔ Weapon Attack"
     weapon_skill: "✦ Skill"
+    weapon_skill_on_player_hero: "✦ Cast on Friendly Hero"
     free_cost: "Free"
     discard_select_title: "Choose to Discard"
     discard_select_format: "Choose {count} card(s) to discard"
@@ -274,6 +275,8 @@ weapon:
     name: "SVDS-M338"
   ray_pistol:
     name: "Ray Pistol"
+  magic_wand:
+    name: "Magic Wand"
   rail_pistol:
     name: "Rail Pistol"
   passive:
@@ -289,6 +292,9 @@ weapon:
     rail_lock:
       name: "Rail Lock"
       desc: "Target attacked by this weapon cannot attack for 1 turn."
+    magic_film:
+      name: "Magic Film"
+      desc: "Weapon attacks can target friendly minions. Attacking a friendly minion gives it health equal to Attack + 2 instead."
   skill:
     ion_pulse:
       name: "Ion Pulse"
@@ -299,6 +305,9 @@ weapon:
     blind_shot:
       name: "Blind"
       desc: "Give an enemy unit -2 Attack. Cooldown 1 turn, stores up to 3 charges."
+    starlight_cleanse:
+      name: "Starlight Cleanse"
+      desc: "Remove 1 random negative effect from any target, then draw 1 card."
 
 plane:
   first_plane: "First Plane"
@@ -632,12 +641,18 @@ hero_power:
   sokou_restructure:
     name: "Restructure"
     desc: "Shuffle your draw pile, draw 2 cards, then discard 1 card. Cooldown 1 turn, stores up to 2 charges."
-  use_button: "Iron Will (2)"
+  ayame_starlight_supply:
+    name: "Starlight Supply"
+    desc: "Draw 1 card and restore 2 HP."
+  use_button: "Hero Power"
 
 hero:
-  qimeng:
-    name: "Qimeng"
-    desc: "Standard configuration hero. 30 HP, Ion Pistol, and Iron Will."
+  redpantsu:
+    name: "RedPantsu"
+    desc: "Demo configuration hero. 30 HP, Ion Pistol, and Iron Will."
+  ayame:
+    name: "Ayame"
+    desc: "30 HP. Uses the Magic Wand to film friendly minions, cleanse negative effects, and Starlight Supply for draw and healing."
   rie:
     name: "Rie"
     desc: "25 HP. Uses the SVDS-M338 for precision follow-up fire and suppresses enemies with direct-damage spells."

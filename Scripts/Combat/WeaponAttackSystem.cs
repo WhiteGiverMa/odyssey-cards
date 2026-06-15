@@ -169,7 +169,8 @@ internal sealed class WeaponAttackSystem
 			return false;
 		}
 
-		if (target.IsPlayerSide)
+		bool isFriendlyTarget = target.IsPlayerSide;
+		if (isFriendlyTarget && _playerHero.Weapon?.PassiveSkill is not IFriendlyMinionWeaponAttackPassive)
 		{
 			GD.PrintErr("[CombatManager] HeroWeaponAttackMinion 失败 — 不能攻击己方随从");
 			return false;
@@ -177,7 +178,7 @@ internal sealed class WeaponAttackSystem
 
 		// 嘲讽检测：武器攻击也受嘲讽限制
 		var enemyTaunts = _board.GetTaunts(ofEnemy: true);
-		if (enemyTaunts.Count > 0 && !enemyTaunts.Contains(target))
+		if (!isFriendlyTarget && enemyTaunts.Count > 0 && !enemyTaunts.Contains(target))
 		{
 			GD.PrintErr($"[CombatManager] HeroWeaponAttackMinion 失败 — 敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
 			return false;
@@ -188,6 +189,18 @@ internal sealed class WeaponAttackSystem
 
 		// 计算武器伤害
 		int weaponDamage = _playerHero.Weapon.GetModifiedDamage(_playerHero.Weapon.Attack, _playerHero);
+		if (isFriendlyTarget && _playerHero.Weapon.PassiveSkill is IFriendlyMinionWeaponAttackPassive friendlyAttackPassive)
+		{
+			int healAmount = friendlyAttackPassive.GetFriendlyMinionHealAmount(weaponDamage);
+			target.Heal(healAmount);
+			_playerHero.RecordWeaponAttack();
+
+			if (_playerHero.Weapon.PassiveSkill is IWeaponAttackPassive resolvedPassive)
+				resolvedPassive.OnWeaponAttackResolved(_playerHero, _combatManager);
+
+			GD.Print($"[CombatManager] ✨ 玩家英雄使用 {_playerHero.Weapon.Name} 为 {target.CardName} 贴膜，获得 {healAmount} 点生命");
+			return true;
+		}
 
 		GD.Print($"[CombatManager] ⚔ 玩家英雄使用 {_playerHero.Weapon.Name} 攻击 {target.CardName}，造成 {weaponDamage} 点伤害");
 

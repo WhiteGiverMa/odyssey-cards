@@ -53,6 +53,21 @@ public interface IWeaponAttackPassive : IWeaponPassive
 }
 
 /// <summary>
+/// 允许武器攻击选择友方随从，并将该次攻击替换为友方结算。
+/// </summary>
+public interface IFriendlyMinionWeaponAttackPassive : IWeaponPassive
+{
+	int GetFriendlyMinionHealAmount(int weaponDamage);
+}
+
+/// <summary>
+/// 武器主动技能可选择任意英雄或随从作为目标。
+/// </summary>
+public interface IAnyUnitWeaponActive : IWeaponActive
+{
+}
+
+/// <summary>
 /// 武器主动技能接口。
 /// 主动技能需要手动触发，有法力消耗和冷却时间。
 /// </summary>
@@ -589,4 +604,107 @@ public class RayPistol : Weapon
 			return 0;
 		return _rememberPassive.ModifyWeaponDamage(baseDamage, wielder);
 	}
+}
+
+// ====================================================================
+// 绮梦武器：魔法棒
+// ====================================================================
+
+/// <summary>
+/// 贴膜魔法：武器攻击可以选择友方随从；攻击友方随从时改为治疗/贴膜。
+/// </summary>
+public class MagicFilmPassive : IFriendlyMinionWeaponAttackPassive
+{
+	public string Name => "贴膜魔法";
+	public string Description => "武器攻击可以选择友方随从；攻击友方随从时改为使其获得攻击力+2点生命。";
+	public string NameKey => "weapon.passive.magic_film.name";
+	public string DescKey => "weapon.passive.magic_film.desc";
+
+	public int ModifyWeaponDamage(int baseDamage) => baseDamage;
+
+	public int GetFriendlyMinionHealAmount(int weaponDamage) => weaponDamage + 2;
+}
+
+/// <summary>
+/// 星辉净化：移除任意目标身上一个随机负面效果，抽1张牌。
+/// </summary>
+public class StarlightCleanse : IAnyUnitWeaponActive
+{
+	public string Name => "星辉净化";
+	public string Description => "移除任意目标身上的1个随机负面效果，抽1张牌。";
+	public string NameKey => "weapon.skill.starlight_cleanse.name";
+	public string DescKey => "weapon.skill.starlight_cleanse.desc";
+	public int Cost => 2;
+	public int Cooldown => 1;
+	public int CurrentCooldown { get; set; }
+	public bool RequiresTarget => true;
+
+	public bool CanUse(Hero wielder)
+	{
+		return wielder != null && !wielder.IsDead && CurrentCooldown <= 0 && wielder.CurrentMana >= Cost;
+	}
+
+	public void Execute(Hero wielder, CombatManager combat)
+	{
+		if (!CanUse(wielder))
+			return;
+
+		var target = combat.ActiveSkillTarget;
+		if (target == null)
+			return;
+
+		wielder.SpendMana(Cost);
+		CurrentCooldown = Cooldown;
+
+		string? removedId = RemoveRandomNegativeStatus(target);
+		var drawn = wielder.DrawCards(1);
+		GD.Print(removedId != null
+			? $"[StarlightCleanse] 移除负面状态「{removedId}」，抽牌 {drawn.Count} 张"
+			: $"[StarlightCleanse] 目标没有负面状态，抽牌 {drawn.Count} 张");
+	}
+
+	private static string? RemoveRandomNegativeStatus(IDamageTarget target)
+	{
+		var negativeIds = target switch
+		{
+			Hero hero => hero.StatusEffects
+				.Where(pair => pair.Value.IsNegative && !pair.Value.IsExpired)
+				.Select(pair => pair.Key)
+				.ToList(),
+			Minion minion => minion.StatusEffects
+				.Where(pair => pair.Value.IsNegative && !pair.Value.IsExpired)
+				.Select(pair => pair.Key)
+				.ToList(),
+			_ => new List<string>(),
+		};
+
+		if (negativeIds.Count == 0)
+			return null;
+
+		int index = (int)GD.RandRange(0, negativeIds.Count - 1);
+		string id = negativeIds[index];
+		if (target is Hero heroTarget)
+			heroTarget.RemoveStatusEffect(id);
+		else if (target is Minion minionTarget)
+			minionTarget.RemoveStatusEffect(id);
+		return id;
+	}
+}
+
+/// <summary>
+/// 魔法棒 — 绮梦初始武器。
+/// </summary>
+public class MagicWand : Weapon
+{
+	public MagicWand()
+		: base(
+			name: "魔法棒",
+			attack: 0,
+			attackCost: 2,
+			passive: new MagicFilmPassive(),
+			active: new StarlightCleanse())
+	{
+	}
+
+	public override string NameKey => "weapon.magic_wand.name";
 }
