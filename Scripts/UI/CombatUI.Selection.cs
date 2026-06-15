@@ -64,9 +64,9 @@ public partial class CombatUI
 	{
 		if (_combat.State.IsGameOver)
 			return;
-		if (_attackDragFsm.CurrentPhase != InteractionPhase.Idle && (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
+		if (_attackDragFsm.HasDragged && IsPointerTargetSelectionMode())
 		{
-			GD.Print($"[CombatUI] 忽略槽位点击：攻击拖拽尚未松手，mode={_selectionMode}, slot={slotIndex}, side={(isPlayerSide ? "P" : "E")}");
+			GD.Print($"[CombatUI] 忽略槽位点击：目标拖拽尚未松手，mode={_selectionMode}, slot={slotIndex}, side={(isPlayerSide ? "P" : "E")}");
 			return;
 		}
 		switch (_selectionMode)
@@ -280,13 +280,14 @@ public partial class CombatUI
 	/// </summary>
 	private void HandleWeaponAttackTarget(int slotIndex, bool isPlayerSide)
 	{
-		if (isPlayerSide)
+		bool canTargetFriendly = _combat.PlayerHero.Weapon?.PassiveSkill is IFriendlyMinionWeaponAttackPassive;
+		if (isPlayerSide && !canTargetFriendly)
 		{
 			GD.Print("[CombatUI] 武器不能攻击己方随从");
 			return;
 		}
 
-		var target = _combat.Board.GetMinionAt(slotIndex, isPlayerSide: false);
+		var target = _combat.Board.GetMinionAt(slotIndex, isPlayerSide);
 		if (target == null || target.IsDead)
 		{
 			GD.Print("[CombatUI] 武器攻击目标无效");
@@ -307,13 +308,14 @@ public partial class CombatUI
 	/// </summary>
 	private void HandleActiveSkillTarget(int slotIndex, bool isPlayerSide)
 	{
-		if (isPlayerSide)
+		bool canTargetAnyUnit = _combat.PlayerHero.Weapon?.ActiveSkill is IAnyUnitWeaponActive;
+		if (isPlayerSide && !canTargetAnyUnit)
 		{
 			GD.Print("[CombatUI] 主动技能不能对己方随从释放");
 			return;
 		}
 
-		var target = _combat.Board.GetMinionAt(slotIndex, isPlayerSide: false);
+		var target = _combat.Board.GetMinionAt(slotIndex, isPlayerSide);
 		if (target == null || target.IsDead)
 		{
 			GD.Print("[CombatUI] 主动技能目标无效");
@@ -327,6 +329,7 @@ public partial class CombatUI
 		// 设置目标并执行技能
 		_combat.ActiveSkillTarget = target;
 		_combat.UseWeaponActiveSkill();
+		ResetSelection();
 		RefreshAll();
 	}
 
@@ -672,9 +675,14 @@ public partial class CombatUI
 	{
 		GD.Print($"[CombatUI] HandleAttackDrop mode={_selectionMode}, pos=({screenPos.X:F0},{screenPos.Y:F0})");
 		var hit = _boardUI.GetSlotAtPosition(screenPos);
-		if (hit != null && !hit.Value.isPlayerSide)
+		if (hit != null && (!hit.Value.isPlayerSide
+				|| (_selectionMode == SelectionMode.SelectingWeaponTarget
+					&& _combat.PlayerHero.Weapon?.PassiveSkill is IFriendlyMinionWeaponAttackPassive)))
 		{
-			HandleAttackTarget(hit.Value.slotIndex, hit.Value.isPlayerSide);
+			if (_selectionMode == SelectionMode.SelectingWeaponTarget)
+				HandleWeaponAttackTarget(hit.Value.slotIndex, hit.Value.isPlayerSide);
+			else
+				HandleAttackTarget(hit.Value.slotIndex, hit.Value.isPlayerSide);
 		}
 		else
 		{
@@ -699,6 +707,44 @@ public partial class CombatUI
 				_handUI.RefreshHand();
 			}
 		}
+	}
+
+	/// <summary>
+	/// 武器主动技能目标模式下的松手处理：检查落点是否在合法英雄或随从目标上。
+	/// </summary>
+	private void HandleActiveSkillDrop(Vector2 screenPos)
+	{
+		GD.Print($"[CombatUI] HandleActiveSkillDrop pos=({screenPos.X:F0},{screenPos.Y:F0})");
+
+		int enemyTargetIndex = GetEnemyCardIndexAt(screenPos, requireAttackHighlight: true);
+		if (enemyTargetIndex >= 0)
+		{
+			_activeEnemyTargetIndex = enemyTargetIndex;
+			OnActiveSkillHeroPressed();
+			return;
+		}
+
+		if (_playerHeroSpellButton.Visible && _playerHeroPanel.GetGlobalRect().HasPoint(screenPos))
+		{
+			OnPlayerHeroSpellTarget();
+			return;
+		}
+
+		var hit = _boardUI.GetSlotAtPosition(screenPos);
+		if (hit != null)
+		{
+			bool canTargetAnyUnit = _combat.PlayerHero.Weapon?.ActiveSkill is IAnyUnitWeaponActive;
+			var target = _combat.Board.GetMinionAt(hit.Value.slotIndex, hit.Value.isPlayerSide);
+			if (target != null && !target.IsDead && (!hit.Value.isPlayerSide || canTargetAnyUnit))
+			{
+				HandleActiveSkillTarget(hit.Value.slotIndex, hit.Value.isPlayerSide);
+				return;
+			}
+		}
+
+		GD.Print("[CombatUI] 主动技能松手位置无效，取消选择");
+		ResetSelection();
+		_handUI.RefreshHand();
 	}
 
 	/// <summary>
@@ -936,9 +982,9 @@ public partial class CombatUI
 
 	private void OnEnemyHeroCardActionPressed(int enemyIndex)
 	{
-		if (_attackDragFsm.CurrentPhase != InteractionPhase.Idle && (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
+		if (_attackDragFsm.HasDragged && IsPointerTargetSelectionMode())
 		{
-			GD.Print($"[CombatUI] 忽略敌方英雄点击：攻击拖拽尚未松手，mode={_selectionMode}, enemy={enemyIndex}");
+			GD.Print($"[CombatUI] 忽略敌方英雄点击：目标拖拽尚未松手，mode={_selectionMode}, enemy={enemyIndex}");
 			return;
 		}
 		_activeEnemyTargetIndex = enemyIndex;
@@ -1092,6 +1138,17 @@ public partial class CombatUI
 		if (_combat.State.IsGameOver)
 			return;
 
+		if (_selectionMode == SelectionMode.SelectingActiveSkillTarget
+			&& _combat.PlayerHero.Weapon?.ActiveSkill is IAnyUnitWeaponActive)
+		{
+			GD.Print("[CombatUI] 主动技能目标：己方英雄");
+			_combat.ActiveSkillTarget = _combat.PlayerHero;
+			_combat.UseWeaponActiveSkill();
+			ResetSelection();
+			RefreshAll();
+			return;
+		}
+
 		if (_selectedCard == null)
 		{
 			GD.PrintErr("[CombatUI] 无法术牌选中");
@@ -1156,8 +1213,10 @@ public partial class CombatUI
 		// 高亮合法攻击目标
 		HighlightWeaponTargets();
 
-		// 启用键盘目标选择（仅敌方槽位）
-		_boardUI.EnableKeyboardTargeting(includePlayerSlots: false, includeEnemySlots: true);
+		// 启用键盘目标选择；魔法棒等武器可选择己方随从。
+		_boardUI.EnableKeyboardTargeting(
+			includePlayerSlots: weapon.PassiveSkill is IFriendlyMinionWeaponAttackPassive,
+			includeEnemySlots: true);
 	}
 
 	/// <summary>
@@ -1166,8 +1225,23 @@ public partial class CombatUI
 	/// </summary>
 	private void OnWeaponActiveSkillPressed()
 	{
+		if (_ignoreNextWeaponActiveSkillPressed)
+		{
+			_ignoreNextWeaponActiveSkillPressed = false;
+			GD.Print("[CombatUI] 忽略武器主动技能按钮的同次鼠标 Pressed 事件，避免与按下拖拽入口冲突");
+			return;
+		}
+
 		if (_combat.State.IsGameOver)
 			return;
+		if (_selectionMode == SelectionMode.SelectingActiveSkillTarget)
+		{
+			GD.Print("[CombatUI] 再次点击武器主动技能按钮 → 取消目标选择");
+			ResetSelection();
+			_handUI.RefreshHand();
+			RefreshAll();
+			return;
+		}
 
 		var weapon = _combat.PlayerHero.Weapon;
 		if (weapon?.ActiveSkill == null)
@@ -1182,16 +1256,28 @@ public partial class CombatUI
 			return;
 		}
 
-		GD.Print($"[CombatUI] 进入主动技能目标选择模式 — {weapon.ActiveSkill.Name}");
+		EnterWeaponActiveSkillTargetMode(GetInputPosition());
+	}
+
+	private void EnterWeaponActiveSkillTargetMode(Vector2 startPos)
+	{
+		var weapon = _combat.PlayerHero.Weapon;
+		if (weapon?.ActiveSkill == null || !weapon.ActiveSkill.RequiresTarget)
+			return;
+
+		GD.Print($"[CombatUI] 进入主动技能目标选择模式 — {weapon.ActiveSkill.Name}，start=({startPos.X:F0},{startPos.Y:F0})");
 
 		_selectionMode = SelectionMode.SelectingActiveSkillTarget;
 		_selectedAttacker = null;
 		_selectedCard = null;
+		_attackDragFsm.PickUpCard(startPos, isClickSelect: true, isMobile: MobileInputRouter.IsMobile);
 
 		HighlightActiveSkillTargets();
 
-		// 启用键盘目标选择（仅敌方槽位）
-		_boardUI.EnableKeyboardTargeting(includePlayerSlots: false, includeEnemySlots: true);
+		// 启用键盘目标选择；任意单位主动技能可选择己方随从。
+		_boardUI.EnableKeyboardTargeting(
+			includePlayerSlots: weapon.ActiveSkill is IAnyUnitWeaponActive,
+			includeEnemySlots: true);
 	}
 
 	/// <summary>
@@ -1201,6 +1287,8 @@ public partial class CombatUI
 	private void HighlightActiveSkillTargets()
 	{
 		_boardUI.ClearHighlights();
+
+		bool canTargetAnyUnit = _combat.PlayerHero.Weapon?.ActiveSkill is IAnyUnitWeaponActive;
 
 		// 高亮所有敌方随从（无视嘲讽）
 		var allEnemyIndices = new List<int>();
@@ -1218,6 +1306,24 @@ public partial class CombatUI
 			_boardUI.HighlightSlots(allEnemyIndices, isPlayerSide: false, highlight: true);
 		}
 
+		if (canTargetAnyUnit)
+		{
+			var allPlayerIndices = new List<int>();
+			for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+			{
+				var m = _combat.Board.GetMinionAt(i, isPlayerSide: true);
+				if (m != null && !m.IsDead)
+					allPlayerIndices.Add(i);
+			}
+
+			if (allPlayerIndices.Count > 0)
+				_boardUI.HighlightSlots(allPlayerIndices, isPlayerSide: true, highlight: true);
+
+			_playerHeroSpellButton.Text = Loc.T("ui.combat.weapon_skill_on_player_hero", "✦ 对己方英雄释放");
+			_playerHeroSpellButton.Visible = true;
+			_playerHeroSpellButton.Disabled = false;
+		}
+
 		// 显示敌方英雄按钮作为目标（复用，修改文本和事件）
 		_enemyHeroCardAction = OnActiveSkillHeroPressed;
 		foreach (var card in _enemyCards)
@@ -1228,7 +1334,9 @@ public partial class CombatUI
 		}
 		SetEnemyHeroAttackTargetsVisible(true);
 
-		GD.Print("[CombatUI] 主动技能目标模式——可对敌方英雄或任意随从释放");
+		GD.Print(canTargetAnyUnit
+			? "[CombatUI] 主动技能目标模式——可对任意英雄或随从释放"
+			: "[CombatUI] 主动技能目标模式——可对敌方英雄或任意敌方随从释放");
 	}
 
 	/// <summary>
@@ -1247,6 +1355,7 @@ public partial class CombatUI
 		// 目标设为具体敌人英雄（不再为 null，支持多敌人场景）
 		_combat.ActiveSkillTarget = GetActiveEnemyHeroTarget();
 		_combat.UseWeaponActiveSkill();
+		ResetSelection();
 		RefreshAll();
 	}
 
@@ -1255,6 +1364,20 @@ public partial class CombatUI
 	private void HighlightWeaponTargets()
 	{
 		_boardUI.ClearHighlights();
+		bool canTargetFriendly = _combat.PlayerHero.Weapon?.PassiveSkill is IFriendlyMinionWeaponAttackPassive;
+		if (canTargetFriendly)
+		{
+			var allPlayerIndices = new List<int>();
+			for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+			{
+				var m = _combat.Board.GetMinionAt(i, isPlayerSide: true);
+				if (m != null && !m.IsDead)
+					allPlayerIndices.Add(i);
+			}
+
+			if (allPlayerIndices.Count > 0)
+				_boardUI.HighlightSlots(allPlayerIndices, isPlayerSide: true, highlight: true);
+		}
 
 		var enemyTaunts = _combat.Board.GetTaunts(ofEnemy: true);
 		if (enemyTaunts.Count > 0)

@@ -314,6 +314,24 @@ public partial class CombatUI : Control
 		return GetGlobalMousePosition();
 	}
 
+	private bool IsPointerTargetSelectionMode()
+	{
+		return _selectionMode == SelectionMode.SelectingAttackTarget
+			|| _selectionMode == SelectionMode.SelectingWeaponTarget
+			|| _selectionMode == SelectionMode.SelectingActiveSkillTarget;
+	}
+
+	private Vector2 GetPointerTargetSourcePos()
+	{
+		return _selectionMode switch
+		{
+			SelectionMode.SelectingWeaponTarget => _weaponAttackButton.GlobalPosition + _weaponAttackButton.Size * 0.5f,
+			SelectionMode.SelectingActiveSkillTarget => _weaponActiveSkillButton.GlobalPosition + _weaponActiveSkillButton.Size * 0.5f,
+			_ when _selectedAttacker != null => GetMinionScreenCenter(_selectedAttacker),
+			_ => GetInputPosition(),
+		};
+	}
+
 	/// <summary>
 	/// 开发者伤害模式参数。
 	/// </summary>
@@ -336,6 +354,7 @@ public partial class CombatUI : Control
 	/// </summary>
 	private Button _weaponAttackButton = null!;
 	private bool _ignoreNextWeaponAttackPressed;
+	private bool _ignoreNextWeaponActiveSkillPressed;
 
 	/// <summary>
 	/// 武器主动技能按钮——点击后使用武器主动技能。
@@ -404,9 +423,9 @@ public partial class CombatUI : Control
 	{
 		if (!MobileInputRouter.IsMobile && @event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Right && mb.Pressed)
 		{
-		if (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget)
+			if (IsPointerTargetSelectionMode())
 			{
-				GD.Print($"[CombatUI] 右键取消攻击选择，mode={_selectionMode}");
+				GD.Print($"[CombatUI] 右键取消目标选择，mode={_selectionMode}");
 				_attackDragFsm.Cancel(); // 触发 OnCancel → OnAttackDragCancel → ResetSelection + RefreshHand
 				GetViewport().SetInputAsHandled();
 			}
@@ -463,15 +482,15 @@ public partial class CombatUI : Control
 			}
 		}
 
-		// 攻击目标选择模式——桌面端右键取消（移动端用取消按钮）
+		// 指针目标选择模式——桌面端右键取消（移动端用取消按钮）
 		if (!MobileInputRouter.IsMobile)
 		{
 			if (@event is InputEventMouseButton mb3
 				&& mb3.ButtonIndex == MouseButton.Right
 				&& mb3.Pressed
-				&& (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
+				&& IsPointerTargetSelectionMode())
 			{
-				GD.Print($"[CombatUI] _UnhandledInput 右键取消攻击选择，mode={_selectionMode}");
+				GD.Print($"[CombatUI] _UnhandledInput 右键取消目标选择，mode={_selectionMode}");
 				_attackDragFsm.Cancel(); // 触发 OnCancel → OnAttackDragCancel → ResetSelection + RefreshHand
 				GetViewport().SetInputAsHandled();
 				return;
@@ -500,6 +519,37 @@ public partial class CombatUI : Control
 		GD.Print($"[CombatUI] 武器攻击按钮左键按下，进入可拖拽目标选择，pos=({mb.GlobalPosition.X:F0},{mb.GlobalPosition.Y:F0})");
 		_ignoreNextWeaponAttackPressed = true;
 		EnterWeaponAttackTargetMode(mb.GlobalPosition);
+		GetViewport().SetInputAsHandled();
+	}
+
+	private void OnWeaponActiveSkillButtonGuiInput(InputEvent @event)
+	{
+		if (@event is not InputEventMouseButton mb || mb.ButtonIndex != MouseButton.Left || !mb.Pressed)
+			return;
+
+		if (_combat == null || _combat.State.IsGameOver)
+			return;
+
+		var weapon = _combat.PlayerHero.Weapon;
+		if (weapon?.ActiveSkill == null || !weapon.ActiveSkill.RequiresTarget)
+			return;
+
+		if (_selectionMode == SelectionMode.SelectingActiveSkillTarget)
+		{
+			GD.Print("[CombatUI] 武器主动技能按钮再次点击，取消目标选择");
+			_ignoreNextWeaponActiveSkillPressed = true;
+			_attackDragFsm.Cancel();
+			RefreshAll();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+
+		if (!weapon.ActiveSkill.CanUse(_combat.PlayerHero))
+			return;
+
+		GD.Print($"[CombatUI] 武器主动技能按钮左键按下，进入可拖拽目标选择，pos=({mb.GlobalPosition.X:F0},{mb.GlobalPosition.Y:F0})");
+		_ignoreNextWeaponActiveSkillPressed = true;
+		EnterWeaponActiveSkillTargetMode(mb.GlobalPosition);
 		GetViewport().SetInputAsHandled();
 	}
 
@@ -532,14 +582,11 @@ public partial class CombatUI : Control
 			return;
 
 		// --- 攻击选择箭头 ---
-		if ((_selectionMode == SelectionMode.SelectingAttackTarget && _selectedAttacker != null)
-			|| _selectionMode == SelectionMode.SelectingWeaponTarget)
+		if (IsPointerTargetSelectionMode())
 		{
 			if (_arrowRenderer != null)
 			{
-				var sourcePos = _selectionMode == SelectionMode.SelectingWeaponTarget
-					? _weaponAttackButton.GlobalPosition + _weaponAttackButton.Size * 0.5f
-					: GetMinionScreenCenter(_selectedAttacker!);
+				var sourcePos = GetPointerTargetSourcePos();
 				var inputPos = GetInputPosition();
 				_arrowRenderer.AddArrow("attack_select", sourcePos, inputPos, ArrowRenderer.AttackSelectColor);
 			}
@@ -591,9 +638,12 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void OnAttackDragDrop(Vector2 pos, bool wasDrag)
 	{
-		if (wasDrag && (_selectionMode == SelectionMode.SelectingAttackTarget || _selectionMode == SelectionMode.SelectingWeaponTarget))
+		if (wasDrag && IsPointerTargetSelectionMode())
 		{
-			HandleAttackDrop(pos);
+			if (_selectionMode == SelectionMode.SelectingActiveSkillTarget)
+				HandleActiveSkillDrop(pos);
+			else
+				HandleAttackDrop(pos);
 		}
 		// else: 快速点击无拖拽 → 保持选中状态，等待玩家第二击（现有行为）
 	}
@@ -705,6 +755,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	public override void _ExitTree()
 	{
+		CleanupTransientInputState();
+
 		if (UIScaler.Instance != null)
 		{
 			UIScaler.Instance.OnResolutionChanged -= OnResolutionChanged;
@@ -719,6 +771,25 @@ public partial class CombatUI : Control
 
 		if (GameManager.Instance != null)
 			GameManager.Instance.LanguageChanged -= OnLanguageChanged;
+	}
+
+	private void CleanupTransientInputState()
+	{
+		if (_playZonePanelConnected)
+			HidePlayZonePanel();
+
+		_arrowRenderer?.RemoveArrow("attack_select");
+		_arrowRenderer?.RemoveArrow(CardTargetArrowKey);
+		_attackDragFsm?.ForceReset();
+		_boardUI?.DisableKeyboardTargeting();
+		_boardUI?.ClearHighlights();
+		_handUI?.DeselectCard();
+
+		foreach (var card in _enemyCards)
+		{
+			if (GodotObject.IsInstanceValid(card))
+				card.SetAttackTargetHighlight(false);
+		}
 	}
 
 	/// <summary>
@@ -840,6 +911,8 @@ public partial class CombatUI : Control
 		_unsubscribeActions.Add(() => _weaponAttackButton.Pressed -= OnWeaponAttackPressed);
 
 		// 武器主动技能按钮
+		_weaponActiveSkillButton.GuiInput += OnWeaponActiveSkillButtonGuiInput;
+		_unsubscribeActions.Add(() => _weaponActiveSkillButton.GuiInput -= OnWeaponActiveSkillButtonGuiInput);
 		_weaponActiveSkillButton.Pressed += OnWeaponActiveSkillPressed;
 		_unsubscribeActions.Add(() => _weaponActiveSkillButton.Pressed -= OnWeaponActiveSkillPressed);
 

@@ -205,6 +205,15 @@ public partial class EnemyIdentityCard : Panel
 		MouseFilter = MouseFilterEnum.Pass;
 	}
 
+	public override void _ExitTree()
+	{
+		_attackOverlay.GuiInput -= OnAttackOverlayGuiInput;
+		UnsubscribeIntentIcons();
+		RemoveThemeStyleboxOverride("panel");
+		OnAttackTargetClicked = null;
+		base._ExitTree();
+	}
+
 	/// <summary>攻击按钮点击事件。</summary>
 	public Button AttackButton => _attackButton;
 
@@ -398,6 +407,8 @@ public partial class EnemyIdentityCard : Panel
 		while (_intentIconContainer.GetChildCount() > newCount)
 		{
 			var child = _intentIconContainer.GetChild(_intentIconContainer.GetChildCount() - 1);
+			if (child is IntentIcon icon)
+				UnsubscribeIntentIcon(icon);
 			_intentIconContainer.RemoveChild(child);
 			child.QueueFree();
 		}
@@ -495,5 +506,23 @@ public partial class EnemyIdentityCard : Panel
 	private void OnIntentIconUnhovered(IntentIcon icon)
 	{
 		IntentTooltip.HideCurrent();
+	}
+
+	private void UnsubscribeIntentIcons()
+	{
+		if (!GodotObject.IsInstanceValid(_intentIconContainer))
+			return;
+
+		foreach (var child in _intentIconContainer.GetChildren())
+		{
+			if (child is IntentIcon icon)
+				UnsubscribeIntentIcon(icon);
+		}
+	}
+
+	private void UnsubscribeIntentIcon(IntentIcon icon)
+	{
+		icon.OnHovered -= OnIntentIconHovered;
+		icon.OnUnhovered -= OnIntentIconUnhovered;
 	}
 }

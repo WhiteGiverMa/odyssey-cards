@@ -454,7 +454,7 @@ public partial class CombatUI
 		_heroPowerButton = new Button
 		{
 			Name = "HeroPowerButton",
-			Text = Localization.Localization.T("hero_power.use_button", "铁腕 (2费)"),
+			Text = Localization.Localization.T("hero_power.use_button", "英雄技能"),
 			CustomMinimumSize = new Vector2(120, 48),
 			Disabled = true, // 初始禁用，回合开始时启用
 		};
