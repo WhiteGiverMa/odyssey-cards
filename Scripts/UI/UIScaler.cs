@@ -53,6 +53,8 @@ namespace OdysseyCards.UI
 		public float DamageNumberScale { get; private set; } = 1.0f;
 		/// <summary>表情文字缩放（浮动表情弹幕的字号和浮动距离）</summary>
 		public float EmoteScale { get; private set; } = 1.0f;
+		/// <summary>随从部署动画速度倍率（实际时长 = 基础时长 / 速度，1.0=正常，2.0=两倍速）</summary>
+		public float DeployAnimationSpeed { get; private set; } = 1.0f;
 
 		public override void _Ready()
 		{
@@ -339,6 +341,16 @@ namespace OdysseyCards.UI
 			OnParticleEffectSettingsChanged?.Invoke();
 		}
 
+		/// <summary>设置随从部署动画速度倍率并持久化（范围 0.1~3.0，实际时长=基础时长/速度）。</summary>
+		public void SetDeployAnimationSpeed(float speed)
+		{
+			speed = Mathf.Clamp(speed, 0.1f, 3.0f);
+			if (Mathf.Abs(DeployAnimationSpeed - speed) < 0.001f) return;
+			DeployAnimationSpeed = speed;
+			SaveSettings();
+			OnParticleEffectSettingsChanged?.Invoke();
+		}
+
 		#endregion
 
 		#region 持久化
@@ -367,6 +379,7 @@ namespace OdysseyCards.UI
 			config.SetValue("visual", "card_fly_scale", CardFlyScale);
 			config.SetValue("visual", "damage_number_scale", DamageNumberScale);
 			config.SetValue("visual", "emote_scale", EmoteScale);
+			config.SetValue("visual", "deploy_animation_speed", DeployAnimationSpeed);
 
 			Error err = config.Save(ConfigPath);
 			if (err != Error.Ok)
@@ -400,6 +413,7 @@ namespace OdysseyCards.UI
 			CardFlyScale = (float)config.GetValue("visual", "card_fly_scale", 1.0).AsDouble();
 			DamageNumberScale = (float)config.GetValue("visual", "damage_number_scale", 1.0).AsDouble();
 			EmoteScale = (float)config.GetValue("visual", "emote_scale", 1.0).AsDouble();
+			DeployAnimationSpeed = (float)config.GetValue("visual", "deploy_animation_speed", 1.0).AsDouble();
 
 			if (IsMobile)
 				return;

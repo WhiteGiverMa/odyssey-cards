@@ -67,6 +67,9 @@ public partial class SettingsPage : Control
 	private Label _emoteScaleLabel = null!;
 	private HSlider _emoteScaleSlider = null!;
 	private Label _emoteScaleValueLabel = null!;
+	private Label _deploySpeedLabel = null!;
+	private HSlider _deploySpeedSlider = null!;
+	private Label _deploySpeedValueLabel = null!;
 
 	// ===== 键位设置控件 =====
 
@@ -466,6 +469,13 @@ public partial class SettingsPage : Control
 			ref _emoteScaleLabel, ref _emoteScaleSlider, ref _emoteScaleValueLabel,
 			"ui.settings.emote_effect_scale", "表情文字尺寸",
 			UIScaler.Instance?.EmoteScale ?? 1.0f);
+		SetupParticleScaleSlider(
+			ref _deploySpeedLabel, ref _deploySpeedSlider, ref _deploySpeedValueLabel,
+			"ui.settings.deploy_speed", "部署动画速度",
+			UIScaler.Instance?.DeployAnimationSpeed ?? 1.0f);
+		_deploySpeedSlider.MinValue = 0.1;
+		_deploySpeedSlider.Value = Mathf.Max(0.1f, (float)_deploySpeedSlider.Value);
+		_deploySpeedValueLabel.Text = $"×{_deploySpeedSlider.Value:F1}";
 	}
 
 	// ===== 游戏设置 UI =====
@@ -860,6 +870,7 @@ public partial class SettingsPage : Control
 		_cardFlyScaleSlider.ValueChanged += OnCardFlyScaleChanged;
 		_damageNumberScaleSlider.ValueChanged += OnDamageNumberScaleChanged;
 		_emoteScaleSlider.ValueChanged += OnEmoteScaleChanged;
+		_deploySpeedSlider.ValueChanged += OnDeploySpeedChanged;
 		_profileSelector.ItemSelected += OnProfileSelected;
 		_newProfileBtn.Pressed += OnNewProfile;
 		_deleteProfileBtn.Pressed += OnDeleteProfile;
@@ -999,6 +1010,13 @@ public partial class SettingsPage : Control
 		float v = (float)value;
 		_emoteScaleValueLabel.Text = $"×{v:F1}";
 		UIScaler.Instance?.SetEmoteScale(v);
+	}
+
+	private void OnDeploySpeedChanged(double value)
+	{
+		float v = (float)value;
+		_deploySpeedValueLabel.Text = $"×{v:F1}";
+		UIScaler.Instance?.SetDeployAnimationSpeed(v);
 	}
 
 	private void OnProfileSelected(long index)
