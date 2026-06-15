@@ -78,5 +78,9 @@ docs/notepads
 # Local reference source (decompiled)
 skills/
 
+# godot-mcp root-level duplicate (the real copy lives in addons/godot_mcp/)
+/mcp_interaction_server.gd
+/mcp_interaction_server.gd.uid
+
 # agents
 .agents/
