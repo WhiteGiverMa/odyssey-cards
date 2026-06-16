@@ -1,35 +1,36 @@
 # OdysseyCards（少女星途卡牌） — Godot 4.6 C# · 类炉石 Roguelite 卡牌
 
-**Updated:** 2026-06-13
-**Scale:** 168 `Scripts/*.cs` · ~39,000 行 · 35 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
+**Updated:** 2026-06-16
+**Scale:** 175 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~37,000 行 · 37 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
 
 ## Start
 
 - 本文件是公共版。本地规则见 `AGENTS_LOCAL.md`（gitignored）。
 - 工作语言中文。代码注释中文。子代理调度中文。
 - 新增功能后 → 更新本文件。局部规则见各子目录 `AGENTS.md`。
+- `wiki/` 是概念库，不是实现事实；进入 `wiki/` 先读 `wiki/AGENTS.md`。
 - 本文保持“广而浅”：写入口、边界、雷区，不写详设。
 
 ## Map
 
 ```
 Scripts/
-├── Core/ (33)      # CardData, GameManager(Autoload), DamageResolver, CardEffectData, SaveDataManager, MainMenu…
-├── UI/ (36)        # CombatUI partials, BoardUI, HandUI, CardUI, CollectionUI, MapUI, InfoScreen, Shop/Rest/Event UI…
-├── Card/ (13)      # Card, Minion, Hero, Weapon, StatusEffect, HeroPowers/*（纯 C#）
+├── Core/ (35)      # CardData, GameManager(Autoload), DamageResolver, HeroProfile, RarityColorScheme, SaveDataManager…
+├── UI/ (39)        # CombatUI partials, BoardUI, HandUI, CardUI, CollectionUI, MapUI, InfoScreen, Shop/Rest/Event UI…
+├── Card/ (15)      # Card, Minion, Hero, Weapon, StatusEffect, ActiveDomain, HeroPowers/*（纯 C#）
 ├── Character/ (5)  # Player(Node), CommanderCore, Deck, CombatDeckState
-├── Combat/ (13)    # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem 等拆分模块
+├── Combat/ (14)    # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem/DomainTriggerManager 等拆分模块
 ├── AI/ (27)        # EnemyEncounter, EnemyRegistry, 多敌人 Brain + Intents/(19) MoveState/Intent 类型体系
 ├── Heat/ (2)       # HeatSystem + HeatDamageModifier，全局热力伤害倍率
 ├── Relic/ (7)      # AbstractRelic, RelicManager, 5 个具体藏品
 ├── Roguelike/ (5)  # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)# YAML 多语言 (LocalStr, ConcatLocalStr, ILocalizable, YamlParser)
 └── Infrastructure/ (20, Commands/8) # DevConsole, InputManager, HotkeyManager, MobileInputRouter, SceneLifecycleGuard…
-Resources/Cards/    # 35 .tres：领域5 + 随从11 + 法术18 + 状态1
+Resources/Cards/    # 37 .tres：领域6 + 随从11 + 法术19 + 状态1
 Resources/Localization/ # zh.yaml / en.yaml
 Resources/Enemies/ Resources/Relics/ # 结构桩，当前为空
 Scenes/             # Main, Combat, Collection, Map + Card/Board/CombatPreview
-Tests/              # tests/csharp：xUnit 5 Unit + 1 Integration(跳过)
+Tests/              # tests/csharp：xUnit 10 Unit + 1 Integration(跳过)
 ```
 
 ## Autoload
@@ -52,7 +53,7 @@ Tests/              # tests/csharp：xUnit 5 Unit + 1 Integration(跳过)
 | 卡牌数据 | `Core/CardData.cs`, `Core/CardEffectData.cs` | Godot Resource, `[Export]`，效果枚举→分发器 |
 | 卡牌运行时 | `Card/Card.cs` → `Minion.cs` | **纯 C#，不继承 Node**；`Spell.cs` 是死代码 |
 | 英雄/护甲 | `Card/Hero.cs` | 包装 CommanderCore；护甲吸收在 DamageResolver 后 |
-| 英雄技能 | `Card/IHeroPower.cs`, `Card/HeroPowers/` | 当前有 IronWill、理惠「火力筛选」、溯光「重整」；带冷却/存储层数的技能看 `IChargeCooldownSkill` |
+| 英雄技能 | `Card/IHeroPower.cs`, `Card/HeroPowers/` | 当前有 IronWill、绮梦「星光补给」、理惠「火力筛选」、溯光「重整」；带冷却/存储层数的技能看 `IChargeCooldownSkill` |
 | 武器 | `Card/Weapon.cs`, `WeaponSkill.cs` | 当前有离子手枪、SVDS-M338、棍木；`RailPistolPassive.cs` 仍孤立 |
 | 战斗主循环 | `Combat/CombatManager.cs` | 仍是中介；详见 `Scripts/Combat/AGENTS.md` |
 | 战斗拆分模块 | `Combat/AttackTracker.cs`, `SelectionSystem.cs`, `DeathHandler.cs`, `WeaponAttackSystem.cs`… | 纯 C# + 构造注入 + Action 回调 |
@@ -296,7 +297,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - ⚠️ `RailPistolPassive.cs`、`SafeAreaContainer.cs` 当前孤立。
 - ⚠️ `EventSelector` 奖励逻辑完整但战斗奖励流仍未统一接线；`ApplyReward` 已 Obsolete。
 - ⚠️ `ShopUI` / `RestSiteUI` / `EventUI` / `MobileDialogHost` 存在但未完整接入 MapUI 流程。
-- ⚠️ 英雄技能仅 IronWill 实现；战斗 UI/输入仍未完整接线。
+- ⚠️ 英雄技能四个实现均存在；战斗 UI/输入仍需按英雄逐项运行时验证。
 - ⚠️ 手牌无上限 + 无疲劳；已有 `Status_Fatigue.tres` 但系统未完整化。
 - ⚠️ `CardEffectData.GetDescription()` debug 字符串未本地化（低优）。
 - ⚠️ `InfoScreen.cs` 仍用 Godot 过时 API `SplitOffset`。
@@ -307,13 +308,17 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 ## 子目录规则
 
 - `Scripts/Combat/AGENTS.md`：战斗拆分边界。
+- `Scripts/Core/AGENTS.md`：数据资源、伤害管线、保存与全局状态。
+- `Scripts/Card/AGENTS.md`：运行时卡牌/英雄/随从/武器模型。
 - `Scripts/UI/AGENTS.md`：程序化 UI、CombatUI partial、预览与弹窗。
 - `Scripts/AI/Intents/AGENTS.md`：新意图类型与 MoveState。
 - `Scripts/Heat/AGENTS.md`：热力阶段。
 - `Scripts/Relic/AGENTS.md`：藏品生命周期。
+- `wiki/AGENTS.md`：wiki 概念库写作纪律；只约束 agents，不约束人类。
 
 ## 杂项（待归类注意事项/notes）
 
 - **必须** 在 `_ExitTree` 中注销 `_EnterTree`/`_Ready` 注册的 HotkeyManager 绑定 → `PushPressedBinding`/`RemovePressedBinding` 配对。
 - 新增卡牌**必须**同步 `CardResourcePaths[]`。
 - 新增语言**必须**同步 `TryLoadTranslationsViaDirAccess()` 回退。
+- **必须**在产出新的特性、内容时提问用户「是否需要更新wiki」。**禁止**不经询问删除wiki中与代码不符的信息。
