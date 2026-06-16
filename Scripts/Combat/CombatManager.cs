@@ -586,7 +586,9 @@ public partial class CombatManager : Node
 
 		foreach (var unit in EnemyUnits)
 		{
-			unit.Body.Weapon = new RollingLog();
+			unit.Body.Weapon = unit.Brain.CreateWeapon();
+			if (unit.Brain.StartingDefense != 0)
+				unit.Body.ModifyDefense(unit.Brain.StartingDefense);
 			GD.Print($"[CombatManager] {unit.Brain.Name} 武器：{unit.Body.Weapon.Name}" +
 					  $"（{unit.Body.Weapon.Attack}攻）");
 

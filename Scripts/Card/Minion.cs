@@ -36,6 +36,12 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	internal readonly FragileArmorModifier _fragileModifier = new();
 
 	/// <summary>
+	/// 聚焦——效果伤害每层 +1。
+	/// 通过永久领域层数驱动，用于智能臭鸡蛋等敌方衍生物。
+	/// </summary>
+	internal readonly FocusSpellDamageModifier _focusModifier;
+
+	/// <summary>
 	/// 运行时替换后的亡语效果。null 表示使用 CardData 原始亡语。
 	/// </summary>
 	private List<CardEffectData>? _runtimeDeathrattleEffects;
@@ -308,8 +314,33 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	// ===== 状态效果系统 =====
 
 	private readonly Dictionary<string, StatusEffect> _statusEffects = new();
+	private readonly Dictionary<string, ActiveDomain> _activeDomains = new();
 
 	public IReadOnlyDictionary<string, StatusEffect> StatusEffects => _statusEffects;
+	public IReadOnlyDictionary<string, ActiveDomain> ActiveDomains => _activeDomains;
+
+	public void AddDomain(string domainId, CardEffectData? effectData)
+	{
+		if (_activeDomains.TryGetValue(domainId, out var existing))
+		{
+			existing.StackCount++;
+			GD.Print($"[Minion:{CardName}] 领域「{domainId}」叠加至 {existing.StackCount} 层");
+			return;
+		}
+
+		_activeDomains[domainId] = new ActiveDomain(domainId, effectData);
+		GD.Print($"[Minion:{CardName}] 获得领域「{domainId}」");
+	}
+
+	public bool HasDomain(string domainId)
+	{
+		return _activeDomains.ContainsKey(domainId);
+	}
+
+	private int GetFocusStacks()
+	{
+		return _activeDomains.TryGetValue("focus", out var focus) ? focus.StackCount : 0;
+	}
 
 	public void AddStatusEffect(StatusEffect effect)
 	{
@@ -452,6 +483,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		: base(data)
 	{
 		IsPlayerSide = isPlayerSide;
+		_focusModifier = new FocusSpellDamageModifier(GetFocusStacks);
 
 		// 从卡牌数据复制战斗属性
 		Attack = data.Attack;
@@ -467,6 +499,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		// 注册易伤/虚弱修改器（始终在列表中，由 IsActive 控制激活）
 		_damageModifiers.Add(_vulnerableModifier);
 		_damageModifiers.Add(_weakModifier);
+		_damageModifiers.Add(_focusModifier);
 
 		// 注册护甲攻击加成修改器
 		_damageModifiers.Add(new ArmorAttackBonusModifier(this));
@@ -652,7 +685,20 @@ public class Minion : Card, IDamageSource, IDamageTarget
 			});
 		}
 
-		// 2. Numerical stat changes (compared to CardData baseline)
+		// 2. ActiveDomains
+		foreach (var (domainId, domain) in _activeDomains)
+		{
+			var data = EffectIconTable.GetDomain(domainId);
+			if (data == null)
+				continue;
+
+			effects.Add(EffectIconTable.ToDisplayable(
+				data.Value,
+				EffectCategory.Domain,
+				domain.StackCount));
+		}
+
+		// 3. Numerical stat changes (compared to CardData baseline)
 		// HP changes are displayed on the health bar, not here.
 		int attackDelta = Attack - Data.Attack;
 		if (attackDelta != 0)
@@ -692,10 +738,10 @@ public class Minion : Card, IDamageSource, IDamageTarget
 			});
 		}
 
-		// 3. Granted keywords (not from CardData baseline)
+		// 4. Granted keywords (not from CardData baseline)
 		CollectGrantedKeywordEffects(effects);
 
-		// 4. Runtime modifiers
+		// 5. Runtime modifiers
 		if (IdolTwilightOnAttackedStacks > 0)
 		{
 			var data = EffectIconTable.GetDomain("idol_twilight");

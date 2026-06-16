@@ -235,6 +235,7 @@ public class GameRunState
 			new Cultist(),
 			new WolfRider(),
 			new SlimeBoss(),
+			new Goutansha(),
 		};
 		return enemies[new Random().Next(enemies.Length)];
 	}

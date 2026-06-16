@@ -272,17 +272,21 @@ public partial class CombatUI
 
 		return primary switch
 		{
-			AIIntents.AttackIntent atk => new EnemyIntent(AIIntents.IntentType.Attack,
-				atk.GetTotalDamage(combat),
-				atk.GetIntentLabel(combat))
-			{
-				// 攻击意图：箭头指向目标（英雄或嘲讽随从）
-				TargetSelector = _ =>
+			AIIntents.AttackIntent atk when primary.Type == AIIntents.IntentType.Attack || primary.Type == AIIntents.IntentType.MultiAttack
+				=> new EnemyIntent(AIIntents.IntentType.Attack,
+					atk.GetTotalDamage(combat),
+					primary.GetIntentDescription(combat))
 				{
-					var taunts = combat.Board.GetTaunts(ofEnemy: false);
-					return taunts.Count > 0 ? taunts[0] : combat.PlayerHero;
-				}
-			},
+					TargetSelector = _ =>
+					{
+						var taunts = combat.Board.GetTaunts(ofEnemy: false);
+						return taunts.Count > 0 ? taunts[0] : combat.PlayerHero;
+					}
+				},
+			AIIntents.AttackIntent atk when primary.Type == AIIntents.IntentType.SpellCast
+				=> new EnemyIntent(AIIntents.IntentType.SpellCast,
+					atk.GetTotalDamage(combat),
+					primary.GetIntentDescription(combat)),
 			AIIntents.BuffIntent => new EnemyIntent(AIIntents.IntentType.Buff, 0,
 				primary.GetIntentLabel(combat)),
 			AIIntents.DefendIntent => new EnemyIntent(AIIntents.IntentType.Defend, 0,

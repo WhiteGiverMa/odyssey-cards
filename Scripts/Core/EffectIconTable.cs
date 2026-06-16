@@ -40,6 +40,9 @@ public static class EffectIconTable
 		["flying_away"] = new() { Icon = "🕊", NameKey = "domain.flying_away", DescKey = "domain.flying_away_desc", IsBuff = true },
 		["idol_twilight"] = new() { Icon = "🌅", NameKey = "domain.idol_twilight", DescKey = "domain.idol_twilight_desc", IsBuff = true },
 		["jiehuafa"] = new() { Icon = "🛡", NameKey = "domain.jiehuafa", DescKey = "domain.jiehuafa_desc", IsBuff = true },
+		["focus"] = new() { Icon = "🎯", NameKey = "domain.focus", DescKey = "domain.focus_desc", IsBuff = true },
+		["scheme"] = new() { Icon = "🪺", NameKey = "domain.scheme", DescKey = "domain.scheme_desc", IsBuff = true },
+		["inescapable_flaw"] = new() { Icon = "🥚", NameKey = "domain.inescapable_flaw", DescKey = "domain.inescapable_flaw_desc", IsBuff = false },
 	};
 
 	private static readonly Dictionary<string, EffectIconData> _keywordSources = new()

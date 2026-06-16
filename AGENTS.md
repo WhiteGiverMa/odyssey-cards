@@ -1,7 +1,7 @@
 # OdysseyCards（少女星途卡牌） — Godot 4.6 C# · 类炉石 Roguelite 卡牌
 
 **Updated:** 2026-06-16
-**Scale:** 175 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~37,000 行 · 37 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
+**Scale:** 179 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~37,000 行 · 38 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
 
 ## Start
 
@@ -15,18 +15,18 @@
 
 ```
 Scripts/
-├── Core/ (35)      # CardData, GameManager(Autoload), DamageResolver, HeroProfile, RarityColorScheme, SaveDataManager…
+├── Core/ (36)      # CardData, GameManager(Autoload), DamageResolver, HeroProfile, RarityColorScheme, SaveDataManager…
 ├── UI/ (39)        # CombatUI partials, BoardUI, HandUI, CardUI, CollectionUI, MapUI, InfoScreen, Shop/Rest/Event UI…
 ├── Card/ (15)      # Card, Minion, Hero, Weapon, StatusEffect, ActiveDomain, HeroPowers/*（纯 C#）
 ├── Character/ (5)  # Player(Node), CommanderCore, Deck, CombatDeckState
 ├── Combat/ (14)    # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem/DomainTriggerManager 等拆分模块
-├── AI/ (27)        # EnemyEncounter, EnemyRegistry, 多敌人 Brain + Intents/(19) MoveState/Intent 类型体系
+├── AI/ (29)        # EnemyEncounter, EnemyRegistry, 多敌人 Brain + Intents/(20) MoveState/Intent 类型体系
 ├── Heat/ (2)       # HeatSystem + HeatDamageModifier，全局热力伤害倍率
 ├── Relic/ (7)      # AbstractRelic, RelicManager, 5 个具体藏品
 ├── Roguelike/ (5)  # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)# YAML 多语言 (LocalStr, ConcatLocalStr, ILocalizable, YamlParser)
 └── Infrastructure/ (20, Commands/8) # DevConsole, InputManager, HotkeyManager, MobileInputRouter, SceneLifecycleGuard…
-Resources/Cards/    # 37 .tres：领域6 + 随从11 + 法术19 + 状态1
+Resources/Cards/    # 38 .tres：领域6 + 随从12 + 法术19 + 状态1
 Resources/Localization/ # zh.yaml / en.yaml
 Resources/Enemies/ Resources/Relics/ # 结构桩，当前为空
 Scenes/             # Main, Combat, Collection, Map + Card/Board/CombatPreview
@@ -288,7 +288,8 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - ✅ 卡牌选中/拖拽、攻击双交互、右键取消、敌方英雄攻击绿框已修复。
 - ✅ 意图图标 hover 稳定；设置页支持开关图标/伤害数字浮动视觉风格。
 - ✅ 多敌人 AI：IntentAI + 多 Brain + EnemyRegistry。
-- ✅ 新意图系统：`AI/Intents/` 19 文件，MoveState 多意图，Icon/Tooltip 路径。
+- ✅ 新意图系统：`AI/Intents/` 20 文件，MoveState 多意图，Icon/Tooltip 路径。
+- ✅ 新敌人劫蛋者：开场「难逃之瑕」+ B/C/D 乱序循环；「聚焦」「蓄谋」「智能臭鸡蛋」与敌方法术伤害意图已接入。
 - ✅ CombatUI 大文件已 partial 拆分，支持 Card/Board/Combat 编辑器预览。
 - ✅ CombatManager 已拆出 AttackTracker/SelectionSystem/DeathHandler/VictoryDefeatResolver/WeaponAttackSystem/EmoteSystem。
 - ✅ DevConsole v2：Engine + Command 抽象 + 8 命令组 + 历史持久化。

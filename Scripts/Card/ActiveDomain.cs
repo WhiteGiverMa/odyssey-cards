@@ -10,6 +10,15 @@ namespace OdysseyCards.Card;
 /// </summary>
 public class ActiveDomain : IPermanentEffect
 {
+	private static bool InferNegative(string domainId)
+	{
+		return domainId switch
+		{
+			"inescapable_flaw" => true,
+			_ => false,
+		};
+	}
+
 	/// <summary>
 	/// 领域唯一标识（同名叠加）。
 	/// </summary>
@@ -18,12 +27,17 @@ public class ActiveDomain : IPermanentEffect
 	/// <summary>
 	/// 领域效果数据（包含触发后的 EffectType 和每层数值）。
 	/// </summary>
-	public CardEffectData EffectData { get; }
+	public CardEffectData? EffectData { get; }
 
 	/// <summary>
 	/// 当前叠加层数。
 	/// </summary>
 	public int StackCount { get; set; }
+
+	/// <summary>
+	/// 是否为负面领域效果。
+	/// </summary>
+	public bool IsNegative { get; }
 
 	/// <summary>
 	/// 最近一次触发所在的战斗回合。
@@ -36,10 +50,11 @@ public class ActiveDomain : IPermanentEffect
 	/// </summary>
 	/// <param name="domainId">领域标识</param>
 	/// <param name="effectData">效果数据（每层数值）</param>
-	public ActiveDomain(string domainId, CardEffectData effectData)
+	public ActiveDomain(string domainId, CardEffectData? effectData)
 	{
 		DomainId = domainId;
 		EffectData = effectData;
 		StackCount = 1;
+		IsNegative = InferNegative(domainId);
 	}
 }

@@ -34,6 +34,12 @@ public class Hero : IDamageTarget, IDamageSource
 	internal readonly FragileArmorModifier _fragileModifier = new();
 
 	/// <summary>
+	/// 聚焦——效果伤害每层 +1。
+	/// 通过永久领域的层数驱动。
+	/// </summary>
+	internal readonly FocusSpellDamageModifier _focusModifier;
+
+	/// <summary>
 	/// 被包装的指挥官核心。
 	/// </summary>
 	private readonly CommanderCore _core;
@@ -306,6 +312,7 @@ public class Hero : IDamageTarget, IDamageSource
 	{
 		_core = core ?? throw new ArgumentNullException(nameof(core));
 		IsPlayerSide = isPlayerSide;
+		_focusModifier = new FocusSpellDamageModifier(GetFocusStacks);
 
 		// 注册防御力修改器
 		_damageModifiers.Add(new DefenseModifier(() => Defense));
@@ -313,6 +320,7 @@ public class Hero : IDamageTarget, IDamageSource
 		// 注册易伤/虚弱修改器（始终在列表中，由 IsActive 控制激活）
 		_damageModifiers.Add(_vulnerableModifier);
 		_damageModifiers.Add(_weakModifier);
+		_damageModifiers.Add(_focusModifier);
 	}
 
 	// ===== 伤害处理 =====
@@ -570,17 +578,23 @@ public class Hero : IDamageTarget, IDamageSource
 	/// </summary>
 	/// <param name="domainId">领域标识</param>
 	/// <param name="effectData">领域效果数据</param>
-	public void AddDomain(string domainId, Core.CardEffectData effectData)
+	public void AddDomain(string domainId, Core.CardEffectData? effectData)
 	{
 		if (_activeDomains.TryGetValue(domainId, out var existing))
 		{
+			if (domainId == "inescapable_flaw")
+			{
+				GD.Print("[Hero] 难逃之瑕已存在，维持 1 层");
+				return;
+			}
+
 			existing.StackCount++;
 			GD.Print($"[Hero] 领域「{domainId}」叠加至 {existing.StackCount} 层");
 		}
 		else
 		{
 			_activeDomains[domainId] = new ActiveDomain(domainId, effectData);
-			string desc = effectData.GetDescription();
+			string desc = effectData?.GetDescription() ?? string.Empty;
 			string descPart = string.IsNullOrWhiteSpace(desc) ? "" : $"：{desc}";
 			GD.Print($"[Hero] 展开领域「{domainId}」{descPart}");
 		}
@@ -592,9 +606,10 @@ public class Hero : IDamageTarget, IDamageSource
 	/// <param name="domainId">领域标识</param>
 	public void RemoveDomain(string domainId)
 	{
-		if (_activeDomains.Remove(domainId))
+		if (_activeDomains.TryGetValue(domainId, out var removedDomain) && _activeDomains.Remove(domainId))
 		{
 			GD.Print($"[Hero] 领域「{domainId}」已移除");
+			HandleNegativeEffectLost(domainId, removedDomain.IsNegative, removedFlawItself: domainId == "inescapable_flaw");
 		}
 	}
 
@@ -652,10 +667,11 @@ public class Hero : IDamageTarget, IDamageSource
 	/// <param name="id">效果标识符</param>
 	public void RemoveStatusEffect(string id)
 	{
-		if (_statusEffects.Remove(id))
+		if (_statusEffects.TryGetValue(id, out var removedEffect) && _statusEffects.Remove(id))
 		{
 			GD.Print($"[Hero] 状态「{id}」已移除");
 			OnStatusEffectRemoved(id);
+			HandleNegativeEffectLost(id, removedEffect.IsNegative, removedFlawItself: false);
 		}
 	}
 
@@ -803,6 +819,71 @@ public class Hero : IDamageTarget, IDamageSource
 	public bool HasStatusEffect(string id)
 	{
 		return _statusEffects.ContainsKey(id) && !_statusEffects[id].IsExpired;
+	}
+
+	/// <summary>
+	/// 是否持有指定领域。
+	/// </summary>
+	public bool HasDomain(string domainId)
+	{
+		return _activeDomains.ContainsKey(domainId);
+	}
+
+	private int GetFocusStacks()
+	{
+		return _activeDomains.TryGetValue("focus", out var focus) ? focus.StackCount : 0;
+	}
+
+	private void HandleNegativeEffectLost(string removedId, bool wasNegative, bool removedFlawItself)
+	{
+		if (!wasNegative)
+			return;
+
+		bool flawStillActive = HasDomain("inescapable_flaw");
+		if (!flawStillActive && !removedFlawItself)
+			return;
+
+		var candidates = BuildInescapableFlawCandidates(flawStillActive, removedFlawItself);
+		if (candidates.Count == 0)
+			return;
+
+		string selected = candidates[Random.Shared.Next(candidates.Count)];
+		ApplyInescapableFlawRebound(selected);
+		GD.Print($"[Hero] 难逃之瑕响应「{removedId}」失去，转化为「{selected}」");
+	}
+
+	private List<string> BuildInescapableFlawCandidates(bool flawStillActive, bool removedFlawItself)
+	{
+		var candidates = new List<string>
+		{
+			"vulnerable",
+			"weak",
+			"fragile",
+			"attack_ban",
+			"weapon_disabled",
+			"total_observation",
+		};
+
+		if (removedFlawItself || !flawStillActive)
+			candidates.Add("inescapable_flaw");
+
+		return candidates;
+	}
+
+	private void ApplyInescapableFlawRebound(string effectId)
+	{
+		if (effectId == "inescapable_flaw")
+		{
+			AddDomain("inescapable_flaw", null);
+			return;
+		}
+
+		AddStatusEffect(new StatusEffect(effectId, 1, GetNegativeStatusTickTiming()));
+	}
+
+	private TickTiming GetNegativeStatusTickTiming()
+	{
+		return IsPlayerSide ? TickTiming.PlayerTurnEnd : TickTiming.EnemyTurnEnd;
 	}
 
 	// ===== 武器攻击追踪 =====

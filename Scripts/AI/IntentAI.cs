@@ -215,6 +215,16 @@ public abstract class EnemyEncounter
 	/// <summary>是否使用了新的 MoveState 意图系统。</summary>
 	public bool HasMoveStates => MoveStates != null;
 
+	/// <summary>
+	/// 敌人初始武器。
+	/// </summary>
+	public virtual Weapon CreateWeapon() => new RollingLog();
+
+	/// <summary>
+	/// 敌人开局防御修正。
+	/// </summary>
+	public virtual int StartingDefense => 0;
+
 	// ===== 构造函数 =====
 
 	/// <summary>
@@ -283,15 +293,21 @@ public abstract class EnemyEncounter
 		if (abstractIntent is AttackIntent attackIntent)
 		{
 			int damage = attackIntent.GetSingleDamage(combat);
-			_cachedAttackTarget ??= ResolveAttackTarget(combat);
-			var cachedTarget = _cachedAttackTarget;
-			var intent = new EnemyIntent(IntentType.Attack, damage, attackIntent.GetIntentDescription(combat));
-			intent.TargetSelector = _ => cachedTarget;
-			intent.DamageCalc = (c) =>
+			var mappedType = MapToLegacyType(attackIntent.Type);
+			var intent = new EnemyIntent(mappedType, attackIntent.GetTotalDamage(combat), attackIntent.GetIntentDescription(combat));
+
+			if (mappedType == IntentType.Attack)
 			{
-				int baseWithAttack = damage + Attack;
-				return DamageResolver.ResolvePreviewDamage(baseWithAttack, self, cachedTarget);
-			};
+				_cachedAttackTarget ??= ResolveAttackTarget(combat);
+				var cachedTarget = _cachedAttackTarget;
+				intent.TargetSelector = _ => cachedTarget;
+				intent.DamageCalc = _ => attackIntent.GetTotalDamage(combat);
+			}
+			else
+			{
+				intent.DamageCalc = _ => attackIntent.GetTotalDamage(combat);
+			}
+
 			return intent;
 		}
 
@@ -313,9 +329,9 @@ public abstract class EnemyEncounter
 				or OdysseyCards.AI.Intents.IntentType.DeathBlow => IntentType.Attack,
 			OdysseyCards.AI.Intents.IntentType.Defend => IntentType.Defend,
 			OdysseyCards.AI.Intents.IntentType.Summon => IntentType.Summon,
+			OdysseyCards.AI.Intents.IntentType.SpellCast => IntentType.SpellCast,
 			OdysseyCards.AI.Intents.IntentType.Buff
-				or OdysseyCards.AI.Intents.IntentType.StatusCard
-				or OdysseyCards.AI.Intents.IntentType.SpellCast => IntentType.Buff,
+				or OdysseyCards.AI.Intents.IntentType.StatusCard => IntentType.Buff,
 			_ => IntentType.Attack
 		};
 	}

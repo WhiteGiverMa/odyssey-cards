@@ -310,6 +310,23 @@ public class RollingLog : Weapon
 	public override string NameKey => "weapon.rolling_log.name";
 }
 
+/// <summary>
+/// 轻型坩埚钳——劫蛋者使用的轻型武器。
+/// 仅提供 1 点武器攻击力，无其他效果。
+/// </summary>
+public class LightCrucibleClamp : Weapon
+{
+	public LightCrucibleClamp()
+		: base(
+			name: "轻型坩埚钳",
+			attack: 1,
+			attackCost: 0)
+	{
+	}
+
+	public override string NameKey => "weapon.light_crucible_clamp.name";
+}
+
 // ====================================================================
 // 理惠武器：SVDS-M338
 // ====================================================================
