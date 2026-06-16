@@ -274,6 +274,8 @@ weapon:
     name: "Ion Pistol"
   rolling_log:
     name: "Stick Wood"
+  light_crucible_clamp:
+    name: "Light Crucible Clamp"
   svds_m338:
     name: "SVDS-M338"
   ray_pistol:
@@ -448,6 +450,9 @@ cards:
   status_tiredness:
     name: "Tiredness"
     description: "Deal 1 damage to the player hero."
+  minion_smart_stinky_egg:
+    name: "Smart Rotten Egg"
+    description: "Enemy turn: deal 4 spell damage to all player-side targets, then die."
 
 card_type:
   minion: "Minion"
@@ -556,6 +561,12 @@ domain:
   idol_twilight_desc: "After being attacked, gain +1/+1."
   jiehuafa: "Jie Hua Fa"
   jiehuafa_desc: "When all attacks blocked, gain Ukemi."
+  focus: "Focus"
+  focus_desc: "Each stack increases spell damage dealt by 1."
+  scheme: "Scheme"
+  scheme_desc: "Each stack makes Smart Rotten Eggs summoned by this hero gain 1 extra Focus."
+  inescapable_flaw: "Inescapable Flaw"
+  inescapable_flaw_desc: "When the owner loses a negative effect, it immediately gains 1 stack of a random negative effect. If this effect itself is lost, it may be reapplied."
 
 stat:
   attack_up: "Attack +{value}"

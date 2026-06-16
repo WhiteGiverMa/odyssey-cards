@@ -188,6 +188,7 @@ public partial class GameManager : Node
 		"res://Resources/Cards/Minion_Mech_Lancer.tres",
 		"res://Resources/Cards/Minion_Roach.tres",
 		"res://Resources/Cards/Minion_Slime.tres",
+		"res://Resources/Cards/Minion_SmartStinkyEgg.tres",
 		"res://Resources/Cards/Minion_Tombstone.tres",
 		"res://Resources/Cards/Minion_WhatTheDogDoing.tres",
 		"res://Resources/Cards/Spell_Alert.tres",

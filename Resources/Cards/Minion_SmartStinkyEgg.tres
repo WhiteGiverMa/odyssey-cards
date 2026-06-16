@@ -1,0 +1,16 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_smart_stinky_egg"
+CardName = "智能臭鸡蛋"
+Description = "敌方回合：对玩家方全体造成4点法术伤害，然后死亡。"
+Type = 0
+Rarity = 0
+Cost = 1
+Attack = 1
+Health = 3
+Defense = 0
+ActionCost = 1

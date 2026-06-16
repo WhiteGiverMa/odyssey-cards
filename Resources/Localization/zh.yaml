@@ -274,6 +274,8 @@ weapon:
     name: "离子手枪"
   rolling_log:
     name: "棍木"
+  light_crucible_clamp:
+    name: "轻型坩埚钳"
   svds_m338:
     name: "SVDS-M338"
   ray_pistol:
@@ -451,6 +453,9 @@ cards:
   status_tiredness:
     name: "疲倦"
     description: "对玩家英雄造成1点伤害。"
+  minion_smart_stinky_egg:
+    name: "智能臭鸡蛋"
+    description: "敌方回合：对玩家方全体造成4点法术伤害，然后死亡。"
 
 card_type:
   minion: "随从"
@@ -559,6 +564,12 @@ domain:
   idol_twilight_desc: "被攻击后获得+1/+1。"
   jiehuafa: "接化发"
   jiehuafa_desc: "敌全攻击被格挡后获「受身」。"
+  focus: "聚焦"
+  focus_desc: "每层使造成的法术伤害+1。"
+  scheme: "蓄谋"
+  scheme_desc: "每层使该英雄召唤的智能臭鸡蛋额外获得1层聚焦。"
+  inescapable_flaw: "难逃之瑕"
+  inescapable_flaw_desc: "持有者失去一种负面效果时，立刻随机获得1层另一种负面效果。若失去的是本效果，则也可能重新获得本效果。"
 
 stat:
   attack_up: "攻击力+{value}"
