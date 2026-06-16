@@ -10,8 +10,8 @@ Value = 1
 
 [resource]
 script = ExtResource("1_data")
-Id = "fatigue"
-CardName = "疲劳"
+Id = "status_tiredness"
+CardName = "疲倦"
 Description = "对玩家英雄造成1点伤害。"
 Rarity = 6
 Cost = 1

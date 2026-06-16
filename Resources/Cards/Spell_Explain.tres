@@ -11,12 +11,12 @@ Value = 1
 
 [resource]
 script = ExtResource("1_data")
-Id = "spell_explain"
+Id = "status_explain"
 CardName = "解释"
 Description = "奇巧。打出时使敌方英雄获得1层总观效应。\n回到手牌并进入不可打出状态。\n若友方回合结束时不处于不可打出状态，友方英雄获得1层总观效应。"
-Rarity = 1
+Rarity = 6
 Cost = 2
-Type = 1
+Type = 3
 RequiresTarget = false
 Keywords = Array[int]([11])
 Effects = [SubResource("SubResource_1")]
