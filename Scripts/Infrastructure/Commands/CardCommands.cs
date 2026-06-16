@@ -11,7 +11,7 @@ using CardType = OdysseyCards.Core.CardType;
 
 namespace OdysseyCards.Infrastructure.Commands;
 
-// ===== /token /play /summon_player =====
+// ===== /token /play /summon_player /summon_enemy =====
 
 public class TokenCommand : DevConsoleCommand
 {
@@ -274,7 +274,28 @@ public class SummonPlayerCommand : DevConsoleCommand
 	public override string Signature => "/summon_player <card_id> <slot>";
 	public override string Description => "在己方槽位直接召唤随从（QA）。";
 
-	public override CompletionCandidate[]? GetArgCandidates(string partialArg)
+	public override CompletionCandidate[]? GetArgCandidates(string partialArg) => SummonCommandHelper.GetMinionCandidates(partialArg);
+
+	public override CommandResult Execute(string[] args)
+		=> SummonCommandHelper.Summon(args, isPlayerSide: true, sideLabel: "己方");
+}
+
+public class SummonEnemyCommand : DevConsoleCommand
+{
+	public override string Name => "summon_enemy";
+	public override string[] Aliases => ["se"];
+	public override string Signature => "/summon_enemy <card_id> <slot>";
+	public override string Description => "在敌方槽位直接召唤随从（QA）。";
+
+	public override CompletionCandidate[]? GetArgCandidates(string partialArg) => SummonCommandHelper.GetMinionCandidates(partialArg);
+
+	public override CommandResult Execute(string[] args)
+		=> SummonCommandHelper.Summon(args, isPlayerSide: false, sideLabel: "敌方");
+}
+
+internal static class SummonCommandHelper
+{
+	public static CompletionCandidate[] GetMinionCandidates(string partialArg)
 	{
 		var all = GameManager.Instance?.GetAllCards() ?? [];
 		return all
@@ -285,13 +306,13 @@ public class SummonPlayerCommand : DevConsoleCommand
 			.ToArray();
 	}
 
-	public override CommandResult Execute(string[] args)
+	public static CommandResult Summon(string[] args, bool isPlayerSide, string sideLabel)
 	{
 		var cm = CombatManager.Instance;
 		if (cm == null)
 			return CommandResult.Fail("未在战斗中");
 		if (args.Length < 2)
-			return CommandResult.Fail("用法: /summon_player <card_id> <slot0-4>");
+			return CommandResult.Fail($"用法: /summon_{(isPlayerSide ? "player" : "enemy")} <card_id> <slot0-4>");
 
 		var all = GameManager.Instance?.GetAllCards() ?? [];
 		var cardData = all.FirstOrDefault(c => string.Equals(c.Id, args[0], StringComparison.OrdinalIgnoreCase));
@@ -303,9 +324,9 @@ public class SummonPlayerCommand : DevConsoleCommand
 		if (!int.TryParse(args[1], out var slot) || slot < 0 || slot >= Board.MaxSlotsPerSide)
 			return CommandResult.Fail("槽位需为 0-4");
 
-		var minion = new Minion(cardData, isPlayerSide: true);
+		var minion = new Minion(cardData, isPlayerSide);
 		cm.Board.PlaceMinion(minion, slot);
 		RefreshCombatUI(cm);
-		return CommandResult.Ok($"已在己方槽位 {slot} 召唤「{minion.GetLocalizedName()}」");
+		return CommandResult.Ok($"已在{sideLabel}槽位 {slot} 召唤「{minion.GetLocalizedName()}」");
 	}
 }
