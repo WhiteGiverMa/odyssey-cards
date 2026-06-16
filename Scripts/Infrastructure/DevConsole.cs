@@ -421,6 +421,7 @@ public partial class DevConsole : Node
 		_engine.Register(new Commands.ManaCommand());
 		_engine.Register(new Commands.HealCommand());
 		_engine.Register(new Commands.ArmorCommand());
+		_engine.Register(new Commands.PurifyCommand());
 		_engine.Register(new Commands.EndCommand());
 		_engine.Register(new Commands.FightCommand());
 		_engine.Register(new Commands.RefreshCommand());

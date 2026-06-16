@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using OdysseyCards.Character;
 using OdysseyCards.Core;
@@ -54,6 +55,7 @@ public class Hero : IDamageTarget, IDamageSource
 	/// 用于武器禁用等持续性减益效果。
 	/// </summary>
 	private readonly Dictionary<string, StatusEffect> _statusEffects = new();
+	private bool _suppressNegativeEffectLost;
 
 	/// <summary>
 	/// 本回合已使用武器攻击的次数。
@@ -836,6 +838,9 @@ public class Hero : IDamageTarget, IDamageSource
 
 	private void HandleNegativeEffectLost(string removedId, bool wasNegative, bool removedFlawItself)
 	{
+		if (_suppressNegativeEffectLost)
+			return;
+
 		if (!wasNegative)
 			return;
 
@@ -884,6 +889,82 @@ public class Hero : IDamageTarget, IDamageSource
 	private TickTiming GetNegativeStatusTickTiming()
 	{
 		return IsPlayerSide ? TickTiming.PlayerTurnEnd : TickTiming.EnemyTurnEnd;
+	}
+
+	/// <summary>
+	/// 获取与效果栏顺序一致的可净化负面效果列表。
+	/// 仅包含状态效果与领域效果。
+	/// </summary>
+	public List<DisplayableEffect> GetPurifiableNegativeEffects()
+	{
+		var effects = GetDisplayableEffects()
+			.Where(effect => !effect.IsBuff
+				&& (effect.Category == EffectCategory.StatusEffect || effect.Category == EffectCategory.Domain)
+				&& !string.IsNullOrEmpty(effect.SourceId))
+			.ToList();
+
+		effects.Sort((a, b) => a.SortOrder.CompareTo(b.SortOrder));
+		return effects;
+	}
+
+	/// <summary>
+	/// 净化所有负面状态与负面领域。
+	/// 控制台/QA 用：抑制难逃之瑕反弹，确保结果稳定。
+	/// </summary>
+	public int PurifyAllNegativeEffects()
+	{
+		var negativeStatuses = _statusEffects
+			.Where(pair => pair.Value.IsNegative && !pair.Value.IsExpired)
+			.Select(pair => pair.Key)
+			.ToList();
+		var negativeDomains = _activeDomains
+			.Where(pair => pair.Value.IsNegative)
+			.Select(pair => pair.Key)
+			.ToList();
+
+		_suppressNegativeEffectLost = true;
+		try
+		{
+			foreach (var id in negativeStatuses)
+				RemoveStatusEffect(id);
+			foreach (var id in negativeDomains)
+				RemoveDomain(id);
+		}
+		finally
+		{
+			_suppressNegativeEffectLost = false;
+		}
+
+		return negativeStatuses.Count + negativeDomains.Count;
+	}
+
+	/// <summary>
+	/// 按当前效果栏从左到右的 1 基序号净化指定负面效果。
+	/// 控制台/QA 用：抑制难逃之瑕反弹，确保结果稳定。
+	/// </summary>
+	public string? PurifyNegativeEffectAt(int oneBasedIndex)
+	{
+		var effects = GetPurifiableNegativeEffects();
+		if (oneBasedIndex < 1 || oneBasedIndex > effects.Count)
+			return null;
+
+		var effect = effects[oneBasedIndex - 1];
+		var sourceId = effect.SourceId!;
+
+		_suppressNegativeEffectLost = true;
+		try
+		{
+			if (effect.Category == EffectCategory.StatusEffect)
+				RemoveStatusEffect(sourceId);
+			else if (effect.Category == EffectCategory.Domain)
+				RemoveDomain(sourceId);
+		}
+		finally
+		{
+			_suppressNegativeEffectLost = false;
+		}
+
+		return effect.Name;
 	}
 
 	// ===== 武器攻击追踪 =====
@@ -962,15 +1043,16 @@ public class Hero : IDamageTarget, IDamageSource
 			var data = EffectIconTable.GetStatusEffect(id);
 			if (data == null)
 				continue;
-			effects.Add(new DisplayableEffect
-			{
-				Icon = data.Value.Icon,
-				Name = Localization.Localization.T(data.Value.NameKey, ""),
+				effects.Add(new DisplayableEffect
+				{
+					Icon = data.Value.Icon,
+					Name = Localization.Localization.T(data.Value.NameKey, ""),
 				Stacks = se.Stacks,
-				Description = Localization.Localization.T(data.Value.DescKey, ""),
-				IsBuff = !se.IsNegative,
-				Category = EffectCategory.StatusEffect,
-			});
+					Description = Localization.Localization.T(data.Value.DescKey, ""),
+					IsBuff = !se.IsNegative,
+					Category = EffectCategory.StatusEffect,
+					SourceId = id,
+				});
 		}
 
 		// 2. ActiveDomains
@@ -980,7 +1062,7 @@ public class Hero : IDamageTarget, IDamageSource
 			if (data == null)
 				continue;
 			effects.Add(EffectIconTable.ToDisplayable(
-				data.Value, EffectCategory.Domain, domain.StackCount));
+				data.Value, EffectCategory.Domain, domain.StackCount, domainId));
 		}
 
 		// 3. Numerical stat changes (Defense only — HP on health bar)
