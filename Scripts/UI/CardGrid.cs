@@ -67,6 +67,12 @@ namespace OdysseyCards.UI
 		private readonly List<IDisposable> _mobileZoneTokens = new();
 		private const float DragThreshold = 8f;
 
+		/// <summary>
+		/// 追踪每个 CardUI 实例的悬停缩放 Tween，用于杀旧防竞争。
+		/// Key = CardUI.GetInstanceId(), Value = 正在运行的 Tween。
+		/// </summary>
+		private static readonly Dictionary<ulong, Tween> _hoverScaleTweens = new();
+
 		// ===== 事件 =====
 
 		/// <summary>
@@ -726,28 +732,50 @@ namespace OdysseyCards.UI
 
 		// ===== 拖拽支持 =====
 
-		/// <summary>
-		/// 收藏网格卡牌悬停动画。CardUI 自身的 hover 现在只负责 ZIndex，网格需要显式缩放。
-		/// </summary>
-		private static void ApplyGridHover(CardUI cardUI, Vector2 cardSize, bool active)
+	/// <summary>
+	/// 收藏网格卡牌悬停动画。CardUI 自身的 hover 现在只负责 ZIndex，网格需要显式缩放。
+	/// 通过静态字典追踪 tween：快速进出时杀旧 Tween 防止 scale 竞争，
+	/// 旧 Tween 后完成会覆盖新 Tween 结果，导致卡牌永久位移。
+	/// </summary>
+	private static void ApplyGridHover(CardUI cardUI, Vector2 cardSize, bool active)
+	{
+		// 杀死旧 Tween 防止竞争
+		if (_hoverScaleTweens.TryGetValue(cardUI.GetInstanceId(), out var oldTween))
 		{
-			cardUI.PivotOffset = cardSize / 2f;
-
-			if (active)
-			{
-				cardUI.ApplyHoverEffect();
-			}
-
-			var tween = cardUI.CreateTween();
-			tween.SetTrans(Tween.TransitionType.Cubic);
-			tween.SetEase(Tween.EaseType.Out);
-			tween.TweenProperty(cardUI, "scale", active ? Vector2.One * 1.08f : Vector2.One, 0.12f);
-
-			if (!active)
-			{
-				cardUI.RemoveHoverEffect();
-			}
+			oldTween.Kill();
+			_hoverScaleTweens.Remove(cardUI.GetInstanceId());
 		}
+
+		cardUI.PivotOffset = cardSize / 2f;
+
+		if (active)
+		{
+			cardUI.ApplyHoverEffect();
+		}
+
+		var tween = cardUI.CreateTween();
+		tween.SetTrans(Tween.TransitionType.Cubic);
+		tween.SetEase(Tween.EaseType.Out);
+		tween.TweenProperty(cardUI, "scale", active ? Vector2.One * 1.08f : Vector2.One, 0.12f);
+
+		// 追踪 tween：下次 hover 事件时可被 Kill
+		_hoverScaleTweens[cardUI.GetInstanceId()] = tween;
+
+		if (!active)
+		{
+			// 缩放恢复完成后重置 PivotOffset，避免残留偏移
+			tween.Finished += () =>
+			{
+				cardUI.PivotOffset = Vector2.Zero;
+				_hoverScaleTweens.Remove(cardUI.GetInstanceId());
+			};
+			cardUI.RemoveHoverEffect();
+		}
+		else
+		{
+			tween.Finished += () => _hoverScaleTweens.Remove(cardUI.GetInstanceId());
+		}
+	}
 
 		private void ClearMobileZones()
 		{
