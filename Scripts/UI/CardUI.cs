@@ -1120,7 +1120,7 @@ public partial class CardUI : Control
 	}
 
 	/// <summary>
-	/// 法术布局：隐藏攻防属性，显示"法术"标签。
+	/// 非随从布局：隐藏攻防属性，显示卡牌类型标签（法术/领域/状态）。
 	/// </summary>
 	private void ShowSpellLayout(Card.Card card, float s)
 	{
@@ -1133,9 +1133,10 @@ public partial class CardUI : Control
 		_actionCostLabel.Visible = false;
 		_spellTypeLabel.Text = card.Type switch
 		{
-			CardType.Spell => "法术",
-			CardType.Domain => "领域",
-			_ => "法术"
+			CardType.Spell => Loc.T("card_type.spell", "法术"),
+			CardType.Domain => Loc.T("card_type.domain", "领域"),
+			CardType.Status => Loc.T("card_type.status", "状态"),
+			_ => Loc.T("card_type.spell", "法术")
 		};
 	}
 
