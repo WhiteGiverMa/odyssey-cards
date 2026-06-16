@@ -5,7 +5,7 @@
 类炉石传说的回合制卡牌对战 Roguelite 游戏 — Godot 4.6 + C#。
 
 > **分支:** `dev` | **状态:** 能玩 MVP 继续扩展中<br>
-> 165 个 `Scripts/*.cs` 文件，约 39,000 行游戏代码。完整回合制战斗循环可运行，含卡牌收藏、地图路线、存档、本地化、开发者控制台与运行时 QA。
+> 175 个 `Scripts/*.cs` 文件，约 37,000 行游戏代码。完整回合制战斗循环可运行，含卡牌收藏、地图路线、存档、本地化、开发者控制台与运行时 QA。
 
 ## 核心系统
 
@@ -17,7 +17,7 @@
 - **法术 (Spell)**：卡牌类型存在；运行时统一通过 `Card` 基类处理
 - **领域 (Domain)**：持续性场地效果，在战斗事件点长期触发
 - **武器 (Weapon)**：英雄装备，提供攻击与武器技能
-- **英雄 (Hero)**：护甲机制已接入；英雄技能仅 IronWill 已实现，战斗 UI 尚未完整接线
+- **英雄 (Hero)**：护甲机制已接入；4 个英雄技能实现已存在，战斗 UI 仍需按英雄逐项验证
 - **藏品 (Relic)**：生命周期钩子系统已存在，资源化仍在进行
 - **热力 (Heat)**：战斗全局节奏压力，接入伤害倍率阶段
 
@@ -61,25 +61,25 @@ YAML-based 本地化系统（`Scripts/Localization/`），中文/英文双语支
 
 - **引擎**: Godot 4.6
 - **语言**: C# (.NET 8.0, Godot.NET.Sdk/4.6.2)
-- **测试**: xUnit（5 个 Unit + 1 个 Integration；Integration 因 Godot Resource 依赖跳过）
+- **测试**: xUnit（10 个 Unit + 1 个 Integration；Integration 因 Godot Resource 依赖跳过）
 - **平台**: Windows；Android 导出脚本存在
 
 ## 项目结构
 
 ```
 Scripts/
-├── Core/ (33)           # CardData, DamageResolver, GameManager, CardEffectData, SaveDataManager…
-├── UI/ (36)             # CombatUI partials, CardUI, BoardUI, CollectionUI, MapUI, Shop/Rest/Event UI…
-├── Card/ (12)           # Card, Minion, Hero, Weapon, StatusEffect, HeroPowers/IronWillHeroPower
+├── Core/ (35)           # CardData, DamageResolver, GameManager, HeroProfile, RarityColorScheme…
+├── UI/ (39)             # CombatUI partials, CardUI, BoardUI, CollectionUI, MapUI, Shop/Rest/Event UI…
+├── Card/ (15)           # Card, Minion, Hero, Weapon, StatusEffect, ActiveDomain, HeroPowers/*
 ├── Character/ (5)       # Player, CommanderCore, Deck, CombatDeckState
-├── Combat/ (13)         # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem…
+├── Combat/ (14)         # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem/DomainTriggerManager…
 ├── AI/ (27)             # EnemyEncounter, EnemyRegistry, Brains, Intents/(19)
 ├── Heat/ (2)            # HeatSystem + HeatDamageModifier
 ├── Relic/ (7)           # AbstractRelic, RelicManager, concrete relics
 ├── Roguelike/ (5)       # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)    # YAML 多语言系统
 └── Infrastructure/ (20) # DevConsole, InputManager, HotkeyManager, MobileInputRouter, Commands/8
-Resources/Cards/         # 35 .tres（领域5 + 随从11 + 法术18 + 状态1）
+Resources/Cards/         # 37 .tres（领域6 + 随从11 + 法术19 + 状态1）
 Resources/Localization/  # zh.yaml / en.yaml
 Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPreview
 ```
@@ -136,7 +136,7 @@ dotnet format OdysseyCards.sln --verify-no-changes
 - `Spell.cs` 从未实例化；运行时统一用 `Card` 基类
 - `RailPistolPassive.cs`、`SafeAreaContainer.cs` 当前孤立
 - `ShopUI` / `RestSiteUI` / `EventUI` 存在但未完整接入 MapUI 流程
-- 英雄技能仅 IronWill 实现；战斗 UI/输入仍未完整接线
+- 英雄技能已有 IronWill / 星光补给 / 火力筛选 / 重整；战斗 UI 仍需按英雄逐项验证
 - 手牌无上限 + 疲劳系统未完整化（已有 `Status_Fatigue.tres`）
 - `InfoScreen.cs` 使用 Godot 过时 API `SplitOffset`
 

@@ -5,7 +5,7 @@
 ハースストーン風のターン制カードバトル Roguelite — Godot 4.6 + C#。
 
 > **ブランチ:** `dev` | **状態:** プレイ可能 MVP、拡張中<br>
-> 165 個の `Scripts/*.cs`、約 39,000 行のゲームコード。戦闘ループ、コレクション、マップ、セーブ、多言語、開発者コンソール、ランタイム QA が動作。
+> 175 個の `Scripts/*.cs`、約 37,000 行のゲームコード。戦闘ループ、コレクション、マップ、セーブ、多言語、開発者コンソール、ランタイム QA が動作。
 
 ## コアシステム
 
@@ -17,7 +17,7 @@
 - **呪文**：カード種別は存在。実行時は共通 `Card` 経路で処理
 - **領域**：戦闘イベントで継続発動するフィールド効果
 - **武器**：ヒーロー装備とスキル
-- **ヒーロー**：アーマー接続済み。ヒーローパワーは IronWill のみ実装、UI は未完
+- **ヒーロー**：アーマー接続済み。4 つのヒーローパワー実装が存在し、戦闘 UI はヒーローごとの実機確認が必要
 - **レリック**：ライフサイクルフックあり。リソース化は進行中
 - **Heat**：戦闘全体のテンポ圧力。ダメージパイプラインに接続
 
@@ -53,25 +53,25 @@ CollectionUI はカード閲覧とデッキ編集を提供。多言語は YAML�
 
 - **エンジン**: Godot 4.6
 - **言語**: C# (.NET 8.0, Godot.NET.Sdk/4.6.2)
-- **テスト**: xUnit（5 Unit + 1 Integration。Integration は Godot Resource 依存で skip）
+- **テスト**: xUnit（10 Unit + 1 Integration。Integration は Godot Resource 依存で skip）
 - **プラットフォーム**: Windows。Android エクスポートスクリプトあり
 
 ## プロジェクト構造
 
 ```
 Scripts/
-├── Core/ (33)           # CardData, DamageResolver, GameManager, CardEffectData, SaveDataManager…
-├── UI/ (36)             # CombatUI partials, CardUI, BoardUI, CollectionUI, MapUI, Shop/Rest/Event UI…
-├── Card/ (12)           # Card, Minion, Hero, Weapon, StatusEffect, HeroPowers/IronWillHeroPower
+├── Core/ (35)           # CardData, DamageResolver, GameManager, HeroProfile, RarityColorScheme…
+├── UI/ (39)             # CombatUI partials, CardUI, BoardUI, CollectionUI, MapUI, Shop/Rest/Event UI…
+├── Card/ (15)           # Card, Minion, Hero, Weapon, StatusEffect, ActiveDomain, HeroPowers/*
 ├── Character/ (5)       # Player, CommanderCore, Deck, CombatDeckState
-├── Combat/ (13)         # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem…
+├── Combat/ (14)         # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem/DomainTriggerManager…
 ├── AI/ (27)             # EnemyEncounter, EnemyRegistry, Brains, Intents/(19)
 ├── Heat/ (2)            # HeatSystem + HeatDamageModifier
 ├── Relic/ (7)           # AbstractRelic, RelicManager, concrete relics
 ├── Roguelike/ (5)       # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)    # YAML localization
 └── Infrastructure/ (20) # DevConsole, InputManager, HotkeyManager, MobileInputRouter, Commands/8
-Resources/Cards/         # 35 .tres resources
+Resources/Cards/         # 37 .tres resources
 Resources/Localization/  # zh.yaml / en.yaml
 Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPreview
 ```
@@ -128,7 +128,7 @@ dotnet format OdysseyCards.sln --verify-no-changes
 - `Spell.cs` は未インスタンス化。実行時は共通 `Card` 経路
 - `RailPistolPassive.cs` と `SafeAreaContainer.cs` は現在孤立
 - Shop/Rest/Event UI は存在するが MapUI フローへ完全接続されていない
-- ヒーローパワーは IronWill のみ。戦闘 UI/入力は未完
+- IronWill / 星光補給 / 火力筛选 / 重整 のヒーローパワー実装が存在。戦闘 UI はヒーローごとの実機確認が必要
 - 手札上限なし。疲労は未完（`Status_Fatigue.tres` は存在）
 - `InfoScreen.cs` は非推奨 Godot API `SplitOffset` を使用中
 

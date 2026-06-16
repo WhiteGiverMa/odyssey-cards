@@ -5,7 +5,7 @@
 A Hearthstone-like turn-based card battle Roguelite — Godot 4.6 + C#.
 
 > **Branch:** `dev` | **Status:** playable MVP, expanding<br>
-> 165 `Scripts/*.cs` files, ~39,000 lines of game code. Core combat loop runs with collection, map routes, saves, localization, dev console, and runtime QA.
+> 175 `Scripts/*.cs` files, ~37,000 lines of game code. Core combat loop runs with collection, map routes, saves, localization, dev console, and runtime QA.
 
 ## Core Systems
 
@@ -17,7 +17,7 @@ Turn-based combat on a 2×5 minion board. Mana, armor, weapons, domains, relic h
 - **Spell**: card type exists; runtime uses the shared `Card` base path
 - **Domain**: persistent field effect triggered by combat events
 - **Weapon**: hero equipment and skills
-- **Hero**: armor is wired; only IronWill hero power exists and combat UI is not fully wired
+- **Hero**: armor is wired; 4 hero power implementations exist, and combat UI still needs per-hero runtime verification
 - **Relic**: lifecycle-hook system exists; resource data is still being built
 - **Heat**: global battle pressure connected to the damage pipeline
 
@@ -53,25 +53,25 @@ CollectionUI handles browsing and deck editing. Localization is YAML-based (`zh.
 
 - **Engine**: Godot 4.6
 - **Language**: C# (.NET 8.0, Godot.NET.Sdk/4.6.2)
-- **Tests**: xUnit (5 Unit + 1 Integration; Integration skipped because Godot Resource runtime is required)
+- **Tests**: xUnit (10 Unit + 1 Integration; Integration skipped because Godot Resource runtime is required)
 - **Platforms**: Windows; Android export script exists
 
 ## Project Structure
 
 ```
 Scripts/
-├── Core/ (33)           # CardData, DamageResolver, GameManager, CardEffectData, SaveDataManager…
-├── UI/ (36)             # CombatUI partials, CardUI, BoardUI, CollectionUI, MapUI, Shop/Rest/Event UI…
-├── Card/ (12)           # Card, Minion, Hero, Weapon, StatusEffect, HeroPowers/IronWillHeroPower
+├── Core/ (35)           # CardData, DamageResolver, GameManager, HeroProfile, RarityColorScheme…
+├── UI/ (39)             # CombatUI partials, CardUI, BoardUI, CollectionUI, MapUI, Shop/Rest/Event UI…
+├── Card/ (15)           # Card, Minion, Hero, Weapon, StatusEffect, ActiveDomain, HeroPowers/*
 ├── Character/ (5)       # Player, CommanderCore, Deck, CombatDeckState
-├── Combat/ (13)         # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem…
+├── Combat/ (14)         # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem/DomainTriggerManager…
 ├── AI/ (27)             # EnemyEncounter, EnemyRegistry, Brains, Intents/(19)
 ├── Heat/ (2)            # HeatSystem + HeatDamageModifier
 ├── Relic/ (7)           # AbstractRelic, RelicManager, concrete relics
 ├── Roguelike/ (5)       # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)    # YAML localization
 └── Infrastructure/ (20) # DevConsole, InputManager, HotkeyManager, MobileInputRouter, Commands/8
-Resources/Cards/         # 35 .tres resources
+Resources/Cards/         # 37 .tres resources
 Resources/Localization/  # zh.yaml / en.yaml
 Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPreview
 ```
@@ -128,7 +128,7 @@ No GitHub Actions, Dockerfile, or Makefile currently. GUT is installed but has n
 - `Spell.cs` is never instantiated; runtime uses the shared `Card` path
 - `RailPistolPassive.cs` and `SafeAreaContainer.cs` are currently isolated
 - Shop/Rest/Event UI exists but is not fully wired into MapUI flow
-- Only IronWill hero power exists; combat UI/input is not fully wired
+- IronWill / Starlight Supply / Suppressing Fire / Restructure hero powers exist; combat UI still needs per-hero runtime verification
 - No hand limit and fatigue is incomplete (`Status_Fatigue.tres` exists)
 - `InfoScreen.cs` still uses deprecated Godot API `SplitOffset`
 
