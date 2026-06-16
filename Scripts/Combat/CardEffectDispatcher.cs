@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using OdysseyCards.AI;
 using OdysseyCards.Card;
 using OdysseyCards.Character;
 using OdysseyCards.Core;
@@ -18,6 +19,7 @@ internal sealed class CardEffectDispatcher
 {
 	private readonly CommanderCore _playerCore;
 	private readonly Hero _playerHero;
+	private readonly IReadOnlyList<EnemyUnit> _enemyUnits;
 	private readonly Board _board;
 	private readonly GameState _state;
 	private readonly Action _notifyCombatStateChanged;
@@ -30,6 +32,7 @@ internal sealed class CardEffectDispatcher
 	public CardEffectDispatcher(
 		CommanderCore playerCore,
 		Hero playerHero,
+		IReadOnlyList<EnemyUnit> enemyUnits,
 		Board board,
 		GameState state,
 		Action notifyCombatStateChanged,
@@ -40,6 +43,7 @@ internal sealed class CardEffectDispatcher
 	{
 		_playerCore = playerCore;
 		_playerHero = playerHero;
+		_enemyUnits = enemyUnits;
 		_board = board;
 		_state = state;
 		_notifyCombatStateChanged = notifyCombatStateChanged;
@@ -125,7 +129,7 @@ internal sealed class CardEffectDispatcher
 	private void HandleDealDamageToAllEnemies(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		int hitCount = 0;
-		foreach (var enemyMinion in _board.GetEnemyMinions())
+		foreach (var enemyMinion in GetEnemyMinionsFor(source))
 		{
 			_requestDamageVfx(visualSource, enemyMinion, DamageKind.Effect, CombatDamageVfxKind.Spell);
 			enemyMinion.TakeDamage(effect.Value, source, DamageKind.Effect);
@@ -416,7 +420,7 @@ internal sealed class CardEffectDispatcher
 				break;
 
 			case "BoundlessDarkness":
-				HandleBoundlessDarkness(effect);
+				HandleBoundlessDarkness(effect, source);
 				break;
 
 			case "ExplainEffect":
@@ -437,23 +441,77 @@ internal sealed class CardEffectDispatcher
 		return 1;
 	}
 
+	private static bool IsPlayerCaster(IDamageSource? source)
+	{
+		return source?.IsPlayerSide ?? true;
+	}
+
+	private IEnumerable<Hero> GetEnemyHeroesFor(IDamageSource? source)
+	{
+		if (IsPlayerCaster(source))
+		{
+			foreach (var unit in _enemyUnits)
+			{
+				if (!unit.Body.IsDead)
+					yield return unit.Body;
+			}
+
+			yield break;
+		}
+
+		yield return _playerHero;
+	}
+
+	private List<Minion> GetEnemyMinionsFor(IDamageSource? source)
+	{
+		return IsPlayerCaster(source) ? _board.GetEnemyMinions() : _board.GetPlayerMinions();
+	}
+
+	private static TickTiming GetEnemyStatusTickTimingFor(IDamageSource? source)
+	{
+		return IsPlayerCaster(source) ? TickTiming.EnemyTurnEnd : TickTiming.PlayerTurnEnd;
+	}
+
 	/// <summary>
-	/// 「无边黑暗」——所有敌人获得易伤+脆弱。
+	/// 「无边黑暗」——施放者的所有敌人获得易伤+脆弱。
 	/// </summary>
-	private void HandleBoundlessDarkness(CardEffectData effect)
+	private void HandleBoundlessDarkness(CardEffectData effect, IDamageSource? source = null)
 	{
 		int stacks = Math.Max(1, effect.Value);
-		// 对玩家英雄
-		_playerHero.AddStatusEffect(new StatusEffect("vulnerable", stacks, TickTiming.EnemyTurnEnd));
-		_playerHero.AddStatusEffect(new StatusEffect("fragile", stacks, TickTiming.EnemyTurnEnd));
-		// 对所有玩家随从
-		foreach (var minion in _board.GetPlayerMinions())
+		TickTiming tickOn = GetEnemyStatusTickTimingFor(source);
+		int heroCount = 0;
+		int minionCount = 0;
+
+		foreach (var hero in GetEnemyHeroesFor(source))
 		{
-			minion.AddStatusEffect(new StatusEffect("vulnerable", stacks, TickTiming.EnemyTurnEnd));
-			minion.AddStatusEffect(new StatusEffect("fragile", stacks, TickTiming.EnemyTurnEnd));
+			ApplyBoundlessDarknessStatus(hero, stacks, tickOn);
+			heroCount++;
 		}
-		GD.Print($"[CardEffectDispatcher] 无边黑暗：所有敌人获得 {stacks} 层易伤和脆弱");
+
+		foreach (var minion in GetEnemyMinionsFor(source))
+		{
+			ApplyBoundlessDarknessStatus(minion, stacks, tickOn);
+			minionCount++;
+		}
+
+		string sideLabel = IsPlayerCaster(source) ? "敌方" : "玩家方";
+		GD.Print($"[CardEffectDispatcher] 无边黑暗：{sideLabel}全体目标获得 {stacks} 层易伤和脆弱（英雄 {heroCount}，随从 {minionCount}，合计 {heroCount + minionCount}）");
 		_notifyCombatStateChanged();
+	}
+
+	private static void ApplyBoundlessDarknessStatus(IDamageTarget target, int stacks, TickTiming tickOn)
+	{
+		switch (target)
+		{
+			case Hero hero:
+				hero.AddStatusEffect(new StatusEffect("vulnerable", stacks, tickOn));
+				hero.AddStatusEffect(new StatusEffect("fragile", stacks, tickOn));
+				break;
+			case Minion minion:
+				minion.AddStatusEffect(new StatusEffect("vulnerable", stacks, tickOn));
+				minion.AddStatusEffect(new StatusEffect("fragile", stacks, tickOn));
+				break;
+		}
 	}
 
 	/// <summary>

@@ -540,6 +540,7 @@ public partial class CombatManager : Node
 		_effectDispatcher = new CardEffectDispatcher(
 			_playerCore,
 			PlayerHero,
+			EnemyUnits,
 			Board,
 			State,
 			NotifyCombatStateChanged,
@@ -1152,7 +1153,7 @@ public partial class CombatManager : Node
 	/// <param name="target">法术目标对象</param>
 	private void ResolveSpellEffect(CardEffectData effect, object target, OdysseyCards.Card.Card card)
 	{
-		ExecuteEffect(effect, target, visualSource: card);
+		ExecuteEffect(effect, target, PlayerHero, card);
 	}
 
 	// ===== 随从攻击 =====
