@@ -11,7 +11,7 @@ wiki 也不是准确状态参考；实现状态以实际 UX、当前代码和项
 
 ## 条目
 
-- [玩家英雄、武器与技能](player-hero.md)
+- [玩家英雄、武器与技能](player-heroines.md)
 - [卡牌](cards.md)
 - [敌人英雄](enemy-heroes.md)
 - [敌人随从](enemy-minions.md)

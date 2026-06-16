@@ -89,6 +89,33 @@
   * 主动技能：「致盲」：花费2，使一个单位（英雄或随从）攻击力-2。冷却1回合，最大存储层数3层。
 - 英雄主动技能：「重整」：花费4，洗切卡组（打乱抽牌堆中卡牌的顺序），抽2张牌，弃1张牌。冷却1回合，最大存2层。
 
+## 英雄：绮梦
+
+- 英雄：绮梦（Ayame）
+- 初始最大 HP：30
+- 初始防御力：0
+- 武器：魔法棒
+  - 攻击力：0
+  - 武器攻击花费：2
+  - 被动技能：贴膜魔法
+    - 武器攻击**可以选择友方随从作为目标**。
+    - 攻击友方随从时，改为使其获得（攻击力 + 2）点生命。
+    - 随从生命值**无上限**（贴膜式治疗，可突破 MaxHealth）。
+  - 主动技能：星辉净化
+    - 费用：2
+    - 冷却：1 个友方回合
+    - 移除任意目标身上一个随机**负面效果**（英雄/随从/敌方/友方均可），抽 1 张牌。
+    - 目标选择复用现有 InteractionFSM 路径，支持右键取消和箭头渲染。
+- 英雄主动技能：星光补给
+  - 费用：4
+  - 抽 1 张牌，回复 2 点生命值（**不突破英雄最大 HP**）。
+- 实现状态：全部能力已实现为一个端点；代码中有 `MagicWand`（含 `MagicFilmPassive` + `StarlightCleanse`）、`AyameStarlightSupplyHeroPower`。
+- 概念历史：
+  - 原 demo 绮梦（ID: `qimeng`）已改名为**红裤衩**（`redpantsu`）；旧存档 ID `qimeng` 自动映射到 `ayame`（参见 `HeroProfile.Get()`）。
+  - 技能名为占位符，用户可能在未来要求重命名。
+- 新增 `StatusEffectPolarity` 枚举（`NonNegative`/`Negative`），已知减益（`attack_zero`、`meltdown`、`weapon_disabled`、`animosity`、`vulnerable`、`weak`、`fragile`、`total_observation`、`attack_ban`、`damage_over_time`）自动判定为负面效果，用于星辉净化筛选。
+- 已知债务：英雄技能按钮的完整 UI 路径（点击→目标选择→结算）尚未完成；IronWill 是唯一 UI 完整的英雄技能。
+
 ## 待确认
 
 - `棍木` 与早期草稿中的 `滚木` 是否统一为 `棍木`。
