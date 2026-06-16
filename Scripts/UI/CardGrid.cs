@@ -73,6 +73,11 @@ namespace OdysseyCards.UI
 		/// </summary>
 		private static readonly Dictionary<ulong, Tween> _hoverScaleTweens = new();
 
+		/// <summary>
+		/// 悬停前 CardUI 的原始 Position（相对于 wrapper），hover 退出时恢复至此。
+		/// </summary>
+		private static readonly Dictionary<ulong, Vector2> _hoverOrigPositions = new();
+
 		// ===== 事件 =====
 
 		/// <summary>
@@ -733,47 +738,61 @@ namespace OdysseyCards.UI
 		// ===== 拖拽支持 =====
 
 	/// <summary>
-	/// 收藏网格卡牌悬停动画。CardUI 自身的 hover 现在只负责 ZIndex，网格需要显式缩放。
-	/// 通过静态字典追踪 tween：快速进出时杀旧 Tween 防止 scale 竞争，
-	/// 旧 Tween 后完成会覆盖新 Tween 结果，导致卡牌永久位移。
+	/// 收藏网格卡牌悬停动画。
+	/// 不使用 PivotOffset — 改用 Position+Scale 双属性动画，
+	/// Position 向中心偏移补偿缩放后左上角位移，退出时精确还原原始位置。
+	/// 杀旧 Tween 防竞争：快速进出时多个 Tween 同时跑会导致位置错乱。
 	/// </summary>
 	private static void ApplyGridHover(CardUI cardUI, Vector2 cardSize, bool active)
 	{
+		var id = cardUI.GetInstanceId();
+
 		// 杀死旧 Tween 防止竞争
-		if (_hoverScaleTweens.TryGetValue(cardUI.GetInstanceId(), out var oldTween))
+		if (_hoverScaleTweens.TryGetValue(id, out var oldTween))
 		{
 			oldTween.Kill();
-			_hoverScaleTweens.Remove(cardUI.GetInstanceId());
+			_hoverScaleTweens.Remove(id);
 		}
-
-		cardUI.PivotOffset = cardSize / 2f;
 
 		if (active)
 		{
 			cardUI.ApplyHoverEffect();
-		}
 
-		var tween = cardUI.CreateTween();
-		tween.SetTrans(Tween.TransitionType.Cubic);
-		tween.SetEase(Tween.EaseType.Out);
-		tween.TweenProperty(cardUI, "scale", active ? Vector2.One * 1.08f : Vector2.One, 0.12f);
+			// 保存原始位置（仅首次悬停时，避免覆盖已保存的值）
+			if (!_hoverOrigPositions.ContainsKey(id))
+				_hoverOrigPositions[id] = cardUI.Position;
 
-		// 追踪 tween：下次 hover 事件时可被 Kill
-		_hoverScaleTweens[cardUI.GetInstanceId()] = tween;
+			// 缩放 8%，Position 向中心偏移补偿，保持视觉中心不动
+			float scaleDelta = 0.08f;
+			Vector2 offset = cardSize * scaleDelta * 0.5f;
 
-		if (!active)
-		{
-			// 缩放恢复完成后重置 PivotOffset，避免残留偏移
-			tween.Finished += () =>
-			{
-				cardUI.PivotOffset = Vector2.Zero;
-				_hoverScaleTweens.Remove(cardUI.GetInstanceId());
-			};
-			cardUI.RemoveHoverEffect();
+			var tween = cardUI.CreateTween();
+			tween.SetParallel(true);
+			tween.SetTrans(Tween.TransitionType.Cubic);
+			tween.SetEase(Tween.EaseType.Out);
+			tween.TweenProperty(cardUI, "scale", Vector2.One * (1f + scaleDelta), 0.12f);
+			tween.TweenProperty(cardUI, "position", cardUI.Position - offset, 0.12f);
+			_hoverScaleTweens[id] = tween;
 		}
 		else
 		{
-			tween.Finished += () => _hoverScaleTweens.Remove(cardUI.GetInstanceId());
+			cardUI.RemoveHoverEffect();
+
+			// 恢复到保存的原始位置
+			Vector2 origPos = _hoverOrigPositions.TryGetValue(id, out var saved)
+				? saved
+				: cardUI.Position;
+			_hoverOrigPositions.Remove(id);
+
+			var tween = cardUI.CreateTween();
+			tween.SetParallel(true);
+			tween.SetTrans(Tween.TransitionType.Cubic);
+			tween.SetEase(Tween.EaseType.Out);
+			tween.TweenProperty(cardUI, "scale", Vector2.One, 0.12f);
+			tween.TweenProperty(cardUI, "position", origPos, 0.12f);
+
+			tween.Finished += () => _hoverScaleTweens.Remove(id);
+			_hoverScaleTweens[id] = tween;
 		}
 	}
 
