@@ -445,9 +445,18 @@ cards:
   spell_chansu:
     name: "机会~"
     description: "回复2点生命，获得2点格挡，抽1张牌。每回合首次对热力值大于100%的敌人造成伤害时，将牌库或弃牌堆中的这张牌加入手牌。"
-  spell_explain:
+  status_explain:
     name: "解释"
     description: "奇巧。打出时使敌方英雄获得1层总观效应。\n回到手牌。"
+  status_tiredness:
+    name: "疲倦"
+    description: "对玩家英雄造成1点伤害。"
+
+card_type:
+  minion: "随从"
+  spell: "法术"
+  domain: "领域"
+  status: "状态"
 
 intent:
   attack_format: "对{target}造成 {damage} 点伤害"

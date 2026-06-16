@@ -442,9 +442,18 @@ cards:
   spell_chansu:
     name: "CHANSU~"
     description: "Restore 2 HP, gain 2 Block, draw 1 card. The first time each turn you deal damage to an enemy with Heat > 100%, add this card to your hand from your draw or discard pile."
-  spell_explain:
+  status_explain:
     name: "Explanation"
     description: "Qiqiao. Apply 1 Total Observation to the enemy hero.\nReturn to hand."
+  status_tiredness:
+    name: "Tiredness"
+    description: "Deal 1 damage to the player hero."
+
+card_type:
+  minion: "Minion"
+  spell: "Spell"
+  domain: "Domain"
+  status: "Status"
 
 intent:
   attack_format: "Deal {damage} damage to {target}"
