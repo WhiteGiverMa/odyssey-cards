@@ -688,7 +688,16 @@ func _run():
 
 	var script: GDScript = GDScript.new()
 	script.source_code = script_source
-	var err: int = script.reload()
+	# 在子线程中编译：debug 模式下主线程 GDScript 编译错误会触发调试器 break，
+	# 暂停整个游戏（包括 Timer 驱动的 _poll_connection），导致后续所有 MCP 命令超时。
+	# 子线程编译错误只返回错误码，不触发调试器 break。
+	var __compile_state := {"err": OK}
+	var __compile_thread := Thread.new()
+	var __compile_func := func():
+		__compile_state["err"] = script.reload()
+	__compile_thread.start(__compile_func)
+	__compile_thread.wait_to_finish()
+	var err: int = __compile_state["err"]
 	if err != OK:
 		_send_response({"error": "Failed to compile GDScript (error %d). Check syntax." % err})
 		return
@@ -711,10 +720,26 @@ func _run():
 
 
 func _indent_code(code: String) -> String:
+	# 统一用户代码缩进为 tab，避免 GDScript "Mixed use of tabs and spaces" 编译错误。
+	# 逐行检测前导空格数，按 4 空格 = 1 tab 转换，保留行内空格不变。
 	var lines: PackedStringArray = code.split("\n")
 	var indented: String = ""
 	for line in lines:
-		indented += "\t" + line + "\n"
+		var leading_spaces := 0
+		for ch in line:
+			if ch == " ":
+				leading_spaces += 1
+			else:
+				break
+		# 将前导空格转为 tab（4 空格 = 1 tab），剩余不足 4 的空格也转为 1 tab
+		var tabs := ""
+		if leading_spaces > 0:
+			var tab_count := leading_spaces / 4
+			var remainder := leading_spaces % 4
+			if remainder > 0:
+				tab_count += 1
+			tabs = "\t".repeat(tab_count)
+		indented += "\t" + tabs + line.substr(leading_spaces) + "\n"
 	return indented
 
 
