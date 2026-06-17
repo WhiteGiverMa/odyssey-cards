@@ -12,6 +12,7 @@ public partial class MainMenu : Control
 {
 	private Button _startButton;
 	private Button _collectionButton;
+	private Button _emoteButton = null!;
 	private Button _continueButton = null!;
 	private Button _settingsButton;
 	private Button _abandonButton = null!;
@@ -64,8 +65,20 @@ public partial class MainMenu : Control
 		_buttonContainer.AddChild(_collectionButton);
 		_buttonContainer.MoveChild(_collectionButton, settingsIdx);
 
+		// 动态插入「我的表情」按钮
+		_emoteButton = new Button
+		{
+			Name = "EmoteButton",
+			LayoutMode = 2,
+		};
+		_emoteButton.AddThemeColorOverride("font_color", new Color(1, 1, 1, 1));
+		_emoteButton.AddThemeFontSizeOverride("font_size", 24);
+		_buttonContainer.AddChild(_emoteButton);
+		_buttonContainer.MoveChild(_emoteButton, settingsIdx + 1);
+
 		_startButton.Pressed += OnStartPressed;
 		_collectionButton.Pressed += OnCollectionPressed;
+		_emoteButton.Pressed += OnEmotePressed;
 		_settingsButton.Pressed += OnSettingsPressed;
 
 		// 动态插入「继续冒险」按钮
@@ -144,6 +157,10 @@ public partial class MainMenu : Control
 		_zoneTokens.Add(router.RegisterTapZone(_collectionButton,
 			new Rect2(_collectionButton.GlobalPosition, _collectionButton.Size),
 			priority: 400, onTap: () => OnCollectionPressed()));
+
+		_zoneTokens.Add(router.RegisterTapZone(_emoteButton,
+			new Rect2(_emoteButton.GlobalPosition, _emoteButton.Size),
+			priority: 400, onTap: () => OnEmotePressed()));
 
 		_zoneTokens.Add(router.RegisterTapZone(_settingsButton,
 			new Rect2(_settingsButton.GlobalPosition, _settingsButton.Size),
@@ -433,6 +450,26 @@ public partial class MainMenu : Control
 		GetTree().ChangeSceneToFile("res://Scenes/Collection.tscn");
 	}
 
+	private void OnEmotePressed()
+	{
+		if (IsSettingsOverlayActive() || IsHeroSelectorActive())
+			return;
+
+		var page = new EmotePresetPage
+		{
+			Name = "EmotePresetPage",
+		};
+		page.SetAnchorsPreset(LayoutPreset.FullRect);
+		AddChild(page);
+		_mainMenuContainer.Visible = false;
+
+		if (MobileInputRouter.IsMobile)
+		{
+			_activeModalOverlay = page;
+			MobileInputRouter.Instance.PushModalLayer(page);
+		}
+	}
+
 	private void OnSettingsPressed()
 	{
 		if (IsSettingsOverlayActive())
@@ -491,6 +528,7 @@ public partial class MainMenu : Control
 		_continueButton.Text = Localization.Localization.T("ui.menu.continue_run", "继续冒险");
 		_abandonButton.Text = Localization.Localization.T("ui.menu.abandon_run", "放弃当前冒险");
 		_collectionButton.Text = Localization.Localization.T("ui.menu.collection", "我的收藏");
+		_emoteButton.Text = Localization.Localization.T("ui.menu.emotes", "我的表情");
 		_settingsButton.Text = Localization.Localization.T("ui.menu.settings", "Settings");
 		_quitButton.Text = Localization.Localization.T("ui.menu.quit", "退出");
 		if (IsHeroSelectorActive())
@@ -511,6 +549,7 @@ public partial class MainMenu : Control
 		// 置空引用以支持 GC
 		_startButton = null!;
 		_collectionButton = null!;
+		_emoteButton = null!;
 		_continueButton = null!;
 		_abandonButton = null!;
 		_quitButton = null!;
