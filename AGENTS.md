@@ -323,3 +323,4 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - 新增卡牌**必须**同步 `CardResourcePaths[]`。
 - 新增语言**必须**同步 `TryLoadTranslationsViaDirAccess()` 回退。
 - **必须**在产出新的特性、内容时提问用户「是否需要更新wiki」。**禁止**不经询问删除wiki中与代码不符的信息。
+- `project.godot`的空行噪音是常见现象；只提交有意义的变动，空行变动可忽略或回退。
