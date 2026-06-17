@@ -29,6 +29,11 @@ public partial class IntentIcon : Control
 	private float _iconVisualOffsetY = BobAmplitude;
 	private float _valueVisualOffsetY = BobAmplitude;
 	private bool _isHovering;
+	private Tween? _hoverScaleTween;
+
+	// ===== 公共属性 =====
+	/// <summary>当前是否处于悬停状态（供父卡片检查兄弟图标是否仍 hovered）。</summary>
+	public bool IsHovering => _isHovering;
 
 	// ===== 公共事件 =====
 	/// <summary>鼠标进入图标时触发，用于外部显示 tooltip。</summary>
@@ -45,7 +50,7 @@ public partial class IntentIcon : Control
 		_intentValue = value;
 
 		CustomMinimumSize = new Vector2(IconSize, HitBoxHeight);
-		MouseFilter = MouseFilterEnum.Pass;
+		MouseFilter = MouseFilterEnum.Stop;
 
 		// 数值标签（底端居中）
 		_valueLabel = new Label
@@ -83,12 +88,26 @@ public partial class IntentIcon : Control
 
 	public override void _Process(double delta)
 	{
-		if (_isFrozen)
+		// 始终推进 bob 相位——保持多个图标相位同步。悬停/冻结时跳过视觉输出。
+		float dt = (float)delta;
+		bool iconFloating = UIScaler.Instance?.IntentIconFloatingEnabled ?? true;
+		bool valueFloating = iconFloating && (UIScaler.Instance?.IntentValueFloatingEnabled ?? true);
+		if (iconFloating || valueFloating)
+			_bobPhase += dt * BobSpeed;
+
+		if (_isFrozen || _isHovering)
 			return;
 
-		UpdateVisualOffsets((float)delta);
+		ApplyBobVisuals(iconFloating, valueFloating);
 		UpdateValueLabelOffset();
 		QueueRedraw();
+	}
+
+	private void ApplyBobVisuals(bool iconFloating, bool valueFloating)
+	{
+		float bobOffsetY = BobAmplitude + Mathf.Sin(_bobPhase) * BobAmplitude;
+		_iconVisualOffsetY = iconFloating ? bobOffsetY : BobAmplitude;
+		_valueVisualOffsetY = valueFloating ? bobOffsetY : BobAmplitude;
 	}
 
 	public override void _Draw()
@@ -164,6 +183,8 @@ public partial class IntentIcon : Control
 	public void SetFrozen(bool frozen)
 	{
 		_isFrozen = frozen;
+		_hoverScaleTween?.Kill();
+		_hoverScaleTween = null;
 		if (frozen)
 		{
 			Modulate = new Color(1f, 1f, 1f, 0.5f);
@@ -203,6 +224,26 @@ public partial class IntentIcon : Control
 		flashTween.TweenProperty(this, "modulate", targetRestore, PerformDuration * 0.3f);
 	}
 
+	/// <summary>设置悬停状态（由父卡片手动 hover 检测调用，替代不可靠的 _Notification）。</summary>
+	public void SetHovering(bool hovering)
+	{
+		if (_isHovering == hovering)
+			return;
+		_isHovering = hovering;
+		if (hovering)
+		{
+			_hoverScaleTween?.Kill();
+			_hoverScaleTween = CreateTween();
+			_hoverScaleTween.TweenProperty(this, "scale", new Vector2(HoverScale, HoverScale), 0.1f);
+		}
+		else
+		{
+			_hoverScaleTween?.Kill();
+			_hoverScaleTween = CreateTween();
+			_hoverScaleTween.TweenProperty(this, "scale", Vector2.One, 0.1f);
+		}
+	}
+
 	public int GetIntentTypeId() => _intentTypeId;
 	public int GetValue() => _intentValue;
 	public string GetLabelText() => _labelText;
@@ -214,8 +255,9 @@ public partial class IntentIcon : Control
 		_isHovering = true;
 		OnHovered?.Invoke(this);
 
-		var tween = CreateTween();
-		tween.TweenProperty(this, "scale", new Vector2(HoverScale, HoverScale), 0.1f);
+		_hoverScaleTween?.Kill();
+		_hoverScaleTween = CreateTween();
+		_hoverScaleTween.TweenProperty(this, "scale", new Vector2(HoverScale, HoverScale), 0.1f);
 	}
 
 	private void OnMouseExited()
@@ -223,8 +265,9 @@ public partial class IntentIcon : Control
 		_isHovering = false;
 		OnUnhovered?.Invoke(this);
 
-		var tween = CreateTween();
-		tween.TweenProperty(this, "scale", Vector2.One, 0.1f);
+		_hoverScaleTween?.Kill();
+		_hoverScaleTween = CreateTween();
+		_hoverScaleTween.TweenProperty(this, "scale", Vector2.One, 0.1f);
 	}
 
 	private void OnIntentVisualSettingsChanged()
@@ -241,9 +284,7 @@ public partial class IntentIcon : Control
 		if (iconFloating || valueFloating)
 			_bobPhase += delta * BobSpeed;
 
-		float bobOffsetY = BobAmplitude + Mathf.Sin(_bobPhase) * BobAmplitude;
-		_iconVisualOffsetY = iconFloating ? bobOffsetY : BobAmplitude;
-		_valueVisualOffsetY = valueFloating ? bobOffsetY : BobAmplitude;
+		ApplyBobVisuals(iconFloating, valueFloating);
 	}
 
 	/// <summary>同步数值标签的视觉浮动；父 Control 自身保持稳定命中区域。</summary>
