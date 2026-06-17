@@ -15,10 +15,12 @@ public partial class IntentTooltip : Panel
 	// ===== 静态管理 =====
 	private static IntentTooltip? _current;
 
+	/// <summary>当前正在显示的 Tooltip 实例（可为 null）。供外部检查是否已有 tooltip 显示。</summary>
+	public static IntentTooltip? Current => _current;
+
 	// ===== 内部结构 =====
 	private Label _titleLabel = null!;
 	private Label _descLabel = null!;
-	private Tween? _hideTween;
 
 	// ===== 公共属性 =====
 	/// <summary>拥有此 Tooltip 的意图图标引用，用于外部跟踪。</summary>
@@ -366,42 +368,21 @@ public partial class IntentTooltip : Panel
 		Position = new Vector2(posX, posY);
 	}
 
-	/// <summary>播放淡入动画。</summary>
+	/// <summary>直接显示——参考 STS2，无淡入动画，避免连续 Show/Hide 时动画叠加导致忽闪。</summary>
 	private void PlayShowAnimation()
 	{
-		Modulate = new Color(1, 1, 1, 0);
+		Modulate = Colors.White;
 		Visible = true;
-
-		_hideTween?.Kill();
-		var tween = CreateTween();
-		tween.TweenProperty(this, "modulate", Colors.White, 0.15f)
-			 .SetEase(Tween.EaseType.Out)
-			 .SetTrans(Tween.TransitionType.Cubic);
 	}
 
 	// ===== 隐藏 / 销毁 =====
 
-	/// <summary>隐藏 Tooltip——淡出后自动销毁。</summary>
+	/// <summary>直接销毁 Tooltip——参考 STS2，无淡出动画，避免连续 Show/Hide 时新旧 tooltip 视觉叠加。</summary>
 	public void HideTooltip()
 	{
 		if (!IsInstanceValid(this))
 			return;
-
-		// 如果从未显示，直接销毁
-		if (!Visible)
-		{
-			QueueFree();
-			return;
-		}
-
-		// 播放淡出动画
-		_hideTween?.Kill();
-		var tween = CreateTween();
-		tween.TweenProperty(this, "modulate", new Color(1, 1, 1, 0), 0.1f)
-			 .SetEase(Tween.EaseType.In)
-			 .SetTrans(Tween.TransitionType.Cubic);
-		tween.Finished += QueueFree;
-		_hideTween = tween;
+		QueueFree();
 	}
 
 	// ===== 生命周期 =====
@@ -413,7 +394,6 @@ public partial class IntentTooltip : Panel
 		{
 			_current = null;
 		}
-		_hideTween?.Kill();
 		base._ExitTree();
 	}
 }
