@@ -1,4 +1,4 @@
-> [中文](README.md) | **English** | [日本語](README_JA.md)
+> [中文](README.md) | **English** | [日本語](README_JA.md) | [한국어](README_KO.md)
 
 # Odyssey Cards<br><small>Shoujo Odyssey Cards</small>
 
