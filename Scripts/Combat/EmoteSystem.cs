@@ -16,7 +16,7 @@ public partial class EmoteSystem : Node
 	private Random _emoteRng = new();
 	private List<string> _tauntPool = new();
 
-	public event Action<string>? OnEmote;
+	public event Action<CombatEmoteMessage>? OnEmote;
 
 	public override void _Ready()
 	{
@@ -61,11 +61,18 @@ public partial class EmoteSystem : Node
 		if (_tauntPool.Count == 0)
 			return;
 		string emote = _tauntPool[_emoteRng.Next(_tauntPool.Count)];
-		SendEmote(emote);
+		SendEnemyEmote(emote);
 	}
 
-	public void SendEmote(string text)
+	public void SendEnemyEmote(string text, int enemyIndex = 0, bool isOfficialCollection = false)
 	{
-		OnEmote?.Invoke(text);
+		if (string.IsNullOrWhiteSpace(text))
+			return;
+
+		OnEmote?.Invoke(new CombatEmoteMessage(
+			text.Trim(),
+			CombatEmoteSpeaker.Enemy,
+			enemyIndex,
+			isOfficialCollection));
 	}
 }

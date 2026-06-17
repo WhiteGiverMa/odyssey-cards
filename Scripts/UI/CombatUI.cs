@@ -961,9 +961,10 @@ public partial class CombatUI : Control
 		_board.OnMinionPreRemove += OnBoardMinionPreRemove;
 		_unsubscribeActions.Add(() => _board.OnMinionPreRemove -= OnBoardMinionPreRemove);
 
-		// 敌方表情 — 空闲超时或 DevConsole 触发
-		_combat.OnEnemyEmote += OnEnemyEmote;
-		_unsubscribeActions.Add(() => _combat.OnEnemyEmote -= OnEnemyEmote);
+
+		// 战斗消息/表情 — 空闲超时或信息发送界面触发
+		_combat.OnCombatEmote += OnCombatEmote;
+		_unsubscribeActions.Add(() => _combat.OnCombatEmote -= OnCombatEmote);
 
 		// 攻击拖拽 FSM 事件订阅
 		_attackDragFsm.OnDragMove += OnAttackDragMove;
@@ -1125,22 +1126,25 @@ public partial class CombatUI : Control
 	}
 
 	/// <summary>
-	/// 敌方表情事件——在第一个敌人身份卡上方显示浮动表情文本。
+	/// 战斗消息事件——根据发送者显示在己方或敌方英雄区域。
 	/// </summary>
-	private void OnEnemyEmote(string text)
+	private void OnCombatEmote(CombatEmoteMessage message)
 	{
-		if (string.IsNullOrEmpty(text))
+		if (string.IsNullOrEmpty(message.Text))
 			return;
-		var pos = GetEnemyIdentityCardCenter(0);
-		GD.Print($"[CombatUI] 收到表情「{text}」，敌人位置={pos}");
+
+		var pos = message.Speaker == CombatEmoteSpeaker.Player
+			? GetPlayerHeroScreenCenter()
+			: GetEnemyIdentityCardCenter(Mathf.Max(0, message.EnemyIndex));
+
 		if (pos == Vector2.Zero)
 		{
-			GD.PrintErr("[CombatUI] 表情位置无效（_enemyCards 可能为空）");
+			GD.PrintErr("[CombatUI] 消息位置无效");
 			return;
 		}
-		// 敌人身份卡在屏幕顶部，表情显示在卡片下方
-		pos.Y += 70;
-		FloatingEmote.Show(text, pos, _damageNumberContainer);
+
+		pos.Y += message.Speaker == CombatEmoteSpeaker.Player ? -45 : 70;
+		FloatingEmote.Show(message.Text, pos, _damageNumberContainer, message.IsOfficialCollection);
 	}
 
 	private void OnBoardMinionPlacedSubscribeDamage(Minion minion, int slotIndex)

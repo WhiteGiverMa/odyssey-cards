@@ -110,10 +110,10 @@ public partial class CombatManager : Node
 	public event Action<bool>? OnGameOver;
 
 	/// <summary>
-	/// 敌方表情事件——当敌人发送嘲讽表情时触发（参数为表情文本）。
-	/// 由 CombatUI 订阅以显示浮动表情文本。
+	/// 战斗消息事件——玩家/敌方都可发送。
+	/// 由 CombatUI 订阅以显示浮动消息文本。
 	/// </summary>
-	public event Action<string>? OnEnemyEmote;
+	public event Action<CombatEmoteMessage>? OnCombatEmote;
 
 	/// <summary>
 	/// 伤害弹道表现事件。
@@ -143,11 +143,35 @@ public partial class CombatManager : Node
 
 	/// <summary>
 	/// 强制从指定敌人发送一条表情文本（由 DevConsole /emote 命令调用）。
-	/// 委托给 <see cref="EmoteSystem.SendEmote"/>。
+	/// </summary>
+	public void SendEnemyEmote(string text, int enemyIndex = 0)
+	{
+		bool isOfficial = Core.GameManager.Instance?.IsOfficialCollectionEmote(text) ?? false;
+		_emoteSystem?.SendEnemyEmote(text, enemyIndex, isOfficial);
+	}
+
+	/// <summary>
+	/// 强制由玩家发送一条消息/表情。
+	/// </summary>
+	public void SendPlayerEmote(string text)
+	{
+		if (string.IsNullOrWhiteSpace(text))
+			return;
+
+		bool isOfficial = Core.GameManager.Instance?.IsOfficialCollectionEmote(text) ?? false;
+		OnCombatEmote?.Invoke(new CombatEmoteMessage(
+			text.Trim(),
+			CombatEmoteSpeaker.Player,
+			-1,
+			isOfficial));
+	}
+
+	/// <summary>
+	/// 兼容旧调用方：默认按敌方 0 号发送。
 	/// </summary>
 	public void SendEmote(string text)
 	{
-		_emoteSystem?.SendEmote(text);
+		SendEnemyEmote(text, 0);
 	}
 
 	/// <summary>
@@ -319,10 +343,10 @@ public partial class CombatManager : Node
 		Instance = this;
 		GD.Print("[CombatManager] _Ready — 单例已注册");
 
-		// 表情系统——作为子节点创建并添加，事件转发到 OnEnemyEmote
+		// 表情系统——作为子节点创建并添加，事件转发到 OnCombatEmote
 		_emoteSystem = new EmoteSystem { Name = "EmoteSystem" };
 		AddChild(_emoteSystem);
-		_emoteSystem.OnEmote += (text) => OnEnemyEmote?.Invoke(text);
+		_emoteSystem.OnEmote += message => OnCombatEmote?.Invoke(message);
 		GD.Print("[CombatManager] EmoteSystem 子节点已创建");
 
 		// 使用 CallDeferred 延迟到下一帧执行，确保 GameManager.Instance 等 Autoload 已就绪

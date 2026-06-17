@@ -20,6 +20,8 @@ public partial class FloatingEmote : Control
 
 	private static readonly Color _textColor = new(0.95f, 0.95f, 0.95f);
 	private static readonly Color _bgColor = new(0.05f, 0.05f, 0.08f, BgAlpha);
+	private static readonly Color _officialTextColor = new(1.0f, 0.93f, 0.55f);
+	private static readonly Color _officialBgColor = new(0.32f, 0.07f, 0.32f, 0.86f);
 
 	// ===== 静态工厂 =====
 
@@ -29,18 +31,18 @@ public partial class FloatingEmote : Control
 	/// <param name="text">表情文本</param>
 	/// <param name="screenPosition">生成位置（屏幕坐标，文本水平居中于此点）</param>
 	/// <param name="parent">父节点（应为 CanvasLayer 下的 Control）</param>
-	public static void Show(string text, Vector2 screenPosition, Node parent)
+	public static void Show(string text, Vector2 screenPosition, Node parent, bool isOfficialCollection = false)
 	{
 		if (string.IsNullOrEmpty(text))
 			return;
 		var emote = new FloatingEmote();
-		emote.Initialize(text, screenPosition);
+		emote.Initialize(text, screenPosition, isOfficialCollection);
 		parent.AddChild(emote);
 	}
 
 	// ===== 初始化 =====
 
-	private void Initialize(string text, Vector2 screenPosition)
+	private void Initialize(string text, Vector2 screenPosition, bool isOfficialCollection)
 	{
 		// 读取表情缩放设置
 		float vfxScale = UIScaler.Instance?.EmoteScale ?? 1.0f;
@@ -74,7 +76,7 @@ public partial class FloatingEmote : Control
 		};
 		var style = new StyleBoxFlat
 		{
-			BgColor = _bgColor,
+			BgColor = isOfficialCollection ? _officialBgColor : _bgColor,
 			CornerRadiusTopLeft = scaledCornerRadius,
 			CornerRadiusTopRight = scaledCornerRadius,
 			CornerRadiusBottomLeft = scaledCornerRadius,
@@ -92,11 +94,11 @@ public partial class FloatingEmote : Control
 			Size = new Vector2(bgW, bgH),
 			Position = Vector2.Zero,
 		};
-		label.AddThemeColorOverride("font_color", _textColor);
+		label.AddThemeColorOverride("font_color", isOfficialCollection ? _officialTextColor : _textColor);
 		label.AddThemeFontSizeOverride("font_size", scaledFontSize);
 		// 细描边增强可读性
-		label.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.4f));
-		label.AddThemeConstantOverride("outline_size", Mathf.Max(1, Mathf.RoundToInt(1 * vfxScale)));
+		label.AddThemeColorOverride("font_outline_color", isOfficialCollection ? new Color(0.2f, 0f, 0.25f, 0.85f) : new Color(0, 0, 0, 0.4f));
+		label.AddThemeConstantOverride("outline_size", Mathf.Max(1, Mathf.RoundToInt((isOfficialCollection ? 2 : 1) * vfxScale)));
 		AddChild(label);
 
 		// 开始动画
