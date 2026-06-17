@@ -7,6 +7,7 @@ ui:
     hero_detail_format: "{name}\nHP: {hp}\nWeapon: {weapon}\nHero Power: {power}\n\n{desc}"
     start_selected_hero: "Start with this Hero"
     collection: "Collection"
+    emotes: "My Emotes"
     settings: "Settings"
     quit: "Quit"
     continue_run: "Continue Run"
@@ -202,6 +203,19 @@ ui:
     cancel: "Cancel"
   common:
     ok: "OK"
+  emote_page:
+    title: "My Emotes"
+    back: "Back"
+    preset: "Preset:"
+    new_preset: "New"
+    delete_preset: "Delete"
+    default_preset_name: "New Emote Set"
+    name_placeholder: "Enter preset name"
+    hint: "In combat, open the message interface and type the first characters of a preset emote to Tab-complete it. Unknown input without / sends as a message."
+    add_entry: "Add Emote"
+    entry_placeholder: "Enter emote text"
+    remove_entry: "Remove"
+    cannot_delete_last: "Keep at least one emote set"
   collection:
     back: "← Back to Menu"
     deck_label: "Deck:"

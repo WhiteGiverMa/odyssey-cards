@@ -7,6 +7,7 @@ ui:
     hero_detail_format: "{name}\n生命值：{hp}\n武器：{weapon}\n英雄技能：{power}\n\n{desc}"
     start_selected_hero: "以该英雄开始"
     collection: "我的收藏"
+    emotes: "我的表情"
     settings: "设置"
     quit: "退出"
     continue_run: "继续冒险"
@@ -202,6 +203,19 @@ ui:
     cancel: "取消"
   common:
     ok: "确定"
+  emote_page:
+    title: "我的表情"
+    back: "返回"
+    preset: "表情组:"
+    new_preset: "新建"
+    delete_preset: "删除"
+    default_preset_name: "新表情组"
+    name_placeholder: "输入表情组名称"
+    hint: "战斗中打开信息发送界面，输入预设表情前几个字即可 Tab 补全；不带 / 的未知输入会直接发送为消息。"
+    add_entry: "添加表情"
+    entry_placeholder: "输入表情内容"
+    remove_entry: "移除"
+    cannot_delete_last: "至少需要保留一个表情组"
   collection:
     back: "← 返回主菜单"
     deck_label: "牌组:"
