@@ -826,6 +826,8 @@ public partial class GameManager : Node
 			EmoteIdleTimeSeconds = EmoteIdleTimeSeconds,
 			EmoteIdleVariationMin = EmoteIdleVariationMin,
 			EmoteIdleVariationMax = EmoteIdleVariationMax,
+			EmotePresets = EmotePresets.Select(preset => preset.Clone()).ToList(),
+			ActiveEmotePresetId = ActiveEmotePresetId,
 			SelectedHeroId = SelectedHeroId,
 			RunGold = 0,
 			ActiveRun = null,
@@ -922,6 +924,8 @@ public partial class GameManager : Node
 	/// </summary>
 	public void SaveToDisk()
 	{
+		EnsureEmotePresetsInitialized();
+
 		var data = new GameSaveData
 		{
 			Version = 1,
@@ -932,6 +936,8 @@ public partial class GameManager : Node
 			EmoteIdleTimeSeconds = EmoteIdleTimeSeconds,
 			EmoteIdleVariationMin = EmoteIdleVariationMin,
 			EmoteIdleVariationMax = EmoteIdleVariationMax,
+			EmotePresets = EmotePresets.Select(preset => preset.Clone()).ToList(),
+			ActiveEmotePresetId = ActiveEmotePresetId,
 			RunGold = RunGold,
 			SelectedHeroId = SelectedHeroId,
 		};
@@ -975,8 +981,11 @@ public partial class GameManager : Node
 		EmoteIdleTimeSeconds = data.EmoteIdleTimeSeconds;
 		EmoteIdleVariationMin = data.EmoteIdleVariationMin;
 		EmoteIdleVariationMax = data.EmoteIdleVariationMax;
+		EmotePresets = data.EmotePresets.Select(preset => preset.Clone()).ToList();
+		ActiveEmotePresetId = data.ActiveEmotePresetId;
 		RunGold = data.RunGold;
 		SelectedHeroId = HeroProfile.Get(data.SelectedHeroId).Id;
+		EnsureEmotePresetsInitialized();
 
 		// 恢复进行中的冒险
 		if (data.ActiveRun != null)

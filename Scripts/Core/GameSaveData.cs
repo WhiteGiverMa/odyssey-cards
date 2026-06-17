@@ -49,6 +49,14 @@ public class GameSaveData
 	/// <summary>当前冒险的存档快照。null = 没有进行中的冒险。</summary>
 	[JsonPropertyName("active_run")]
 	public RunSaveData? ActiveRun { get; set; }
+
+	/// <summary>所有可切换的预设表情组。</summary>
+	[JsonPropertyName("emote_presets")]
+	public List<EmotePresetSaveData> EmotePresets { get; set; } = new();
+
+	/// <summary>当前激活的预设表情组 ID。</summary>
+	[JsonPropertyName("active_emote_preset_id")]
+	public string ActiveEmotePresetId { get; set; } = OfficialEmoteCatalog.PresetId;
 }
 
 /// <summary>
