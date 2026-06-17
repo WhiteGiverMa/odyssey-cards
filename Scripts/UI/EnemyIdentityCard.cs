@@ -37,6 +37,11 @@ public partial class EnemyIdentityCard : Panel
 	private readonly StyleBoxFlat _attackBorderStyle;
 	private bool _isAttackTarget;
 
+	// 意图 tooltip 缓存——避免每次 hover 都 FindChild 全树搜索
+	private Control? _cachedTipLayer;
+	// 当前 hovered 的意图图标——防重入：同一图标重复 MouseEnter 不重建 tooltip
+	private IntentIcon? _hoveredIcon;
+
 	/// <summary>攻击目标模式下点击卡片时触发。参数为当前敌人索引。</summary>
 	public event Action<int>? OnAttackTargetClicked;
 
@@ -96,6 +101,8 @@ public partial class EnemyIdentityCard : Panel
 			Name = "CardContent",
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsVertical = SizeFlags.Fill,
+			// Pass 而非默认的 Stop——确保鼠标事件能穿透到子节点（IntentIcon）
+			MouseFilter = MouseFilterEnum.Pass,
 		};
 		AddChild(content);
 
@@ -144,7 +151,10 @@ public partial class EnemyIdentityCard : Panel
 		content.AddChild(_intentLabel);
 
 		// Row 5: Status effects
-		_statusContainer = new HBoxContainer();
+		_statusContainer = new HBoxContainer
+		{
+			CustomMinimumSize = new Vector2(0, 16), // 固定高度——避免 Refresh 时 QueueFree+AddChild 导致 VBox 布局抖动
+		};
 		content.AddChild(_statusContainer);
 		_effectBar = new EffectBar();
 		content.AddChild(_effectBar);
@@ -155,6 +165,10 @@ public partial class EnemyIdentityCard : Panel
 			Name = "IntentIcons",
 			Alignment = BoxContainer.AlignmentMode.Center,
 			Visible = false,
+			// Pass 而非默认的 Stop——让鼠标事件穿透到子节点 IntentIcon（Stop 会拦截导致 hover 无效）
+			MouseFilter = MouseFilterEnum.Pass,
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+			SizeFlagsVertical = SizeFlags.ShrinkBegin,
 		};
 		_intentIconContainer.AddThemeConstantOverride("separation", -8); // overlap like STS2
 		content.AddChild(_intentIconContainer);
@@ -205,8 +219,58 @@ public partial class EnemyIdentityCard : Panel
 		MouseFilter = MouseFilterEnum.Pass;
 	}
 
+	private IntentIcon? _manualHoverIcon;
+
+	public override void _Process(double delta)
+	{
+		// 手动 hover 检测——IntentIcon 的 _Notification(MouseEnter) 在 Godot C# 绑定中不可靠，
+		// 改由父卡片在 _Process 中用 GetGlobalRect + HasPoint 逐帧检测鼠标位置。
+		if (!IsInsideTree() || !GodotObject.IsInstanceValid(_intentIconContainer))
+		{
+			_manualHoverIcon = null;
+			return;
+		}
+
+		if (_intentIconContainer.GetChildCount() == 0 || !_intentIconContainer.IsVisibleInTree())
+		{
+			if (_manualHoverIcon != null)
+			{
+				OnIntentIconUnhovered(_manualHoverIcon);
+				_manualHoverIcon = null;
+			}
+			return;
+		}
+
+		var mousePos = GetGlobalMousePosition();
+		IntentIcon? hovered = null;
+		foreach (var child in _intentIconContainer.GetChildren())
+		{
+			if (child is IntentIcon ic && GodotObject.IsInstanceValid(ic) && ic.GetGlobalRect().HasPoint(mousePos))
+			{
+				hovered = ic;
+				break; // 只取第一个命中的（z-order 最高的在前面）
+			}
+		}
+
+		if (hovered != _manualHoverIcon)
+		{
+			if (_manualHoverIcon != null && GodotObject.IsInstanceValid(_manualHoverIcon))
+			{
+				_manualHoverIcon.SetHovering(false);
+				OnIntentIconUnhovered(_manualHoverIcon);
+			}
+			_manualHoverIcon = hovered;
+			if (hovered != null)
+			{
+				hovered.SetHovering(true);
+				OnIntentIconHovered(hovered);
+			}
+		}
+	}
+
 	public override void _ExitTree()
 	{
+		_manualHoverIcon = null;
 		_attackOverlay.GuiInput -= OnAttackOverlayGuiInput;
 		UnsubscribeIntentIcons();
 		RemoveThemeStyleboxOverride("panel");
@@ -446,12 +510,14 @@ public partial class EnemyIdentityCard : Panel
 			for (int j = 0; j < allEntries.Count; j++)
 			{
 				var entry = allEntries[j];
+				string typeKey = $"multi_type_{j}";
 				string titleKey = $"multi_title_{j}";
 				string descKey = $"multi_desc_{j}";
 				string debuffKey = $"multi_debuff_{j}";
 				string colorKey = $"multi_color_{j}";
 
 				// Store as string (Godot meta only supports Variant-compatible types)
+				icon.SetMeta(typeKey, entry.TypeId);
 				icon.SetMeta(titleKey, entry.Tip.Title ?? "");
 				icon.SetMeta(descKey, entry.Tip.Description);
 				icon.SetMeta(debuffKey, entry.Tip.IsDebuff);
@@ -463,22 +529,30 @@ public partial class EnemyIdentityCard : Panel
 
 	private void OnIntentIconHovered(IntentIcon icon)
 	{
-		var root = GetTree()?.Root;
-		if (root == null)
-			return;
+		_hoveredIcon = icon;
 
-		var tipLayer = root.FindChild("IntentTooltipContent", recursive: true, owned: false) as Control;
-		if (tipLayer == null)
-			return;
-
-		// Check if multi-intent data is available
-		int multiCount = icon.GetMeta("multi_count", 0).AsInt32();
-		if (multiCount > 1)
+		// 缓存 tipLayer 引用，避免每次 hover 都全树 FindChild
+		if (_cachedTipLayer == null || !GodotObject.IsInstanceValid(_cachedTipLayer))
 		{
-			// Multi-intent tooltip
+			var root = GetTree()?.Root;
+			if (root == null)
+				return;
+			_cachedTipLayer = root.FindChild("IntentTooltipContent", recursive: true, owned: false) as Control;
+		}
+		if (_cachedTipLayer == null)
+			return;
+		var tipLayer = _cachedTipLayer;
+
+		bool showAll = UIScaler.Instance?.IntentTooltipShowAll ?? false;
+		int multiCount = icon.GetMeta("multi_count", 0).AsInt32();
+
+		if (showAll && multiCount > 1)
+		{
+			// 全部模式：悬停任意图标显示所有意图的聚合 tooltip
 			var entries = new System.Collections.Generic.List<IntentTooltip.MultiIntentEntry>();
 			for (int j = 0; j < multiCount; j++)
 			{
+				int typeId = icon.GetMeta($"multi_type_{j}", 0).AsInt32();
 				string title = icon.GetMeta($"multi_title_{j}", "").AsString();
 				string desc = icon.GetMeta($"multi_desc_{j}", "").AsString();
 				bool isDebuff = icon.GetMeta($"multi_debuff_{j}", false).AsBool();
@@ -488,13 +562,13 @@ public partial class EnemyIdentityCard : Panel
 					? new Color(float.Parse(parts[0]), float.Parse(parts[1]), float.Parse(parts[2]), float.Parse(parts[3]))
 					: Colors.White;
 
-				entries.Add(new IntentTooltip.MultiIntentEntry(0, new IntentHoverTip(title, desc, isDebuff), color));
+				entries.Add(new IntentTooltip.MultiIntentEntry(typeId, new IntentHoverTip(title, desc, isDebuff), color));
 			}
 			IntentTooltip.ShowMulti(tipLayer, icon.GlobalPosition, entries);
 		}
 		else
 		{
-			// Single-intent tooltip (backward compat)
+			// 单独模式（默认）：只显示当前意图的 tooltip
 			string title = icon.GetMeta("tip_title", icon.GetLabelText()).AsString();
 			string desc = icon.GetMeta("tip_desc", "").AsString();
 			bool isDebuff = icon.GetMeta("tip_is_debuff", false).AsBool();
@@ -505,6 +579,8 @@ public partial class EnemyIdentityCard : Panel
 
 	private void OnIntentIconUnhovered(IntentIcon icon)
 	{
+		if (_hoveredIcon == icon)
+			_hoveredIcon = null;
 		IntentTooltip.HideCurrent();
 	}
 
