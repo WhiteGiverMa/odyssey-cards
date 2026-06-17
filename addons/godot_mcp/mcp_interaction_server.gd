@@ -666,18 +666,21 @@ func _cmd_eval(params: Dictionary) -> void:
 	var script_source: String = """extends Node
 
 func execute(timeout_seconds: float):
-	var __result = null
-	var __finished := false
+	# GDScript lambda 捕获局部变量为只读副本，在 lambda 内赋值不会写回外部
+	# （会触发 "Reassigning lambda capture does not modify the outer local variable" 警告）。
+	# 用 Dictionary 引用类型作为可变容器绕过此限制。
+	var __state := {"result": null, "finished": false}
 	var __runner := func():
-		__result = await _run()
-		__finished = true
-	__runner.call_deferred()
+		__state["result"] = await _run()
+		__state["finished"] = true
+	# call() 而非 call_deferred()：同步 _run 时在当前栈完成，避免 idle 帧调度竞态。
+	__runner.call()
 	var __deadline := Time.get_ticks_msec() / 1000.0 + timeout_seconds
-	while not __finished and Time.get_ticks_msec() / 1000.0 < __deadline:
+	while not __state["finished"] and Time.get_ticks_msec() / 1000.0 < __deadline:
 		await get_tree().process_frame
-	if not __finished:
+	if not __state["finished"]:
 		return {"__eval_timed_out": true}
-	return __result
+	return __state["result"]
 
 func _run():
 %s

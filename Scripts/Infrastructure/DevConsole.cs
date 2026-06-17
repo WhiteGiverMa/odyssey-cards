@@ -159,7 +159,6 @@ public partial class DevConsole : Node
 			CustomMinimumSize = new Vector2(0, 32),
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 		};
-		_input.TextSubmitted += OnCommandSubmitted;
 		_input.TextChanged += OnTextChanged;
 		inputRow.AddChild(_input);
 
@@ -243,6 +242,16 @@ public partial class DevConsole : Node
 				}
 				GetViewport().SetInputAsHandled();
 			}
+			else if (_visible && _input.HasFocus() && (keyEvent.Keycode == Key.Enter || keyEvent.Keycode == Key.KpEnter))
+			{
+				// 不使用 LineEdit.TextSubmitted 信号：Godot 4 在 emit 该信号后会内部
+				// 释放焦点并推进"编辑完成"状态机，导致后续 GrabFocus 与引擎内部状态
+				// 竞争——has_focus()=true（边框高亮）但 caret/输入失效（状态分叉）。
+				// 在 _Input 中拦截 Enter 并 SetInputAsHandled，阻止引擎触发
+				// TextSubmitted，LineEdit 焦点自然维持。参考 STS2 NDevConsole 做法。
+				OnCommandSubmitted(_input.Text);
+				GetViewport().SetInputAsHandled();
+			}
 			else if (_visible && keyEvent.Keycode == Key.Escape)
 			{
 				Hide();
@@ -295,12 +304,30 @@ public partial class DevConsole : Node
 		_input.Clear();
 		ResetCompletionState();
 		ExecuteConsoleInput(text);
-		_input.GrabFocus();
+		// Enter 路径无需焦点恢复：_Input 拦截了 Enter 并 SetInputAsHandled，
+		// Godot 未触发 TextSubmitted，LineEdit 焦点自然维持。
+		// SendButton 路径的焦点恢复在 SubmitCurrentInput 中处理。
 	}
 
 	private void SubmitCurrentInput()
 	{
 		OnCommandSubmitted(_input.Text);
+		// SendButton 点击会抢占焦点到按钮。延迟到帧末恢复输入框焦点。
+		// 此处不经过 TextSubmitted 信号，无引擎内部状态竞争，CallDeferred 即可。
+		if (_visible && GodotObject.IsInstanceValid(_input))
+			CallDeferred(nameof(RegrabInputFocusAfterButton));
+	}
+
+	/// <summary>
+	/// SendButton 点击后延迟重新聚焦输入框。
+	/// </summary>
+	private void RegrabInputFocusAfterButton()
+	{
+		if (!_visible)
+			return;
+		if (!GodotObject.IsInstanceValid(_input))
+			return;
+		_input.GrabFocus();
 	}
 
 	/// <summary>
