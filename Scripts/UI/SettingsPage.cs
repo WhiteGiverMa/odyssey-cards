@@ -44,6 +44,7 @@ public partial class SettingsPage : Control
 	private HBoxContainer _rarityColorSchemeRow = null!;
 	private CheckBox _intentIconFloatingToggle = null!;
 	private CheckBox _intentValueFloatingToggle = null!;
+	private CheckBox _intentTooltipShowAllToggle = null!;
 	private CheckBox _devModeToggle = null!;
 	private Button _consoleButton = null!;
 	private Label _emoteIdleTimeLabel = null!;
@@ -233,6 +234,7 @@ public partial class SettingsPage : Control
 		_rarityColorSchemeOptionButton.ItemSelected -= OnRarityColorSchemeSelected;
 		_intentIconFloatingToggle.Toggled -= OnIntentIconFloatingToggled;
 		_intentValueFloatingToggle.Toggled -= OnIntentValueFloatingToggled;
+		_intentTooltipShowAllToggle.Toggled -= OnIntentTooltipShowAllToggled;
 		_backButton.Pressed -= OnBackPressed;
 		_devModeToggle.Toggled -= OnDevModeToggled;
 		_consoleButton.Pressed -= OnConsolePressed;
@@ -460,6 +462,16 @@ public partial class SettingsPage : Control
 		};
 		_intentValueFloatingToggle.AddThemeFontSizeOverride("font_size", 18);
 		_displayContainer.AddChild(CreateCenteredRow(_intentValueFloatingToggle));
+
+		// 意图 tooltip 显示模式
+		bool tooltipShowAll = UIScaler.Instance?.IntentTooltipShowAll ?? false;
+		_intentTooltipShowAllToggle = new CheckBox
+		{
+			Text = Loc.T("ui.settings.intent_tooltip_show_all", "悬停意图图标时显示全部意图"),
+			ButtonPressed = tooltipShowAll,
+		};
+		_intentTooltipShowAllToggle.AddThemeFontSizeOverride("font_size", 18);
+		_displayContainer.AddChild(CreateCenteredRow(_intentTooltipShowAllToggle));
 
 		// === 特效缩放滑块 ===
 		_displayContainer.AddChild(CreateSectionHeader("ui.settings.section_vfx", "特效"));
@@ -872,6 +884,7 @@ public partial class SettingsPage : Control
 		_rarityColorSchemeOptionButton.ItemSelected += OnRarityColorSchemeSelected;
 		_intentIconFloatingToggle.Toggled += OnIntentIconFloatingToggled;
 		_intentValueFloatingToggle.Toggled += OnIntentValueFloatingToggled;
+		_intentTooltipShowAllToggle.Toggled += OnIntentTooltipShowAllToggled;
 		_backButton.Pressed += OnBackPressed;
 		_devModeToggle.Toggled += OnDevModeToggled;
 		_consoleButton.Pressed += OnConsolePressed;
@@ -940,6 +953,11 @@ public partial class SettingsPage : Control
 	private void OnIntentValueFloatingToggled(bool on)
 	{
 		UIScaler.Instance?.SetIntentVisualFloating(_intentIconFloatingToggle.ButtonPressed, on);
+	}
+
+	private void OnIntentTooltipShowAllToggled(bool on)
+	{
+		UIScaler.Instance?.SetIntentTooltipMode(on);
 	}
 
 	private void OnBackPressed()
@@ -1174,6 +1192,7 @@ public partial class SettingsPage : Control
 		_cardDescriptionAlignmentLabel.Text = Loc.T("ui.settings.card_description_alignment", "Card Description Alignment");
 		_intentIconFloatingToggle.Text = Loc.T("ui.settings.intent_icon_floating", "意图图标整体浮动");
 		_intentValueFloatingToggle.Text = Loc.T("ui.settings.intent_value_floating", "伤害数字随图标浮动");
+		_intentTooltipShowAllToggle.Text = Loc.T("ui.settings.intent_tooltip_show_all", "悬停意图图标时显示全部意图");
 		_emoteIdleTimeLabel.Text = Loc.T("ui.settings.emote_idle_time", "Emote Idle Time");
 		_emoteVarMinLabel.Text = Loc.T("ui.settings.emote_variation_min", "Variation Min");
 		_emoteVarMaxLabel.Text = Loc.T("ui.settings.emote_variation_max", "Variation Max");
@@ -1299,6 +1318,13 @@ public partial class SettingsPage : Control
 			GetViewport().SetInputAsHandled();
 			return;
 		}
+		if (IsDisplayTabActive() && HitTestControl(_intentTooltipShowAllToggle, touch.Position))
+		{
+			_intentTooltipShowAllToggle.ButtonPressed = !_intentTooltipShowAllToggle.ButtonPressed;
+			OnIntentTooltipShowAllToggled(_intentTooltipShowAllToggle.ButtonPressed);
+			GetViewport().SetInputAsHandled();
+			return;
+		}
 		if (IsGameTabActive() && _consoleButton.Visible && HitTestControl(_consoleButton, touch.Position))
 		{
 			OnConsolePressed();
@@ -1345,6 +1371,7 @@ public partial class SettingsPage : Control
 		_cardDescriptionAlignmentOptionButton.CustomMinimumSize = new Vector2(260, 56);
 		_intentIconFloatingToggle.CustomMinimumSize = new Vector2(260, 56);
 		_intentValueFloatingToggle.CustomMinimumSize = new Vector2(260, 56);
+		_intentTooltipShowAllToggle.CustomMinimumSize = new Vector2(260, 56);
 		_backButton.CustomMinimumSize = new Vector2(220, 56);
 		_backButton.AddThemeFontSizeOverride("font_size", 22);
 		_consoleButton.CustomMinimumSize = new Vector2(220, 56);

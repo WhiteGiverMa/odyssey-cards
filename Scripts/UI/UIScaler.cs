@@ -36,6 +36,7 @@ namespace OdysseyCards.UI
 
 		public event Action OnResolutionChanged;
 		public event Action OnIntentVisualSettingsChanged;
+		public event Action OnIntentTooltipModeChanged;
 		public event Action OnCardDescriptionSettingsChanged;
 		public event Action OnParticleEffectSettingsChanged;
 		public event Action OnRarityColorSchemeChanged;
@@ -44,6 +45,8 @@ namespace OdysseyCards.UI
 		public Vector2 CurrentCardSize => _currentCardSize;
 		public bool IntentIconFloatingEnabled { get; private set; } = true;
 		public bool IntentValueFloatingEnabled { get; private set; } = true;
+		/// <summary>意图 tooltip 模式：false=每个意图单独显示（默认，参考 STS2），true=悬停任意图标显示全部意图。</summary>
+		public bool IntentTooltipShowAll { get; private set; }
 		public bool CardDescriptionCentered { get; private set; }
 		public bool DevModeEnabled { get; private set; }
 
@@ -280,6 +283,19 @@ namespace OdysseyCards.UI
 		}
 
 		/// <summary>
+		/// 设置意图 tooltip 显示模式并持久化。
+		/// false=每个意图单独显示（默认），true=悬停任意图标显示全部意图。
+		/// </summary>
+		public void SetIntentTooltipMode(bool showAll)
+		{
+			if (IntentTooltipShowAll == showAll)
+				return;
+			IntentTooltipShowAll = showAll;
+			SaveSettings();
+			OnIntentTooltipModeChanged?.Invoke();
+		}
+
+		/// <summary>
 		/// 设置卡牌描述文本是否居中，并持久化到 user://settings.cfg。
 		/// </summary>
 		public void SetCardDescriptionCentered(bool centered)
@@ -388,6 +404,7 @@ namespace OdysseyCards.UI
 
 			config.SetValue("visual", "intent_icon_floating", IntentIconFloatingEnabled);
 			config.SetValue("visual", "intent_value_floating", IntentValueFloatingEnabled);
+			config.SetValue("visual", "intent_tooltip_show_all", IntentTooltipShowAll);
 			config.SetValue("visual", "card_description_centered", CardDescriptionCentered);
 			config.SetValue("visual", "dev_mode", DevModeEnabled);
 			config.SetValue("visual", "projectile_scale", ProjectileScale);
@@ -423,6 +440,7 @@ namespace OdysseyCards.UI
 
 			IntentIconFloatingEnabled = config.GetValue("visual", "intent_icon_floating", true).AsBool();
 			IntentValueFloatingEnabled = config.GetValue("visual", "intent_value_floating", true).AsBool();
+			IntentTooltipShowAll = config.GetValue("visual", "intent_tooltip_show_all", false).AsBool();
 			CardDescriptionCentered = config.GetValue("visual", "card_description_centered", false).AsBool();
 			DevModeEnabled = config.GetValue("visual", "dev_mode", false).AsBool();
 			ProjectileScale = (float)config.GetValue("visual", "projectile_scale", 1.0).AsDouble();

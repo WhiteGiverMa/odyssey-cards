@@ -48,6 +48,7 @@ ui:
     rarity_color_new: "New (Purple/Blue/Green)"
     intent_icon_floating: "Float intent icons"
     intent_value_floating: "Float damage numbers"
+    intent_tooltip_show_all: "Show all intents on hover"
     projectile_scale: "Projectile Size"
     card_fly_scale: "Card Fly Particle Size"
     damage_number_scale: "Damage Number Size"

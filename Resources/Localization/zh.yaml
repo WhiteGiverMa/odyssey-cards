@@ -48,6 +48,7 @@ ui:
     rarity_color_new: "新版（紫/蓝/绿）"
     intent_icon_floating: "意图图标整体浮动"
     intent_value_floating: "伤害数字随图标浮动"
+    intent_tooltip_show_all: "悬停意图图标时显示全部意图"
     projectile_scale: "弹道特效尺寸"
     card_fly_scale: "卡牌飞行粒子尺寸"
     damage_number_scale: "伤害数字尺寸"
