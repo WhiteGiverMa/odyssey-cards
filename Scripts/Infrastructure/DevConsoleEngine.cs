@@ -11,8 +11,9 @@ namespace OdysseyCards.Infrastructure;
 public class DevConsoleEngine
 {
 	private readonly Dictionary<string, DevConsoleCommand> _commands = new(StringComparer.OrdinalIgnoreCase);
+	private readonly List<DevConsoleCommand> _registeredCommands = new();
 
-	public IReadOnlyList<DevConsoleCommand> Commands => _commands.Values.ToList().AsReadOnly();
+	public IReadOnlyList<DevConsoleCommand> Commands => _registeredCommands;
 
 	public FixedSizedQueue<string> History { get; } = new(40);
 
@@ -23,6 +24,9 @@ public class DevConsoleEngine
 	/// </summary>
 	public void Register(DevConsoleCommand cmd)
 	{
+		if (!_registeredCommands.Contains(cmd))
+			_registeredCommands.Add(cmd);
+
 		_commands[cmd.Name] = cmd;
 		foreach (var alias in cmd.Aliases)
 			_commands[alias] = cmd;

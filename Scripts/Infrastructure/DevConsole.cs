@@ -56,7 +56,10 @@ public partial class DevConsole : Node
 	private LineEdit _input = null!;
 	private Button _sendButton = null!;
 	private RichTextLabel _completionLabel = null!;
+	private Timer _completionDebounceTimer = null!;
 	private bool _visible;
+	private string _pendingCompletionInput = "";
+	private string _lastCompletionLabelText = "";
 
 	/// <summary>控制台当前是否可见（供 InputManager/HotkeyManager 检查）。</summary>
 	public bool IsVisible => _visible;
@@ -179,6 +182,17 @@ public partial class DevConsole : Node
 			ScrollFollowing = true,
 		};
 		vbox.AddChild(_completionLabel);
+
+		// IME 组合/提交可能在同一帧触发多次 TextChanged；补全延迟一小段时间合并刷新，避免输入信号里同步扫表和重排富文本。
+		_completionDebounceTimer = new Timer
+		{
+			Name = "CompletionDebounceTimer",
+			OneShot = true,
+			WaitTime = 0.03,
+			Autostart = false,
+		};
+		_completionDebounceTimer.Timeout += FlushPendingCompletionHint;
+		AddChild(_completionDebounceTimer);
 
 		// 注册命令
 		RegisterAllCommands();
@@ -531,7 +545,13 @@ public partial class DevConsole : Node
 	/// </summary>
 	private void OnTextChanged(string text)
 	{
-		RefreshCompletionHint(text);
+		_pendingCompletionInput = text;
+		_completionDebounceTimer.Start();
+	}
+
+	private void FlushPendingCompletionHint()
+	{
+		RefreshCompletionHint(_pendingCompletionInput);
 	}
 
 	/// <summary>
@@ -543,16 +563,28 @@ public partial class DevConsole : Node
 		_completionCandidates.AddRange(GetCompletions(input));
 		EnsureValidCompletionSelection();
 
+		string labelText;
 		if (_completionCandidates.Count == 0)
 		{
-			_completionLabel.Text = string.IsNullOrEmpty(input)
+			labelText = string.IsNullOrEmpty(input)
 				? ""
 				: $"[color=#888888]Enter 发送消息；输入 / 或命令名前缀可执行命令[/color]";
 		}
 		else
 		{
-			_completionLabel.Text = RenderCompletionCandidates(GetCompletionHeader(input));
+			labelText = RenderCompletionCandidates(GetCompletionHeader(input));
 		}
+
+		SetCompletionLabelText(labelText);
+	}
+
+	private void SetCompletionLabelText(string text)
+	{
+		if (_lastCompletionLabelText == text)
+			return;
+
+		_completionLabel.Text = text;
+		_lastCompletionLabelText = text;
 	}
 
 	private static string GetCompletionHeader(string input)
@@ -577,13 +609,23 @@ public partial class DevConsole : Node
 			return _engine.GetCompletions(input);
 
 		var candidates = new List<CompletionCandidate>();
-		candidates.AddRange(GetSlashlessCommandCompletions(input));
+		if (IsSlashlessCommandPrefix(input))
+			candidates.AddRange(GetSlashlessCommandCompletions(input));
 		candidates.AddRange(GetEmoteCompletions(input));
 		return candidates
 			.GroupBy(candidate => candidate.InsertText, StringComparer.OrdinalIgnoreCase)
 			.Select(group => group.First())
 			.Take(8)
 			.ToList();
+	}
+
+	private static bool IsSlashlessCommandPrefix(string input)
+	{
+		var token = input.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? input;
+		if (string.IsNullOrEmpty(token))
+			return false;
+
+		return token.All(ch => ch is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or '_' or '-');
 	}
 
 	private IEnumerable<CompletionCandidate> GetSlashlessCommandCompletions(string input)
@@ -697,7 +739,7 @@ public partial class DevConsole : Node
 			return false;
 
 		_selectedCompletionIndex = (_selectedCompletionIndex + direction + _completionCandidates.Count) % _completionCandidates.Count;
-		_completionLabel.Text = RenderCompletionCandidates(GetCompletionHeader(_input.Text));
+		SetCompletionLabelText(RenderCompletionCandidates(GetCompletionHeader(_input.Text)));
 		return true;
 	}
 
@@ -717,5 +759,7 @@ public partial class DevConsole : Node
 	{
 		_completionCandidates.Clear();
 		_selectedCompletionIndex = -1;
+		_pendingCompletionInput = "";
+		SetCompletionLabelText("");
 	}
 }
