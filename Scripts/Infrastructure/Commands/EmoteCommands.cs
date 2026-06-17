@@ -1,4 +1,9 @@
+#nullable enable
+
 using OdysseyCards.Combat;
+using OdysseyCards.Core;
+using System;
+using System.Linq;
 
 namespace OdysseyCards.Infrastructure.Commands;
 
@@ -24,11 +29,13 @@ public class EmoteCommand : DevConsoleCommand
 			return CommandResult.Fail("用法：/emote [enemyIndex] <text>");
 
 		string text;
+		int targetEnemyIndex = 0;
 		if (args.Length >= 2 && int.TryParse(args[0], out int index))
 		{
 			// 指定了敌人索引
 			if (index < 0 || index >= cm.EnemyUnits.Count)
 				return CommandResult.Fail($"敌人索引 {index} 无效（共 {cm.EnemyUnits.Count} 个敌人）");
+			targetEnemyIndex = index;
 			text = string.Join(" ", args, 1, args.Length - 1);
 		}
 		else
@@ -40,7 +47,22 @@ public class EmoteCommand : DevConsoleCommand
 		if (string.IsNullOrWhiteSpace(text))
 			return CommandResult.Fail("表情文本不能为空");
 
-		cm.SendEmote(text);
+		cm.SendEnemyEmote(text, targetEnemyIndex);
 		return CommandResult.Ok($"已发送表情：「{text}」");
+	}
+
+	public override CompletionCandidate[]? GetArgCandidates(string partialArg)
+	{
+		var gm = GameManager.Instance;
+		if (gm == null)
+			return null;
+
+		return gm.GetActiveEmoteEntries()
+			.Select(entry => entry.Text.Trim())
+			.Where(text => !string.IsNullOrWhiteSpace(text))
+			.Where(text => text.Contains(partialArg, StringComparison.OrdinalIgnoreCase))
+			.Distinct(StringComparer.OrdinalIgnoreCase)
+			.Select(text => new CompletionCandidate(text, text, "预设表情"))
+			.ToArray();
 	}
 }

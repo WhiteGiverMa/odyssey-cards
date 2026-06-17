@@ -54,6 +54,7 @@ public partial class DevConsole : Node
 	private Panel _panel = null!;
 	private RichTextLabel _output = null!;
 	private LineEdit _input = null!;
+	private Button _sendButton = null!;
 	private RichTextLabel _completionLabel = null!;
 	private bool _visible;
 
@@ -121,7 +122,7 @@ public partial class DevConsole : Node
 		var titleBar = new HBoxContainer();
 		var title = new Label
 		{
-			Text = "  DevConsole",
+			Text = "  信息发送界面",
 			CustomMinimumSize = new Vector2(0, 28),
 		};
 		title.AddThemeColorOverride("font_color", new Color(0.4f, 1f, 0.4f));
@@ -141,16 +142,33 @@ public partial class DevConsole : Node
 		};
 		vbox.AddChild(_output);
 
-		// 输入栏
+		// 输入栏：Minecraft 式聊天/命令共用输入框
+		var inputRow = new HBoxContainer
+		{
+			CustomMinimumSize = new Vector2(0, 34),
+		};
+		inputRow.AddThemeConstantOverride("separation", 8);
+
 		_input = new LineEdit
 		{
 			Name = "Input",
-			PlaceholderText = "输入命令，如 /damage 10, /draw 5, /help ...",
+			PlaceholderText = "输入消息，或输入 /help、fight 等命令",
 			CustomMinimumSize = new Vector2(0, 32),
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 		};
 		_input.TextSubmitted += OnCommandSubmitted;
 		_input.TextChanged += OnTextChanged;
-		vbox.AddChild(_input);
+		inputRow.AddChild(_input);
+
+		_sendButton = new Button
+		{
+			Name = "SendButton",
+			Text = "发送",
+			CustomMinimumSize = new Vector2(86, 32),
+		};
+		_sendButton.Pressed += SubmitCurrentInput;
+		inputRow.AddChild(_sendButton);
+		vbox.AddChild(inputRow);
 
 		// 补全提示 Label（输入栏上方）
 		_completionLabel = new RichTextLabel
@@ -169,7 +187,7 @@ public partial class DevConsole : Node
 		var historyPath = ProjectSettings.GlobalizePath("user://console_history.log");
 		_engine.LoadHistory(historyPath);
 
-		WriteLine("[color=#66ff66][DevConsole] 按 ` 键呼出/隐藏。输入 /help 查看命令[/color]");
+		WriteLine("[color=#66ff66][Message] 按 ` 键呼出/隐藏。像 MC 一样输入消息，或输入 /help 查看命令[/color]");
 	}
 
 	public override void _Input(InputEvent @event)
@@ -262,8 +280,13 @@ public partial class DevConsole : Node
 			return;
 		_input.Clear();
 		ResetCompletionState();
-		ExecuteCommand(text);
+		ExecuteConsoleInput(text);
 		_input.GrabFocus();
+	}
+
+	private void SubmitCurrentInput()
+	{
+		OnCommandSubmitted(_input.Text);
 	}
 
 	/// <summary>
@@ -273,6 +296,31 @@ public partial class DevConsole : Node
 	public void DevCommand(string cmd)
 	{
 		ExecuteCommand(cmd);
+	}
+
+	/// <summary>
+	/// 统一的输入提交入口：有斜杠或命令名匹配则执行命令，否则作为玩家消息发送。
+	/// </summary>
+	private void ExecuteConsoleInput(string input)
+	{
+		input = input.Trim();
+		if (string.IsNullOrWhiteSpace(input))
+			return;
+
+		if (input.StartsWith("/"))
+		{
+			ExecuteCommand(input);
+			return;
+		}
+
+		var firstToken = input.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+		if (TryFindCommandByToken(firstToken, out _))
+		{
+			ExecuteCommand($"/{input}");
+			return;
+		}
+
+		SendPlayerMessage(input);
 	}
 
 	/// <summary>
@@ -340,6 +388,24 @@ public partial class DevConsole : Node
 			WriteLine($"[color=#ff4444]命令执行异常: {e.Message}[/color]");
 		}
 
+		_engine.SaveHistory(ProjectSettings.GlobalizePath("user://console_history.log"));
+	}
+
+	private void SendPlayerMessage(string text)
+	{
+		text = text.Trim();
+		WriteLine($"[color=#aaaaaa]> {EscapeBbcode(text)}[/color]");
+
+		var cm = CombatManager.Instance;
+		if (cm == null)
+		{
+			WriteLine("[color=#ff6644]当前不在战斗中，无法发送消息[/color]");
+			return;
+		}
+
+		cm.SendPlayerEmote(text);
+		WriteLine($"[color=#88ccff]已发送消息：「{EscapeBbcode(text)}」[/color]");
+		_engine.History.Enqueue(text);
 		_engine.SaveHistory(ProjectSettings.GlobalizePath("user://console_history.log"));
 	}
 
@@ -474,14 +540,14 @@ public partial class DevConsole : Node
 	private void RefreshCompletionHint(string input)
 	{
 		_completionCandidates.Clear();
-		_completionCandidates.AddRange(_engine.GetCompletions(input));
+		_completionCandidates.AddRange(GetCompletions(input));
 		EnsureValidCompletionSelection();
 
 		if (_completionCandidates.Count == 0)
 		{
-			_completionLabel.Text = string.IsNullOrEmpty(input) || !input.StartsWith("/")
+			_completionLabel.Text = string.IsNullOrEmpty(input)
 				? ""
-				: $"[color=#ff6644]未知命令或参数: {input}[/color]";
+				: $"[color=#888888]Enter 发送消息；输入 / 或命令名前缀可执行命令[/color]";
 		}
 		else
 		{
@@ -492,7 +558,7 @@ public partial class DevConsole : Node
 	private static string GetCompletionHeader(string input)
 	{
 		if (string.IsNullOrEmpty(input) || !input.StartsWith("/"))
-			return "补全候选";
+			return "匹配消息/命令（Tab 补全，↑↓ 切换）";
 
 		var content = input[1..];
 		var spaceIdx = content.IndexOf(' ');
@@ -500,6 +566,93 @@ public partial class DevConsole : Node
 			return "匹配命令（Tab 补全，↑↓ 切换）";
 
 		return "可用参数（Tab 补全，↑↓ 切换）";
+	}
+
+	private List<CompletionCandidate> GetCompletions(string input)
+	{
+		if (string.IsNullOrWhiteSpace(input))
+			return [];
+
+		if (input.StartsWith("/"))
+			return _engine.GetCompletions(input);
+
+		var candidates = new List<CompletionCandidate>();
+		candidates.AddRange(GetSlashlessCommandCompletions(input));
+		candidates.AddRange(GetEmoteCompletions(input));
+		return candidates
+			.GroupBy(candidate => candidate.InsertText, StringComparer.OrdinalIgnoreCase)
+			.Select(group => group.First())
+			.Take(8)
+			.ToList();
+	}
+
+	private IEnumerable<CompletionCandidate> GetSlashlessCommandCompletions(string input)
+	{
+		var token = input.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? input;
+		if (token.Contains(' '))
+			yield break;
+
+		var unique = new Dictionary<string, DevConsoleCommand>(StringComparer.OrdinalIgnoreCase);
+		foreach (var cmd in _engine.Commands)
+			if (!unique.ContainsKey(cmd.Name))
+				unique[cmd.Name] = cmd;
+
+		foreach (var cmd in unique.Values.OrderBy(cmd => cmd.Name))
+		{
+			if (!cmd.Name.StartsWith(token, StringComparison.OrdinalIgnoreCase) &&
+				!cmd.Aliases.Any(alias => alias.StartsWith(token, StringComparison.OrdinalIgnoreCase)))
+			{
+				continue;
+			}
+
+			var signatureTail = cmd.Signature.Contains(' ')
+				? cmd.Signature[(cmd.Signature.IndexOf(' ') + 1)..]
+				: "";
+			yield return new CompletionCandidate(
+				$"{cmd.Name} ",
+				$"{cmd.Name} {signatureTail}".TrimEnd(),
+				$"命令 — {cmd.Description}");
+		}
+	}
+
+	private static IEnumerable<CompletionCandidate> GetEmoteCompletions(string input)
+	{
+		var gm = GameManager.Instance;
+		if (gm == null)
+			yield break;
+
+		foreach (var entry in gm.GetActiveEmoteEntries())
+		{
+			string text = entry.Text.Trim();
+			if (string.IsNullOrWhiteSpace(text))
+				continue;
+			if (!text.StartsWith(input, StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			string tag = entry.IsOfficialCollection ? "官方收藏集" : "预设表情";
+			yield return new CompletionCandidate(text, text, tag);
+		}
+	}
+
+	private bool TryFindCommandByToken(string token, out DevConsoleCommand command)
+	{
+		foreach (var cmd in _engine.Commands)
+		{
+			if (string.Equals(cmd.Name, token, StringComparison.OrdinalIgnoreCase) ||
+				cmd.Aliases.Any(alias => string.Equals(alias, token, StringComparison.OrdinalIgnoreCase)))
+			{
+				command = cmd;
+				return true;
+			}
+		}
+
+		command = null!;
+		return false;
+	}
+
+	private static string EscapeBbcode(string text)
+	{
+		return text.Replace("[", "[lb]").Replace("]", "[rb]");
 	}
 
 	private string RenderCompletionCandidates(string header)
