@@ -258,6 +258,13 @@ public partial class DevConsole : Node
 				GetViewport().SetInputAsHandled();
 			}
 		}
+		else if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed && mouseEvent.ButtonIndex == MouseButton.Left)
+		{
+			// 点击控制台面板外的空白处时取消输入框焦点。
+			// 不调用 SetInputAsHandled：点击需要继续传播到游戏画面（如战斗棋盘）。
+			if (_visible && _input.HasFocus() && !_panel.GetGlobalRect().HasPoint(mouseEvent.GlobalPosition))
+				_input.ReleaseFocus();
+		}
 	}
 
 	// ===== 开发者模式（全局共享状态） =====
