@@ -12,6 +12,7 @@ Value = 5
 [resource]
 script = ExtResource("1_data")
 Id = "spell_BladeCrisis"
+MechanicTags = 592
 CardName = "刀盾危机"
 Description = "选择并弃掉不大于5张牌，将等量个「我的刀盾」添加到友方棋盘槽处，并抽取等量张牌。"
 Rarity = 3

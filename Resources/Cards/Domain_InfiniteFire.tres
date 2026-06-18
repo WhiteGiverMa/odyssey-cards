@@ -12,6 +12,7 @@ TargetType = "infinite_fire"
 [resource]
 script = ExtResource("1_data")
 Id = "domain_infinite_fire"
+MechanicTags = 17408
 DomainId = "infinite_fire"
 CardName = "无限火力"
 Description = "友方回合结束时，将一张「打击」洗入牌库"

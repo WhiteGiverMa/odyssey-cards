@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_DetectiveSquad"
+MechanicTags = 0
 CardName = "武侦小组"
 Description = "冲锋"
 Rarity = 0

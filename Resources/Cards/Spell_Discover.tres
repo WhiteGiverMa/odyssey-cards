@@ -11,6 +11,7 @@ Value = 3
 [resource]
 script = ExtResource("1_data")
 Id = "spell_Discover"
+MechanicTags = 32800
 CardName = "发现"
 Description = "从3张随机卡牌中选取一张加入手牌"
 Rarity = 3

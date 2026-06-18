@@ -11,6 +11,7 @@ CustomEffectName = "CopyToAdjacentSlot"
 [resource]
 script = ExtResource("1_data")
 Id = "minion_WhatTheDogDoing"
+MechanicTags = 64
 CardName = "我的刀盾"
 Description = "嘲讽\n战吼：将一张复制加入相邻棋盘槽处。"
 Rarity = 4

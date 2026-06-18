@@ -16,6 +16,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_ignite"
+MechanicTags = 4112
 CardName = "燃起"
 Description = "获得1个额外的法力水晶槽，抽1张牌"
 Rarity = 4

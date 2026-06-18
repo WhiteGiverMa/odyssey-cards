@@ -14,6 +14,7 @@ CustomEffectName = "FlyingAway"
 [resource]
 script = ExtResource("1_data")
 Id = "domain_flying_away"
+MechanicTags = 33816
 DomainId = "flying_away"
 CardName = "飞远"
 Description = "领域：获得5点格挡。下一次被敌方随从或英雄攻击时，抽2张牌，将一张「受身」加入手牌。"

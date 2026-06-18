@@ -12,6 +12,7 @@ SecondaryValue = 2
 [resource]
 script = ExtResource("1_data")
 Id = "spell_MoonFishing"
+MechanicTags = 32800
 CardName = "捞月"
 Description = "从弃牌堆中的5张牌中选择2张加入手牌。"
 Rarity = 2

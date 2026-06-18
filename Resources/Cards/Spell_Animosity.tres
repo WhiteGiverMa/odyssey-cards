@@ -11,6 +11,7 @@ CustomEffectName = "Animosity"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_Animosity"
+MechanicTags = 128
 CardName = "敌意"
 Description = "使一个随从获得嘲讽、「受到来自玩家阵营的伤害翻倍」和亡语：玩家抽一张牌。"
 Rarity = 4

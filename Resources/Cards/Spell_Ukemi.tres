@@ -16,6 +16,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_ukemi"
+MechanicTags = 24
 CardName = "受身"
 Description = "获得3点格挡，抽1张牌"
 Rarity = 0

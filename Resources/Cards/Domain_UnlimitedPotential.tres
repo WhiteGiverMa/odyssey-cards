@@ -11,6 +11,7 @@ Value = 0
 [resource]
 script = ExtResource("1_data")
 Id = "domain_unlimited_potential"
+MechanicTags = 5120
 DomainId = "unlimited_potential"
 CardName = "无限潜能"
 Description = "解除自然增长的水晶槽上限"

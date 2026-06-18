@@ -21,6 +21,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_chansu"
+MechanicTags = 28
 CardName = "机会~"
 Description = "回复2点生命，获得2点格挡，抽1张牌。每回合首次对热力值大于100%的敌人造成伤害时，将牌库或弃牌堆中的这张牌加入手牌。"
 Rarity = 1

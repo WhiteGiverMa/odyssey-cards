@@ -11,6 +11,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "minion_tombstone"
+MechanicTags = 1
 CardName = "墓碑"
 Description = "嘲讽。战吼：对友方英雄造成1点伤害。\n对防御力不低于1的目标造成的伤害+2。"
 Rarity = 2

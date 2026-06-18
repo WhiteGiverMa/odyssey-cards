@@ -12,6 +12,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "status_explain"
+MechanicTags = 8192
 CardName = "解释"
 Description = "奇巧。打出时使敌方英雄获得1层总观效应。\n回到手牌并进入不可打出状态。\n若友方回合结束时不处于不可打出状态，友方英雄获得1层总观效应。"
 Rarity = 6

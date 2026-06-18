@@ -16,6 +16,7 @@ Value = 8
 [resource]
 script = ExtResource("1_data")
 Id = "spell_Expose"
+MechanicTags = 264
 CardName = "暴露"
 Description = "使一个目标失去所有格挡。友方英雄获得8点格挡。"
 Rarity = 0

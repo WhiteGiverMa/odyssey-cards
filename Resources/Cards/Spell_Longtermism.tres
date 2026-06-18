@@ -22,6 +22,7 @@ CustomEffectName = "AddPlanToHand"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_longtermism"
+MechanicTags = 36884
 CardName = "长期主义"
 Description = "获得1个额外的法力水晶槽，回复3点生命，将一张「计划」加入手牌"
 Rarity = 3

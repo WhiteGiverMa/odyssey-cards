@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_slime"
+MechanicTags = 0
 CardName = "软泥怪"
 Description = "冲锋"
 Rarity = 0

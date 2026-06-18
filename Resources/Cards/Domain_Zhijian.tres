@@ -12,6 +12,7 @@ TargetType = "blade_sharp"
 [resource]
 script = ExtResource("1_data")
 Id = "domain_zhijian"
+MechanicTags = 1152
 DomainId = "zhijian"
 CardName = "执锐"
 Description = "友方随从部署时攻击力+1"

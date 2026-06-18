@@ -11,6 +11,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "status_tiredness"
+MechanicTags = 1
 CardName = "疲倦"
 Description = "对玩家英雄造成1点伤害。"
 Rarity = 6

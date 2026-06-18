@@ -12,6 +12,7 @@ Value = 3
 [resource]
 script = ExtResource("1_data")
 Id = "spell_boundless_darkness"
+MechanicTags = 8192
 CardName = "无边黑暗"
 Description = "使所有敌人获得3层易伤和3层脆弱"
 Rarity = 2
