@@ -108,6 +108,9 @@ public partial class CardFlyVfx : Control
 
 	private void AnimateToDiscardPile(Vector2 targetPos)
 	{
+		Vector2 initialPos = _card.Position;
+		Vector2 initialScale = _card.Scale;
+		Color initialModulate = _card.Modulate;
 		Vector2 centerPos = GetViewportRect().Size / 2f;
 		Vector2 startPos = centerPos;
 
@@ -121,7 +124,18 @@ public partial class CardFlyVfx : Control
 		var tween = CreateTween();
 
 		// 阶段 1：飞到屏幕中央
-		tween.TweenProperty(_card, "position", centerPos, CenterHoldDuration)
+		tween.TweenMethod(
+			Callable.From<float>(t =>
+			{
+				if (!TryGetLiveCard(out var card))
+				{
+					StopOrphanedVfx();
+					return;
+				}
+
+				card.Position = initialPos.Lerp(centerPos, t);
+			}),
+			0f, 1f, CenterHoldDuration)
 			 .SetEase(Tween.EaseType.Out)
 			 .SetTrans(Tween.TransitionType.Cubic);
 
@@ -130,8 +144,14 @@ public partial class CardFlyVfx : Control
 		tween.TweenMethod(
 			Callable.From<float>(t =>
 			{
+				if (!TryGetLiveCard(out var card))
+				{
+					StopOrphanedVfx();
+					return;
+				}
+
 				Vector2 pos = QuadraticBezier(t, startPos, ctrlPos, targetPos);
-				_card.Position = pos;
+				card.Position = pos;
 
 				// 旋转跟随切线方向
 				float nextT = Mathf.Min(t + 0.02f, 1f);
@@ -139,7 +159,7 @@ public partial class CardFlyVfx : Control
 				Vector2 dir = nextPos - pos;
 				if (dir.LengthSquared() > 0.5f)
 				{
-					_card.Rotation = dir.Angle() + Mathf.Pi / 2f;
+					card.Rotation = dir.Angle() + Mathf.Pi / 2f;
 				}
 
 				// 每隔 N 帧生成一个尾迹粒子
@@ -156,20 +176,41 @@ public partial class CardFlyVfx : Control
 		// 到达后销毁
 		tween.Finished += () =>
 		{
-			_card.QueueFree();
+			if (TryGetLiveCard(out var card))
+				card.QueueFree();
 			QueueFree();
 		};
 
 		// === 并行补间：变暗 + 缩小（从飞行开始时触发，延迟 CenterHoldDuration） ===
 		var fadeTween = CreateTween();
 		fadeTween.TweenInterval(CenterHoldDuration);
-		fadeTween.SetParallel(true);
-		fadeTween.TweenProperty(_card, "modulate", new Color(0.4f, 0.4f, 0.4f, 0.01f), FlyDuration)
-				 .SetEase(Tween.EaseType.In)
-				 .SetTrans(Tween.TransitionType.Quad);
-		fadeTween.TweenProperty(_card, "scale", new Vector2(0.2f, 0.2f), FlyDuration)
-				 .SetEase(Tween.EaseType.Out)
-				 .SetTrans(Tween.TransitionType.Cubic);
+		fadeTween.TweenMethod(
+			Callable.From<float>(t =>
+			{
+				if (!TryGetLiveCard(out var card))
+				{
+					StopOrphanedVfx();
+					return;
+				}
+
+				card.Modulate = initialModulate.Lerp(new Color(0.4f, 0.4f, 0.4f, 0.01f), t);
+				card.Scale = initialScale.Lerp(new Vector2(0.2f, 0.2f), t);
+			}),
+			0f, 1f, FlyDuration)
+			.SetEase(Tween.EaseType.InOut)
+			.SetTrans(Tween.TransitionType.Quad);
+	}
+
+	private bool TryGetLiveCard(out CardUI card)
+	{
+		card = _card;
+		return GodotObject.IsInstanceValid(card) && !card.IsQueuedForDeletion();
+	}
+
+	private void StopOrphanedVfx()
+	{
+		if (!IsQueuedForDeletion())
+			QueueFree();
 	}
 
 	/// <summary>
