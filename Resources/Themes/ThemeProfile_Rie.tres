@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ThemeProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/ThemeProfile.cs" id="1_theme"]
+
+[resource]
+script = ExtResource("1_theme")
+HeroId = "rie"
+ThemeName = "理惠·直伤爆发"
+TargetDeckSize = 20
+MaxDuplicatesPerCard = 2
+MaxDomainCards = 3
+TagWeights = {
+1: 3,
+2: 2,
+16: 1,
+2048: 2,
+4: -2,
+8: -1,
+1024: -1
+}
+CoreCardIds = PackedStringArray("spell_Strike", "spell_Assault", "spell_FullAssault", "spell_ignite", "domain_infinite_fire", "spell_Expose")
+CardWeightOverrides = {}
