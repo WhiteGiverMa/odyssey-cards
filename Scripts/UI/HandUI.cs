@@ -296,9 +296,20 @@ public partial class HandUI : Control
 		ClearHoverState();
 		ClearTapExpansion();
 		ClearKeyboardFocus();
-		// 帧1：仅 QueueFree 旧节点（标记帧末销毁），不 AddChild
+		// 帧1：Kill 所有布局 tween 再 QueueFree 旧节点。
+		// tween 绑定在 HandUI 上，CardUI 被释放后 tween 仍存活，
+		// 下一帧 Godot 步进 tween 会访问已释放的 CardUI 原生内存 → SIG11。
 		foreach (var slot in _cardSlots)
-			slot.CardUI?.QueueFree();
+		{
+			var cardUI = slot.CardUI;
+			if (cardUI == null)
+				continue;
+
+			ClearLayoutTween(cardUI);
+			if (cardUI.GetParent() == _cardContainer && !cardUI.IsQueuedForDeletion())
+				cardUI.QueueFree();
+		}
+		_positionTweens.Clear();
 		_cardSlots.Clear();
 		_restingPositions.Clear();
 		_selectedCard = null;
