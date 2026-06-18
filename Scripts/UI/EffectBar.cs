@@ -58,7 +58,7 @@ public partial class EffectBar : HBoxContainer
 		_effectSignature = signature;
 
 		HideTooltip();
-		RemoveExistingIcons();
+		QueueExistingIconsForRemoval();
 
 		if (_pendingEffects.Length == 0)
 		{
@@ -67,14 +67,7 @@ public partial class EffectBar : HBoxContainer
 		}
 
 		Visible = true;
-
-		if (_rebuildQueued)
-		{
-			return;
-		}
-
-		_rebuildQueued = true;
-		CallDeferred(nameof(RebuildIconsDeferred));
+		QueueIconRebuild();
 	}
 
 	/// <summary>
@@ -86,7 +79,7 @@ public partial class EffectBar : HBoxContainer
 		_pendingEffects = Array.Empty<DisplayableEffect>();
 		_effectSignature = string.Empty;
 		HideTooltip();
-		RemoveExistingIcons();
+		QueueExistingIconsForRemoval();
 		Visible = false;
 	}
 
@@ -117,13 +110,15 @@ public partial class EffectBar : HBoxContainer
 
 	/// <summary>
 	/// 隐藏 tooltip。
+	/// Hide() 立即执行以从 Godot GUI 系统注销；
+	/// QueueFree 延迟到帧末，避免与 Godot 原生 PopupPanel 状态清理竞态 → SIG11。
 	/// </summary>
 	internal void HideTooltip()
 	{
 		if (_activeTooltip != null && GodotObject.IsInstanceValid(_activeTooltip))
 		{
 			_activeTooltip.Hide();
-			_activeTooltip.QueueFree();
+			_activeTooltip.CallDeferred("queue_free");
 		}
 
 		_activeTooltip = null;
@@ -151,11 +146,16 @@ public partial class EffectBar : HBoxContainer
 		return string.Join("|", parts);
 	}
 
-	private void RemoveExistingIcons()
+	private void QueueExistingIconsForRemoval()
 	{
 		foreach (var child in GetChildren())
 		{
 			if (child is not EffectIcon icon)
+			{
+				continue;
+			}
+
+			if (icon.IsQueuedForDeletion())
 			{
 				continue;
 			}
@@ -167,6 +167,28 @@ public partial class EffectBar : HBoxContainer
 		}
 	}
 
+	private void QueueIconRebuild()
+	{
+		if (_rebuildQueued)
+		{
+			return;
+		}
+
+		_rebuildQueued = true;
+		CallDeferred(nameof(WaitForIconFreeDeferred));
+	}
+
+	private void WaitForIconFreeDeferred()
+	{
+		if (!IsInsideTree() || IsQueuedForDeletion())
+		{
+			_rebuildQueued = false;
+			return;
+		}
+
+		CallDeferred(nameof(RebuildIconsDeferred));
+	}
+
 	private void RebuildIconsDeferred()
 	{
 		_rebuildQueued = false;
@@ -175,6 +197,27 @@ public partial class EffectBar : HBoxContainer
 		{
 			return;
 		}
+
+		if (_pendingEffects.Length == 0)
+		{
+			Visible = false;
+			return;
+		}
+
+		foreach (var child in GetChildren())
+		{
+			if (child is EffectIcon icon && !icon.IsQueuedForDeletion())
+			{
+			icon.Disable();
+				icon.Visible = false;
+				RemoveChild(icon);
+				icon.QueueFree();
+				QueueIconRebuild();
+				return;
+			}
+		}
+
+		Visible = true;
 
 		foreach (var effect in _pendingEffects)
 		{
@@ -349,6 +392,18 @@ public partial class EffectBar : HBoxContainer
 
 			_isHovered = true;
 			Scale = new Vector2(1.15f, 1.15f);
+			// 延迟到帧末执行 ShowTooltip，避免在 Godot GUI 事件处理期间
+			// 调用 Popup()/Hide() 导致原生控件树迭代重入 → SIG11
+			CallDeferred(nameof(OnMouseEnterDeferred));
+		}
+
+		private void OnMouseEnterDeferred()
+		{
+			if (!CanHandleHover() || !_isHovered)
+			{
+				return;
+			}
+
 			_parent.ShowTooltip(_effect, GetGlobalMousePosition());
 		}
 
@@ -361,6 +416,12 @@ public partial class EffectBar : HBoxContainer
 
 			_isHovered = false;
 			Scale = Vector2.One;
+			// 同上——延迟到帧末
+			CallDeferred(nameof(OnMouseExitDeferred));
+		}
+
+		private void OnMouseExitDeferred()
+		{
 			_parent.HideTooltip();
 		}
 	}
