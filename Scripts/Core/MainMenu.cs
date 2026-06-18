@@ -26,6 +26,7 @@ public partial class MainMenu : Control
 	private Button? _heroConfirmButton;
 	private Button? _heroCancelButton;
 	private readonly List<Button> _heroOptionButtons = new();
+	private ThemedDeckSelectUI? _themedDeckSelect;
 
 	/// <summary>移动端 TouchZone 注册 token，ExitTree 时释放。</summary>
 	private readonly List<IDisposable> _zoneTokens = new();
@@ -176,7 +177,7 @@ public partial class MainMenu : Control
 	private void OnStartPressed()
 	{
 		GD.Print("[MainMenu] OnStartPressed called");
-		if (IsSettingsOverlayActive() || IsHeroSelectorActive())
+		if (IsSettingsOverlayActive() || IsHeroSelectorActive() || IsThemedDeckSelectActive())
 			return;
 
 		var gm = GameManager.Instance;
@@ -356,11 +357,66 @@ public partial class MainMenu : Control
 			return;
 		string heroId = gm.SelectedHeroId;
 
+		// 0 牌开局：弹出主题卡组选择界面
+		if (gm.ActiveDeck.CardCount == 0)
+		{
+			ShowThemedDeckSelect(heroId);
+			return;
+		}
+
 		gm.ClearActiveRun();
 		gm.SelectedHeroId = heroId;
 		gm.StartNewRun();
 		HideHeroSelectOverlay();
 		GetTree().ChangeSceneToFile("res://Scenes/Map.tscn");
+	}
+
+	private void ShowThemedDeckSelect(string currentHeroId)
+	{
+		if (_themedDeckSelect != null && GodotObject.IsInstanceValid(_themedDeckSelect))
+			return;
+
+		var deckSelect = new ThemedDeckSelectUI
+		{
+			Name = "ThemedDeckSelect",
+		};
+		AddChild(deckSelect);
+		_themedDeckSelect = deckSelect;
+
+		if (MobileInputRouter.IsMobile)
+		{
+			_activeModalOverlay = deckSelect;
+			MobileInputRouter.Instance.PushModalLayer(deckSelect);
+		}
+
+		deckSelect.ShowDeckSelection(currentHeroId, selectedHeroId =>
+		{
+			_themedDeckSelect = null;
+
+			if (MobileInputRouter.IsMobile)
+				MobileInputRouter.Instance.PopModalLayer(deckSelect);
+			_activeModalOverlay = null;
+
+			if (selectedHeroId == null)
+			{
+				// 用户取消——返回英雄选择界面
+				GD.Print("[MainMenu] 用户取消主题卡组选择，返回英雄选择");
+				return;
+			}
+
+			// 用户已选择卡组（ThemedDeckSelectUI 已将卡牌写入 ActiveDeck）
+			var gm = GameManager.Instance;
+			if (gm == null)
+				return;
+
+			GD.Print($"[MainMenu] 用户选择主题卡组: {selectedHeroId}, 牌组张数: {gm.ActiveDeck.CardCount}");
+
+			gm.ClearActiveRun();
+			gm.SelectedHeroId = currentHeroId;
+			gm.StartNewRun();
+			HideHeroSelectOverlay();
+			GetTree().ChangeSceneToFile("res://Scenes/Map.tscn");
+		});
 	}
 
 	private void HideHeroSelectOverlay()
@@ -496,6 +552,13 @@ public partial class MainMenu : Control
 			&& _activeModalOverlay.IsInsideTree();
 	}
 
+	private bool IsThemedDeckSelectActive()
+	{
+		return _themedDeckSelect != null
+			&& GodotObject.IsInstanceValid(_themedDeckSelect)
+			&& _themedDeckSelect.IsInsideTree();
+	}
+
 	private void OnQuitPressed()
 	{
 		GD.Print("[MainMenu] OnQuitPressed → 退出游戏");
@@ -563,6 +626,7 @@ public partial class MainMenu : Control
 		_heroDescriptionLabel = null;
 		_heroConfirmButton = null;
 		_heroCancelButton = null;
+		_themedDeckSelect = null;
 		_heroOptionButtons.Clear();
 
 		Localization.Localization.OnLanguageChanged -= OnLanguageChanged;

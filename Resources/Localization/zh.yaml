@@ -201,6 +201,12 @@ ui:
   hand_select:
     confirm: "确认"
     cancel: "取消"
+  themed_deck_select:
+    title: "选择主题卡组"
+    total_cards: "{count} 张"
+    type_breakdown: "随从{minion}/法术{spell}/领域{domain}"
+    mana_curve: "曲线 {low}/{mid}/{high}"
+    select_format: "选择{name}"
   common:
     ok: "确定"
   emote_page:
@@ -700,3 +706,21 @@ hero:
   sokou:
     name: "溯光"
     desc: "25点生命值。使用射线手枪从弃牌堆中的轮战牌获得攻击力，并用「重整」洗切牌堆、抽牌弃牌。"
+
+tag:
+  direct_damage: "直伤"
+  damage_over_time: "持续"
+  heal: "治疗"
+  armor: "护甲"
+  draw: "抽牌"
+  discover: "发现"
+  summon: "召唤"
+  buff: "增益"
+  silence: "沉默"
+  discard: "弃牌"
+  domain: "领域"
+  weapon_synergy: "武器"
+  mana_ramp: "跳费"
+  status_apply: "状态"
+  shuffle: "洗切"
+  token: "衍生"

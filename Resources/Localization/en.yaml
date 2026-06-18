@@ -201,6 +201,12 @@ ui:
   hand_select:
     confirm: "Confirm"
     cancel: "Cancel"
+  themed_deck_select:
+    title: "Choose Themed Deck"
+    total_cards: "{count} cards"
+    type_breakdown: "Minion{minion}/Spell{spell}/Domain{domain}"
+    mana_curve: "Curve {low}/{mid}/{high}"
+    select_format: "Choose {name}"
   common:
     ok: "OK"
   emote_page:
@@ -697,3 +703,21 @@ hero:
   sokou:
     name: "Sokou"
     desc: "25 HP. Uses the Ray Pistol to gain Attack from Recycle cards in the discard pile, then Restructures the deck with shuffle, draw, and discard."
+
+tag:
+  direct_damage: "DMG"
+  damage_over_time: "DoT"
+  heal: "Heal"
+  armor: "Armor"
+  draw: "Draw"
+  discover: "Discover"
+  summon: "Summon"
+  buff: "Buff"
+  silence: "Silence"
+  discard: "Discard"
+  domain: "Domain"
+  weapon_synergy: "Weapon"
+  mana_ramp: "Ramp"
+  status_apply: "Status"
+  shuffle: "Shuffle"
+  token: "Token"
