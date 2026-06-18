@@ -16,9 +16,11 @@ namespace OdysseyCards.Core;
 /// 修复后规则：
 ///   1. 构筑牌组：添加时不得超过 20 张，超限操作直接拒绝并返回失败原因
 ///   2. 旧档/导入超限牌组：标记为 invalid，不静默截断，由 UI 展示不可用状态
-///   3. Start 入口：调用 ValidateForStart() 统一验证，invalid 必定阻断
+///   3. Start 入口：调用 ValidateForStart() 统一验证；0 张放行（roguelite 主题选牌流程），1-9 张阻断（半构筑状态），>20 张阻断
 ///   4. 战斗奖励加入运行中牌堆：允许突破 20 张，但不得写回构筑牌组
 ///   5. 保存：invalid 牌组阻断保存
+///   6. 诊断（DiagnoseDeck）：只诊断 >20 张的真正异常（报 PushWarning）；
+///      <10 张是合法的「未构筑/roguelite 开局」状态，不报后端级警告，由 UI 层处理。
 /// </summary>
 public static class DeckValidityService
 {
@@ -73,17 +75,20 @@ public static class DeckValidityService
 
 	/// <summary>
 	/// 验证牌组是否可用于开始冒险。
-	/// 检查：最小 10 张、最大 20 张。
+	/// 规则：0 张放行（roguelite 主题选牌流程由 MainMenu 处理）；
+	/// 1-9 张阻断（半构筑状态）；>20 张阻断。
 	/// </summary>
 	public static DeckValidationResult ValidateForStart(Deck? deck)
 	{
 		if (deck == null)
 		{
-			return DeckValidationResult.Invalid(
-				"ui.deck.validation.no_deck",
-				"没有可用的牌组",
-				0);
+			// null 视同 0 张，放行让 MainMenu 走主题选牌流程
+			return DeckValidationResult.Valid(0);
 		}
+
+		// 0 张：合法的 roguelite 开局状态
+		if (deck.CardCount == 0)
+			return DeckValidationResult.Valid(0);
 
 		if (deck.CardCount < Deck.MinCards)
 		{
@@ -106,8 +111,8 @@ public static class DeckValidityService
 
 	/// <summary>
 	/// 诊断牌组状态（用于 GameManager 启动时的数据修复）。
-	/// 注意：Day1 重构后，此方法只诊断不修复——不再静默截断。
-	/// 超限牌组由 UI 层标记为 invalid 并提示用户手动处理。
+	/// 只诊断 >20 张的真正异常（报 PushWarning）；
+	/// <10 张是合法的「未构筑/roguelite 开局」状态，不报后端级警告。
 	/// </summary>
 	public static DeckValidationResult DiagnoseDeck(Deck deck)
 	{
@@ -119,14 +124,7 @@ public static class DeckValidityService
 				deck.CardCount);
 		}
 
-		if (deck.CardCount < Deck.MinCards)
-		{
-			return DeckValidationResult.Invalid(
-				"ui.deck.validation.too_few",
-				$"牌组「{deck.Name}」不足 {Deck.MinCards} 张（{deck.CardCount} 张），请添加更多卡牌",
-				deck.CardCount);
-		}
-
+		// <10 张不报异常：0 张是 roguelite 开局，1-9 张是构筑中，均为合法状态
 		return DeckValidationResult.Valid(deck.CardCount);
 	}
 
