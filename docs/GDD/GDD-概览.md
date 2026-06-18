@@ -62,9 +62,9 @@ CombatManager 对所有卡牌使用 Card 基类，Spell 类从未实例化，待
 |------|------|
 | `GameManager` | 全局状态，跨战斗持久化，语言切换 |
 | `UIScaler` | UI 缩放，基准 1152×648 |
-| `DevConsole` | 开发者控制台，`` ` `` 键呼出 |
+| `ChatScreen` | 开发者控制台，`` ` `` 键呼出 |
 
-## DevConsole 命令
+## ChatScreen 命令
 
 | 命令 | 功能 |
 |------|------|

@@ -10,7 +10,7 @@ namespace OdysseyCards.Infrastructure.Commands;
 
 // ===== /qa_tombstone /qa_bait_tactics /qa_new_cards =====
 
-public class QaTombstoneCommand : DevConsoleCommand
+public class QaTombstoneCommand : ChatScreenCommand
 {
 	public override string Name => "qa_tombstone";
 	public override string Signature => "/qa_tombstone";
@@ -51,7 +51,7 @@ public class QaTombstoneCommand : DevConsoleCommand
 	}
 }
 
-public class QaBaitTacticsCommand : DevConsoleCommand
+public class QaBaitTacticsCommand : ChatScreenCommand
 {
 	public override string Name => "qa_bait_tactics";
 	public override string Signature => "/qa_bait_tactics";
@@ -69,7 +69,7 @@ public class QaBaitTacticsCommand : DevConsoleCommand
 	}
 }
 
-public class QaNewCardsCommand : DevConsoleCommand
+public class QaNewCardsCommand : ChatScreenCommand
 {
 	public override string Name => "qa_new_cards";
 	public override string Signature => "/qa_new_cards";

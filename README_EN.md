@@ -47,7 +47,7 @@ Map routing, reward/discover screens, and event/shop/rest UI exist. Event/shop/r
 
 ### Collection / Localization / Dev Console
 
-CollectionUI handles browsing and deck editing. Localization is YAML-based (`zh.yaml` / `en.yaml`) through `Localization.T()` and `GameManager.LanguageChanged`. DevConsole is an autoload with command groups for resources, damage, spawning, relics, battle jumps, and QA.
+CollectionUI handles browsing and deck editing. Localization is YAML-based (`zh.yaml` / `en.yaml`) through `Localization.T()` and `GameManager.LanguageChanged`. ChatScreen is an autoload with command groups for resources, damage, spawning, relics, battle jumps, and QA.
 
 ## Tech Stack
 
@@ -70,7 +70,7 @@ Scripts/
 ├── Relic/ (7)           # AbstractRelic, RelicManager, concrete relics
 ├── Roguelike/ (5)       # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)    # YAML localization
-└── Infrastructure/ (20) # DevConsole, InputManager, HotkeyManager, MobileInputRouter, Commands/8
+└── Infrastructure/ (20) # ChatScreen, InputManager, HotkeyManager, MobileInputRouter, Commands/8
 Resources/Cards/         # 37 .tres resources
 Resources/Localization/  # zh.yaml / en.yaml
 Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPreview
@@ -117,7 +117,7 @@ No GitHub Actions, Dockerfile, or Makefile currently. GUT is installed but has n
 
 - **GameManager** (`Scripts/Core/GameManager.cs`) — global state, card registry, persistence, language switching
 - **UIScaler** (`Scripts/UI/UIScaler.cs`) — UI scaling, current base 1152×648
-- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — developer console
+- **ChatScreen** (`Scripts/Infrastructure/ChatScreen.cs`) — developer console
 - **MobileInputHelper** (`Scripts/Infrastructure/MobileInputHelper.cs`) — legacy touch helper still used outside combat UI
 - **MobileInputRouter** (`Scripts/Infrastructure/MobileInputRouter.cs`) — mobile touch routing and modal stack
 - **InputManager** (`Scripts/Infrastructure/InputManager.cs`) — physical keys to logical actions

@@ -9,7 +9,7 @@ namespace OdysseyCards.Infrastructure.Commands;
 
 // ===== /damage 系列 =====
 
-public class DamageCommand : DevConsoleCommand
+public class DamageCommand : ChatScreenCommand
 {
 	public override string Name => "damage";
 	public override string[] Aliases => ["dmg"];
@@ -31,7 +31,7 @@ public class DamageCommand : DevConsoleCommand
 	}
 }
 
-public class DamageEnemyCommand : DevConsoleCommand
+public class DamageEnemyCommand : ChatScreenCommand
 {
 	public override string Name => "damage_enemy";
 	public override string[] Aliases => ["denemy"];
@@ -76,7 +76,7 @@ internal static class EnemyDamageTargetResolver
 	}
 }
 
-public class DamageSelfCommand : DevConsoleCommand
+public class DamageSelfCommand : ChatScreenCommand
 {
 	public override string Name => "damage_self";
 	public override string[] Aliases => ["dself"];
@@ -95,7 +95,7 @@ public class DamageSelfCommand : DevConsoleCommand
 	}
 }
 
-public class DamageESlotCommand : DevConsoleCommand
+public class DamageESlotCommand : ChatScreenCommand
 {
 	public override string Name => "damage_eslot";
 	public override string[] Aliases => ["des"];
@@ -125,7 +125,7 @@ public class DamageESlotCommand : DevConsoleCommand
 	}
 }
 
-public class DamagePSlotCommand : DevConsoleCommand
+public class DamagePSlotCommand : ChatScreenCommand
 {
 	public override string Name => "damage_pslot";
 	public override string[] Aliases => ["dps"];
@@ -155,7 +155,7 @@ public class DamagePSlotCommand : DevConsoleCommand
 	}
 }
 
-public class DamageAllCommand : DevConsoleCommand
+public class DamageAllCommand : ChatScreenCommand
 {
 	public override string Name => "damage_all";
 	public override string[] Aliases => ["dall"];

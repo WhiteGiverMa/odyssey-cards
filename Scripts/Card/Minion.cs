@@ -610,7 +610,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	}
 
 	/// <summary>
-	/// DevConsole 专用直伤：绕过伤害管线、护甲与状态修饰，直接扣除生命值。
+	/// ChatScreen 专用直伤：绕过伤害管线、护甲与状态修饰，直接扣除生命值。
 	/// </summary>
 	internal void ApplyDevDamage(int amount)
 	{
@@ -618,7 +618,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 			return;
 
 		CurrentHealth -= amount;
-		GD.Print($"[Minion:{CardName}] DevConsole 直伤 {amount}，剩余生命值：{CurrentHealth}");
+		GD.Print($"[Minion:{CardName}] ChatScreen 直伤 {amount}，剩余生命值：{CurrentHealth}");
 	}
 
 	/// <summary>

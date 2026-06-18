@@ -9,7 +9,7 @@ namespace OdysseyCards.Combat;
 
 /// <summary>
 /// 运行时 QA 场景集合。
-/// 保留 MCP/DevConsole 可驱动的集成验证价值，但不再污染 CombatManager 的生产职责。
+/// 保留 MCP/ChatScreen 可驱动的集成验证价值，但不再污染 CombatManager 的生产职责。
 /// </summary>
 internal static class CombatRuntimeQa
 {

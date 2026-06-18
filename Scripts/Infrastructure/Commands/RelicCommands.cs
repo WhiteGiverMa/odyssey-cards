@@ -8,7 +8,7 @@ namespace OdysseyCards.Infrastructure.Commands;
 
 // ===== /addrelic =====
 
-public class AddRelicCommand : DevConsoleCommand
+public class AddRelicCommand : ChatScreenCommand
 {
 	private static readonly Dictionary<string, AbstractRelic> _relicDefs = [];
 

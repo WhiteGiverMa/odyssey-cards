@@ -37,7 +37,7 @@ internal sealed class VictoryDefeatResolver
 	}
 
 	/// <summary>
-	/// DevConsole 强制胜利时跳过金币奖励。
+	/// ChatScreen 强制胜利时跳过金币奖励。
 	/// </summary>
 	public bool DevSkipGoldReward { set => _devSkipGoldReward = value; }
 

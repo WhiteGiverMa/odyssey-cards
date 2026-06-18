@@ -55,7 +55,7 @@ YAML-based 本地化系统（`Scripts/Localization/`），中文/英文双语支
 
 ### 开发者控制台
 
-`DevConsole`（Autoload）按 `` ` `` 呼出。架构：`DevConsole` → `DevConsoleEngine` → `Commands/*`。支持资源、伤害、召唤、战斗跳转、藏品、标签、运行时 QA 等命令；AI 可通过 godot-mcp 远程调用。
+`ChatScreen`（Autoload）按 `` ` `` 呼出。架构：`ChatScreen` → `ChatScreenEngine` → `Commands/*`。支持资源、伤害、召唤、战斗跳转、藏品、标签、运行时 QA 等命令；AI 可通过 godot-mcp 远程调用。
 
 ## 技术栈
 
@@ -78,7 +78,7 @@ Scripts/
 ├── Relic/ (7)           # AbstractRelic, RelicManager, concrete relics
 ├── Roguelike/ (5)       # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)    # YAML 多语言系统
-└── Infrastructure/ (20) # DevConsole, InputManager, HotkeyManager, MobileInputRouter, Commands/8
+└── Infrastructure/ (20) # ChatScreen, InputManager, HotkeyManager, MobileInputRouter, Commands/8
 Resources/Cards/         # 37 .tres（领域6 + 随从11 + 法术19 + 状态1）
 Resources/Localization/  # zh.yaml / en.yaml
 Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPreview
@@ -125,7 +125,7 @@ dotnet format OdysseyCards.sln --verify-no-changes
 
 - **GameManager** (`Scripts/Core/GameManager.cs`) — 全局状态、卡牌注册表、跨战斗持久化、语言切换
 - **UIScaler** (`Scripts/UI/UIScaler.cs`) — UI 缩放，当前基准 1152×648
-- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — 开发者控制台
+- **ChatScreen** (`Scripts/Infrastructure/ChatScreen.cs`) — 开发者控制台
 - **MobileInputHelper** (`Scripts/Infrastructure/MobileInputHelper.cs`) — 旧触控辅助，非战斗 UI 仍有使用
 - **MobileInputRouter** (`Scripts/Infrastructure/MobileInputRouter.cs`) — 移动端触控路由与模态栈
 - **InputManager** (`Scripts/Infrastructure/InputManager.cs`) — 物理键到逻辑动作

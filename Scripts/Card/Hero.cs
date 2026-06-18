@@ -279,7 +279,7 @@ public class Hero : IDamageTarget, IDamageSource
 	internal void InvokeOnDeath() => OnDeath?.Invoke(this);
 
 	/// <summary>
-	/// DevConsole 专用直伤：绕过伤害管线、护甲、反击与状态修饰，直接扣除生命值。
+	/// ChatScreen 专用直伤：绕过伤害管线、护甲、反击与状态修饰，直接扣除生命值。
 	/// </summary>
 	internal void ApplyDevDamage(int amount)
 	{
@@ -288,7 +288,7 @@ public class Hero : IDamageTarget, IDamageSource
 
 		_core.ApplyDamage(amount);
 		string who = IsPlayerSide ? "玩家英雄" : "敌方英雄";
-		GD.Print($"[Hero:{who}] DevConsole 直伤 {amount}，剩余生命值：{CurrentHealth}");
+		GD.Print($"[Hero:{who}] ChatScreen 直伤 {amount}，剩余生命值：{CurrentHealth}");
 
 		if (IsDead)
 			OnDeath?.Invoke(this);

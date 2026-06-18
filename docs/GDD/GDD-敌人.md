@@ -27,7 +27,7 @@
 
 ## /fight 命令
 
-`DevConsole` 支持 `/fight <enemy>` 直接开启战斗（绕过 Roguelike 地图）。
+`ChatScreen` 支持 `/fight <enemy>` 直接开启战斗（绕过 Roguelike 地图）。
 
 | ID | 战斗内容 |
 |----|---------|

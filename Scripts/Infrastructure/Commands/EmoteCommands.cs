@@ -12,7 +12,7 @@ namespace OdysseyCards.Infrastructure.Commands;
 /// 用法：/emote &lt;text&gt;    从第一个敌人发送
 ///       /emote &lt;index&gt; &lt;text&gt;  从指定索引敌人发送
 /// </summary>
-public class EmoteCommand : DevConsoleCommand
+public class EmoteCommand : ChatScreenCommand
 {
 	public override string Name => "emote";
 	public override string[] Aliases => ["emo"];

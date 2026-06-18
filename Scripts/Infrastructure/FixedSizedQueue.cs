@@ -6,7 +6,7 @@ namespace OdysseyCards.Infrastructure;
 
 /// <summary>
 /// 有界队列：新元素插入索引 0（最新在前），超出容量时从末尾移除最旧元素。
-/// 用于 DevConsole 命令历史持久化。
+/// 用于 ChatScreen 命令历史持久化。
 /// </summary>
 public class FixedSizedQueue<T> : List<T>
 {

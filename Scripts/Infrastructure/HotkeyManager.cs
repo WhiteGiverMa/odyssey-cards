@@ -17,7 +17,7 @@ namespace OdysseyCards.Infrastructure;
 ///   - Dictionary&lt;StringName, List&lt;Action&gt;&gt; 按下/释放绑定
 ///   - Push/Remove 模式：组件 _EnterTree 时注册，_ExitTree 时注销
 ///   - AddBlockingScreen：模态层打开时为所有动作注册空回调，阻止下层输入
-///   - 自动守卫：DevConsole 可见时、LineEdit/TextEdit 聚焦时不触发
+///   - 自动守卫：ChatScreen 可见时、LineEdit/TextEdit 聚焦时不触发
 ///   - 通过 CallDeferred 调用回调，避免在输入处理中修改场景树
 ///
 /// 用法示例：
@@ -73,8 +73,8 @@ public partial class HotkeyManager : Node
 		if (!WindowHasFocus())
 			return;
 
-		// 守卫：DevConsole 可见
-		var devConsole = GetNodeOrNull<DevConsole>("/root/DevConsole");
+		// 守卫：ChatScreen 可见
+		var devConsole = GetNodeOrNull<ChatScreen>("/root/ChatScreen");
 		if (devConsole?.IsVisible == true)
 			return;
 

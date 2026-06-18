@@ -1443,7 +1443,7 @@ public partial class CombatUI
 	// ===== 开发者伤害模式 =====
 
 	/// <summary>
-	/// 进入开发者伤害目标选择模式（由 DevConsole /damage -c N 触发）。
+	/// 进入开发者伤害目标选择模式（由 ChatScreen /damage -c N 触发）。
 	/// 高亮所有合法目标，点击任意实体造成指定伤害，右键取消。
 	/// </summary>
 	public void EnterDevDamageMode(int damageAmount)

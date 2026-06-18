@@ -76,8 +76,8 @@ public partial class InputManager : Node
 		if (keyEvent.Echo)
 			return; // 忽略按键重复
 
-		// 如果 DevConsole 可见，只处理控制台相关按键（由 DevConsole 自己的 _Input 处理）
-		var devConsole = GetNodeOrNull<DevConsole>("/root/DevConsole");
+		// 如果 ChatScreen 可见，只处理控制台相关按键（由 ChatScreen 自己的 _Input 处理）
+		var devConsole = GetNodeOrNull<ChatScreen>("/root/ChatScreen");
 		if (devConsole?.IsVisible == true)
 			return;
 

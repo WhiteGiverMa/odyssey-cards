@@ -45,9 +45,9 @@
 
 맵 루트, 보상/발견, 이벤트/상점/휴식 UI가 존재합니다. 이벤트/상점/휴식은 MapUI와 전투 보상 흐름 연결이 아직 진행 중입니다.
 
-### 컬렉션 / 다국어 / DevConsole
+### 컬렉션 / 다국어 / ChatScreen
 
-CollectionUI는 카드 열람과 덱 편집을 제공합니다. 다국어는 YAML (`zh.yaml` / `en.yaml`)로, `Localization.T()`와 `GameManager.LanguageChanged`를 사용합니다. DevConsole은 리소스, 데미지, 소환, 유물, 전투 점프, QA 명령을 갖춘 Autoload입니다.
+CollectionUI는 카드 열람과 덱 편집을 제공합니다. 다국어는 YAML (`zh.yaml` / `en.yaml`)로, `Localization.T()`와 `GameManager.LanguageChanged`를 사용합니다. ChatScreen은 리소스, 데미지, 소환, 유물, 전투 점프, QA 명령을 갖춘 Autoload입니다.
 
 ## 기술 스택
 
@@ -70,7 +70,7 @@ Scripts/
 ├── Relic/ (7)           # AbstractRelic, RelicManager, concrete relics
 ├── Roguelike/ (5)       # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)    # YAML 다국어
-└── Infrastructure/ (20) # DevConsole, InputManager, HotkeyManager, MobileInputRouter, Commands/8
+└── Infrastructure/ (20) # ChatScreen, InputManager, HotkeyManager, MobileInputRouter, Commands/8
 Resources/Cards/         # 37 .tres resources
 Resources/Localization/  # zh.yaml / en.yaml
 Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPreview
@@ -117,7 +117,7 @@ dotnet format OdysseyCards.sln --verify-no-changes
 
 - **GameManager** (`Scripts/Core/GameManager.cs`) — 글로벌 상태, 카드 등록, 영속화, 언어 전환
 - **UIScaler** (`Scripts/UI/UIScaler.cs`) — UI 스케일링, 현재 기준 1152×648
-- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — 개발자 콘솔
+- **ChatScreen** (`Scripts/Infrastructure/ChatScreen.cs`) — 개발자 콘솔
 - **MobileInputHelper** (`Scripts/Infrastructure/MobileInputHelper.cs`) — 구형 터치 보조. 비전투 UI에서 사용 중
 - **MobileInputRouter** (`Scripts/Infrastructure/MobileInputRouter.cs`) — 모바일 입력 라우팅과 모달 스택
 - **InputManager** (`Scripts/Infrastructure/InputManager.cs`) — 물리 키에서 논리 액션으로

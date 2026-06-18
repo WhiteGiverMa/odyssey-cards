@@ -25,7 +25,7 @@ Scripts/
 ├── Relic/ (7)      # AbstractRelic, RelicManager, 5 个具体藏品
 ├── Roguelike/ (5)  # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)# YAML 多语言 (LocalStr, ConcatLocalStr, ILocalizable, YamlParser)
-└── Infrastructure/ (20, Commands/8) # DevConsole, InputManager, HotkeyManager, MobileInputRouter, SceneLifecycleGuard…
+└── Infrastructure/ (20, Commands/8) # ChatScreen, InputManager, HotkeyManager, MobileInputRouter, SceneLifecycleGuard…
 Resources/Cards/    # 38 .tres：领域6 + 随从12 + 法术19 + 状态1
 Resources/Localization/ # zh.yaml / en.yaml
 Resources/Enemies/ Resources/Relics/ # 结构桩，当前为空
@@ -39,7 +39,7 @@ Tests/              # tests/csharp：xUnit 10 Unit + 1 Integration(跳过)
 |------|------|------|
 | `GameManager` | `Scripts/Core/GameManager.cs` | 全局状态、卡牌注册表、语言切换、跨战斗持久化 |
 | `UIScaler` | `Scripts/UI/UIScaler.cs` | UI 缩放，当前基准 1152×648（TODO 统一 1600×900） |
-| `DevConsole` | `Scripts/Infrastructure/DevConsole.cs` | 开发者控制台，`` ` `` 呼出 |
+| `ChatScreen` | `Scripts/Infrastructure/ChatScreen.cs` | 开发者控制台，`` ` `` 呼出 |
 | `MobileInputHelper` | `Scripts/Infrastructure/MobileInputHelper.cs` | 旧触控辅助；非战斗 UI 仍有使用，战斗表面新代码用 Router |
 | `MobileInputRouter` | `Scripts/Infrastructure/MobileInputRouter.cs` | 移动端触控路由（手势所有权 + 模态栈），桌面端透传 |
 | `InputManager` | `Scripts/Infrastructure/InputManager.cs` | 键盘键位映射（物理键→逻辑动作），多套配置持久化 |
@@ -81,7 +81,7 @@ Tests/              # tests/csharp：xUnit 10 Unit + 1 Integration(跳过)
 | 综合信息 | `UI/InfoScreen.cs` | CapsLock 覆盖；`SplitOffset` Godot API 已过时 |
 | 存档 | `Core/SaveDataManager.cs`, `RunSaveData.cs` | user://save.json 持久化；包含 selected hero / active run hero id |
 | 本地化 | `Localization/Localization.cs` | YAML 加载，DirAccess→硬编码回退 |
-| 控制台 | `Infrastructure/DevConsole.cs` → `DevConsoleEngine.cs` → `Commands/` | 8 个命令组，`/help` 自动生成 |
+| 控制台 | `Infrastructure/ChatScreen.cs` → `ChatScreenEngine.cs` → `Commands/` | 8 个命令组，`/help` 自动生成 |
 | 生命周期防护 | `Infrastructure/SceneLifecycleGuard.cs` | `CallDeferredSafe` 防 QueueFree/场景切换竞态 |
 | 编辑器预览 | `Scenes/CardPreview.tscn`, `BoardPreview.tscn`, `CombatPreview.tscn` | `[Tool]` + `#if TOOLS`，发布版零开销 |
 | 测试 | `tests/csharp/` | xUnit；集成测试因 Godot Resource 跳过 |
@@ -213,12 +213,12 @@ dotnet format OdysseyCards.sln --verify-no-changes
 - 当前无 `.github/workflows`、Dockerfile、Makefile。
 - GUT 插件已安装但 `res://test/` 无 GDScript 测试，暂为 dormant config。
 
-## DevConsole
+## ChatScreen
 
-AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", args=["/damage 10"])`
+AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", args=["/damage 10"])`
 
-架构：`DevConsole`(薄 UI 壳) → `DevConsoleEngine`(纯 C# 引擎) → `Commands/*`(8 个命令组，继承 `DevConsoleCommand`)。
-新增命令：写 `DevConsoleCommand` 子类并在 `RegisterAllCommands()` 注册。`/help` 自动从命令元数据生成。
+架构：`ChatScreen`(薄 UI 壳) → `ChatScreenEngine`(纯 C# 引擎) → `Commands/*`(8 个命令组，继承 `ChatScreenCommand`)。
+新增命令：写 `ChatScreenCommand` 子类并在 `RegisterAllCommands()` 注册。`/help` 自动从命令元数据生成。
 
 | 命令 | 效果 |
 |------|------|
@@ -240,7 +240,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 ## Verification / MCP Testing
 
 - 自动测试：`dotnet test`，纯 C# 单测可跑；Integration 因 Godot Resource 依赖跳过。
-- 运行时 QA：启动 Godot → DevConsole 执行 `/qa_*` → `game_get_logs` 读结果。
+- 运行时 QA：启动 Godot → ChatScreen 执行 `/qa_*` → `game_get_logs` 读结果。
 - godot-mcp 可验证：`/damage`、`/draw`、`/mana`、`/end`、`/armor` + logs/UI。
 - godot-mcp **无法可靠验证拖拽**：`game_click` 合成事件 vs OS 真实鼠标不一致。
 - 需人类肉眼：UI 位置/大小、拖拽交互、动画、字体。
@@ -292,7 +292,7 @@ AI 调用：`game_call_method(nodePath="/root/DevConsole", method="DevCommand", 
 - ✅ 新敌人劫蛋者：开场「难逃之瑕」+ B/C/D 乱序循环；「聚焦」「蓄谋」「智能臭鸡蛋」与敌方法术伤害意图已接入。
 - ✅ CombatUI 大文件已 partial 拆分，支持 Card/Board/Combat 编辑器预览。
 - ✅ CombatManager 已拆出 AttackTracker/SelectionSystem/DeathHandler/VictoryDefeatResolver/WeaponAttackSystem/EmoteSystem。
-- ✅ DevConsole v2：Engine + Command 抽象 + 8 命令组 + 历史持久化。
+- ✅ ChatScreen v2：Engine + Command 抽象 + 8 命令组 + 历史持久化。
 - ✅ 热力系统与藏品系统已存在；资源化仍未完成。
 - ⚠️ `Spell.cs` 从未实例化（死代码）。
 - ⚠️ `RailPistolPassive.cs`、`SafeAreaContainer.cs` 当前孤立。

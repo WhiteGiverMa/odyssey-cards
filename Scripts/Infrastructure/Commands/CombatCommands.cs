@@ -35,7 +35,7 @@ internal static class CommandSceneLookup
 
 // ===== /end /fight /refresh /intent_debug =====
 
-public class EndCommand : DevConsoleCommand
+public class EndCommand : ChatScreenCommand
 {
 	public override string Name => "end";
 	public override string[] Aliases => ["endturn"];
@@ -51,7 +51,7 @@ public class EndCommand : DevConsoleCommand
 	}
 }
 
-public class FightCommand : DevConsoleCommand
+public class FightCommand : ChatScreenCommand
 {
 	public override string Name => "fight";
 	public override string Signature => "/fight <enemy>";
@@ -79,12 +79,12 @@ public class FightCommand : DevConsoleCommand
 			return CommandResult.Fail($"未知敌人: {fightId}，可用: {string.Join(", ", EnemyRegistry.AllIds)}");
 
 		GameManager.Instance!.FightOverride = fightEnemies;
-		// DevConsole.cs will handle the scene change since it needs Godot API
+		// ChatScreen.cs will handle the scene change since it needs Godot API
 		return CommandResult.Ok($"__FIGHT__{string.Join(", ", fightEnemies.Select(e => e.Name))}");
 	}
 }
 
-public class RefreshCommand : DevConsoleCommand
+public class RefreshCommand : ChatScreenCommand
 {
 	public override string Name => "refresh";
 	public override string[] Aliases => ["r"];
@@ -105,7 +105,7 @@ public class RefreshCommand : DevConsoleCommand
 	}
 }
 
-public class IntentDebugCommand : DevConsoleCommand
+public class IntentDebugCommand : ChatScreenCommand
 {
 	public override string Name => "intent_debug";
 	public override string Signature => "/intent_debug";
@@ -143,7 +143,7 @@ public class IntentDebugCommand : DevConsoleCommand
 
 // ===== /skip（原名 /room）=====
 
-public class SkipCommand : DevConsoleCommand
+public class SkipCommand : ChatScreenCommand
 {
 	public override string Name => "skip";
 	public override string[] Aliases => [];
@@ -177,7 +177,7 @@ public class SkipCommand : DevConsoleCommand
 
 // ===== /room <type>（参考 STS2 RoomConsoleCmd）=====
 
-public class RoomCommand : DevConsoleCommand
+public class RoomCommand : ChatScreenCommand
 {
 	public override string Name => "room";
 	public override string Signature => "/room <type> [--id <eventId>]";
@@ -282,7 +282,7 @@ public class RoomCommand : DevConsoleCommand
 
 // ===== /event =====
 
-public class EventCommand : DevConsoleCommand
+public class EventCommand : ChatScreenCommand
 {
 	public override string Name => "event";
 	public override string Signature => "/event [id]";

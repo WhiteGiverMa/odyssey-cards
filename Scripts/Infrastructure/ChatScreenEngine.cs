@@ -5,15 +5,15 @@ using System.Linq;
 namespace OdysseyCards.Infrastructure;
 
 /// <summary>
-/// DevConsole 命令引擎 — 纯 C#，不依赖 Godot API。
+/// ChatScreen 命令引擎 — 纯 C#，不依赖 Godot API。
 /// 负责命令注册、执行调度、补全路由和历史管理。
 /// </summary>
-public class DevConsoleEngine
+public class ChatScreenEngine
 {
-	private readonly Dictionary<string, DevConsoleCommand> _commands = new(StringComparer.OrdinalIgnoreCase);
-	private readonly List<DevConsoleCommand> _registeredCommands = new();
+	private readonly Dictionary<string, ChatScreenCommand> _commands = new(StringComparer.OrdinalIgnoreCase);
+	private readonly List<ChatScreenCommand> _registeredCommands = new();
 
-	public IReadOnlyList<DevConsoleCommand> Commands => _registeredCommands;
+	public IReadOnlyList<ChatScreenCommand> Commands => _registeredCommands;
 
 	public FixedSizedQueue<string> History { get; } = new(40);
 
@@ -22,7 +22,7 @@ public class DevConsoleEngine
 	/// <summary>
 	/// 注册命令。自动注册 Name 和所有 Aliases 到查找表。
 	/// </summary>
-	public void Register(DevConsoleCommand cmd)
+	public void Register(ChatScreenCommand cmd)
 	{
 		if (!_registeredCommands.Contains(cmd))
 			_registeredCommands.Add(cmd);
@@ -89,7 +89,7 @@ public class DevConsoleEngine
 		// 阶段 1：命令名补全（还没输入空格）
 		if (spaceIdx < 0)
 		{
-			var uniqueByName = new Dictionary<string, DevConsoleCommand>(StringComparer.OrdinalIgnoreCase);
+			var uniqueByName = new Dictionary<string, ChatScreenCommand>(StringComparer.OrdinalIgnoreCase);
 			foreach (var cmd in _commands.Values)
 			{
 				if (!uniqueByName.ContainsKey(cmd.Name))
@@ -170,7 +170,7 @@ public class DevConsoleEngine
 
 	// ===== 内部 =====
 
-	private bool TryResolveCommand(string token, out DevConsoleCommand command)
+	private bool TryResolveCommand(string token, out ChatScreenCommand command)
 	{
 		if (_commands.TryGetValue(token, out command!))
 			return true;

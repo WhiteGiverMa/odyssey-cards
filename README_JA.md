@@ -45,9 +45,9 @@
 
 マップ、報酬/発見、イベント/ショップ/休憩 UI が存在します。イベント/ショップ/休憩は MapUI と戦闘報酬フローへの接続がまだ途中です。
 
-### コレクション / 多言語 / DevConsole
+### コレクション / 多言語 / ChatScreen
 
-CollectionUI はカード閲覧とデッキ編集を提供。多言語は YAML（`zh.yaml` / `en.yaml`）で、`Localization.T()` と `GameManager.LanguageChanged` を使います。DevConsole はリソース、ダメージ、召喚、レリック、戦闘ジャンプ、QA コマンドを持つ Autoload です。
+CollectionUI はカード閲覧とデッキ編集を提供。多言語は YAML（`zh.yaml` / `en.yaml`）で、`Localization.T()` と `GameManager.LanguageChanged` を使います。ChatScreen はリソース、ダメージ、召喚、レリック、戦闘ジャンプ、QA コマンドを持つ Autoload です。
 
 ## 技術スタック
 
@@ -70,7 +70,7 @@ Scripts/
 ├── Relic/ (7)           # AbstractRelic, RelicManager, concrete relics
 ├── Roguelike/ (5)       # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)    # YAML localization
-└── Infrastructure/ (20) # DevConsole, InputManager, HotkeyManager, MobileInputRouter, Commands/8
+└── Infrastructure/ (20) # ChatScreen, InputManager, HotkeyManager, MobileInputRouter, Commands/8
 Resources/Cards/         # 37 .tres resources
 Resources/Localization/  # zh.yaml / en.yaml
 Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPreview
@@ -117,7 +117,7 @@ dotnet format OdysseyCards.sln --verify-no-changes
 
 - **GameManager** (`Scripts/Core/GameManager.cs`) — グローバル状態、カード登録、永続化、言語切替
 - **UIScaler** (`Scripts/UI/UIScaler.cs`) — UI スケーリング、現在基準 1152×648
-- **DevConsole** (`Scripts/Infrastructure/DevConsole.cs`) — 開発者コンソール
+- **ChatScreen** (`Scripts/Infrastructure/ChatScreen.cs`) — 開発者コンソール
 - **MobileInputHelper** (`Scripts/Infrastructure/MobileInputHelper.cs`) — 旧タッチ補助。非戦闘 UI で使用中
 - **MobileInputRouter** (`Scripts/Infrastructure/MobileInputRouter.cs`) — モバイル入力ルーティングとモーダルスタック
 - **InputManager** (`Scripts/Infrastructure/InputManager.cs`) — 物理キーから論理アクションへ

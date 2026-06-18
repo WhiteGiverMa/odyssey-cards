@@ -1,9 +1,9 @@
 namespace OdysseyCards.Infrastructure;
 
 /// <summary>
-/// DevConsole 命令抽象基类。每条命令自包含名称、别名、用法签名、描述、执行逻辑和参数补全。
+/// ChatScreen 命令抽象基类。每条命令自包含名称、别名、用法签名、描述、执行逻辑和参数补全。
 /// </summary>
-public abstract class DevConsoleCommand
+public abstract class ChatScreenCommand
 {
 	/// <summary>命令名（唯一标识，不含 / 前缀）。</summary>
 	public abstract string Name { get; }

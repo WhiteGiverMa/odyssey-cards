@@ -41,5 +41,5 @@
 ## QA
 
 - 纯规则先补/跑 `dotnet test`。
-- 运行时走 DevConsole：`/qa_tombstone`、`/qa_bait_tactics`、`/qa_new_cards`。
+- 运行时走 ChatScreen：`/qa_tombstone`、`/qa_bait_tactics`、`/qa_new_cards`。
 - MCP 可调 `/damage`、`/draw`、`/mana`、`/end`，拖拽/视觉仍需人工或编辑器预览。

@@ -13,7 +13,7 @@ namespace OdysseyCards.Infrastructure.Commands;
 
 // ===== /token /play /summon_player /summon_enemy =====
 
-public class TokenCommand : DevConsoleCommand
+public class TokenCommand : ChatScreenCommand
 {
 	private static Dictionary<string, CardData>? _cardCache;
 
@@ -81,7 +81,7 @@ public class TokenCommand : DevConsoleCommand
 	}
 }
 
-public class PlayCommand : DevConsoleCommand
+public class PlayCommand : ChatScreenCommand
 {
 	public override string Name => "play";
 	public override string[] Aliases => ["p"];
@@ -127,7 +127,7 @@ public class PlayCommand : DevConsoleCommand
 	}
 }
 
-public class DiscardCommand : DevConsoleCommand
+public class DiscardCommand : ChatScreenCommand
 {
 	public override string Name => "discard";
 	public override string[] Aliases => ["dc"];
@@ -267,7 +267,7 @@ public class DiscardCommand : DevConsoleCommand
 	}
 }
 
-public class SummonPlayerCommand : DevConsoleCommand
+public class SummonPlayerCommand : ChatScreenCommand
 {
 	public override string Name => "summon_player";
 	public override string[] Aliases => ["sp"];
@@ -280,7 +280,7 @@ public class SummonPlayerCommand : DevConsoleCommand
 		=> SummonCommandHelper.Summon(args, isPlayerSide: true, sideLabel: "己方");
 }
 
-public class SummonEnemyCommand : DevConsoleCommand
+public class SummonEnemyCommand : ChatScreenCommand
 {
 	public override string Name => "summon_enemy";
 	public override string[] Aliases => ["se"];

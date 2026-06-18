@@ -7,7 +7,7 @@ namespace OdysseyCards.Infrastructure.Commands;
 
 // ===== /draw /mana /heal /armor =====
 
-public class DrawCommand : DevConsoleCommand
+public class DrawCommand : ChatScreenCommand
 {
 	public override string Name => "draw";
 	public override string[] Aliases => ["d"];
@@ -24,7 +24,7 @@ public class DrawCommand : DevConsoleCommand
 	}
 }
 
-public class ManaCommand : DevConsoleCommand
+public class ManaCommand : ChatScreenCommand
 {
 	public override string Name => "mana";
 	public override string[] Aliases => ["m"];
@@ -41,7 +41,7 @@ public class ManaCommand : DevConsoleCommand
 	}
 }
 
-public class HealCommand : DevConsoleCommand
+public class HealCommand : ChatScreenCommand
 {
 	public override string Name => "heal";
 	public override string[] Aliases => ["h"];
@@ -58,7 +58,7 @@ public class HealCommand : DevConsoleCommand
 	}
 }
 
-public class ArmorCommand : DevConsoleCommand
+public class ArmorCommand : ChatScreenCommand
 {
 	public override string Name => "armor";
 	public override string[] Aliases => ["a"];
@@ -75,7 +75,7 @@ public class ArmorCommand : DevConsoleCommand
 	}
 }
 
-public class PurifyCommand : DevConsoleCommand
+public class PurifyCommand : ChatScreenCommand
 {
 	public override string Name => "purify";
 	public override string[] Aliases => ["cleanse"];

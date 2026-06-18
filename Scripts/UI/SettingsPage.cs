@@ -547,7 +547,7 @@ public partial class SettingsPage : Control
 
 		// 开发者模式
 		bool devMode = UIScaler.Instance?.DevModeEnabled ?? false;
-		DevConsole.IsDevMode = devMode; // 启动时从持久化恢复
+		ChatScreen.IsDevMode = devMode; // 启动时从持久化恢复
 		_devModeToggle = new CheckBox
 		{
 			Text = Loc.T("ui.settings.dev_mode", "开发者模式"),
@@ -975,14 +975,14 @@ public partial class SettingsPage : Control
 
 	private void OnDevModeToggled(bool on)
 	{
-		DevConsole.IsDevMode = on;
+		ChatScreen.IsDevMode = on;
 		_consoleButton.Visible = on;
 		UIScaler.Instance?.SetDevMode(on); // 持久化
 	}
 
 	private void OnConsolePressed()
 	{
-		GetNodeOrNull<DevConsole>("/root/DevConsole")?.Toggle();
+		GetNodeOrNull<ChatScreen>("/root/ChatScreen")?.Toggle();
 	}
 
 	private void OnEmoteIdleTimeChanged(double value)

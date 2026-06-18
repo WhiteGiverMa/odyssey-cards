@@ -142,7 +142,7 @@ public partial class CombatManager : Node
 	private EmoteSystem _emoteSystem;
 
 	/// <summary>
-	/// 强制从指定敌人发送一条表情文本（由 DevConsole /emote 命令调用）。
+	/// 强制从指定敌人发送一条表情文本（由 ChatScreen /emote 命令调用）。
 	/// </summary>
 	public void SendEnemyEmote(string text, int enemyIndex = 0)
 	{
@@ -1587,7 +1587,7 @@ public partial class CombatManager : Node
 
 	/// <summary>
 	/// 公开的胜负判定入口——委托给 VictoryDefeatResolver。
-	/// 供 CombatUI 和 DevConsole 调用。
+	/// 供 CombatUI 和 ChatScreen 调用。
 	/// </summary>
 	public bool CheckVictoryOrDefeat() => _victoryResolver.CheckVictoryOrDefeat();
 
@@ -1721,7 +1721,7 @@ public partial class CombatManager : Node
 	public bool HeroPowerUsedThisTurn => _heroPowerUsedThisTurn;
 
 	/// <summary>
-	/// DevConsole 强制胜利——瞬间击杀所有敌方单位，触发正常胜利流程。
+	/// ChatScreen 强制胜利——瞬间击杀所有敌方单位，触发正常胜利流程。
 	/// 可通过 grantReward 跳过金币奖励。
 	/// </summary>
 	public void ForceVictory(bool grantReward = true)
@@ -1730,7 +1730,7 @@ public partial class CombatManager : Node
 			return;
 		_victoryResolver.DevSkipGoldReward = !grantReward;
 
-		// 击杀所有敌方随从 —— 绕过伤害管线，直接用 DevConsole 直伤确保击杀
+		// 击杀所有敌方随从 —— 绕过伤害管线，直接用 ChatScreen 直伤确保击杀
 		foreach (var minion in Board.GetEnemyMinions())
 		{
 			if (!minion.IsDead)
@@ -1746,7 +1746,7 @@ public partial class CombatManager : Node
 
 		// 触发胜负判定（含奖励/保存/OnGameOver）
 		_victoryResolver.CheckVictoryOrDefeat();
-		GD.Print($"[CombatManager] DevConsole 强制胜利（{(grantReward ? "含" : "跳过")}奖励）");
+		GD.Print($"[CombatManager] ChatScreen 强制胜利（{(grantReward ? "含" : "跳过")}奖励）");
 	}
 
 	/// <summary>
@@ -1977,7 +1977,7 @@ public partial class CombatManager : Node
 	}
 
 	/// <summary>
-	/// 将一张卡牌直接加入玩家手牌（用于 DevConsole /token 命令）。
+	/// 将一张卡牌直接加入玩家手牌（用于 ChatScreen /token 命令）。
 	/// </summary>
 	public void AddCardToHand(OdysseyCards.Card.Card card)
 	{

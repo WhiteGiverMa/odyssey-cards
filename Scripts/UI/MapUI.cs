@@ -826,14 +826,14 @@ public partial class MapUI : Control
 	}
 
 	/// <summary>
-	/// DevConsole 强制将当前房间替换为指定事件——效果真实、完成后推进层数。
+	/// ChatScreen 强制将当前房间替换为指定事件——效果真实、完成后推进层数。
 	/// 参考 STS2 /event 命令：覆盖当前房间为事件，操作有效，完成后进入下一层。
 	/// 覆盖不持久化——SL 后恢复原房间。
 	/// </summary>
 	/// <param name="eventId">事件 ID，null 则随机</param>
 	public void DevShowEvent(string? eventId)
 	{
-		GD.Print($"[MapUI] DevConsole 覆盖当前房间为事件：{(eventId ?? "随机")}");
+		GD.Print($"[MapUI] ChatScreen 覆盖当前房间为事件：{(eventId ?? "随机")}");
 
 		var eventData = eventId != null
 			? EventPool.All.FirstOrDefault(e => e.Id == eventId)
@@ -940,11 +940,11 @@ public partial class MapUI : Control
 	}
 
 	/// <summary>
-	/// DevConsole 强制完成当前房间——供 /room 命令调用。
+	/// ChatScreen 强制完成当前房间——供 /room 命令调用。
 	/// </summary>
 	public void DevForceCompleteRoom()
 	{
-		GD.Print("[MapUI] DevConsole 强制完成当前房间");
+		GD.Print("[MapUI] ChatScreen 强制完成当前房间");
 		CompleteRoomAndAdvance();
 	}
 

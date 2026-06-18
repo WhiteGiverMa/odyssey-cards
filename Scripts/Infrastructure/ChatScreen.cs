@@ -18,7 +18,7 @@ namespace OdysseyCards.Infrastructure;
 /// </remarks>
 /// <remarks>
 /// AI 调用方式（godot-mcp）：
-///   game_call_method(nodePath="/root/DevConsole", method="DevCommand", args=["/damage 10"])
+///   game_call_method(nodePath="/root/ChatScreen", method="DevCommand", args=["/damage 10"])
 ///
 /// 命令列表：
 ///   /damage N              对敌方英雄造成 N 点伤害。加 -c 进入点击模式。
@@ -46,7 +46,7 @@ namespace OdysseyCards.Infrastructure;
 ///   /addrelic &lt;relic_id&gt;    直接获得指定藏品。别名 /ar。
 ///   /help                    显示帮助。别名 /?。
 /// </remarks>
-public partial class DevConsole : Node
+public partial class ChatScreen : Node
 {
 	// ===== UI 组件 =====
 
@@ -71,7 +71,7 @@ public partial class DevConsole : Node
 
 	// ===== 命令引擎 =====
 
-	private readonly DevConsoleEngine _engine = new();
+	private readonly ChatScreenEngine _engine = new();
 	private int _historyIndex;
 
 	// ===== 生命周期 =====
@@ -82,7 +82,7 @@ public partial class DevConsole : Node
 		IsDevMode = UIScaler.Instance?.DevModeEnabled ?? false;
 
 		// 创建 UI 层级（置于最顶层）
-		_canvasLayer = new CanvasLayer { Layer = 128, Name = "DevConsoleLayer" };
+		_canvasLayer = new CanvasLayer { Layer = 128, Name = "ChatScreenLayer" };
 		AddChild(_canvasLayer);
 
 		// 半透明背景面板
@@ -248,7 +248,7 @@ public partial class DevConsole : Node
 				// 释放焦点并推进"编辑完成"状态机，导致后续 GrabFocus 与引擎内部状态
 				// 竞争——has_focus()=true（边框高亮）但 caret/输入失效（状态分叉）。
 				// 在 _Input 中拦截 Enter 并 SetInputAsHandled，阻止引擎触发
-				// TextSubmitted，LineEdit 焦点自然维持。参考 STS2 NDevConsole 做法。
+				// TextSubmitted，LineEdit 焦点自然维持。参考 STS2 NChatScreen 做法。
 				OnCommandSubmitted(_input.Text);
 				GetViewport().SetInputAsHandled();
 			}
@@ -668,7 +668,7 @@ public partial class DevConsole : Node
 		if (token.Contains(' '))
 			yield break;
 
-		var unique = new Dictionary<string, DevConsoleCommand>(StringComparer.OrdinalIgnoreCase);
+		var unique = new Dictionary<string, ChatScreenCommand>(StringComparer.OrdinalIgnoreCase);
 		foreach (var cmd in _engine.Commands)
 			if (!unique.ContainsKey(cmd.Name))
 				unique[cmd.Name] = cmd;
@@ -710,7 +710,7 @@ public partial class DevConsole : Node
 		}
 	}
 
-	private bool TryFindCommandByToken(string token, out DevConsoleCommand command)
+	private bool TryFindCommandByToken(string token, out ChatScreenCommand command)
 	{
 		foreach (var cmd in _engine.Commands)
 		{

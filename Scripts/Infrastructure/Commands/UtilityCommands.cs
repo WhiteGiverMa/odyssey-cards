@@ -7,22 +7,22 @@ namespace OdysseyCards.Infrastructure.Commands;
 
 // ===== /help /clear /unlock_all /tags =====
 
-public class HelpCommand : DevConsoleCommand
+public class HelpCommand : ChatScreenCommand
 {
 	public override string Name => "help";
 	public override string[] Aliases => ["?"];
 	public override string Signature => "/help";
 	public override string Description => "显示帮助。";
 
-	/// <summary>由 DevConsole.cs 设置，用于生成帮助时读取所有已注册命令。</summary>
-	public static IReadOnlyList<DevConsoleCommand>? AllCommands { get; set; }
+	/// <summary>由 ChatScreen.cs 设置，用于生成帮助时读取所有已注册命令。</summary>
+	public static IReadOnlyList<ChatScreenCommand>? AllCommands { get; set; }
 
 	public override CommandResult Execute(string[] args)
 	{
 		if (AllCommands == null || AllCommands.Count == 0)
 			return CommandResult.Ok("暂无可用的开发者命令");
 
-		var unique = new Dictionary<string, DevConsoleCommand>(StringComparer.OrdinalIgnoreCase);
+		var unique = new Dictionary<string, ChatScreenCommand>(StringComparer.OrdinalIgnoreCase);
 		foreach (var cmd in AllCommands)
 			if (!unique.ContainsKey(cmd.Name))
 				unique[cmd.Name] = cmd;
@@ -40,7 +40,7 @@ public class HelpCommand : DevConsoleCommand
 	}
 }
 
-public class ClearCommand : DevConsoleCommand
+public class ClearCommand : ChatScreenCommand
 {
 	public override string Name => "clear";
 	public override string[] Aliases => ["cls"];
@@ -49,7 +49,7 @@ public class ClearCommand : DevConsoleCommand
 	public override CommandResult Execute(string[] args) => CommandResult.Ok("__CLEAR__");
 }
 
-public class UnlockAllCommand : DevConsoleCommand
+public class UnlockAllCommand : ChatScreenCommand
 {
 	public override string Name => "unlock_all";
 	public override string Signature => "/unlock_all";
@@ -62,7 +62,7 @@ public class UnlockAllCommand : DevConsoleCommand
 	}
 }
 
-public class TagsCommand : DevConsoleCommand
+public class TagsCommand : ChatScreenCommand
 {
 	public override string Name => "tags";
 	public override string Signature => "/tags";
