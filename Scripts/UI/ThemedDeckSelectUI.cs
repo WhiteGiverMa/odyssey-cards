@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using OdysseyCards.Character;
 using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
 using OdysseyCards.Roguelike;
@@ -333,12 +334,14 @@ public partial class ThemedDeckSelectUI : Control
 
 		GD.Print($"[ThemedDeckSelectUI] 玩家选择了「{GetHeroDisplayName(heroId)}」主题卡组");
 
-		// 将生成的卡牌写入 ActiveDeck
+		// 将生成的卡牌写入临时战斗覆盖——不碰 ActiveDeck，确保持久空卡组保留
 		if (_generatedCards.TryGetValue(heroId, out var cards) && cards.Count > 0)
 		{
 			var gm = GameManager.Instance;
-			gm.ActiveDeck.Initialize(cards);
-			GD.Print($"[ThemedDeckSelectUI] 已将 {cards.Count} 张卡牌写入 ActiveDeck");
+			var overrideDeck = new Deck { Name = $"Roguelite_{heroId}" };
+			overrideDeck.Initialize(cards);
+			gm.CombatDeckOverride = overrideDeck;
+			GD.Print($"[ThemedDeckSelectUI] 已将 {cards.Count} 张卡牌写入 CombatDeckOverride（持久 ActiveDeck 不受影响）");
 		}
 
 		var callback = _onDeckChosen;

@@ -219,6 +219,20 @@ public partial class GameManager : Node
 	private readonly SaveDataManager _saveManager = new();
 
 	/// <summary>
+	/// 临时战斗卡组覆盖——用于 Roguelite 0 牌开局的「主题随机卡组」。
+	/// <para>
+	/// 当玩家以 0 牌空卡组开始冒险时，<see cref="UI.ThemedDeckSelectUI"/> 会生成一套主题卡组
+	/// 并赋值给此字段（而非 <see cref="ActiveDeck"/>），避免变异玩家的持久卡组列表 <see cref="Decks"/>。
+	/// <see cref="CreateStartingDeck"/> 优先读取此字段；<see cref="ClearActiveRun"/> 会清空它。
+	/// </para>
+	/// <para>
+	/// <b>生命周期：</b>冒险开始时设置 → 整次冒险中战斗使用其克隆 → 冒险结束（<see cref="ClearActiveRun"/>）时清空。
+	/// 持久 <see cref="Decks"/> 列表完全不受影响，空卡组保持不变。
+	/// </para>
+	/// </summary>
+	public Deck? CombatDeckOverride { get; set; }
+
+	/// <summary>
 	/// 当前激活的牌组（用于带进战斗）。
 	/// 如果没有选中牌组则返回 null。
 	/// </summary>
@@ -624,11 +638,18 @@ public partial class GameManager : Node
 
 	/// <summary>
 	/// 创建起始牌堆。
-	/// 优先使用玩家选中的激活牌组；若无效则回退到硬编码默认牌堆。
+	/// 优先级：<see cref="CombatDeckOverride"/>（Roguelite 主题卡组）→ <see cref="ActiveDeck"/>（玩家构筑卡组）→ 硬编码默认。
 	/// </summary>
 	private Deck CreateStartingDeck()
 	{
-		// 优先使用激活牌组
+		// 1. 优先使用 Roguelite 主题卡组覆盖（0 牌开局时由 ThemedDeckSelectUI 设置）
+		if (CombatDeckOverride != null && CombatDeckOverride.CardCount > 0)
+		{
+			GD.Print($"[GameManager] 使用 Roguelite 主题卡组覆盖「{CombatDeckOverride.Name}」— {CombatDeckOverride.CardCount} 张");
+			return CombatDeckOverride.Clone();
+		}
+
+		// 2. 使用玩家选中的激活牌组
 		var activeDeck = ActiveDeck;
 		if (activeDeck != null && activeDeck.CardCount >= Deck.MinCards)
 		{
@@ -636,7 +657,7 @@ public partial class GameManager : Node
 			return activeDeck.Clone();
 		}
 
-		// 回退到硬编码默认牌堆
+		// 3. 回退到硬编码默认牌堆
 		GD.Print("[GameManager] 回退到硬编码起始牌堆");
 		return CreateHardcodedStartingDeck();
 	}
@@ -815,6 +836,7 @@ public partial class GameManager : Node
 		PlayerMaxHealth = 30;
 		RunGold = 0;
 		Relics.Clear();
+		CombatDeckOverride = null; // 清空 Roguelite 主题卡组覆盖，确保持久 Decks 不受影响
 		// 保存清除后的状态
 		var data = new GameSaveData
 		{
