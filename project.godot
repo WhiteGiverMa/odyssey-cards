@@ -41,6 +41,7 @@ MobileInputHelper="*res://Scripts/Infrastructure/MobileInputHelper.cs"
 MobileInputRouter="*res://Scripts/Infrastructure/MobileInputRouter.cs"
 InputManager="*res://Scripts/Infrastructure/InputManager.cs"
 HotkeyManager="*res://Scripts/Infrastructure/HotkeyManager.cs"
+EvalGateway="*res://Scripts/Infrastructure/EvalGateway.cs"
 
 [display]
 
