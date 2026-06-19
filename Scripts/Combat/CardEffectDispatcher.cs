@@ -71,7 +71,6 @@ internal sealed class CardEffectDispatcher
 			[CardEffectType.RemoveNaturalManaCap] = HandleRemoveNaturalManaCap,
 			[CardEffectType.Discover] = HandleDiscoverEffectDispatch,
 			[CardEffectType.ReplaceDeathrattleWithDraw] = HandleReplaceDeathrattleWithDraw,
-			[CardEffectType.GrantIdolTwilight] = HandleGrantIdolTwilight,
 			[CardEffectType.ChooseFromDiscard] = HandleChooseFromDiscard,
 			[CardEffectType.DiscardRandom] = HandleDiscardRandom,
 			[CardEffectType.DiscardChoose] = HandleDiscardChoose,
@@ -240,27 +239,6 @@ internal sealed class CardEffectDispatcher
 		var drawEffect = new CardEffectData { EffectType = CardEffectType.DrawCards, Value = drawCount };
 		minionTarget.ReplaceDeathrattleEffects(new[] { drawEffect });
 		GD.Print($"[CardEffectDispatcher] {minionTarget.CardName} 获得亡语：抽 {drawCount} 张牌");
-	}
-
-	private void HandleGrantIdolTwilight(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
-	{
-		int stacks = Math.Max(1, effect.Value);
-		int grantCount = 0;
-
-		foreach (var card in _playerHero.Hand)
-			grantCount += GrantIdolTwilightToCard(card, stacks);
-		foreach (var card in _playerHero.DeckState.DrawPile)
-			grantCount += GrantIdolTwilightToCard(card, stacks);
-		foreach (var card in _playerHero.DeckState.DiscardPile)
-			grantCount += GrantIdolTwilightToCard(card, stacks);
-		foreach (var minion in _board.GetPlayerMinions())
-		{
-			minion.GrantIdolTwilightOnAttacked(stacks);
-			grantCount++;
-		}
-
-		GD.Print($"[CardEffectDispatcher] 偶像的黄昏：为 {grantCount} 个玩家随从/随从牌授予被攻击后 +{stacks}/+{stacks}");
-		_notifyCombatStateChanged();
 	}
 
 	private void HandleChooseFromDiscard(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
@@ -455,14 +433,6 @@ internal sealed class CardEffectDispatcher
 				GD.Print($"[CardEffectDispatcher] 未处理的Custom效果：{effect.CustomEffectName}");
 				break;
 		}
-	}
-
-	private static int GrantIdolTwilightToCard(Card.Card card, int stacks)
-	{
-		if (card.Type != CardType.Minion)
-			return 0;
-		card.GrantIdolTwilightOnAttacked(stacks);
-		return 1;
 	}
 
 	private static bool IsPlayerCaster(IDamageSource? source)

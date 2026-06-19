@@ -1070,6 +1070,9 @@ public partial class CombatManager : Node
 			PlayerHero.AddDomain(domainId, effect);
 		}
 
+		// 通知领域触发管理器：领域已展开，对现有棋盘随从施加持续效果
+		_domainTriggerManager.OnDomainDeployed(domainId);
+
 		// 从手牌中移除（领域不进入弃牌堆）
 		PlayerHero.RemoveFromHand(card);
 
@@ -1267,12 +1270,31 @@ public partial class CombatManager : Node
 			GD.Print($"[CombatManager]   ✨ {attacker.CardName} 的冲击已被消耗");
 		}
 
-		defender.TriggerIdolTwilightOnAttacked();
+		// 偶像的黄昏：友方随从被攻击时查询英雄领域，持续生效（领域消失则自动停止）
+		TryTriggerIdolTwilight(defender);
 
 		GD.Print($"[CombatManager]     交锋后 — {attacker.CardName}：{attacker.CurrentHealth}血，" +
 				  $"{defender.CardName}：{defender.CurrentHealth}血");
 
 		return true;
+	}
+
+	/// <summary>
+	/// 偶像的黄昏领域触发：友方随从被攻击时获得 +N/+N。
+	/// 查询玩家英雄的 <see cref="Hero.ActiveDomains"/>——领域在则触发，领域消失则自动停止。
+	/// 这就是「持续领域」语义：领域展开后召唤的随从、洗入卡组再抽出的随从，被攻击时都会生效。
+	/// </summary>
+	/// <param name="defender">被攻击的随从（仅玩家方触发）</param>
+	private void TryTriggerIdolTwilight(Minion defender)
+	{
+		if (!defender.IsPlayerSide || defender.IsDead)
+			return;
+		if (!PlayerHero.ActiveDomains.TryGetValue("idol_twilight", out var domain))
+			return;
+
+		int stacks = Math.Max(1, domain.EffectData?.Value ?? 1) * domain.StackCount;
+		defender.GainStats(stacks, stacks);
+		GD.Print($"[CombatManager]   🌅 偶像的黄昏触发：{defender.CardName} 获得 +{stacks}/+{stacks}（{domain.StackCount}层）");
 	}
 
 	/// <summary>

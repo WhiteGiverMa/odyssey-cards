@@ -100,10 +100,11 @@ internal static class CombatRuntimeQa
 		var idolCard = new Card.Card(idolData);
 		cm.AddCardToHand(idolCard);
 		bool idolPlayed = cm.PlayDomain(idolCard);
-		bool idolGrantedZones = handMinionCard.IdolTwilightOnAttackedStacks == 1
-			&& drawMinionCard.IdolTwilightOnAttackedStacks == 1
-			&& discardMinionCard.IdolTwilightOnAttackedStacks == 1
-			&& boardMinion.IdolTwilightOnAttackedStacks == 1;
+		// 方案B：领域挂在英雄上，不一次性给卡牌打标记。
+		// 手牌/牌堆中的卡牌不再有 IdolTwilightOnAttackedStacks 字段；
+		// 棋盘随从通过 OnDomainDeployed 获得 HasIdolTwilightBuff 显示标记。
+		bool idolDomainRegistered = cm.PlayerHero.HasDomain("idol_twilight");
+		bool idolBoardMarked = boardMinion.HasIdolTwilightBuff;
 		int beforeAttack = boardMinion.Attack;
 		int beforeHealth = boardMinion.CurrentHealth;
 		cm.ResolveMinionCombat(new Minion(slimeData, isPlayerSide: false), boardMinion);
@@ -130,10 +131,10 @@ internal static class CombatRuntimeQa
 			&& moonOptions.All(c => cm.PlayerHero.Hand.Contains(c))
 			&& cm.PlayerHero.DeckState.DiscardPile.Count == discardBeforeMoon - 2 + 1;
 
-		bool passed = nanoPlayed && nanoReplaced && idolPlayed && idolGrantedZones && idolTriggered && moonPlayed && moonMovedCards;
+		bool passed = nanoPlayed && nanoReplaced && idolPlayed && idolDomainRegistered && idolBoardMarked && idolTriggered && moonPlayed && moonMovedCards;
 		string result = passed
-			? "新增卡牌QA通过：纳米散尸术替换亡语并抽牌；偶像的黄昏授予跨区域触发且被攻击后+1/+1；捞月从弃牌堆2选加入手牌"
-			: $"新增卡牌QA失败：nanoPlayed={nanoPlayed}, nanoReplaced={nanoReplaced}, idolPlayed={idolPlayed}, idolGrantedZones={idolGrantedZones}, idolTriggered={idolTriggered}, moonPlayed={moonPlayed}, moonOptions={moonOptions.Count}, moonMovedCards={moonMovedCards}";
+			? "新增卡牌QA通过：纳米散尸术替换亡语并抽牌；偶像的黄昏作为持续领域挂在英雄上，被攻击后+1/+1；捞月从弃牌堆2选加入手牌"
+			: $"新增卡牌QA失败：nanoPlayed={nanoPlayed}, nanoReplaced={nanoReplaced}, idolPlayed={idolPlayed}, idolDomainRegistered={idolDomainRegistered}, idolBoardMarked={idolBoardMarked}, idolTriggered={idolTriggered}, moonPlayed={moonPlayed}, moonOptions={moonOptions.Count}, moonMovedCards={moonMovedCards}";
 		GD.Print($"[CombatRuntimeQa] {result}");
 		return result;
 	}

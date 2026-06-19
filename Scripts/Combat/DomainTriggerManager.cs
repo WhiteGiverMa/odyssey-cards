@@ -54,7 +54,50 @@ internal sealed class DomainTriggerManager
 					minion.ModifyAttack(bonusAtk);
 					GD.Print($"[DomainTriggerManager] 「执锐」触发：{minion.CardName} 攻击力 +{bonusAtk}（{domain.StackCount}层）");
 					break;
+
+				case "idol_twilight":
+					// 设置显示标记；触发逻辑（被攻击时+1/+1）在 CombatManager.ResolveMinionCombat 中查询领域
+					minion.HasIdolTwilightBuff = true;
+					GD.Print($"[DomainTriggerManager] 「偶像的黄昏」标记：{minion.CardName} 进场时领域已激活");
+					break;
 			}
+		}
+	}
+
+	/// <summary>
+	/// 领域展开后调用——对当前棋盘上已有的玩家方随从施加领域效果。
+	/// 由 CombatManager.PlayDomain 在 AddDomain 之后调用。
+	/// </summary>
+	public void OnDomainDeployed(string domainId)
+	{
+		switch (domainId)
+		{
+			case "idol_twilight":
+				var existing = _board.GetPlayerMinions().ToList();
+				foreach (var minion in existing)
+				{
+					minion.HasIdolTwilightBuff = true;
+				}
+				GD.Print($"[DomainTriggerManager] 「偶像的黄昏」展开：标记 {existing.Count} 个现有玩家方随从");
+				break;
+		}
+	}
+
+	/// <summary>
+	/// 领域被移除时调用——清除随从身上的显示标记。
+	/// 由 CombatManager 在 RemoveDomain 之后调用。
+	/// </summary>
+	public void OnDomainRemoved(string domainId)
+	{
+		switch (domainId)
+		{
+			case "idol_twilight":
+				foreach (var minion in _board.GetPlayerMinions())
+				{
+					minion.HasIdolTwilightBuff = false;
+				}
+				GD.Print("[DomainTriggerManager] 「偶像的黄昏」移除：清除所有随从的显示标记");
+				break;
 		}
 	}
 

@@ -233,16 +233,11 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	}
 
 	/// <summary>
-	/// 触发「被攻击后获得 +1/+1」。
+	/// 「偶像的黄昏」领域激活标记——由 <see cref="Combat.DomainTriggerManager"/> 在随从进场/领域展开时设置。
+	/// 仅用于 EffectBar 显示；触发逻辑不读此标记，而是在被攻击时查询玩家英雄的 ActiveDomains。
+	/// 领域被移除时由 <see cref="Combat.DomainTriggerManager.OnDomainRemoved"/> 清除。
 	/// </summary>
-	public void TriggerIdolTwilightOnAttacked()
-	{
-		if (IdolTwilightOnAttackedStacks <= 0 || IsDead)
-			return;
-
-		GainStats(IdolTwilightOnAttackedStacks, IdolTwilightOnAttackedStacks);
-		GD.Print($"[Minion:{CardName}] 偶像的黄昏触发：获得 +{IdolTwilightOnAttackedStacks}/+{IdolTwilightOnAttackedStacks}");
-	}
+	internal bool HasIdolTwilightBuff { get; set; }
 
 	/// <summary>
 	/// 本回合伏击是否已被消耗。回合开始时重置。
@@ -741,16 +736,16 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		// 4. Granted keywords (not from CardData baseline)
 		CollectGrantedKeywordEffects(effects);
 
-		// 5. Runtime modifiers
-		if (IdolTwilightOnAttackedStacks > 0)
+	// 5. Runtime modifiers
+	if (HasIdolTwilightBuff)
+	{
+		var data = EffectIconTable.GetDomain("idol_twilight");
+		if (data != null)
 		{
-			var data = EffectIconTable.GetDomain("idol_twilight");
-			if (data != null)
-			{
-				effects.Add(EffectIconTable.ToDisplayable(
-					data.Value, EffectCategory.Domain, IdolTwilightOnAttackedStacks));
-			}
+			effects.Add(EffectIconTable.ToDisplayable(
+				data.Value, EffectCategory.Domain, 1));
 		}
+	}
 
 		if (_deathrattleReplaced)
 		{

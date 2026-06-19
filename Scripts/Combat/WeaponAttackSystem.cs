@@ -243,8 +243,6 @@ internal sealed class WeaponAttackSystem
 			_playerHero.SuppressWeaponCounter = false;
 		}
 
-		target.TriggerIdolTwilightOnAttacked();
-
 		// 记录武器攻击
 		_playerHero.RecordWeaponAttack();
 

@@ -80,12 +80,6 @@ public class Card
 	public bool HasUnplayable => Data.HasKeyword(Keyword.Unplayable);
 
 	/// <summary>
-	/// 「偶像的黄昏」授予的被攻击后成长层数。
-	/// 作为运行时牌面修饰保存在 Card 实例上，可随手牌/抽牌堆/弃牌堆流转。
-	/// </summary>
-	public int IdolTwilightOnAttackedStacks { get; private set; }
-
-	/// <summary>
 	/// 创建卡牌运行时实例。
 	/// </summary>
 	/// <param name="data">卡牌数据资源</param>
@@ -99,18 +93,7 @@ public class Card
 	/// </summary>
 	public void CopyRuntimeModifiersFrom(Card other)
 	{
-		IdolTwilightOnAttackedStacks = other.IdolTwilightOnAttackedStacks;
 		CostModifier = other.CostModifier;
-	}
-
-	/// <summary>
-	/// 授予「被攻击后获得 +1/+1」触发层数。
-	/// </summary>
-	public void GrantIdolTwilightOnAttacked(int stacks = 1)
-	{
-		if (Data.Type != CardType.Minion)
-			return;
-		IdolTwilightOnAttackedStacks += stacks;
 	}
 
 	/// <summary>
