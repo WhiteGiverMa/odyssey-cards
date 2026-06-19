@@ -1,11 +1,12 @@
 <#
-  OdysseyCards — Android 调试构建 + 安装 + 日志 一键脚本
-  用法:
-    .\build_android.ps1              完整流程（构建→导出→安装→日志）
-    .\build_android.ps1 -SkipBuild   跳过 dotnet build
-    .\build_android.ps1 -ExportOnly  仅导出，不安装/不打开日志
-#>
-param([switch]$SkipBuild, [switch]$ExportOnly)
+   OdysseyCards — Android 调试构建 + 安装 + 日志 一键脚本
+   用法:
+     .\build_android.ps1              完整流程（构建→导出→安装→日志）
+     .\build_android.ps1 -SkipBuild   跳过 dotnet build
+     .\build_android.ps1 -ExportOnly  仅导出，不安装/不打开日志
+     .\build_android.ps1 -Release     用 release keystore 签名（默认 debug）
+ #>
+param([switch]$SkipBuild, [switch]$ExportOnly, [switch]$Release)
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $godot = "G:\dev\Godot_v4.6.2\godot.exe"
@@ -14,6 +15,50 @@ $apk   = "$root\export\android\OdysseyCards.apk"
 $proj  = "$root\project.godot"
 
 function step($msg) { Write-Host "`n▶ $msg" -ForegroundColor Cyan }
+
+# ============================================================
+# 0.5 加载 keystore 配置（从 android/keystore.properties）
+#     设置 Godot 环境变量，优先于 export_presets.cfg，密码不落盘。
+# ============================================================
+$ksConfig = "$root\android\keystore.properties"
+if (-not (Test-Path $ksConfig)) {
+    throw "android/keystore.properties 不存在。请复制 keystore.properties.example 并填入真实值"
+}
+$ks = @{}
+Get-Content $ksConfig | ForEach-Object {
+    $line = $_.Trim()
+    if ($line -and -not $line.StartsWith('#') -and $line.Contains('=')) {
+        $kv = $line.Split('=', 2)
+        $ks[$kv[0].Trim()] = $kv[1].Trim()
+    }
+}
+
+# 根据模式选择 debug 或 release keystore
+$mode = if ($Release) { 'release' } else { 'debug' }
+$ksPath = $ks["$mode.path"]
+$ksAlias = $ks["$mode.alias"]
+$ksPass = $ks["$mode.password"]
+
+if (-not $ksPath -or -not $ksAlias -or -not $ksPass) {
+    throw "keystore.properties 缺少 $mode.path / $mode.alias / $mode.password 字段"
+}
+# 转为绝对路径（Godot 需要绝对路径或相对 res:// 的路径，环境变量用绝对路径最稳）
+if (-not [System.IO.Path]::IsPathRooted($ksPath)) {
+    $ksPath = (Resolve-Path "$root\$ksPath" -ErrorAction Stop).Path
+}
+if (-not (Test-Path $ksPath)) {
+    throw "keystore 文件不存在: $ksPath"
+}
+
+# Godot 4 环境变量注入 keystore（优先于 export_presets.cfg）
+# 字段名来自 Godot 源码 platform/android/export/export_plugin.cpp
+$envKey = if ($Release) { 'GODOT_ANDROID_KEYSTORE_RELEASE_PATH' } else { 'GODOT_ANDROID_KEYSTORE_DEBUG_PATH' }
+$envUser = if ($Release) { 'GODOT_ANDROID_KEYSTORE_RELEASE_USER' } else { 'GODOT_ANDROID_KEYSTORE_DEBUG_USER' }
+$envPass = if ($Release) { 'GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD' } else { 'GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD' }
+Set-Item "Env:$envKey" $ksPath
+Set-Item "Env:$envUser" $ksAlias
+Set-Item "Env:$envPass" $ksPass
+step "[0.5] keystore 模式: $mode (alias=$ksAlias)"
 
 # ============================================================
 # 0. 清理缓存（避免 Godot dotnet publish 使用旧 DLL）
@@ -116,9 +161,14 @@ $devices = & adb devices 2>&1 | Select-String -Pattern "\tdevice"
 if (-not $devices) { throw "未检测到已连接的 Android 设备。请用 USB 连接并开启 USB 调试" }
 Write-Host ("  已连接设备: " + ($devices -replace "\tdevice",""))
 
-# 安装
+# 安装（-r 覆盖安装，保持用户数据；签名必须与已安装版本一致）
 & adb install -r $apk 2>&1
-if ($LASTEXITCODE -ne 0) { throw "adb install 失败" }
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "安装失败。常见原因：签名不一致。" -ForegroundColor Red
+    Write-Host "  如需覆盖安装旧签名版本，先执行: adb uninstall com.whitegiverma.odysseycards" -ForegroundColor Yellow
+    Write-Host "  注意：uninstall 会丢失 user://save.json 存档数据" -ForegroundColor Yellow
+    throw "adb install 失败"
+}
 Write-Host "  安装成功" -ForegroundColor Green
 
 # ============================================================

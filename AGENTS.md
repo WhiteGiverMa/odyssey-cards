@@ -198,6 +198,7 @@ Tests/              # tests/csharp：xUnit 10 Unit + 1 Integration(跳过)
 - `Localization.cs`：`TryLoadTranslationsViaDirAccess()` + 已知文件回退；新增语言同步回退列表。
 - `export_presets.cfg` 当前被 `.gitignore` 命中但项目依赖其 include_filter；改动前确认跟踪状态。
 - 版本号唯一真源是仓库根 `VERSION` 文件（单行，无 v 前缀，如 `0.2.0-alpha`）。改版本号只改这一处：`dotnet build` 自动读入 `AssemblyInformationalVersion`；`build_export.ps1`/`build_android.ps1` 导出前临时注入 `project.godot`/`export_presets.cfg`，导出后恢复。**禁止多处硬编码版本号。**
+- Android 签名密钥：`android/debug.keystore`（开发期）+ `android/release.keystore`（正式发布，25 年有效期）；配置在 `android/keystore.properties`（gitignored），`build_android.ps1` 通过 Godot 环境变量注入，密码不落盘到 cfg。`-Release` 开关切换 release 签名。**release.keystore 丢失 = 应用无法更新 = 所有用户存档丢失，必须多备份。** 模板见 `android/keystore.properties.example`。
 - 导出前删除 `user://save.json`（`%APPDATA%/OdysseyCards/save.json`）确保干净初始化。
 
 ## Commands
@@ -208,7 +209,7 @@ dotnet build -c Release
 dotnet test
 dotnet format OdysseyCards.sln --verify-no-changes
 ./build_export.ps1 [-Debug] [-SkipBuild]
-./build_android.ps1 [-SkipBuild] [-ExportOnly]
+./build_android.ps1 [-SkipBuild] [-ExportOnly] [-Release]
 ./package_release.ps1 [version] [-OpenFolder]
 ```
 
@@ -297,6 +298,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - ✅ CombatManager 已拆出 AttackTracker/SelectionSystem/DeathHandler/VictoryDefeatResolver/WeaponAttackSystem/EmoteSystem。
 - ✅ ChatScreen v2：Engine + Command 抽象 + 8 命令组 + 历史持久化。
 - ✅ 版本号体系：`VERSION` 文件（仓库根，单行无 v 前缀）是唯一真源；csproj 构建期读入 `AssemblyInformationalVersion`，`VersionInfo.cs` 运行时反射读取；`build_export.ps1`/`build_android.ps1` 导出前临时注入 `project.godot`/`export_presets.cfg`，导出后恢复；`package_release.ps1` 默认读 VERSION；主菜单右下角 + ChatScreen `/version` 显示。
+- ✅ Android 签名密钥：项目专属 `debug.keystore` + `release.keystore`（25 年），配置 `android/keystore.properties`（gitignored），`build_android.ps1` 用 Godot 环境变量注入，`-Release` 切换正式签名。
 - ✅ 热力系统与藏品系统已存在；资源化仍未完成。
 - ⚠️ `Spell.cs` 从未实例化（死代码）。
 - ⚠️ `RailPistolPassive.cs`、`SafeAreaContainer.cs` 当前孤立。

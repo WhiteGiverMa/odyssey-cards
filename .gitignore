@@ -1,6 +1,9 @@
 # Godot 4+ specific ignores
 .godot/
-/android/
+# android/ 目录大部分是构建产物和敏感 keystore，整体忽略
+# 例外：keystore 配置模板可以提交（不含真实密码）
+/android/*
+!/android/keystore.properties.example
 
 # Godot specific ignores
 *.import
@@ -58,6 +61,13 @@ Thumbs.db
 *.key
 *.pem
 secrets/
+
+# Android keystores (敏感签名密钥，禁止提交)
+# keystore.properties 包含明文密码，也禁止提交
+# 模板文件 keystore.properties.example 可以提交
+android/*.keystore
+android/*.jks
+android/keystore.properties
 
 # Agent skills directories
 **/find-skills/
