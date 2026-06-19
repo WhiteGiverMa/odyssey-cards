@@ -30,7 +30,7 @@ Resources/Cards/    # 38 .tres：领域6 + 随从12 + 法术19 + 状态1
 Resources/Localization/ # zh.yaml / en.yaml
 Resources/Enemies/ Resources/Relics/ # 结构桩，当前为空
 Scenes/             # Main, Combat, Collection, Map + Card/Board/CombatPreview
-Tests/              # tests/csharp：xUnit 10 Unit + 1 Integration(跳过)
+Tests/              # tests/csharp：xUnit 11 Unit + 1 Integration(跳过)
 ```
 
 ## Autoload
@@ -44,6 +44,7 @@ Tests/              # tests/csharp：xUnit 10 Unit + 1 Integration(跳过)
 | `MobileInputRouter` | `Scripts/Infrastructure/MobileInputRouter.cs` | 移动端触控路由（手势所有权 + 模态栈），桌面端透传 |
 | `InputManager` | `Scripts/Infrastructure/InputManager.cs` | 键盘键位映射（物理键→逻辑动作），多套配置持久化 |
 | `HotkeyManager` | `Scripts/Infrastructure/HotkeyManager.cs` | 键盘动作→回调分发（栈式绑定），AddBlockingScreen 输入拦截 |
+| `EvalGateway` | `Scripts/Infrastructure/EvalGateway.cs` | C# 反射求值网关（DEBUG only），为 godot-mcp 提供 C# 路径求值 + 快照 |
 
 ## WHERE TO LOOK
 
@@ -83,6 +84,7 @@ Tests/              # tests/csharp：xUnit 10 Unit + 1 Integration(跳过)
 | 版本号 | `Core/VersionInfo.cs`, 仓库根 `VERSION` 文件 | 唯一真源是 VERSION；构建期烧入 AssemblyInformationalVersion，运行时反射读取 |
 | 本地化 | `Localization/Localization.cs` | YAML 加载，DirAccess→硬编码回退 |
 | 控制台 | `Infrastructure/ChatScreen.cs` → `ChatScreenEngine.cs` → `Commands/` | 8 个命令组，`/help` 自动生成 |
+| C# 求值网关 | `Infrastructure/EvalGateway.cs` | DEBUG only Autoload，godot-mcp `game_eval_csharp`/`game_eval_csharp_snapshot` 后端 |
 | 生命周期防护 | `Infrastructure/SceneLifecycleGuard.cs` | `CallDeferredSafe` 防 QueueFree/场景切换竞态 |
 | 编辑器预览 | `Scenes/CardPreview.tscn`, `BoardPreview.tscn`, `CombatPreview.tscn` | `[Tool]` + `#if TOOLS`，发布版零开销 |
 | 测试 | `tests/csharp/` | xUnit；集成测试因 Godot Resource 跳过 |
@@ -246,9 +248,10 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - 自动测试：`dotnet test`，纯 C# 单测可跑；Integration 因 Godot Resource 依赖跳过。
 - 运行时 QA：启动 Godot → ChatScreen 执行 `/qa_*` → `game_get_logs` 读结果。
 - godot-mcp 可验证：`/damage`、`/draw`、`/mana`、`/end`、`/armor` + logs/UI。
+- godot-mcp C# 求值：`game_eval_csharp(path="CombatManager.PlayerHero.CurrentHealth")`、`game_eval_csharp_snapshot(kind="combat")`。通过 `/root/EvalGateway` Autoload 反射 C# 成员，解决 `game_eval`（GDScript）无法访问 C# 静态成员/纯 C# 类/List<T>/enum 的痛点。
 - godot-mcp **无法可靠验证拖拽**：`game_click` 合成事件 vs OS 真实鼠标不一致。
 - 需人类肉眼：UI 位置/大小、拖拽交互、动画、字体。
-- 路径硬编码：`G:\dev\godot-mcp-fc-a\build\scripts\`。
+- 路径硬编码：`G:\dev\godot-mcp\build\scripts\`（分家后真源在 `WhiteGiverMa/godot-mcp`）。
 - mcp无法验证移动端特有行为，需请求真机测试
 
 ## Anti-Patterns

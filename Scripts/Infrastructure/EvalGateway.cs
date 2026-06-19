@@ -110,12 +110,12 @@ public partial class EvalGateway : Node
 	// ===== 路径解析 =====
 
 #if DEBUG
-	private record PathSegment(string Name, int? Index, string? Key);
+	internal record PathSegment(string Name, int? Index, string? Key);
 
 	/// <summary>
 	/// 解析路径表达式为段列表。支持点号分隔 + 方括号索引。
 	/// </summary>
-	private static List<PathSegment> ParsePath(string path)
+	internal static List<PathSegment> ParsePath(string path)
 	{
 		var segments = new List<PathSegment>();
 		var parts = path.Split('.');
@@ -209,7 +209,7 @@ public partial class EvalGateway : Node
 	/// <summary>
 	/// 获取属性或字段（public 或 nonpublic，instance 或 static）。
 	/// </summary>
-	private static object? GetPropertyOrField(object obj, string memberName)
+	internal static object? GetPropertyOrField(object obj, string memberName)
 	{
 		var type = obj.GetType();
 
@@ -245,7 +245,7 @@ public partial class EvalGateway : Node
 	/// <summary>
 	/// 索引访问：支持 IList、Array、反射索引器。
 	/// </summary>
-	private static object? GetByIndex(object? obj, int index)
+	internal static object? GetByIndex(object? obj, int index)
 	{
 		if (obj == null)
 			return null;
@@ -268,7 +268,7 @@ public partial class EvalGateway : Node
 	/// <summary>
 	/// 字典键访问：支持 IDictionary、反射索引器。
 	/// </summary>
-	private static object? GetByKey(object? obj, string key)
+	internal static object? GetByKey(object? obj, string key)
 	{
 		if (obj == null)
 			return null;
@@ -311,7 +311,7 @@ public partial class EvalGateway : Node
 	/// </summary>
 	/// <param name="value">待转换的 C# 值</param>
 	/// <param name="depth">当前递归深度（防止无限递归）</param>
-	private static Variant ToVariant(object? value, int depth)
+	internal static Variant ToVariant(object? value, int depth)
 	{
 		if (value == null)
 			return default(Variant);
