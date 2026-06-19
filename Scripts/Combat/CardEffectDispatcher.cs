@@ -59,6 +59,7 @@ internal sealed class CardEffectDispatcher
 			[CardEffectType.DealDamageToEnemyHero] = HandleDealDamageToEnemyHero,
 			[CardEffectType.DealDamageToFriendlyHero] = HandleDealDamageToFriendlyHero,
 			[CardEffectType.DealDamageToAllEnemies] = HandleDealDamageToAllEnemies,
+			[CardEffectType.DealDamageToAllEnemiesAndHero] = HandleDealDamageToAllEnemiesAndHero,
 			[CardEffectType.DrawCards] = HandleDrawCards,
 			[CardEffectType.Heal] = HandleHeal,
 			[CardEffectType.RestoreHealth] = HandleHeal,
@@ -136,6 +137,29 @@ internal sealed class CardEffectDispatcher
 			hitCount++;
 		}
 		GD.Print($"[CardEffectDispatcher] 对所有敌方随从造成 {effect.Value} 点伤害（命中 {hitCount} 个目标）");
+	}
+
+	/// <summary>
+	/// 对敌方全体（英雄+随从）造成法术伤害。
+	/// 阵营相对 source 自动判断——玩家方 source 打敌方全体，敌方 source 打玩家方全体。
+	/// </summary>
+	private void HandleDealDamageToAllEnemiesAndHero(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	{
+		int hitCount = 0;
+		foreach (var hero in GetEnemyHeroesFor(source))
+		{
+			_requestDamageVfx(visualSource, hero, DamageKind.Effect, CombatDamageVfxKind.Spell);
+			hero.TakeDamage(effect.Value, source, DamageKind.Effect);
+			hitCount++;
+		}
+		foreach (var enemyMinion in GetEnemyMinionsFor(source))
+		{
+			_requestDamageVfx(visualSource, enemyMinion, DamageKind.Effect, CombatDamageVfxKind.Spell);
+			enemyMinion.TakeDamage(effect.Value, source, DamageKind.Effect);
+			hitCount++;
+		}
+		string sideLabel = IsPlayerCaster(source) ? "敌方" : "玩家方";
+		GD.Print($"[CardEffectDispatcher] 对{sideLabel}全体造成 {effect.Value} 点法术伤害（命中 {hitCount} 个目标）");
 	}
 
 	private void HandleDrawCards(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)

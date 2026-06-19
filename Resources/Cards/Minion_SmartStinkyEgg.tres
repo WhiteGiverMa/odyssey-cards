@@ -1,13 +1,19 @@
 [gd_resource type="Resource" format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 29
+Value = 4
 
 [resource]
 script = ExtResource("1_data")
 Id = "minion_smart_stinky_egg"
 MechanicTags = 1
 CardName = "智能臭鸡蛋"
-Description = "敌方回合：对玩家方全体造成4点法术伤害，然后死亡。"
+Description = "亡语：对敌方全体造成4点法术伤害"
 Type = 0
 Rarity = 0
 Cost = 1
@@ -15,3 +21,5 @@ Attack = 1
 Health = 3
 Defense = 0
 ActionCost = 1
+Keywords = Array[int]([4])
+DeathrattleEffects = Array[ExtResource("2_effect")]([SubResource("SubResource_1")])

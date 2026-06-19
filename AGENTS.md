@@ -289,7 +289,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - ✅ 意图图标 hover 稳定；设置页支持开关图标/伤害数字浮动视觉风格。
 - ✅ 多敌人 AI：IntentAI + 多 Brain + EnemyRegistry。
 - ✅ 新意图系统：`AI/Intents/` 20 文件，MoveState 多意图，Icon/Tooltip 路径。
-- ✅ 新敌人劫蛋者：开场「难逃之瑕」+ B/C/D 乱序循环；「聚焦」「蓄谋」「智能臭鸡蛋」与敌方法术伤害意图已接入。
+- ✅ 新敌人劫蛋者：开场「难逃之瑕」+ B/C/D 乱序循环；「聚焦」「蓄谋」「智能臭鸡蛋」已接入。智能臭鸡蛋已解耦——亡语机制驱动伤害，Brain 只驱动自爆意图。
 - ✅ CombatUI 大文件已 partial 拆分，支持 Card/Board/Combat 编辑器预览。
 - ✅ CombatManager 已拆出 AttackTracker/SelectionSystem/DeathHandler/VictoryDefeatResolver/WeaponAttackSystem/EmoteSystem。
 - ✅ ChatScreen v2：Engine + Command 抽象 + 8 命令组 + 历史持久化。

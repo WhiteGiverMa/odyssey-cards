@@ -473,7 +473,7 @@ cards:
     description: "Deal 1 damage to the player hero."
   minion_smart_stinky_egg:
     name: "Smart Rotten Egg"
-    description: "Enemy turn: deal 4 spell damage to all player-side targets, then die."
+    description: "Deathrattle: Deal 4 spell damage to all enemies."
 
 card_type:
   minion: "Minion"

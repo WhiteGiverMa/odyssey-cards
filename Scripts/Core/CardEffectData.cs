@@ -149,7 +149,14 @@ public enum CardEffectType
 	/// 将 N 张随机指定标签的卡牌洗入抽牌堆。
 	/// Value = 洗入数量，TargetType = CardTag 枚举值名称（如 "Mechanics"）。
 	/// </summary>
-	ShuffleTribeCards = 28
+	ShuffleTribeCards = 28,
+
+	/// <summary>
+	/// 对敌方全体（含英雄与随从）造成法术伤害。
+	/// Value = 伤害值。阵营相对 source.IsPlayerSide 自动判断——
+	/// 玩家方 source 打敌方全体，敌方 source 打玩家方全体。
+	/// </summary>
+	DealDamageToAllEnemiesAndHero = 29
 }
 
 public partial class CardEffectData : Resource
@@ -180,6 +187,7 @@ public partial class CardEffectData : Resource
 			CardEffectType.DiscardChoose => $"选择弃掉{Value}张手牌",
 			CardEffectType.DiscardChooseUpTo => $"选择弃掉最多{Value}张手牌",
 			CardEffectType.ShuffleTribeCards => $"将{Value}张随机{TargetType}卡牌洗入抽牌堆",
+			CardEffectType.DealDamageToAllEnemiesAndHero => $"对敌方全体造成{Value}点法术伤害",
 			CardEffectType.SummonMinion => $"召唤{TargetType}",
 			CardEffectType.BuffMinion => $"使一个随从获得+{Value}/+{SecondaryValue}",
 			CardEffectType.RestoreHealth => $"恢复{Value}点生命值",

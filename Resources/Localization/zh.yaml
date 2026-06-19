@@ -476,7 +476,7 @@ cards:
     description: "对玩家英雄造成1点伤害。"
   minion_smart_stinky_egg:
     name: "智能臭鸡蛋"
-    description: "敌方回合：对玩家方全体造成4点法术伤害，然后死亡。"
+    description: "亡语：对敌方全体造成4点法术伤害"
 
 card_type:
   minion: "随从"
