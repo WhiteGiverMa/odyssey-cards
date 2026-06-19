@@ -1,5 +1,6 @@
 using Godot;
 using OdysseyCards.Infrastructure;
+using System;
 
 namespace OdysseyCards.UI;
 
@@ -38,9 +39,33 @@ public static class MobileDialogHost
 	/// 返回 (dialog, contentContainer, buttonRow)。
 	/// 本方法会直接把 dialog 添加到 parent。
 	/// </summary>
+	/// <remarks>
+	/// <b>调用时机契约：</b><paramref name="parent"/> 必须已入树（<c>IsInsideTree()</c> 为 true）。
+	/// 本方法内部两次调用 <c>parent.GetViewportRect()</c>（计算弹窗高度 + 模态层遮罩尺寸），
+	/// 该 Godot API 要求节点已在场景树中，否则 C++ 层会 <c>push_error</c> 并返回空 <see cref="Rect2"/>。
+	/// <para>
+	/// 典型错误：在 Control 子类的<strong>构造函数</strong>里调用本方法。构造期节点尚未 <c>AddChild</c>，
+	/// 调用方 <c>new XxxUI(...)</c> 后才 <c>AddChild</c>，时序必然踩坑。正确做法是把 UI 构建
+	/// 推迟到 <see cref="Node._Ready"/>（参考 <see cref="ShopUI"/>、<see cref="CardFlyVfx"/> 的同样纪律）。
+	/// </para>
+	/// </remarks>
 	public static (Control dialog, VBoxContainer content, HBoxContainer buttonRow)
 		CreateDialog(Control parent, string title, int width = 400)
 	{
+		// 前置契约检查：parent 必须已入树，否则后续 GetViewportRect 会爆 C++ 层 is_inside_tree() 错误。
+		// 在此显式 push_error + 抛异常，给出比 Godot 原生报错更清晰的修复指引（典型原因：在构造函数里调用而非 _Ready）。
+		if (parent == null)
+		{
+			GD.PushError("[MobileDialogHost] CreateDialog: parent 为 null。调用方必须传入已入树的 Control。");
+			throw new ArgumentNullException(nameof(parent));
+		}
+		if (!parent.IsInsideTree())
+		{
+			GD.PushError($"[MobileDialogHost] CreateDialog: parent「{parent.Name}」未入树。本方法内部调用 GetViewportRect() 需要节点已在场景树中。请把 UI 构建从构造函数推迟到 _Ready()，确保调用方先 AddChild 再触发构建。");
+			throw new InvalidOperationException(
+				$"MobileDialogHost.CreateDialog: parent「{parent?.Name}」未入树。GetViewportRect() 需要 IsInsideTree()==true。典型原因：在 Control 子类构造函数里调用本方法，而调用方 new 之后才 AddChild。请改为在 _Ready() 中构建 UI。");
+		}
+
 		var router = MobileInputRouter.Instance;
 
 		// 弹窗外层 — 必须全屏铺满父控件，否则遮罩和弹窗都会蜷缩在左上角 (0,0)

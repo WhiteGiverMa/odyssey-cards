@@ -35,10 +35,23 @@ public partial class ShopUI : Control
 	/// </summary>
 	/// <param name="room">商店房间定义</param>
 	/// <param name="onComplete">完成回调——调用方在此处理 CompleteRoomAndAdvance</param>
+	/// <remarks>
+	/// 构造只存数据，UI 构建延后到 <see cref="_Ready"/>。
+	/// <see cref="MobileDialogHost.CreateDialog"/> 内部调用 <c>parent.GetViewportRect()</c>，
+	/// 要求 parent 已入树；若在构造里构建，调用方 <c>new ShopUI(...)</c> 后才 <c>AddChild</c>，
+	/// 节点尚未入树会导致 <c>is_inside_tree()==false</c> 报错（参考 <see cref="CardFlyVfx"/> 同样纪律）。
+	/// </remarks>
 	public ShopUI(RoomDefinition room, Action onComplete)
 	{
 		_room = room;
 		_onComplete = onComplete;
+	}
+
+	/// <summary>
+	/// 节点入树后构建商店 UI——此时 <see cref="MobileDialogHost.CreateDialog"/> 取 viewport 才安全。
+	/// </summary>
+	public override void _Ready()
+	{
 		BuildShop();
 	}
 
