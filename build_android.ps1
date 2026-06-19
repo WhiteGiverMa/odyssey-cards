@@ -58,11 +58,37 @@ step "[2/4] Godot 导出 Android APK..."
 $outDir = Split-Path $apk -Parent
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-& $godot --headless --path $root --export-debug $preset $apk 2>&1 | ForEach-Object { Write-Host $_ }
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "导出失败，退出码: $LASTEXITCODE" -ForegroundColor Red
-    exit $LASTEXITCODE
+# 版本号注入到 export_presets.cfg (Android preset: version/code + version/name)
+# 唯一真源是仓库根目录 VERSION 文件，SemVer → versionCode = major*10000 + minor*100 + patch
+$presets = "$root\export_presets.cfg"
+$presetsBak = "$presets.bak"
+Copy-Item $presets $presetsBak -Force
+try {
+    $version = (Get-Content "$root\VERSION" -Raw).Trim()
+    if ($version -match '^(\d+)\.(\d+)\.(\d+)') {
+        $versionCode = [int]$Matches[1] * 10000 + [int]$Matches[2] * 100 + [int]$Matches[3]
+    } else {
+        $versionCode = 1
+        Write-Host "  [警告] VERSION 格式不符合 SemVer，使用 versionCode=1" -ForegroundColor Yellow
+    }
+    Write-Host "  versionCode=$versionCode, versionName=$version" -ForegroundColor DarkGray
+
+    $pcfg = Get-Content $presets -Raw
+    $pcfg = $pcfg -replace 'version/code=\d+', "version/code=$versionCode"
+    $pcfg = $pcfg -replace 'version/name="[^"]*"', "version/name=`"$version`""
+    Set-Content $presets -Value $pcfg -NoNewline
+
+    & $godot --headless --path $root --export-debug $preset $apk 2>&1 | ForEach-Object { Write-Host $_ }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "导出失败，退出码: $LASTEXITCODE" -ForegroundColor Red
+        exit $LASTEXITCODE
+    }
+} finally {
+    Copy-Item $presetsBak $presets -Force
+    Remove-Item $presetsBak -Force
+    Write-Host "  export_presets.cfg 已恢复" -ForegroundColor DarkGray
 }
+
 Write-Host "  导出成功: $apk" -ForegroundColor Green
 if (Test-Path $apk) {
     $sizeMB = [math]::Round((Get-Item $apk).Length / 1MB, 1)

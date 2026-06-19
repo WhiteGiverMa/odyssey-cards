@@ -127,6 +127,24 @@ public partial class MainMenu : Control
 		_continueButton.Visible = hasActiveRun;
 		_abandonButton.Visible = hasActiveRun;
 
+		// 版本号显示（右下角小字）— 版本号本身是 SemVer 字符串，不随语言切换变化
+		var versionLabel = new Label
+		{
+			Name = "VersionLabel",
+			Text = VersionInfo.Display,
+			MouseFilter = MouseFilterEnum.Ignore,
+			HorizontalAlignment = HorizontalAlignment.Right,
+			VerticalAlignment = VerticalAlignment.Bottom,
+		};
+		versionLabel.SetAnchorsPreset(LayoutPreset.BottomRight);
+		versionLabel.OffsetLeft = -220;
+		versionLabel.OffsetTop = -32;
+		versionLabel.OffsetRight = -12;
+		versionLabel.OffsetBottom = -8;
+		versionLabel.AddThemeColorOverride("font_color", new Color(0.55f, 0.55f, 0.55f, 0.8f));
+		versionLabel.AddThemeFontSizeOverride("font_size", 12);
+		AddChild(versionLabel);
+
 		// 移动端：通过 MobileInputRouter 注册触控区域
 		if (MobileInputRouter.IsMobile)
 		{

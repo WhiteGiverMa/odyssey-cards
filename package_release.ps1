@@ -1,9 +1,10 @@
 <#
    OdysseyCards 发布打包脚本
    将 export/ 产物打包为 zip，准备上传 GitHub Releases
+   版本号唯一真源：仓库根目录 VERSION 文件（单行，无 v 前缀）
   用法:
-    .\package_release.ps1                 打包为 OdysseyCards_vYYYYMMDD.zip
-    .\package_release.ps1 v1.0            打包为 OdysseyCards_v1.0.zip
+    .\package_release.ps1                 打包为 OdysseyCards_v<VERSION>.zip
+    .\package_release.ps1 v1.0            手动指定版本号覆盖 VERSION
     .\package_release.ps1 -OpenFolder     打包后打开所在文件夹
 #>
 param([string]$Version, [switch]$OpenFolder)
@@ -11,8 +12,8 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $exportDir = "$root\export"
 
-# 自动生成版本号
-if (-not $Version) { $Version = (Get-Date -Format "yyyyMMdd") }
+# 版本号默认从 VERSION 文件读取（唯一真源）
+if (-not $Version) { $Version = (Get-Content "$root\VERSION" -Raw).Trim() }
 
 # 检查
 if (-not (Test-Path "$exportDir\OdysseyCards.exe")) {

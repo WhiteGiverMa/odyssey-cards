@@ -34,20 +34,50 @@ step "[1] Godot: $godot"
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 step "[2] 输出: $out"
 
-# 3. 临时处理 MCP Autoload
+# 3. 临时处理 MCP Autoload + 版本号注入
 $bak = "$proj.bak"
 Copy-Item $proj $bak -Force
 $restore = $false
+
+# 版本号注入到 export_presets.cfg（Windows file_version/product_version）
+$presets = "$root\export_presets.cfg"
+$presetsBak = "$presets.bak"
+$restorePresets = $false
+if (Test-Path $presets) {
+    Copy-Item $presets $presetsBak -Force
+}
+
 try {
     $txt = Get-Content $proj -Raw
     if ($txt -match [regex]::Escape($mcp)) {
         $txt = $txt -replace "`r`n$([regex]::Escape($mcp))", ""
-        Set-Content $proj -Value $txt -NoNewline
-        $restore = $true
         step "[3] 已临时移除 MCP Autoload"
     } else {
         step "[3] MCP Autoload 不存在，跳过"
     }
+
+    # 注入版本号到 project.godot [application] 段
+    # 唯一真源是仓库根目录 VERSION 文件，这里临时写入导出元数据，finally 恢复
+    $version = (Get-Content "$root\VERSION" -Raw).Trim()
+    if ($txt -match 'config/version=[^\r\n]*') {
+        $txt = $txt -replace 'config/version=[^\r\n]*', "config/version=`"$version`""
+    } else {
+        $txt = $txt -replace '(config/name=[^\r\n]*)', "`$1`r`nconfig/version=`"$version`""
+    }
+    Set-Content $proj -Value $txt -NoNewline
+    $restore = $true
+    step "[3.1] 已注入版本号: $version"
+
+    # 注入版本号到 export_presets.cfg (Windows preset: file_version/product_version)
+    if (Test-Path $presets) {
+        $pcfg = Get-Content $presets -Raw
+        $pcfg = $pcfg -replace 'application/file_version="[^"]*"', "application/file_version=`"$version`""
+        $pcfg = $pcfg -replace 'application/product_version="[^"]*"', "application/product_version=`"$version`""
+        Set-Content $presets -Value $pcfg -NoNewline
+        $restorePresets = $true
+        step "[3.2] export_presets.cfg 已注入 Windows 版本号"
+    }
+
     $flag = if ($Debug) { "--export-debug" } else { "--export-release" }
     step "[4] godot --headless $flag ..."
     $godotOutput = & $godot --headless --path $root $flag $preset $exe 2>&1
@@ -58,6 +88,11 @@ try {
     Copy-Item $bak $proj -Force
     Remove-Item $bak -Force
     if ($restore) { step "[✓] project.godot 已恢复" }
+    if ($restorePresets -and (Test-Path $presetsBak)) {
+        Copy-Item $presetsBak $presets -Force
+        step "[✓] export_presets.cfg 已恢复"
+    }
+    Remove-Item $presetsBak -Force -ErrorAction SilentlyContinue
 }
 
 # 4. 显示结果

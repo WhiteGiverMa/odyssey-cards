@@ -4,6 +4,11 @@
         <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
         <EnableDynamicLoading>true</EnableDynamicLoading>
 
+        <!-- 版本号唯一真源：仓库根目录 VERSION 文件（单行，无 v 前缀）。
+             运行时通过 VersionInfo.cs 反射读取 AssemblyInformationalVersion。 -->
+        <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)VERSION').Trim())</Version>
+        <InformationalVersion>$(Version)</InformationalVersion>
+
         <!-- 代码分析增强 -->
         <AnalysisMode>AllEnabledByDefault</AnalysisMode>
         <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>

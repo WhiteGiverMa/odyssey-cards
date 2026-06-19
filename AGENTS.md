@@ -15,7 +15,7 @@
 
 ```
 Scripts/
-├── Core/ (36)      # CardData, GameManager(Autoload), DamageResolver, HeroProfile, RarityColorScheme, SaveDataManager…
+├── Core/ (37)      # CardData, GameManager(Autoload), DamageResolver, HeroProfile, RarityColorScheme, SaveDataManager, VersionInfo…
 ├── UI/ (39)        # CombatUI partials, BoardUI, HandUI, CardUI, CollectionUI, MapUI, InfoScreen, Shop/Rest/Event UI…
 ├── Card/ (15)      # Card, Minion, Hero, Weapon, StatusEffect, ActiveDomain, HeroPowers/*（纯 C#）
 ├── Character/ (5)  # Player(Node), CommanderCore, Deck, CombatDeckState
@@ -25,7 +25,7 @@ Scripts/
 ├── Relic/ (7)      # AbstractRelic, RelicManager, 5 个具体藏品
 ├── Roguelike/ (5)  # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)# YAML 多语言 (LocalStr, ConcatLocalStr, ILocalizable, YamlParser)
-└── Infrastructure/ (20, Commands/8) # ChatScreen, InputManager, HotkeyManager, MobileInputRouter, SceneLifecycleGuard…
+└── Infrastructure/ (21, Commands/9) # ChatScreen, InputManager, HotkeyManager, MobileInputRouter, SceneLifecycleGuard…
 Resources/Cards/    # 38 .tres：领域6 + 随从12 + 法术19 + 状态1
 Resources/Localization/ # zh.yaml / en.yaml
 Resources/Enemies/ Resources/Relics/ # 结构桩，当前为空
@@ -80,6 +80,7 @@ Tests/              # tests/csharp：xUnit 10 Unit + 1 Integration(跳过)
 | 暂停/设置 | `UI/PauseMenu.cs`, `UI/SettingsPage.cs`, `UI/SubmenuStack.cs` | ESC 覆盖；设置页含键位标签 |
 | 综合信息 | `UI/InfoScreen.cs` | CapsLock 覆盖；`SplitOffset` Godot API 已过时 |
 | 存档 | `Core/SaveDataManager.cs`, `RunSaveData.cs` | user://save.json 持久化；包含 selected hero / active run hero id |
+| 版本号 | `Core/VersionInfo.cs`, 仓库根 `VERSION` 文件 | 唯一真源是 VERSION；构建期烧入 AssemblyInformationalVersion，运行时反射读取 |
 | 本地化 | `Localization/Localization.cs` | YAML 加载，DirAccess→硬编码回退 |
 | 控制台 | `Infrastructure/ChatScreen.cs` → `ChatScreenEngine.cs` → `Commands/` | 8 个命令组，`/help` 自动生成 |
 | 生命周期防护 | `Infrastructure/SceneLifecycleGuard.cs` | `CallDeferredSafe` 防 QueueFree/场景切换竞态 |
@@ -196,6 +197,7 @@ Tests/              # tests/csharp：xUnit 10 Unit + 1 Integration(跳过)
 - `GameManager.cs`：`CardResourcePaths[]` 硬编码卡牌路径；**新增卡牌必须同步更新**。
 - `Localization.cs`：`TryLoadTranslationsViaDirAccess()` + 已知文件回退；新增语言同步回退列表。
 - `export_presets.cfg` 当前被 `.gitignore` 命中但项目依赖其 include_filter；改动前确认跟踪状态。
+- 版本号唯一真源是仓库根 `VERSION` 文件（单行，无 v 前缀，如 `0.2.0-alpha`）。改版本号只改这一处：`dotnet build` 自动读入 `AssemblyInformationalVersion`；`build_export.ps1`/`build_android.ps1` 导出前临时注入 `project.godot`/`export_presets.cfg`，导出后恢复。**禁止多处硬编码版本号。**
 - 导出前删除 `user://save.json`（`%APPDATA%/OdysseyCards/save.json`）确保干净初始化。
 
 ## Commands
@@ -217,7 +219,7 @@ dotnet format OdysseyCards.sln --verify-no-changes
 
 AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", args=["/damage 10"])`
 
-架构：`ChatScreen`(薄 UI 壳) → `ChatScreenEngine`(纯 C# 引擎) → `Commands/*`(8 个命令组，继承 `ChatScreenCommand`)。
+架构：`ChatScreen`(薄 UI 壳) → `ChatScreenEngine`(纯 C# 引擎) → `Commands/*`(9 个命令组，继承 `ChatScreenCommand`)。
 新增命令：写 `ChatScreenCommand` 子类并在 `RegisterAllCommands()` 注册。`/help` 自动从命令元数据生成。
 
 | 命令 | 效果 |
@@ -235,6 +237,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 | `/intent_debug` `/tags` | 意图/标签调试 |
 | `/qa_tombstone` `/qa_bait_tactics` `/qa_new_cards` | 运行时 QA |
 | `/emote <id>` | 表情 QA |
+| `/version` | 显示当前游戏版本号 |
 | `/help` | 帮助 |
 
 ## Verification / MCP Testing
@@ -293,6 +296,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - ✅ CombatUI 大文件已 partial 拆分，支持 Card/Board/Combat 编辑器预览。
 - ✅ CombatManager 已拆出 AttackTracker/SelectionSystem/DeathHandler/VictoryDefeatResolver/WeaponAttackSystem/EmoteSystem。
 - ✅ ChatScreen v2：Engine + Command 抽象 + 8 命令组 + 历史持久化。
+- ✅ 版本号体系：`VERSION` 文件（仓库根，单行无 v 前缀）是唯一真源；csproj 构建期读入 `AssemblyInformationalVersion`，`VersionInfo.cs` 运行时反射读取；`build_export.ps1`/`build_android.ps1` 导出前临时注入 `project.godot`/`export_presets.cfg`，导出后恢复；`package_release.ps1` 默认读 VERSION；主菜单右下角 + ChatScreen `/version` 显示。
 - ✅ 热力系统与藏品系统已存在；资源化仍未完成。
 - ⚠️ `Spell.cs` 从未实例化（死代码）。
 - ⚠️ `RailPistolPassive.cs`、`SafeAreaContainer.cs` 当前孤立。
@@ -322,5 +326,6 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - **必须** 在 `_ExitTree` 中注销 `_EnterTree`/`_Ready` 注册的 HotkeyManager 绑定 → `PushPressedBinding`/`RemovePressedBinding` 配对。
 - 新增卡牌**必须**同步 `CardResourcePaths[]`。
 - 新增语言**必须**同步 `TryLoadTranslationsViaDirAccess()` 回退。
+- 改版本号**只改**仓库根 `VERSION` 文件（唯一真源），**禁止**多处硬编码版本号。
 - **必须**在产出新的特性、内容时提问用户「是否需要更新wiki」。**禁止**不经询问删除wiki中与代码不符的信息。
 - `project.godot`的空行噪音是常见现象；只提交有意义的变动，空行变动可忽略或回退。
