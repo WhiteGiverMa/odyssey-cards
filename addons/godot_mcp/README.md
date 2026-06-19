@@ -16,7 +16,7 @@
 运行 fork 仓库中的 `scripts/sync-downstream.ps1`：
 
 ```powershell
-cd G:\dev\godot-mcp-fc-a
+cd G:\dev\godot-mcp
 .\scripts\sync-downstream.ps1
 ```
 
