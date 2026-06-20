@@ -205,7 +205,7 @@ ui:
     title: "选择主题卡组"
     total_cards: "{count} 张"
     type_breakdown: "随从{minion}/法术{spell}/领域{domain}"
-    mana_curve: "曲线 {low}/{mid}/{high}"
+    mana_curve: "曲线 {low}/{mid}/{high}/{ultra}"
     select_format: "选择{name}"
   common:
     ok: "确定"

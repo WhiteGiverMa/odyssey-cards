@@ -57,7 +57,7 @@ public class ThemePreviewCommand : ChatScreenCommand
 
 			sb.AppendLine($"[{displayName}] {profile.ThemeName}  （{result.Stats.TotalCards}张）");
 			sb.AppendLine($"  核心={result.Stats.CoreCardsIncluded}  随从={result.Stats.MinionCount}  法术={result.Stats.SpellCount}  领域={result.Stats.DomainCount}");
-			sb.AppendLine($"  曲线: 低费={result.Stats.ManaCurve[0]} 中费={result.Stats.ManaCurve[1]} 高费={result.Stats.ManaCurve[2]}");
+			sb.AppendLine($"  曲线: 低费={result.Stats.ManaCurve[0]} 中费={result.Stats.ManaCurve[1]} 高费={result.Stats.ManaCurve[2]} 超高费={result.Stats.ManaCurve[3]}");
 
 			if (result.Stats.TagCounts.Count > 0)
 			{

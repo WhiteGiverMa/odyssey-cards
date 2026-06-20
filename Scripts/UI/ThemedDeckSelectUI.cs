@@ -308,12 +308,13 @@ public partial class ThemedDeckSelectUI : Control
 		};
 
 		// 法力曲线
-		if (stats.ManaCurve.Length >= 3)
+		if (stats.ManaCurve.Length >= 4)
 		{
-			lines.Add(Loc.T("ui.themed_deck_select.mana_curve", "曲线 {low}/{mid}/{high}")
+			lines.Add(Loc.T("ui.themed_deck_select.mana_curve", "曲线 {low}/{mid}/{high}/{ultra}")
 				.Replace("{low}", stats.ManaCurve[0].ToString())
 				.Replace("{mid}", stats.ManaCurve[1].ToString())
-				.Replace("{high}", stats.ManaCurve[2].ToString()));
+				.Replace("{high}", stats.ManaCurve[2].ToString())
+				.Replace("{ultra}", stats.ManaCurve[3].ToString()));
 		}
 
 		return string.Join("\n", lines);

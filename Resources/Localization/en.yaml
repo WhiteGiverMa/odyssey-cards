@@ -205,7 +205,7 @@ ui:
     title: "Choose Themed Deck"
     total_cards: "{count} cards"
     type_breakdown: "Minion{minion}/Spell{spell}/Domain{domain}"
-    mana_curve: "Curve {low}/{mid}/{high}"
+    mana_curve: "Curve {low}/{mid}/{high}/{ultra}"
     select_format: "Choose {name}"
   common:
     ok: "OK"
