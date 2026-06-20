@@ -12,7 +12,7 @@ namespace OdysseyCards.Roguelike;
 ///   1. 从卡池过滤合法候选（排除状态牌、衍生牌等不可构筑的卡）
 ///   2. 加入核心池招牌卡（几乎必带，保证角色识别度）
 ///   3. 对剩余卡按主题权重加权随机抽取，施加约束：
-///      - 法力曲线（低费/中费/高费分布）
+///      - 法力曲线（低费/中费/高费/超高费分布）
 ///      - 类型分布（随从/法术/领域比例）
 ///      - 单卡重复上限、领域数量上限
 ///   4. 不足目标张数时从剩余候选按权重兜底补满
@@ -26,14 +26,16 @@ namespace OdysseyCards.Roguelike;
 public static class ThemedDeckGenerator
 {
 	/// <summary>
-	/// 法力曲线目标分布（低/中/高费比例，归一化后按此比例约束）。
-	/// 低费=0-2，中费=3-4，高费=5+。这是「软约束」——优先满足张数，曲线作为偏好。
+	/// 法力曲线目标分布（低/中/高/超高费比例，归一化后按此比例约束）。
+	/// 低费=0-3，中费=4-7，高费=8-12，超高费=13-30。
+	/// 这是「软约束」——优先满足张数，曲线作为偏好；开局主题卡组默认不鼓励超高费。
 	/// </summary>
 	private static readonly (int MinCost, int MaxCost, double Ratio)[] ManaCurveTargets =
 	{
-		(0, 2, 0.45),  // 低费 ~45%
-		(3, 4, 0.35),  // 中费 ~35%
-		(5, int.MaxValue, 0.20),  // 高费 ~20%
+		(0, 3, 0.45),  // 低费 ~45%
+		(4, 7, 0.35),  // 中费 ~35%
+		(8, 12, 0.20),  // 高费 ~20%
+		(13, 30, 0.00),  // 超高费：需要额外构筑/法力突破，不作为开局曲线目标
 	};
 
 	/// <summary>
@@ -84,7 +86,7 @@ public static class ThemedDeckGenerator
 		/// <summary>领域数。</summary>
 		public int DomainCount { get; init; }
 
-		/// <summary>法力曲线分布：[低费数, 中费数, 高费数]。</summary>
+		/// <summary>法力曲线分布：[低费数, 中费数, 高费数, 超高费数]。</summary>
 		public int[] ManaCurve { get; init; }
 
 		/// <summary>各机制标签的命中数（Key=标签名，Value=张数）。</summary>
@@ -97,7 +99,7 @@ public static class ThemedDeckGenerator
 			MinionCount = 0,
 			SpellCount = 0,
 			DomainCount = 0,
-			ManaCurve = new[] { 0, 0, 0 },
+			ManaCurve = new int[ManaCurveTargets.Length],
 			TagCounts = new Dictionary<string, int>(),
 		};
 	}
@@ -339,7 +341,7 @@ public static class ThemedDeckGenerator
 		int spellCount = cards.Count(c => c.Type == CardType.Spell);
 		int domainCount = cards.Count(c => c.Type == CardType.Domain);
 
-		var manaCurve = new int[3];
+		var manaCurve = new int[ManaCurveTargets.Length];
 		foreach (var c in cards)
 		{
 			for (int i = 0; i < ManaCurveTargets.Length; i++)
