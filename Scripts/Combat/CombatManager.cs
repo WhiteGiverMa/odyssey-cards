@@ -539,7 +539,7 @@ public partial class CombatManager : Node
 		Board.OnMinionPlaced += (_, _) => NotifyCombatStateChanged();
 		Board.OnMinionRemoved += (_) => NotifyCombatStateChanged();
 
-		// 机械蜈蚣-防空型自动拦截：敌方部署低费随从时自动触发战斗
+		// 机械蜈蚣-防空型自动拦截：敌方部署费用 ≤2 的随从时自动触发战斗
 		Board.OnMinionPlaced += OnMinionPlacedForCentipede;
 
 		// 装配所选英雄的初始武器
@@ -2088,7 +2088,7 @@ public partial class CombatManager : Node
 		if (placedMinion.IsPlayerSide)
 			return;
 
-		// 仅拦截费用 ≤2 的低费随从
+		// 仅拦截费用 ≤2 的随从；这是卡牌专属阈值，不跟随全局低费分档。
 		if (placedMinion.Cost > 2)
 			return;
 
