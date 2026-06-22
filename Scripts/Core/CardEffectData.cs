@@ -156,7 +156,13 @@ public enum CardEffectType
 	/// Value = 伤害值。阵营相对 source.IsPlayerSide 自动判断——
 	/// 玩家方 source 打敌方全体，敌方 source 打玩家方全体。
 	/// </summary>
-	DealDamageToAllEnemiesAndHero = 29
+	DealDamageToAllEnemiesAndHero = 29,
+
+	/// <summary>
+	/// 将当前法术的效果挂载到友方英雄身上。
+	/// 当前通过 CustomEffectName 分派具体英雄效果。
+	/// </summary>
+	MountHeroEffect = 30
 }
 
 public partial class CardEffectData : Resource
@@ -187,7 +193,8 @@ public partial class CardEffectData : Resource
 			CardEffectType.DiscardChoose => $"选择弃掉{Value}张手牌",
 			CardEffectType.DiscardChooseUpTo => $"选择弃掉最多{Value}张手牌",
 			CardEffectType.ShuffleTribeCards => $"将{Value}张随机{TargetType}卡牌洗入抽牌堆",
-			CardEffectType.DealDamageToAllEnemiesAndHero => $"对敌方全体造成{Value}点法术伤害",
+				CardEffectType.DealDamageToAllEnemiesAndHero => $"对敌方全体造成{Value}点法术伤害",
+				CardEffectType.MountHeroEffect => CustomEffectName,
 			CardEffectType.SummonMinion => $"召唤{TargetType}",
 			CardEffectType.BuffMinion => $"使一个随从获得+{Value}/+{SecondaryValue}",
 			CardEffectType.RestoreHealth => $"恢复{Value}点生命值",

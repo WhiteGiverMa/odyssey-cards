@@ -103,7 +103,7 @@ internal sealed class DomainTriggerManager
 
 	public void OnPlayerTurnEnd()
 	{
-		foreach (var domain in _playerHero.ActiveDomains.Values)
+		foreach (var domain in _playerHero.ActiveDomains.Values.ToList())
 		{
 			switch (domain.DomainId)
 			{
@@ -121,8 +121,51 @@ internal sealed class DomainTriggerManager
 
 					GD.Print($"[DomainTriggerManager] 「无限火力」触发：洗入 {shuffleCount} 张打击（{domain.StackCount}层）");
 					break;
+
+				case "shiyoru_raidenkou":
+					TriggerShiyoruRaidenkou(domain);
+					break;
 			}
 		}
+	}
+
+	public void OnPlayerTurnStart()
+	{
+		if (!_playerHero.ActiveDomains.TryGetValue("sutaraito_spirit", out var domain))
+			return;
+
+		int activations = Math.Max(1, domain.StackCount);
+		int drawCount = Math.Max(1, domain.EffectData?.SecondaryValue ?? 2) * activations;
+		int manaGain = Math.Max(1, domain.EffectData?.Value ?? 2) * activations;
+		_playerHero.DrawCards(drawCount);
+		_playerHero.GainMana(manaGain);
+		_playerHero.RemoveDomain("sutaraito_spirit");
+		GD.Print($"[DomainTriggerManager] 「星途精神」触发：额外抽 {drawCount} 张牌，获得 {manaGain} 点法力");
+		_notifyCombatStateChanged();
+	}
+
+	private void TriggerShiyoruRaidenkou(ActiveDomain domain)
+	{
+		int damage = Math.Max(1, domain.EffectData?.Value ?? 5);
+		var candidates = new List<IDamageTarget>();
+		foreach (var unit in _enemyUnits)
+		{
+			if (!unit.Body.IsDead)
+				candidates.Add(unit.Body);
+		}
+		candidates.AddRange(_board.GetEnemyMinions().Where(minion => !minion.IsDead));
+		if (candidates.Count == 0)
+			return;
+
+		using var rng = new RandomNumberGenerator();
+		rng.Randomize();
+		var target = candidates[rng.RandiRange(0, candidates.Count - 1)];
+		target.TakeDamage(damage, _playerHero, DamageKind.Effect);
+		domain.StackCount--;
+		GD.Print($"[DomainTriggerManager] 「四夜雷电光」触发：随机敌人受到 {damage} 点伤害，剩余 {Math.Max(0, domain.StackCount)} 回合");
+		if (domain.StackCount <= 0)
+			_playerHero.RemoveDomain("shiyoru_raidenkou");
+		_notifyCombatStateChanged();
 	}
 
 	public void HandlePlayerHeroAttacked(Hero target, IDamageSource source, int finalDamage)
