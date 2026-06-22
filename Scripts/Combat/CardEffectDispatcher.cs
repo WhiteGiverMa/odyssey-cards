@@ -23,10 +23,11 @@ internal sealed class CardEffectDispatcher
 	private readonly Board _board;
 	private readonly GameState _state;
 	private readonly Action _notifyCombatStateChanged;
-	private readonly Action<CardEffectData> _handleDiscoverEffect;
-	private readonly Action<List<Card.Card>, int> _beginDiscardDiscoverSelection;
-	private readonly Action<List<Card.Card>, int, int, bool> _beginHandDiscardSelection;
-	private readonly Action<object?, IDamageTarget, DamageKind, CombatDamageVfxKind> _requestDamageVfx;
+		private readonly Action<CardEffectData> _handleDiscoverEffect;
+		private readonly Action<List<Card.Card>, int> _beginDiscardDiscoverSelection;
+		private readonly Action<List<Card.Card>, int, int, bool> _beginHandDiscardSelection;
+		private readonly Action<Card.Card> _beginCopyHandFillSelection;
+		private readonly Action<object?, IDamageTarget, DamageKind, CombatDamageVfxKind> _requestDamageVfx;
 	private readonly Dictionary<CardEffectType, Action<CardEffectData, object?, IDamageSource?, object?>> _handlers;
 
 	public CardEffectDispatcher(
@@ -39,6 +40,7 @@ internal sealed class CardEffectDispatcher
 		Action<CardEffectData> handleDiscoverEffect,
 		Action<List<Card.Card>, int> beginDiscardDiscoverSelection,
 		Action<List<Card.Card>, int, int, bool> beginHandDiscardSelection,
+		Action<Card.Card> beginCopyHandFillSelection,
 		Action<object?, IDamageTarget, DamageKind, CombatDamageVfxKind> requestDamageVfx)
 	{
 		_playerCore = playerCore;
@@ -50,6 +52,7 @@ internal sealed class CardEffectDispatcher
 		_handleDiscoverEffect = handleDiscoverEffect;
 		_beginDiscardDiscoverSelection = beginDiscardDiscoverSelection;
 		_beginHandDiscardSelection = beginHandDiscardSelection;
+		_beginCopyHandFillSelection = beginCopyHandFillSelection;
 		_requestDamageVfx = requestDamageVfx;
 
 		_handlers = new Dictionary<CardEffectType, Action<CardEffectData, object?, IDamageSource?, object?>>()
@@ -64,12 +67,14 @@ internal sealed class CardEffectDispatcher
 			[CardEffectType.Heal] = HandleHeal,
 			[CardEffectType.RestoreHealth] = HandleHeal,
 			[CardEffectType.GainArmor] = HandleGainArmor,
-			[CardEffectType.GainMaxHealth] = HandleGainMaxHealth,
-			[CardEffectType.SummonMinion] = HandleSummonMinion,
-			[CardEffectType.BuffMinion] = HandleBuffMinion,
-			[CardEffectType.GainManaSlot] = HandleGainManaSlot,
-			[CardEffectType.RemoveNaturalManaCap] = HandleRemoveNaturalManaCap,
-			[CardEffectType.Discover] = HandleDiscoverEffectDispatch,
+				[CardEffectType.GainMaxHealth] = HandleGainMaxHealth,
+				[CardEffectType.SummonMinion] = HandleSummonMinion,
+				[CardEffectType.BuffMinion] = HandleBuffMinion,
+				[CardEffectType.GainEnergy] = HandleGainEnergy,
+				[CardEffectType.GainManaSlot] = HandleGainManaSlot,
+				[CardEffectType.RemoveNaturalManaCap] = HandleRemoveNaturalManaCap,
+				[CardEffectType.Discover] = HandleDiscoverEffectDispatch,
+				[CardEffectType.MountHeroEffect] = HandleMountHeroEffect,
 			[CardEffectType.ReplaceDeathrattleWithDraw] = HandleReplaceDeathrattleWithDraw,
 			[CardEffectType.ChooseFromDiscard] = HandleChooseFromDiscard,
 			[CardEffectType.DiscardRandom] = HandleDiscardRandom,
@@ -198,19 +203,25 @@ internal sealed class CardEffectDispatcher
 		}
 	}
 
-	private void HandleBuffMinion(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
-	{
-		if (target is Minion buffTarget)
+		private void HandleBuffMinion(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 		{
-			GD.Print($"[CardEffectDispatcher] BuffMinion：{effect.GetDescription()} → {buffTarget.CardName}（原型：暂未实现属性修改）");
+			if (target is Minion buffTarget)
+			{
+				GD.Print($"[CardEffectDispatcher] BuffMinion：{effect.GetDescription()} → {buffTarget.CardName}（原型：暂未实现属性修改）");
 		}
 		else
 		{
 			GD.Print("[CardEffectDispatcher] BuffMinion 需要有效的随从目标");
+			}
 		}
-	}
 
-	private void HandleGainManaSlot(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+		private void HandleGainEnergy(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+		{
+			_playerHero.GainMana(effect.Value);
+			GD.Print($"[CardEffectDispatcher] 获得 {effect.Value} 点临时法力（当前 {_playerHero.CurrentMana}/{_playerHero.MaxMana}）");
+		}
+
+		private void HandleGainManaSlot(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		_state.GainManaSlot(effect.Value);
 		_playerCore.SetMana(_playerCore.CurrentMana, _state.PlayerMaxMana);
@@ -342,6 +353,56 @@ internal sealed class CardEffectDispatcher
 		_notifyCombatStateChanged();
 	}
 
+	private void HandleMountHeroEffect(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	{
+		switch (effect.CustomEffectName)
+		{
+			case "ShiyoruRaidenkou":
+				MountShiyoruRaidenkou(effect);
+				break;
+
+			case "SutaraitoSpiritNextTurn":
+				MountSutaraitoSpirit(effect);
+				break;
+
+			default:
+				GD.Print($"[CardEffectDispatcher] 未处理的英雄挂载效果：{effect.CustomEffectName}");
+				break;
+		}
+	}
+
+	private void MountShiyoruRaidenkou(CardEffectData effect)
+	{
+		const string domainId = "shiyoru_raidenkou";
+		int turns = effect.SecondaryValue > 0 ? effect.SecondaryValue : 4;
+		if (_playerHero.ActiveDomains.TryGetValue(domainId, out var domain))
+		{
+			domain.StackCount += turns;
+			GD.Print($"[CardEffectDispatcher] 四夜雷电光：剩余回合叠加至 {domain.StackCount}");
+			return;
+		}
+
+		_playerHero.AddDomain(domainId, effect);
+		_playerHero.ActiveDomains[domainId].StackCount = turns;
+		GD.Print($"[CardEffectDispatcher] 四夜雷电光：挂载 {turns} 回合");
+	}
+
+	private void MountSutaraitoSpirit(CardEffectData effect)
+	{
+		const string domainId = "sutaraito_spirit";
+		const int activations = 1;
+		if (_playerHero.ActiveDomains.TryGetValue(domainId, out var domain))
+		{
+			domain.StackCount += activations;
+			GD.Print($"[CardEffectDispatcher] 星途精神：下回合触发层数叠加至 {domain.StackCount}");
+			return;
+		}
+
+		_playerHero.AddDomain(domainId, effect);
+		_playerHero.ActiveDomains[domainId].StackCount = activations;
+		GD.Print($"[CardEffectDispatcher] 星途精神：下回合开始触发 {activations} 次");
+	}
+
 	private void HandleCustomEffect(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		switch (effect.CustomEffectName)
@@ -419,6 +480,17 @@ internal sealed class CardEffectDispatcher
 
 				_beginHandDiscardSelection(hand, 0, Math.Min(maxDiscard, hand.Count), true);
 				GD.Print($"[CardEffectDispatcher] 刀盾危机：可选最多{Math.Min(maxDiscard, hand.Count)}张手牌弃掉");
+				break;
+
+			case "BloodDogsHandFill":
+				if (visualSource is not Card.Card sourceSpell)
+				{
+					GD.PrintErr("[CardEffectDispatcher] 十万条吸血狗：无法识别当前法术牌");
+					return;
+				}
+
+				_beginCopyHandFillSelection(sourceSpell);
+				GD.Print("[CardEffectDispatcher] 十万条吸血狗：进入复制手牌选择");
 				break;
 
 			case "BoundlessDarkness":

@@ -1822,8 +1822,10 @@ public partial class CombatUI
 
 		// === 头部提示标签 ===
 		string headerText;
-		if (_combat.CurrentSelectionMode == Combat.CombatManager.PendingSelectionMode.RestructureDiscard)
-			headerText = Loc.T("ui.combat.restructure_discard_title", "重整：选择 1 张手牌弃掉");
+			if (_combat.CurrentSelectionMode == Combat.CombatManager.PendingSelectionMode.CopyHandFill)
+				headerText = Loc.T("ui.combat.copy_hand_fill_title", "选择 1 张手牌，用它的复制填满手牌");
+			else if (_combat.CurrentSelectionMode == Combat.CombatManager.PendingSelectionMode.RestructureDiscard)
+				headerText = Loc.T("ui.combat.restructure_discard_title", "重整：选择 1 张手牌弃掉");
 		else if (_combat.CurrentSelectionMode == Combat.CombatManager.PendingSelectionMode.DevDiscard)
 			headerText = Loc.T("ui.combat.dev_discard_title", "调试弃牌：选择任意张手牌弃掉");
 		else if (_combat.HandSelectMin == _combat.HandSelectMax)

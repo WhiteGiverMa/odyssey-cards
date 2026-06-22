@@ -268,6 +268,7 @@ public partial class CombatManager : Node
 		Discard,
 		ChooseDiscard,
 		BladeCrisis,
+		CopyHandFill,
 		RestructureDiscard,
 		DevDiscard
 	}
@@ -567,11 +568,12 @@ public partial class CombatManager : Node
 			EnemyUnits,
 			Board,
 			State,
-			NotifyCombatStateChanged,
-			_selectionSystem.HandleDiscoverEffect,
-			_selectionSystem.BeginDiscardDiscoverSelection,
-			_selectionSystem.BeginHandDiscardSelection,
-			RequestDamageVfx);
+				NotifyCombatStateChanged,
+				_selectionSystem.HandleDiscoverEffect,
+				_selectionSystem.BeginDiscardDiscoverSelection,
+				_selectionSystem.BeginHandDiscardSelection,
+				BeginCopyHandFillSelection,
+				RequestDamageVfx);
 		_deathHandler = new DeathHandler(Board, PlayerHero, _effectDispatcher, _attackTracker);
 		_weaponAttack = new WeaponAttackSystem(
 			Board,
@@ -683,6 +685,8 @@ public partial class CombatManager : Node
 			: GameState.MaxManaCrystals;
 		State.StartPlayerTurn(growthCap);
 		_playerCore.SetMana(State.PlayerMana, State.PlayerMaxMana);
+
+		_domainTriggerManager.OnPlayerTurnStart();
 
 		// 藏品 — 回合开始时触发（在法力设置之后，以便战术核显卡等修改法力值）
 		_relicManager.TriggerTurnStart(this);
@@ -1655,6 +1659,9 @@ public partial class CombatManager : Node
 
 		// 触发领域效果 — 友方回合结束时
 		_domainTriggerManager.OnPlayerTurnEnd();
+		CheckDeaths();
+		if (_victoryResolver.CheckVictoryOrDefeat())
+			return;
 
 		// 藏品 — 玩家回合结束时触发
 		_relicManager.TriggerTurnEnd(this);
@@ -2052,6 +2059,42 @@ public partial class CombatManager : Node
 		Action<IReadOnlyList<Card.Card>> onConfirmed)
 	{
 		_selectionSystem.BeginCustomHandDiscardSelection(handOptions, count, count, mode, canCancel: false, onConfirmed);
+	}
+
+	private void BeginCopyHandFillSelection(Card.Card sourceSpell)
+	{
+		var handOptions = PlayerHero.Hand
+			.Where(card => !ReferenceEquals(card, sourceSpell))
+			.ToList();
+		if (handOptions.Count == 0)
+		{
+			GD.Print("[CombatManager] 十万条吸血狗：没有可复制的其他手牌");
+			return;
+		}
+
+		_selectionSystem.BeginCustomHandDiscardSelection(
+			handOptions,
+			1,
+			1,
+			PendingSelectionMode.CopyHandFill,
+			canCancel: false,
+			selectedCards => FillHandWithCopies(sourceSpell, selectedCards));
+	}
+
+	private void FillHandWithCopies(Card.Card sourceSpell, IReadOnlyList<Card.Card> selectedCards)
+	{
+		if (selectedCards.Count == 0)
+			return;
+
+		PlayerHero.DiscardCard(sourceSpell);
+		var selectedData = selectedCards[0].Data;
+		int added = 0;
+		while (PlayerHero.Hand.Count < _playerCore.MaxHandSize)
+		{
+			_playerCore.AddToHand(new Card.Card(selectedData));
+			added++;
+		}
+		GD.Print($"[CombatManager] 十万条吸血狗：用「{selectedData.GetLocalizedName()}」的复制填满手牌（加入 {added} 张）");
 	}
 
 	/// <summary>
