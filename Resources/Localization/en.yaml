@@ -94,6 +94,7 @@ ui:
     discard_select_title: "Choose to Discard"
     discard_select_format: "Choose {count} card(s) to discard"
     discard_select_format_blade: "Choose up to {count} card(s) to discard"
+    copy_hand_fill_title: "Choose 1 card to fill your hand with copies"
     restructure_discard_title: "Restructure: choose 1 card to discard"
     dev_discard_title: "Dev discard: choose any cards to discard"
     disabled_suffix: " [Disabled]"
@@ -451,6 +452,15 @@ cards:
   spell_FullAssault:
     name: "Full Assault"
     description: "Randomly discard 1 card from your hand, deal 3 damage to all enemies."
+  spell_shiyoru_raidenkou:
+    name: "Shiyoru Raidenkou"
+    description: "Recycle. For 4 turns, at the end of your turn, deal 5 damage to a random enemy. Casting this again while active stacks its remaining turns."
+  spell_blood_dogs_hand_fill:
+    name: "One Hundred Thousand Blood Dogs"
+    description: "Choose 1 card in your hand. Fill your hand with copies of it."
+  spell_sutaraito_spirit:
+    name: "Sutaraito Spirit"
+    description: "Gain 2 empty Mana Crystal slots; deal 2 damage to all enemies; draw 2 cards. At the start of your next turn, draw 2 extra cards and gain 2 Mana."
   minion_WhatTheDogDoing:
     name: "What The Dog Doing"
     description: "Taunt\nBattlecry: Add a copy to an adjacent board slot."
@@ -588,6 +598,10 @@ domain:
   scheme_desc: "Each stack makes Smart Rotten Eggs summoned by this hero gain 1 extra Focus."
   inescapable_flaw: "Inescapable Flaw"
   inescapable_flaw_desc: "When the owner loses a negative effect, it immediately gains 1 stack of a random negative effect. If this effect itself is lost, it may be reapplied."
+  shiyoru_raidenkou: "Shiyoru Raidenkou"
+  shiyoru_raidenkou_desc: "At the end of your turn, deal 5 damage to a random enemy. Each stack is 1 remaining trigger."
+  sutaraito_spirit: "Sutaraito Spirit"
+  sutaraito_spirit_desc: "At the start of your next turn, draw 2 extra cards and gain 2 Mana."
 
 stat:
   attack_up: "Attack +{value}"

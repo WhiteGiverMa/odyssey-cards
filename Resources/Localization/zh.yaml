@@ -94,6 +94,7 @@ ui:
     discard_select_title: "选择弃牌"
     discard_select_format: "选择 {count} 张手牌弃掉"
     discard_select_format_blade: "选择最多 {count} 张手牌弃掉"
+    copy_hand_fill_title: "选择 1 张手牌，用它的复制填满手牌"
     restructure_discard_title: "重整：选择 1 张手牌弃掉"
     dev_discard_title: "调试弃牌：选择任意张手牌弃掉"
     disabled_suffix: " [禁用]"
@@ -451,6 +452,15 @@ cards:
   spell_FullAssault:
     name: "全力攻击"
     description: "随机弃掉一张手牌，对全体敌方造成3点伤害。"
+  spell_shiyoru_raidenkou:
+    name: "四夜雷电光"
+    description: "轮战；4回合内，友方回合结束时对随机敌人造成5点伤害。（挂载效果未结束时再次释放可叠加回合数）"
+  spell_blood_dogs_hand_fill:
+    name: "十万条吸血狗"
+    description: "选择1张手牌，用这张牌的复制填满你的手牌。"
+  spell_sutaraito_spirit:
+    name: "星途精神"
+    description: "获得2个空法力水晶槽；对所有敌人造成2点伤害；抽2张牌；下回合开始时额外抽2张牌、获得2点法力。"
   minion_WhatTheDogDoing:
     name: "我的刀盾"
     description: "嘲讽\n战吼：将一张复制加入相邻棋盘槽处。"
@@ -591,6 +601,10 @@ domain:
   scheme_desc: "每层使该英雄召唤的智能臭鸡蛋额外获得1层聚焦。"
   inescapable_flaw: "难逃之瑕"
   inescapable_flaw_desc: "持有者失去一种负面效果时，立刻随机获得1层另一种负面效果。若失去的是本效果，则也可能重新获得本效果。"
+  shiyoru_raidenkou: "四夜雷电光"
+  shiyoru_raidenkou_desc: "友方回合结束时对随机敌人造成5点伤害，每层代表剩余1次触发。"
+  sutaraito_spirit: "星途精神"
+  sutaraito_spirit_desc: "下回合开始时额外抽2张牌并获得2点法力。"
 
 stat:
   attack_up: "攻击力+{value}"
