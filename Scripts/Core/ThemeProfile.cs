@@ -40,6 +40,13 @@ public partial class ThemeProfile : Resource
 	[Export] public Godot.Collections.Dictionary<int, int> TagWeights { get; set; } = new();
 
 	/// <summary>
+	/// 关键词偏好权重表。
+	/// Key = <see cref="Keyword"/> 的枚举值（如 Recycle=8、Deathrattle=4），Value = 权重。
+	/// 与 <see cref="TagWeights"/> 正交：机制标签描述「做什么」，关键词描述「以什么规则触发」。
+	/// </summary>
+	[Export] public Godot.Collections.Dictionary<int, int> KeywordWeights { get; set; } = new();
+
+	/// <summary>
 	/// 招牌核心卡 ID 列表（5-8 张）。
 	/// 生成卡组时几乎必带，保证角色识别度。
 	/// </summary>
@@ -74,6 +81,16 @@ public partial class ThemeProfile : Resource
 	{
 		// TagWeights 的 Key 是位值，可能存的是组合标签；这里只查精确匹配的单标签
 		if (TagWeights.TryGetValue((int)tag, out var w))
+			return w;
+		return 0;
+	}
+
+	/// <summary>
+	/// 获取某关键词的权重（未列出返回 0）。
+	/// </summary>
+	public int GetKeywordWeight(Keyword keyword)
+	{
+		if (KeywordWeights.TryGetValue((int)keyword, out var w))
 			return w;
 		return 0;
 	}

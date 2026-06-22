@@ -20,5 +20,8 @@ TagWeights = {
 8: -1,
 1024: -1
 }
+KeywordWeights = {
+8: 3
+}
 CoreCardIds = PackedStringArray("spell_MoonFishing", "spell_WhiteLegion", "spell_BladeCrisis", "spell_Discover", "spell_NanoCorpseArt", "spell_Assault")
 CardWeightOverrides = {}

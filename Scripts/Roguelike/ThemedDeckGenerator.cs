@@ -19,8 +19,9 @@ namespace OdysseyCards.Roguelike;
 ///
 /// 权重计算：对每张候选卡 card，
 ///   weight = Σ(标签权重 × 卡的标签命中) + 人工 override
-/// 其中「标签命中」= card.MechanicTags.HasFlag(tag) ? 1 : 0
-/// 未在任何 ThemeProfile.TagWeights 中列出的标签贡献 0。
+	/// 其中「标签命中」= card.MechanicTags.HasFlag(tag) ? 1 : 0
+	/// 关键词偏好通过 ThemeProfile.KeywordWeights 以同样方式叠加。
+	/// 未在任何 ThemeProfile.TagWeights 中列出的标签贡献 0。
 /// weight 可为负（不擅长的卡），生成器在加权随机时 clamp 到最小 1（避免完全排除但大幅降权）。
 /// </summary>
 public static class ThemedDeckGenerator
@@ -248,6 +249,14 @@ public static class ThemedDeckGenerator
 			if (card.HasMechanicTag(tag))
 				weight += tagWeight;
 		}
+		foreach (var (keywordValue, keywordWeight) in profile.KeywordWeights)
+		{
+			if (keywordWeight == 0)
+				continue;
+			var keyword = (Keyword)keywordValue;
+			if (card.Keywords.Contains(keyword))
+				weight += keywordWeight;
+		}
 		weight += profile.GetCardOverride(card.Id);
 		return Math.Max(1, weight);
 	}
@@ -356,13 +365,21 @@ public static class ThemedDeckGenerator
 
 		// 标签命中统计
 		var tagCounts = new Dictionary<string, int>();
-		foreach (CardMechanicTag tag in Enum.GetValues(typeof(CardMechanicTag)))
+		foreach (CardMechanicTag tag in Enum.GetValues<CardMechanicTag>())
 		{
 			if (tag == CardMechanicTag.None)
 				continue;
 			int count = cards.Count(c => c.HasMechanicTag(tag));
 			if (count > 0)
 				tagCounts[tag.ToString()] = count;
+		}
+		foreach (Keyword keyword in Enum.GetValues<Keyword>())
+		{
+			if (keyword == Keyword.None)
+				continue;
+			int count = cards.Count(c => c.Keywords.Contains(keyword));
+			if (count > 0)
+				tagCounts[$"Keyword:{keyword}"] = count;
 		}
 
 		int coreIncluded = cards.Count(c => coreIds.Contains(c.Id));
