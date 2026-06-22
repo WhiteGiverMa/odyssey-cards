@@ -302,6 +302,8 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - ✅ ChatScreen v2：Engine + Command 抽象 + 8 命令组 + 历史持久化。
 - ✅ 版本号体系：`VERSION` 文件（仓库根，单行无 v 前缀）是唯一真源；csproj 构建期读入 `AssemblyInformationalVersion`，`VersionInfo.cs` 运行时反射读取；`build_export.ps1`/`build_android.ps1` 导出前临时注入 `project.godot`/`export_presets.cfg`，导出后恢复；`package_release.ps1` 默认读 VERSION；主菜单右下角 + ChatScreen `/version` 显示。
 - ✅ Android 签名密钥：项目专属 `debug.keystore` + `release.keystore`（25 年），配置 `android/keystore.properties`（gitignored），`build_android.ps1` 用 Godot 环境变量注入，`-Release` 切换正式签名。
+- ✅ 新增三张法术卡：四夜雷电光（轮战，英雄挂载回合触发）、十万条吸血狗（选择手牌并复制填满）、星途精神（跳费/AOE/抽牌/下回合挂载收益）。
+- ✅ 主题卡组支持 `ThemeProfile.KeywordWeights`，可按 `Keyword`（如轮战、亡语）给角色主题加权，不污染 `CardMechanicTag`。
 - ✅ 热力系统与藏品系统已存在；资源化仍未完成。
 - ⚠️ `Spell.cs` 从未实例化（死代码）。
 - ⚠️ `RailPistolPassive.cs`、`SafeAreaContainer.cs` 当前孤立。
