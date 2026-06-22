@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 18
+Value = 2
+
+[sub_resource type="Resource" id="SubResource_2"]
+script = ExtResource("2_effect")
+EffectType = 29
+Value = 2
+
+[sub_resource type="Resource" id="SubResource_3"]
+script = ExtResource("2_effect")
+EffectType = 2
+Value = 2
+
+[sub_resource type="Resource" id="SubResource_4"]
+script = ExtResource("2_effect")
+EffectType = 30
+Value = 2
+SecondaryValue = 2
+CustomEffectName = "SutaraitoSpiritNextTurn"
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_sutaraito_spirit"
+MechanicTags = 4113
+CardName = "星途精神"
+Description = "获得2个空法力水晶槽；对所有敌人造成2点伤害；抽2张牌。下回合开始时，额外抽2张牌并获得2点法力。"
+Rarity = 2
+Cost = 10
+Type = 1
+RequiresTarget = false
+Effects = [SubResource("SubResource_1"), SubResource("SubResource_2"), SubResource("SubResource_3"), SubResource("SubResource_4")]
