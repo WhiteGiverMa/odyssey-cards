@@ -14,6 +14,9 @@ export_presets.cfg
 /export/
 *.zip
 
+# Generated preview files
+Resources/Themes/ThemeProfiles.preview.md
+
 # C# / .NET
 bin/
 obj/
