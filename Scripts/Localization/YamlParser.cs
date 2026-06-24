@@ -99,7 +99,7 @@ public static class YamlParser
 			}
 			else if (c == '\t')
 			{
-				count += 2;
+				count += 4;
 			}
 			else
 			{
