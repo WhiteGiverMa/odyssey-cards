@@ -78,7 +78,9 @@ public partial class CardData : Resource, ICardData, ILocalizable
 	public CardMechanicTag MechanicTags { get; set; } = CardMechanicTag.None;
 
 	/// <summary>
-	/// 关键词列表（仅随从）。
+	/// 关键词列表。
+	/// Battlecry / Deathrattle 是随从专属关键词；非随从不应配置这两个关键词，
+	/// 主题卡组的 KeywordWeights 也按这个数据契约理解「战吼/亡语随从」偏好。
 	/// </summary>
 	[Export] public Godot.Collections.Array<Keyword> Keywords { get; set; } = new();
 
