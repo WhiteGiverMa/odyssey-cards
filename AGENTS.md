@@ -164,6 +164,7 @@ Tests/              # tests/csharp：xUnit 11 Unit + 1 Integration(跳过)
 - 命名空间：`file_scoped` (`namespace X;`)，新文件必须；`.editorconfig` 的 block_scoped 配置已过时。
 - `using` 在 namespace 外。
 - **缩进统一 Tab（4空格宽度）**；文件末尾换行，去尾随空格。
+- **YAML 例外**：`Resources/Localization/*.yaml` 与 `*.json` 等数据格式按其语法标准缩进——YAML 用 **2 空格递增**（root 0 → level1 2 → level2 4 → level3 6），**禁止 tab**。原因是项目自定义 `YamlParser.GetIndentLevel` 把 tab 算作 2 空格，与父级 2 空格歧义会导致子节点错位到 root，整段翻译失效。
 - XML doc 中文。日志：`GD.Print("[ClassName] 消息")`。
 
 ### 事件/信号
