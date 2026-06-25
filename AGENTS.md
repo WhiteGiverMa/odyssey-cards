@@ -1,7 +1,7 @@
 # OdysseyCards（少女星途卡牌） — Godot 4.6 C# · 类炉石 Roguelite 卡牌
 
 **Updated:** 2026-06-25
-**Scale:** 179 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~37,000 行 · 38 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
+**Scale:** 192 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~37,000 行 · 38 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
 
 ## Start
 
@@ -15,22 +15,22 @@
 
 ```
 Scripts/
-├── Core/ (37)      # CardData, GameManager(Autoload), DamageResolver, HeroProfile, RarityColorScheme, SaveDataManager, VersionInfo…
-├── UI/ (39)        # CombatUI partials, BoardUI, HandUI, CardUI, CollectionUI, MapUI, InfoScreen, Shop/Rest/Event UI…
+├── Core/ (42)      # CardData, GameManager(Autoload), DamageResolver, HeroProfile, RarityColorScheme, SaveDataManager, VersionInfo…
+├── UI/ (41)        # CombatUI partials, BoardUI, HandUI, CardUI, CollectionUI, MapUI, InfoScreen, Shop/Rest/Event UI…
 ├── Card/ (15)      # Card, Minion, Hero, Weapon, StatusEffect, ActiveDomain, HeroPowers/*（纯 C#）
 ├── Character/ (5)  # Player(Node), CommanderCore, Deck, CombatDeckState
 ├── Combat/ (14)    # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem/DomainTriggerManager 等拆分模块
-├── AI/ (29)        # EnemyEncounter, EnemyRegistry, 多敌人 Brain + Intents/(20) MoveState/Intent 类型体系
+├── AI/ (30)        # EnemyEncounter, EnemyRegistry, 多敌人 Brain + Intents/(20) MoveState/Intent 类型体系
 ├── Heat/ (2)       # HeatSystem + HeatDamageModifier，全局热力伤害倍率
 ├── Relic/ (7)      # AbstractRelic, RelicManager, 5 个具体藏品
 ├── Roguelike/ (5)  # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)# YAML 多语言 (LocalStr, ConcatLocalStr, ILocalizable, YamlParser)
-└── Infrastructure/ (21, Commands/9) # ChatScreen, InputManager, HotkeyManager, MobileInputRouter, SceneLifecycleGuard…
+└── Infrastructure/ (23, Commands/9) # ChatScreen, InputManager, HotkeyManager, MobileInputRouter, SceneLifecycleGuard…
 Resources/Cards/    # 38 .tres：领域6 + 随从12 + 法术19 + 状态1
 Resources/Localization/ # zh.yaml / en.yaml
 Resources/Enemies/ Resources/Relics/ # 结构桩，当前为空
 Scenes/             # Main, Combat, Collection, Map + Card/Board/CombatPreview
-Tests/              # tests/csharp：xUnit 11 Unit + 1 Integration(跳过)
+Tests/              # tests/csharp：xUnit 12 Unit + 1 Integration(跳过)
 ```
 
 ## Autoload
@@ -322,6 +322,8 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - ✅ 新增三张法术卡：四夜雷电光（轮战，英雄挂载回合触发）、十万条吸血狗（选择手牌并复制填满）、星途精神（跳费/AOE/抽牌/下回合挂载收益）。
 - ✅ 主题卡组支持 `ThemeProfile.KeywordWeights`，可按 `Keyword`（如轮战、亡语）给角色主题加权，不污染 `CardMechanicTag`。
 - ✅ 热力系统与藏品系统已存在；资源化仍未完成。
+- ✅ ActiveDomain/StatusEffect 语义边界已明确（永久 Power vs 限时 Power）；四夜雷电光、星途精神 mount 改为限时 Power 走 StatusEffect + OnTick 通道。
+- ✅ 术语对照表已建立（Architecture Rules → 术语对照段），涵盖领域/限时挂载/状态/目标单位/直伤卡/触发时机。
 - ⚠️ `Spell.cs` 从未实例化（死代码）。
 - ⚠️ `RailPistolPassive.cs`、`SafeAreaContainer.cs` 当前孤立。
 - ⚠️ `EventSelector` 奖励逻辑完整但战斗奖励流仍未统一接线；`ApplyReward` 已 Obsolete。
@@ -340,9 +342,15 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - `Scripts/Core/AGENTS.md`：数据资源、伤害管线、保存与全局状态。
 - `Scripts/Card/AGENTS.md`：运行时卡牌/英雄/随从/武器模型。
 - `Scripts/UI/AGENTS.md`：程序化 UI、CombatUI partial、预览与弹窗。
+- `Scripts/AI/AGENTS.md`：敌人 AI 父级——EnemyRegistry、Brain、旧意图桥接、新增敌人流程。
 - `Scripts/AI/Intents/AGENTS.md`：新意图类型与 MoveState。
 - `Scripts/Heat/AGENTS.md`：热力阶段。
 - `Scripts/Relic/AGENTS.md`：藏品生命周期。
+- `Scripts/Localization/AGENTS.md`：YAML 多语言 + tab 缩进陷阱。
+- `Scripts/Infrastructure/AGENTS.md`：控制台、输入栈、移动端、生命周期防护、Commands/。
+- `Scripts/Roguelike/AGENTS.md`：地图、事件、奖励与主题卡组生成。
+- `Scripts/Character/AGENTS.md`：Player 双层 CommanderCore 模式、牌堆管理。
+- `tests/AGENTS.md`：xUnit 测试约定——RED phase、Skip 规范、覆盖盲区。
 - `wiki/AGENTS.md`：wiki 概念库写作纪律；只约束 agents，不约束人类。
 
 ## 杂项（待归类注意事项/notes）
