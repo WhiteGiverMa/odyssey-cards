@@ -34,7 +34,9 @@
 
 ## 领域
 
-领域是不随时间自然减少的持续效果。与易伤、虚弱、脆弱这类会随回合减少的状态不同。
+领域是不随时间自然减少的持续效果。与易伤、虚弱、脆弱这类会随回合减少的状态不同。本项目中 `ActiveDomain` 对应 STS2 的永久型 Power（Counter 只由战斗事件消耗，**禁止自动回合衰减**），`StatusEffect` 对应 STS2 的限时型 Power（`TickOn` 驱动衰减，归零自动移除）。
+
+四夜雷电光「4 回合伤害」、星途精神「下回合额外抽牌/法力」属于限时挂载效果——模拟 STS2 的 `RegenPower`/`DuplicationPower`，不再作为领域处理。当前实现走 `StatusEffect + OnTick` 通道，由 `CardEffectDispatcher.HandleMountHeroEffect` 唯一注入触发钩子；其余挂载（执锐/无限火力/飞远/接化发/偶像的黄昏 等）是事件驱动消耗，仍是真正的领域。详见 `Scripts/Card/AGENTS.md` 语义边界节与 `docs/notepads/sts2-power-lifecycle-2026-06-25.md`。
 
 | 领域 | 来源 | 概念 |
 |---|---|---|
@@ -53,3 +55,4 @@
 - 中文名“闪击”与旧 GDD 的“冲锋”是否统一为“闪击”。
 - 「解释」的“打出后回到手牌并进入不可打出状态”是否已经是最终设计。
 - 「难逃之瑕」是否最终坚持作为“负面领域”而非“特殊状态”；当前实现以代码与实际 UX 为准。
+- 「四夜雷电光」「星途精神」最早作为领域实现（错走 `ActiveDomain`+自动 `StackCount--`），后改成限时挂载（走 `StatusEffect` + `OnTick`）。两者最终归类、Icon 路由表是否长期保留在 `StatusEffect` 通道、以及"领域"这一玩家可见术语是否会扩展到限时挂载，仍待用户最终拍板。
