@@ -57,7 +57,7 @@ public class RieSuppressingFireHeroPower : IHeroPower, IChargeCooldownSkill
 			if (hero.DeckState.Hand.Count >= hero.DeckState.MaxHandSize)
 				break;
 
-			if (!IsExplicitDirectDamageSpell(drawnCard.Data))
+			if (!drawnCard.Data.HasMechanicTag(CardMechanicTag.DirectDamage))
 				break;
 		}
 
@@ -82,29 +82,5 @@ public class RieSuppressingFireHeroPower : IHeroPower, IChargeCooldownSkill
 			CurrentCooldown = Charges < MaxCharges ? Cooldown : 0;
 			GD.Print($"[RieHeroPower] 回复1层，当前 {Charges}/{MaxCharges}");
 		}
-	}
-
-	private static bool IsExplicitDirectDamageSpell(CardData data)
-	{
-		if (data == null || data.Type != CardType.Spell)
-			return false;
-
-		foreach (var effect in data.Effects)
-		{
-			if (effect.Value <= 0)
-				continue;
-
-			switch (effect.EffectType)
-			{
-				case CardEffectType.Damage:
-				case CardEffectType.DealDamageToTarget:
-				case CardEffectType.DealDamageToAllEnemies:
-				case CardEffectType.DealDamageToEnemyHero:
-				case CardEffectType.DealDamageToFriendlyHero:
-					return true;
-			}
-		}
-
-		return false;
 	}
 }
