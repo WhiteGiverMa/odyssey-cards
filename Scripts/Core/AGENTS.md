@@ -15,7 +15,7 @@
 | 伤害修改器 | `*DamageModifier.cs`, `FragileArmorModifier.cs` | source/target 两侧都可提供 modifier；护甲吸收在管线后 |
 | 牌组合法性 | `DeckValidityService.cs` | 构筑 10..20；战斗牌堆可突破构筑上限；不静默截断旧档 |
 | 存档 | `SaveDataManager.cs`, `GameSaveData.cs`, `RunSaveData.cs` | `user://save.json`；selected hero / active run / deck snapshot |
-| 显示元数据 | `EffectIconTable.cs`, `RarityColorScheme.cs`, `TargetTags.cs` | UI 只读映射；规则不写在显示表里 |
+| 显示元数据 | `EffectIconTable.cs`, `RarityColorScheme.cs`, `TargetTags.cs` | UI 只读映射；`EffectIconTable` 分 `_statusEffects` / `_domains` 两个表，永久 Power id 进 `_domains`，限时 mount id 进 `_statusEffects`（翻译键可保留 domain.*） |
 
 ## Contracts
 

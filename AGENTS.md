@@ -1,6 +1,6 @@
 # OdysseyCards（少女星途卡牌） — Godot 4.6 C# · 类炉石 Roguelite 卡牌
 
-**Updated:** 2026-06-16
+**Updated:** 2026-06-25
 **Scale:** 179 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~37,000 行 · 38 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
 
 ## Start
@@ -91,6 +91,21 @@ Tests/              # tests/csharp：xUnit 11 Unit + 1 Integration(跳过)
 
 ## Architecture Rules
 
+### 术语对照（强约束）
+
+项目的设计语言混合了炉石/STS2/自创新词，多份历史文档与 wiki 都用过其中之一。本节是术语唯一真源，新增/改写时统一对齐。
+
+| 项目术语 | 等价映射 | 实现位置 | 范围与约束 |
+|---|---|---|---|
+| **领域** | STS2 的 Power（永久型）/ STS 1 的「能力」/ 塔圈社区常用「领域」 | ActiveDomain : IPermanentEffect，挂在 Hero.ActiveDomains | **永久**——Counter 仅由战斗事件消耗（被攻击/回合结束事件/随从进场），**禁止自动回合衰减**。再次打出同领域叠加 Counter。 |
+| **限时挂载效果** | STS2 的限时 Power（如 RegenPower / DuplicationPower）| StatusEffect : ITemporaryEffect + OnTick 钩子 | **限时**——TickOn 驱动衰减，归零自动移除；触发逻辑由 CardEffectDispatcher.HandleMountHeroEffect 唯一注入 OnTick lambda。**禁止用 ActiveDomain 模拟回合计时。** |
+| **状态效果** | STS2 的 VulnerablePower/WeakPower 等 debuff | StatusEffect 通道，与限时 mount 同储但语义上分开 | 自带衰减、可被净化（Polarity=Negative）。限时 mount 使用 Polarity=NonNegative 不可被净化。 |
+| **目标/单位** | IDamageTarget 接口实现 | Hero : IDamageTarget, IDamageSource、Minion : Card, IDamageTarget, IDamageSource | 玩家英雄、敌方英雄、友方随从、敌方随从、衍生衍生牌生成的临时单位都是「单位」。卡牌效果的目标都是 unit。 |
+| **直伤卡** | CardMechanicTag.DirectDamage flag 标记的卡 | CardData.MechanicTags | 由人工权威标注，**不从 CardEffectType 自动推导**。火力筛选（理惠）与 ThemeProfile 直伤维度共用此真源。 |
+| **触发时机（tick timing）** | STS2 的 AfterSideTurnStart/End | TickTiming enum + Hero/Minion.TickStatusEffects(timing) | 玩家回合开始/结束、敌方回合开始/结束四档。StatusEffect.OnTick 在 Tick() 衰减**之前**触发（对齐 STS2「先 heal 再 Decrement」），避免最后一帧丢触发。 |
+
+「领域」这一玩家可见术语只指 **永久 Power**——限时挂载效果不是「领域」。
+
 ### 纯 C# 核心
 - `Card`, `Minion`, `Spell`, `Hero`, `Weapon`, `Board`, `GameState`, `EnemyUnit` — **禁止**调用 Godot API。
 - 数据与渲染分离：`Card` = 纯数据，`CardUI` = Godot Control 包装。
@@ -118,9 +133,10 @@ Tests/              # tests/csharp：xUnit 11 Unit + 1 Integration(跳过)
 - 敌方随从意图≥`DefaultAttackMinionBrain`，不降级为“无意图自动攻击”。
 
 ### 领域/藏品/热力
-- 领域：打出时挂 `ActiveDomain` 到 `Hero.ActiveDomains`，在战斗事件点长期触发。
-- Counter 叠加：多次打出同一领域 = 多层 counter，每触发一次消耗一层。
-- 藏品：`AbstractRelic` 生命周期钩子；不要把藏品逻辑塞进 CombatManager。
+- **领域（永久 Power）**：打出时挂 ActiveDomain 到 Hero.ActiveDomains，在战斗事件点长期触发。**Counter 只由事件消费**——被攻击/敌方英雄攻击格挡/随从进场/回合结束事件触发；**禁止自动回合衰减**——自动 StackCount-- 意味着这是限时效果，应改走 StatusEffect。
+- **限时挂载效果（限时 Power）**：模拟 STS2 RegenPower/DuplicationPower 的回合计时效果——StatusEffect + OnTick 通道：TickOn 衰减归零自动移除，触发逻辑通过 OnTick lambda 注入。**唯一注入点**：CardEffectDispatcher.HandleMountHeroEffect；其他调用点禁止设置此字段。当前示例：四夜雷电光、星途精神下回合收益。
+- **Counter 叠加**：多次打出同一领域 = 多层 counter，每触发一次消耗一层。限时挂载同样支持叠层（AddStatusEffect 的同名 ID 叠层分支）。
+- 藏品：AbstractRelic 生命周期钩子；不要把藏品逻辑塞进 CombatManager。
 - 热力：每战斗全局节奏压力，不是卡牌状态。
 
 ### UI 交互
