@@ -353,7 +353,7 @@ internal sealed class CardEffectDispatcher
 		_notifyCombatStateChanged();
 	}
 
-	private void HandleMountHeroEffect(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+private void HandleMountHeroEffect(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		switch (effect.CustomEffectName)
 		{
@@ -371,35 +371,106 @@ internal sealed class CardEffectDispatcher
 		}
 	}
 
+	/// <summary>
+	/// 四夜雷电光：玩家回合结束时对随机敌人造成法术伤害（限时挂载效果）。
+	/// 改走 <see cref="StatusEffect"/> 通道（类比 STS2 RegenPower 在 AfterSideTurnEnd 中 heal+Decrement），
+	/// 用 OnTick 在 Tick 衰减前触发一次伤害，Tick 自动 -1 回合数并归零移除。
+	/// 决策见 AGENTS_LOCAL/pending：四夜雷电光是限时型（自动每回合衰减），不是永久 Power。
+	/// </summary>
 	private void MountShiyoruRaidenkou(CardEffectData effect)
 	{
-		const string domainId = "shiyoru_raidenkou";
+		const string statusId = "shiyoru_raidenkou";
 		int turns = effect.SecondaryValue > 0 ? effect.SecondaryValue : 4;
-		if (_playerHero.ActiveDomains.TryGetValue(domainId, out var domain))
+		int damage = effect.Value > 0 ? effect.Value : 5;
+
+		if (_playerHero.StatusEffects.TryGetValue(statusId, out var existing))
 		{
-			domain.StackCount += turns;
-			GD.Print($"[CardEffectDispatcher] 四夜雷电光：剩余回合叠加至 {domain.StackCount}");
+			// 再次释放叠加回合数（取最后一个 effect 的伤害值——同 ID 假定数值一致）
+			existing.Stacks += turns;
+			GD.Print($"[CardEffectDispatcher] 四夜雷电光：剩余回合叠加至 {existing.Stacks}");
 			return;
 		}
 
-		_playerHero.AddDomain(domainId, effect);
-		_playerHero.ActiveDomains[domainId].StackCount = turns;
+		_playerHero.AddStatusEffect(new StatusEffect(
+			statusId,
+			turns,
+			TickTiming.PlayerTurnEnd,
+			StatusEffectPolarity.NonNegative)
+		{
+			OnTick = _ => TriggerShiyoruRaidenkou(damage),
+		});
 		GD.Print($"[CardEffectDispatcher] 四夜雷电光：挂载 {turns} 回合");
 	}
 
+	private void TriggerShiyoruRaidenkou(int damage)
+	{
+		if (_playerHero.IsDead)
+			return;
+
+		var candidates = new List<IDamageTarget>();
+		foreach (var unit in _enemyUnits)
+		{
+			if (!unit.Body.IsDead)
+				candidates.Add(unit.Body);
+		}
+		candidates.AddRange(_board.GetEnemyMinions().Where(m => !m.IsDead));
+		if (candidates.Count == 0)
+			return;
+
+		using var rng = new RandomNumberGenerator();
+		rng.Randomize();
+		var target = candidates[rng.RandiRange(0, candidates.Count - 1)];
+
+		if (target is Hero heroTarget)
+		{
+			_requestDamageVfx(_playerHero, heroTarget, DamageKind.Effect, CombatDamageVfxKind.Spell);
+			heroTarget.TakeDamage(damage, _playerHero, DamageKind.Effect);
+		}
+		else if (target is Minion minionTarget)
+		{
+			_requestDamageVfx(_playerHero, minionTarget, DamageKind.Effect, CombatDamageVfxKind.Spell);
+			minionTarget.TakeDamage(damage, _playerHero, DamageKind.Effect);
+		}
+
+		GD.Print($"[CardEffectDispatcher] 四夜雷电光触发：随机敌人受到 {damage} 点法术伤害");
+		_notifyCombatStateChanged();
+	}
+
+	/// <summary>
+	/// 星途精神：下回合开始时额外抽牌并获得法力（限时一次性挂载）。
+	/// 改走 <see cref="StatusEffect"/> 通道（类比 STS2 DuplicationPower：AfterSideTurnEnd→效果+Remove），
+	/// Stacks = 触发次数（可叠加），Tick 在玩家回合开始时消耗一层后自动移除。
+	/// </summary>
 	private void MountSutaraitoSpirit(CardEffectData effect)
 	{
-		const string domainId = "sutaraito_spirit";
-		const int activations = 1;
-		if (_playerHero.ActiveDomains.TryGetValue(domainId, out var domain))
+		const string statusId = "sutaraito_spirit";
+		int drawCount = effect.SecondaryValue > 0 ? effect.SecondaryValue : 2;
+		int manaGain = effect.Value > 0 ? effect.Value : 2;
+		int activations = 1;
+
+		if (_playerHero.StatusEffects.TryGetValue(statusId, out var existing))
 		{
-			domain.StackCount += activations;
-			GD.Print($"[CardEffectDispatcher] 星途精神：下回合触发层数叠加至 {domain.StackCount}");
+			existing.Stacks += activations;
+			GD.Print($"[CardEffectDispatcher] 星途精神：下回合触发层数叠加至 {existing.Stacks}");
 			return;
 		}
 
-		_playerHero.AddDomain(domainId, effect);
-		_playerHero.ActiveDomains[domainId].StackCount = activations;
+		_playerHero.AddStatusEffect(new StatusEffect(
+			statusId,
+			activations,
+			TickTiming.PlayerTurnStart,
+			StatusEffectPolarity.NonNegative)
+		{
+			OnTick = e =>
+			{
+				int actualDraw = drawCount * e.Stacks;
+				int actualMana = manaGain * e.Stacks;
+				_playerHero.DrawCards(actualDraw);
+				_playerHero.GainMana(actualMana);
+				GD.Print($"[CardEffectDispatcher] 星途精神触发：抽 {actualDraw} 张牌，获得 {actualMana} 点法力");
+				_notifyCombatStateChanged();
+			},
+		});
 		GD.Print($"[CardEffectDispatcher] 星途精神：下回合开始触发 {activations} 次");
 	}
 
