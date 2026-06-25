@@ -683,19 +683,19 @@ public partial class CombatManager : Node
 		int growthCap = PlayerHero.ActiveDomains.ContainsKey("unlimited_potential")
 			? GameState.HardMaxManaCap
 			: GameState.MaxManaCrystals;
-		State.StartPlayerTurn(growthCap);
+State.StartPlayerTurn(growthCap);
 		_playerCore.SetMana(State.PlayerMana, State.PlayerMaxMana);
 
-		_domainTriggerManager.OnPlayerTurnStart();
-
-		// 藏品 — 回合开始时触发（在法力设置之后，以便战术核显卡等修改法力值）
-		_relicManager.TriggerTurnStart(this);
-
-		// 状态效果 — 友方回合开始时（持续伤害先造成伤害，再减少层数）
+		// 状态效果 + 限时 mount 〜 在藏品之前触发：原 sutaraito_spirit 走领域通道时也位于此处，
+		// 已迁移到 StatusEffect(PlayerTurnStart) 通道，此处触发替代了原 OnPlayerTurnStart。
+		// damage_over_time 状态衰减也走同一路径。
 		TickTurnStartStatusEffects(TickTiming.PlayerTurnStart);
 		CheckDeaths();
 		if (_victoryResolver.CheckVictoryOrDefeat())
 			return;
+
+		// 藏品 〜 回合开始时触发，位于 mount 状态之后，以便藏品逻辑可以看到已结算的法力/手牌。
+		_relicManager.TriggerTurnStart(this);
 
 		// 回合开始抽 1 张牌
 		PlayerHero.DrawCards(1);
