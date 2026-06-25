@@ -32,6 +32,9 @@ public static class EffectIconTable
 		["total_observation"] = new() { Icon = "👁", NameKey = "effect.total_observation", DescKey = "effect.total_observation_desc", IsBuff = false },
 		["attack_ban"] = new() { Icon = "🚫", NameKey = "effect.attack_ban", DescKey = "effect.attack_ban_desc", IsBuff = false },
 		["damage_over_time"] = new() { Icon = "🩸", NameKey = "effect.damage_over_time", DescKey = "effect.damage_over_time_desc", IsBuff = false },
+		// 限时 mount 效果（原属领域表面，归类到限时 Power，name/desc 保留 domain.* 翻译键）
+		["shiyoru_raidenkou"] = new() { Icon = "⚡", NameKey = "domain.shiyoru_raidenkou", DescKey = "domain.shiyoru_raidenkou_desc", IsBuff = true },
+		["sutaraito_spirit"] = new() { Icon = "⭐", NameKey = "domain.sutaraito_spirit", DescKey = "domain.sutaraito_spirit_desc", IsBuff = true },
 	};
 
 	private static readonly Dictionary<string, EffectIconData> _domains = new()
@@ -43,8 +46,6 @@ public static class EffectIconTable
 		["focus"] = new() { Icon = "🎯", NameKey = "domain.focus", DescKey = "domain.focus_desc", IsBuff = true },
 		["scheme"] = new() { Icon = "🪺", NameKey = "domain.scheme", DescKey = "domain.scheme_desc", IsBuff = true },
 		["inescapable_flaw"] = new() { Icon = "🥚", NameKey = "domain.inescapable_flaw", DescKey = "domain.inescapable_flaw_desc", IsBuff = false },
-		["shiyoru_raidenkou"] = new() { Icon = "⚡", NameKey = "domain.shiyoru_raidenkou", DescKey = "domain.shiyoru_raidenkou_desc", IsBuff = true },
-		["sutaraito_spirit"] = new() { Icon = "⭐", NameKey = "domain.sutaraito_spirit", DescKey = "domain.sutaraito_spirit_desc", IsBuff = true },
 	};
 
 	private static readonly Dictionary<string, EffectIconData> _keywordSources = new()
