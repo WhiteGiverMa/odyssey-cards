@@ -691,6 +691,11 @@ public class Hero : IDamageTarget, IDamageSource
 			if (effect.TickOn != timing)
 				continue;
 
+			// 先触发效果逻辑（类比 STS2 限时 Power 在 AfterSideTurnEnd 中先 heal 再 Decrement），
+			// 再执行衰减：mount 效果依赖当前 Stacks 数值生效，若先衰减会丢失最后一帧的Evt触发。
+			if (effect.Stacks > 0)
+				effect.OnTick?.Invoke(effect);
+
 			effect.Tick();
 			if (effect.IsExpired)
 			{

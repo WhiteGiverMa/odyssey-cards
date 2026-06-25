@@ -1,5 +1,6 @@
 using Godot;
 using OdysseyCards.Core;
+using System;
 
 namespace OdysseyCards.Card;
 
@@ -38,11 +39,16 @@ public enum StatusEffectPolarity
 /// 支持同 ID 叠加层数和定时衰减。
 /// 纯 C# 类，不继承 Godot Node。
 /// 实现 <see cref="ITemporaryEffect"/>——随时间衰减，层数归零时自动移除。
-/// 参考 STS2 的 ITemporaryPower（如 VulnerablePower/WeakPower）。
+/// 参考 STS2 中限时 Power（VulnerablePower/WeakPower 在 <c>AfterSideTurnEnd</c> 调 Decrement）。
 ///
 /// 与 <see cref="ActiveDomain"/> 的区别：
 ///   - StatusEffect：临时，TickOn 驱动衰减 → ITemporaryEffect
 ///   - ActiveDomain：永久，不衰减，仅通过 Counter 消耗 → IPermanentEffect
+///
+/// 本限时 mount 效果（如四夜雷电光、星途精神下回合收益）映射到 STS2 限时型 Power：
+/// 在 <c>AfterSideTurnStart/End</c> 既触发效果又 Decrement，对应本类的 <see cref="OnTick"/> 回调。
+/// 仅由 <c>CardEffectDispatcher.HandleMountHeroEffect</c> 注入 lambda，
+/// 纯类型层不直接持有 callback；行参约束：lambda 不可在 Stacks 已归零时仍依赖副作用。
 /// </summary>
 public class StatusEffect : ITemporaryEffect
 {
@@ -65,6 +71,14 @@ public class StatusEffect : ITemporaryEffect
 	/// 层数衰减的计时触发时机。
 	/// </summary>
 	public TickTiming TickOn { get; }
+
+	/// <summary>
+	/// Tick 时序到达时、<see cref="Tick"/> 衰减<b>之前</b>调用的钩子，类比 STS2 限时 Power 在 AfterSideTurnEnd 中先 heal 再 Decrement 的顺序。
+	/// 反对式直接拿当前 Stacks 值的效果逻辑（如每回合造成 N 伤害、抽 N 张牌）。
+	/// 仅由 <see cref="OdysseyCards.Combat.CardEffectDispatcher.HandleMountHeroEffect"/> 注入；其他调用点禁止设置此字段。
+	/// 默认 null——绝大多数状态效果是纯衰减 (vulnerable/weak)，不需钩子。
+	/// </summary>
+	public Action<StatusEffect>? OnTick { get; init; }
 
 	/// <summary>
 	/// 状态效果是否为负面效果。
