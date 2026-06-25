@@ -13,7 +13,6 @@ $preset = "Windows Desktop"
 $out = "$root\export\windows"
 $exe = "$out\OdysseyCards.exe"
 $proj = "$root\project.godot"
-$mcp  = 'McpInteractionServer="*res://addons/godot_mcp/mcp_interaction_server.gd"'
 
 function step($msg) { Write-Host $msg -ForegroundColor Cyan }
 
@@ -34,7 +33,7 @@ step "[1] Godot: $godot"
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 step "[2] 输出: $out"
 
-# 3. 临时处理 MCP Autoload + 版本号注入
+# 3. 临时版本号注入
 $bak = "$proj.bak"
 Copy-Item $proj $bak -Force
 $restore = $false
@@ -48,15 +47,9 @@ if (Test-Path $presets) {
 }
 
 try {
-    $txt = Get-Content $proj -Raw
-    if ($txt -match [regex]::Escape($mcp)) {
-        $txt = $txt -replace "`r`n$([regex]::Escape($mcp))", ""
-        step "[3] 已临时移除 MCP Autoload"
-    } else {
-        step "[3] MCP Autoload 不存在，跳过"
-    }
+	$txt = Get-Content $proj -Raw
 
-    # 注入版本号到 project.godot [application] 段
+	# 注入版本号到 project.godot [application] 段
     # 唯一真源是仓库根目录 VERSION 文件，这里临时写入导出元数据，finally 恢复
     $version = (Get-Content "$root\VERSION" -Raw).Trim()
     if ($txt -match 'config/version=[^\r\n]*') {
