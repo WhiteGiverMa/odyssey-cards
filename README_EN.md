@@ -5,7 +5,7 @@
 A Hearthstone-like turn-based card battle Roguelite — Godot 4.6 + C#.
 
 > **Branch:** `dev` | **Status:** playable MVP, expanding<br>
-> 175 `Scripts/*.cs` files, ~37,000 lines of game code. Core combat loop runs with collection, map routes, saves, localization, dev console, and runtime QA.
+> 175 `Scripts/*.cs` files, ~37,000 lines of game code. Core combat loop runs with collection, map routes, saves, localization, dev console, and runtime QA. Term glossary (Domain = STS2 Power, Unit = Hero+Minion, etc.) lives in the root `AGENTS.md` Architecture Rules section.
 
 ## Core Systems
 
@@ -15,7 +15,7 @@ Turn-based combat on a 2×5 minion board. Mana, armor, weapons, domains, relic h
 
 - **Minion**: board unit with Attack/Health and keywords
 - **Spell**: card type exists; runtime uses the shared `Card` base path
-- **Domain**: persistent field effect triggered by combat events
+- **Domain**: permanent Power (analogous to STS2 Power) triggered by combat events; time-limited mount effects (e.g. Shiyoru Raidenkou, Sutaraito Spirit next-turn bonus) use the StatusEffect channel, not Domain
 - **Weapon**: hero equipment and skills
 - **Hero**: armor is wired; 4 hero power implementations exist, and combat UI still needs per-hero runtime verification
 - **Relic**: lifecycle-hook system exists; resource data is still being built
