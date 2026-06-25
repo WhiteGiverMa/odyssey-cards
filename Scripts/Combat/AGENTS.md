@@ -28,6 +28,7 @@
 - `CombatManager` 可以接 UI/Node，但拆分出的规则模块默认纯 C#。
 - 拆分模块通过构造注入 + `Action` 回调接 CombatManager；不要新增 Godot Signal。
 - 新卡牌规则：数据在 `CardEffectData`，执行在 `CardEffectDispatcher`，长期触发在 `DomainTriggerManager`/藏品/状态。
+- mount 效果（`CardEffectType.MountHeroEffect`）双路径：永久 mount 走 `ActiveDomain` + `DomainTriggerManager` 事件触发；限时 mount 走 `StatusEffect` + `StatusEffect.OnTick` lambda 衰减触发（注入唯一性见 `Scripts/Card/AGENTS.md` 语义边界节）。时序在 `CombatManager` 玩家回合开始处由 `TickTurnStartStatusEffects(PlayerTurnStart)` 统一调度，限时 mount 必须落在 relic 触发之前的位置（与原 sutaraito_spirit 一致）。
 - 新战斗事件先问：是卡牌效果、领域、藏品、死亡、选择、攻击、胜负，还是回合流？不要直接塞进主循环。
 
 ## Anti-Patterns

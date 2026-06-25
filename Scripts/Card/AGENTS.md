@@ -13,8 +13,8 @@
 | `Hero.cs` | 英雄身体 | 包装 `CommanderCore`；护甲、武器、状态、领域入口 |
 | `Weapon.cs` | 武器实例 | 攻击力、花费、被动/主动技能组合 |
 | `WeaponSkill.cs` | 武器接口与具体实现集合 | 新武器默认加在这里；不要仿照孤立的 `RailPistolPassive.cs` |
-| `StatusEffect.cs` | 临时状态 | `ITemporaryEffect`；`TickOn` 衰减；`Polarity` 决定净化筛选 |
-| `ActiveDomain.cs` | 领域运行时数据 | `IPermanentEffect`；同 ID 叠层，Counter 消耗 |
+| `StatusEffect.cs` | 临时状态 | `ITemporaryEffect`；`TickOn` 衰减；`Polarity` 决定净化筛选；`OnTick` 仅给限时 mount 钩子注入使用（见下） |
+| `ActiveDomain.cs` | 领域运行时数据 | `IPermanentEffect`；同 ID 叠层；事件驱动消耗 Counter，**禁止自动回合衰减** |
 | `IHeroPower.cs`, `HeroPowers/*` | 英雄技能 | `IChargeCooldownSkill` 表示可存储冷却层数 |
 | `Spell.cs` | 旧法术类型 | 死代码；运行时统一走 `Card` |
 
@@ -23,7 +23,10 @@
 - `CardData` 不存战斗临时状态；费用修正、领域触发层数等运行时状态放在 `Card`。
 - 复制/转移卡牌实例时，新增运行时字段必须接入 `CopyRuntimeModifiersFrom()`。
 - `Hero` 和 `Minion` 的易伤/虚弱/脆弱等通过长期存在的 modifier 实例 + 状态层数条件生效；不要直接在伤害公式里写状态名。
-- `StatusEffect` 是临时效果，`ActiveDomain` 是永久领域；不要用普通状态模拟领域。
+- **语义边界（强约束，对齐 STS2 Power vs ITemporaryPower 划分）**：
+  - `ActiveDomain`：永久 Power（类比 STS2 `BufferPower` / `RitualPower` / `BarricadePower`）——`IPermanentEffect` 不衰减，Counter 只由战斗事件消耗（如被攻击触发一次、敌方英雄攻击格挡触发一次、随从进场触发一次）。**禁止做回合自动 -1**。
+  - `StatusEffect`：限时 Power（类比 STS2 `VulnerablePower` / `RegenPower` / `DuplicationPower`）——`ITemporaryEffect` 用 `TickOn` 驱动衰减，归零自动移除。
+  - **限时 mount 效果改走 `StatusEffect` 通道**（如四夜雷电光 4 回合伤害、星途精神下回合额外抽牌）：触发逻辑通过 `OnTick` lambda 注入,由 `CardEffectDispatcher.HandleMountHeroEffect` 唯一注入点，其他调用点禁止设置此字段。永久 mount 仍走 `ActiveDomain`。
 - 英雄治疗受最大生命限制；随从治疗允许突破并抬高 MaxHealth。
 
 ## Weapon / Skill Rules
