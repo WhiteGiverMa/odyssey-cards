@@ -101,7 +101,9 @@
 
 ## 机制标签（CardMechanicTag）
 
-概念已实现（代码中有 `CardMechanicTag` enum + `CardData.MechanicTags` 字段）。描述「这张卡做什么」的高层语义，与种族标签（`CardTag`，如机械族）正交。一张卡可同时拥有多个机制标签（`[Flags]` 位掩码）。
+概念已实现（代码中有 `CardMechanicTag` enum + `CardData.MechanicTags` 字段）。描述「这张卡做什么」或「属于哪一类」的高层语义，与战斗关键词（`Keyword`，见下文）正交。一张卡可同时拥有多个机制标签（`[Flags]` 位掩码）。
+
+历史上曾存在正交的种族标签维度 `CardTag`（仅 `Mechanics=1` 一个位），该维度已合并入 `CardMechanicTag` 作为 `Mechanics=65536` 位，`CardTag` 枚举已删除。现在只有两个正交维度：机制标签（`CardMechanicTag`）+ 关键词（`Keyword`）。
 
 当前已定义的标签（按位掩码递增，预留扩展空间）：
 
@@ -124,6 +126,7 @@
 | 8192 | `StatusApply` | 状态施加：给目标挂 StatusEffect（含增益/减益） |
 | 16384 | `Shuffle` | 洗牌：将某牌洗入抽牌堆（干洗/衍生洗入） |
 | 32768 | `Token` | 衍生牌：将某指定牌加入手牌（Token 生成） |
+| 65536 | `Mechanics` | 机械族：原正交维度 `CardTag.Mechanics` 并入后的位，供种族洗牌效果过滤、主题偏好加权使用 |
 
 语义规则：
 - `发现`（Discover）是 `衍生牌`（Token）的真子集——所有发现都是衍生牌的特例，打发现标签的卡同时打衍生牌。
