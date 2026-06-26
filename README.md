@@ -59,6 +59,42 @@ YAML-based 本地化系统（`Scripts/Localization/`），中文/英文双语支
 
 `ChatScreen`（Autoload）按 `` ` `` 呼出。架构：`ChatScreen` → `ChatScreenEngine` → `Commands/*`。支持资源、伤害、召唤、战斗跳转、藏品、标签、运行时 QA 等命令；AI 可通过 godot-mcp 远程调用。
 
+### 卡牌标签编辑工具
+
+独立于游戏的 .NET 8 控制台工具（`Tools/CardTagEditor/`，零 Godot 依赖），用于可视化编辑卡牌的机制标签/关键词和角色主题画像，直接回写 `.tres` 资源。
+
+**启动 Web UI**（推荐，从项目根目录运行）：
+
+```bash
+cd G:\dev\odyssey-cards
+dotnet run --project Tools/CardTagEditor -- serve
+# 浏览器打开 http://localhost:8765
+```
+
+`serve` 不带 `--path` 时自动从当前目录向上找 `project.godot` 检测仓库根。在其他目录运行需显式指定：
+
+```bash
+dotnet run --project G:\dev\odyssey-cards\Tools\CardTagEditor -- serve --path G:\dev\odyssey-cards
+```
+
+**CLI 子命令**：
+
+```bash
+dotnet run --project Tools/CardTagEditor -- list                    # 列出所有卡牌/主题摘要
+dotnet run --project Tools/CardTagEditor -- dump minion_Mech_Lancer # JSON 转储单卡
+dotnet run --project Tools/CardTagEditor -- dump theme:ayame        # JSON 转储单主题
+dotnet run --project Tools/CardTagEditor -- validate                # 校验未知位/越界关键词/悬空引用
+dotnet run --project Tools/CardTagEditor -- migrate --dry-run       # 预览 Tags→MechanicTags 迁移
+dotnet run --project Tools/CardTagEditor -- serve --port 9000       # 指定端口启动 Web UI
+```
+
+**Web UI 功能**：
+- 卡牌编辑器：41 张卡列表 + 17 机制标签 checkbox + 11 关键词 checkbox + 保存回写
+- 主题编辑器：3 个 ThemeProfile + 标签/关键词权重表格 + 核心卡 ID 编辑 + 保存回写
+- 保存时只修改目标字段，其他 `.tres` 行保持原样（round-trip 保真）
+
+**技术栈**：纯 .NET 8 BCL（`HttpListener` + `System.Text.Json`）+ Alpine.js CDN（零 node/npm 构建步骤）。
+
 ## 技术栈
 
 - **引擎**: Godot 4.7
