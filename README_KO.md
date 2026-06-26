@@ -2,7 +2,7 @@
 
 # Odyssey Cards<br><small>소녀 오디세이 카드</small>
 
-하스스톤 스타일의 턴제 카드 배틀 Roguelite — Godot 4.6 + C#.
+하스스톤 스타일의 턴제 카드 배틀 Roguelite — Godot 4.7 + C#.
 
 > **브랜치:** `dev` | **상태:** 플레이 가능 MVP, 확장 중<br>
 > 175개 `Scripts/*.cs` 파일, 약 37,000줄의 게임 코드. 전투 루프, 컬렉션, 맵 루트, 세이브, 다국어, 개발자 콘솔, 런타임 QA가 동작. 용어 대조표（도메인 = STS2 Power, 유닛 = Hero+Minion 등）는 루트 `AGENTS.md`의 Architecture Rules 섹션 참조.
@@ -51,8 +51,8 @@ CollectionUI는 카드 열람과 덱 편집을 제공합니다. 다국어는 YAM
 
 ## 기술 스택
 
-- **엔진**: Godot 4.6
-- **언어**: C# (.NET 8.0, Godot.NET.Sdk/4.6.2)
+- **엔진**: Godot 4.7
+- **언어**: C# (.NET 8.0, Godot.NET.Sdk/4.7.0)
 - **테스트**: xUnit (10 Unit + 1 Integration. Integration은 Godot Resource 의존성으로 skip)
 - **플랫폼**: Windows. Android 익스포트 스크립트 존재
 
@@ -85,6 +85,21 @@ Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPrev
 - Godot `[Signal]` 미사용. C# `event Action<>`
 - InputManager → HotkeyManager → scene UI
 - 익스포트 시 DirAccess 제한에 대한 리소스 fallback
+
+## 클론 후 최초 실행
+
+> **사전 준비**: [Godot 4.7 Mono](https://godotengine.org/download/) 및 [.NET 8.0 SDK](https://dotnet.microsoft.com/download) 설치.
+
+```bash
+git clone <repo-url>
+cd OdysseyCards
+dotnet build                          # C# 어셈블리 컴파일 (필수)
+# Godot_v4.7-stable_mono_win64.exe로 프로젝트를 한 번 연다 → 에디터가 .godot 캐시를 자동 재구축
+# 그런 다음 F5로 실행
+```
+
+> [!IMPORTANT]
+> **먼저 `dotnet build` 실행 후 Mono 버전 Godot으로 열 것.** 둘 중 하나라도 생략하면 「MainMenu.cs 누락」또는 「No loader found for resource」오류가 발생합니다. `.cs` 스크립트는 컴파일된 어셈블리가 있어야 로드됩니다.
 
 ## 빌드 / 테스트 / 익스포트
 

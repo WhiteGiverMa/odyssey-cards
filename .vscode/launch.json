@@ -6,7 +6,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "G:\\dev\\Godot_v4.6.1\\Godot_v4.6.1-stable_mono_win64_console.exe",
+            "program": "G:\\dev\\Godot_v4.7\\Godot_v4.7-stable_mono_win64_console.exe",
             "args": [
                 "--path",
                 "${workspaceFolder}",
@@ -22,7 +22,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "G:\\dev\\Godot_v4.6.1\\Godot_v4.6.1-stable_mono_win64_console.exe",
+            "program": "G:\\dev\\Godot_v4.7\\Godot_v4.7-stable_mono_win64_console.exe",
             "args": [
                 "--path",
                 "${workspaceFolder}"
@@ -35,7 +35,7 @@
             "name": "Attach to Godot",
             "type": "coreclr",
             "request": "attach",
-            "processName": "Godot_v4.6.1"
+            "processName": "Godot_v4.7"
         }
     ]
 }

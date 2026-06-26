@@ -2,7 +2,7 @@
 
 # 少女星途卡牌（星途卡牌）<br><small>Shoujo Odyssey Cards</small>
 
-类炉石传说的回合制卡牌对战 Roguelite 游戏 — Godot 4.6 + C#。
+类炉石传说的回合制卡牌对战 Roguelite 游戏 — Godot 4.7 + C#。
 
 > **分支:** `dev` | **状态:** 能玩 MVP 继续扩展中<br>
 > 175 个 `Scripts/*.cs` 文件，约 37,000 行游戏代码。完整回合制战斗循环可运行，含卡牌收藏、地图路线、存档、本地化、开发者控制台与运行时 QA。术语对照（领域 = STS2 Power、单位 = Hero+Minion 等）见根 `AGENTS.md` 的 Architecture Rules 段。
@@ -61,8 +61,8 @@ YAML-based 本地化系统（`Scripts/Localization/`），中文/英文双语支
 
 ## 技术栈
 
-- **引擎**: Godot 4.6
-- **语言**: C# (.NET 8.0, Godot.NET.Sdk/4.6.2)
+- **引擎**: Godot 4.7
+- **语言**: C# (.NET 8.0, Godot.NET.Sdk/4.7.0)
 - **测试**: xUnit（10 个 Unit + 1 个 Integration；Integration 因 Godot Resource 依赖跳过）
 - **平台**: Windows；Android 导出脚本存在
 
@@ -95,6 +95,21 @@ Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPrev
 - **C# event**：不使用 Godot `[Signal]`
 - **三层输入**：InputManager → HotkeyManager → 场景 UI
 - **导出回退**：DirAccess 失败时依赖硬编码资源路径
+
+## 克隆后首次运行
+
+> **前提**：安装 [Godot 4.7 Mono](https://godotengine.org/download/) 和 [.NET 8.0 SDK](https://dotnet.microsoft.com/download)。
+
+```bash
+git clone <repo-url>
+cd OdysseyCards
+dotnet build                          # 编译 C# 程序集（必须）
+# 用 Godot_v4.7-stable_mono_win64.exe 打开项目一次 → 编辑器会自动重建 .godot 缓存
+# 然后按 F5 运行
+```
+
+> [!IMPORTANT]
+> **先 `dotnet build`，再用 Mono 版 Godot 打开编辑器**。跳过任何一步都会导致「缺少 MainMenu.cs」或「No loader found for resource」错误——因为 `.cs` 脚本需要已编译的程序集才能加载。
 
 ## 构建 / 测试 / 导出
 

@@ -8,7 +8,7 @@
 param([switch]$Debug, [switch]$SkipBuild)
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
-$godot = "G:\dev\Godot_v4.6.2\godot.exe"
+$godot = "G:\dev\Godot_v4.7\godot.exe"
 $preset = "Windows Desktop"
 $out = "$root\export\windows"
 $exe = "$out\OdysseyCards.exe"

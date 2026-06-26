@@ -9,7 +9,7 @@
 param([switch]$SkipBuild, [switch]$ExportOnly, [switch]$Release)
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
-$godot = "G:\dev\Godot_v4.6.2\godot.exe"
+$godot = "G:\dev\Godot_v4.7\godot.exe"
 $preset = "Android"
 $apk   = "$root\export\android\OdysseyCards.apk"
 $proj  = "$root\project.godot"

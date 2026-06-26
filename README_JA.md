@@ -2,7 +2,7 @@
 
 # Shoujo Odyssey Cards<br><small>少女オデッセイカード</small>
 
-ハースストーン風のターン制カードバトル Roguelite — Godot 4.6 + C#。
+ハースストーン風のターン制カードバトル Roguelite — Godot 4.7 + C#。
 
 > **ブランチ:** `dev` | **状態:** プレイ可能 MVP、拡張中<br>
 > 175 個の `Scripts/*.cs`、約 37,000 行のゲームコード。戦闘ループ、コレクション、マップ、セーブ、多言語、開発者コンソール、ランタイム QA が動作。用語対照表（領域 = STS2 Power、単位 = Hero+Minion 等）はルート `AGENTS.md` の Architecture Rules セクション参照。
@@ -51,8 +51,8 @@ CollectionUI はカード閲覧とデッキ編集を提供。多言語は YAML�
 
 ## 技術スタック
 
-- **エンジン**: Godot 4.6
-- **言語**: C# (.NET 8.0, Godot.NET.Sdk/4.6.2)
+- **エンジン**: Godot 4.7
+- **言語**: C# (.NET 8.0, Godot.NET.Sdk/4.7.0)
 - **テスト**: xUnit（10 Unit + 1 Integration。Integration は Godot Resource 依存で skip）
 - **プラットフォーム**: Windows。Android エクスポートスクリプトあり
 
@@ -85,6 +85,21 @@ Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPrev
 - Godot `[Signal]` 不使用。C# `event Action<>`
 - InputManager → HotkeyManager → scene UI
 - エクスポート時の DirAccess 制限に対するリソース fallback
+
+## クローン後の初回実行
+
+> **前提**: [Godot 4.7 Mono](https://godotengine.org/download/) と [.NET 8.0 SDK](https://dotnet.microsoft.com/download) をインストール済みであること。
+
+```bash
+git clone <repo-url>
+cd OdysseyCards
+dotnet build                          # C# アセンブリのコンパイル（必須）
+# Godot_v4.7-stable_mono_win64.exe でプロジェクトを一度開く → エディタが .godot キャッシュを自動再構築
+# その後 F5 で実行
+```
+
+> [!IMPORTANT]
+> **先に `dotnet build` を実行し、Mono 版 Godot で開くこと。** いずれかを省略すると「MainMenu.cs が見つからない」または「No loader found for resource」エラーが発生します。`.cs` スクリプトはコンパイル済みアセンブリが必要なためです。
 
 ## ビルド / テスト / エクスポート
 

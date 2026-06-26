@@ -2,7 +2,7 @@
 
 # Odyssey Cards<br><small>Shoujo Odyssey Cards</small>
 
-A Hearthstone-like turn-based card battle Roguelite — Godot 4.6 + C#.
+A Hearthstone-like turn-based card battle Roguelite — Godot 4.7 + C#.
 
 > **Branch:** `dev` | **Status:** playable MVP, expanding<br>
 > 175 `Scripts/*.cs` files, ~37,000 lines of game code. Core combat loop runs with collection, map routes, saves, localization, dev console, and runtime QA. Term glossary (Domain = STS2 Power, Unit = Hero+Minion, etc.) lives in the root `AGENTS.md` Architecture Rules section.
@@ -51,8 +51,8 @@ CollectionUI handles browsing and deck editing. Localization is YAML-based (`zh.
 
 ## Tech Stack
 
-- **Engine**: Godot 4.6
-- **Language**: C# (.NET 8.0, Godot.NET.Sdk/4.6.2)
+- **Engine**: Godot 4.7
+- **Language**: C# (.NET 8.0, Godot.NET.Sdk/4.7.0)
 - **Tests**: xUnit (10 Unit + 1 Integration; Integration skipped because Godot Resource runtime is required)
 - **Platforms**: Windows; Android export script exists
 
@@ -85,6 +85,21 @@ Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPrev
 - C# `event Action<>`, no Godot `[Signal]`
 - InputManager → HotkeyManager → scene UI
 - Export-safe resource fallbacks for DirAccess limitations
+
+## First Run After Cloning
+
+> **Prerequisites**: [Godot 4.7 Mono](https://godotengine.org/download/) and [.NET 8.0 SDK](https://dotnet.microsoft.com/download).
+
+```bash
+git clone <repo-url>
+cd OdysseyCards
+dotnet build                          # Compile C# assemblies (required)
+# Open the project once with Godot_v4.7-stable_mono_win64.exe → the editor auto-rebuilds .godot cache
+# Then press F5 to run
+```
+
+> [!IMPORTANT]
+> **Run `dotnet build` first, then open with the Mono edition of Godot.** Skipping either step causes "MainMenu.cs missing" or "No loader found for resource" errors — `.cs` scripts require compiled assemblies to load.
 
 ## Build / Test / Export
 
