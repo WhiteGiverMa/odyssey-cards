@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using Timer = Godot.Timer;
 
 namespace OdysseyCards.Combat;
 

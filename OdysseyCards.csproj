@@ -9,6 +9,12 @@
         <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)VERSION').Trim())</Version>
         <InformationalVersion>$(Version)</InformationalVersion>
 
+        <!-- 禁止 SDK 自动生成 AssemblyInfo.cs —— Godot.NET.Sdk 在多配置
+             (Debug/ExportDebug/ExportRelease) 下会重复生成 Company/Product/Version
+             等特性到同一 obj 路径导致 CS0579。所需特性改由下方 AssemblyAttribute
+             ItemGroup 显式注入，避免重复。 -->
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
         <!-- 代码分析增强 -->
         <AnalysisMode>AllEnabledByDefault</AnalysisMode>
         <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
@@ -21,6 +27,15 @@
              CA1002: 返回 List<T> 是有意设计（性能 + 便利） -->
         <NoWarn>CA2000;CA2213;CA1003;CA1305;CA5394;CA1002</NoWarn>
     </PropertyGroup>
+
+    <!-- 显式注入 VersionInfo.cs 依赖的 AssemblyInformationalVersionAttribute。
+         GenerateAssemblyInfo=false 后 SDK 不再自动写此特性，需手动注入。
+         其他特性（Company/Product/Title 等）不影响运行时，从略。 -->
+    <ItemGroup>
+        <AssemblyAttribute Include="System.Reflection.AssemblyInformationalVersionAttribute">
+            <_Parameter1>$(InformationalVersion)</_Parameter1>
+        </AssemblyAttribute>
+    </ItemGroup>
 
     <!-- 排除测试目录 (由 OdysseyCards.Tests.csproj 独立编译) -->
     <ItemGroup>
