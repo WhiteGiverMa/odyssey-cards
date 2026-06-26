@@ -77,17 +77,17 @@ public class TagsCommand : ChatScreenCommand
 				cardCache[cd.Id] = cd;
 
 		var lines = new List<string> { "=== 标签分布 ===" };
-		var allTags = Enum.GetValues<Core.CardTag>();
+		var allTags = Enum.GetValues<Core.CardMechanicTag>();
 		foreach (var tag in allTags)
 		{
-			if (tag == Core.CardTag.None)
+			if (tag == Core.CardMechanicTag.None)
 				continue;
-			var cards = cardCache.Values.Where(c => c.Tags.HasFlag(tag)).OrderBy(c => c.CardName).ToList();
+			var cards = cardCache.Values.Where(c => c.MechanicTags.HasFlag(tag)).OrderBy(c => c.CardName).ToList();
 			lines.Add($"  {tag} ({cards.Count} 张):");
 			foreach (var c in cards)
 				lines.Add($"    {c.Id} — {c.CardName}（{c.Cost}费 {c.Type}）");
 		}
-		var untagged = cardCache.Values.Where(c => c.Tags == Core.CardTag.None).ToList();
+		var untagged = cardCache.Values.Where(c => c.MechanicTags == Core.CardMechanicTag.None).ToList();
 		lines.Add($"  无标签 ({untagged.Count} 张)");
 		return CommandResult.Ok(string.Join("\n", lines));
 	}

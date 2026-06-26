@@ -13,6 +13,5 @@ ActionCost = 0
 Type = 0
 Attack = 6
 Health = 2
-Tags = 1
-MechanicTags = 0
+MechanicTags = 65536
 Keywords = [1, 7]

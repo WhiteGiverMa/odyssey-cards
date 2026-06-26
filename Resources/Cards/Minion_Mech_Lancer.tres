@@ -15,6 +15,5 @@ Type = 0
 Attack = 4
 Health = 3
 Defense = 0
-Tags = 1
-MechanicTags = 0
+MechanicTags = 65536
 Keywords = [6]

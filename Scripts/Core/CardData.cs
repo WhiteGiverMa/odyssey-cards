@@ -62,19 +62,13 @@ public partial class CardData : Resource, ICardData, ILocalizable
 	[Export] public int BonusDamageToDefendedTargets { get; set; } = 0;
 
 	/// <summary>
-	/// 卡牌标签（多标签 [Flags] 系统）。用于种族、阵营等语义标签。
-	/// 注意：此字段承载「这张卡属于哪一类」，与 <see cref="MechanicTags"/>（这张卡做什么）正交。
-	/// </summary>
-	[Export(PropertyHint.Flags, "Mechanics:1")]
-	public CardTag Tags { get; set; } = CardTag.None;
-
-	/// <summary>
-	/// 机制标签（多标签 [Flags] 系统）。描述「这张卡做什么」的高层语义，
-	/// 供主题卡组生成、ThemeProfile 画像、收藏过滤使用。
-	/// 与 <see cref="Tags"/> 正交：一张卡可同时拥有种族标签和机制标签。
+	/// 机制标签（多标签 [Flags] 系统）。描述「这张卡做什么」或「属于哪一类」的高层语义，
+	/// 供主题卡组生成、ThemeProfile 画像、收藏过滤、卡牌效果目标过滤使用。
+	/// 与 <see cref="Keywords"/>（战斗关键词）正交：一张卡可同时拥有任意机制标签组合 + 任意关键词组合。
+	/// 历史上的 <c>CardTag</c>（种族/阵营）维度已合并入本字段（<c>Mechanics</c> 位=65536）。
 	/// 详见 <see cref="CardMechanicTag"/> 的设计原则。
 	/// </summary>
-	[Export(PropertyHint.Flags, "DirectDamage:1,DamageOverTime:2,Heal:4,Armor:8,Draw:16,Discover:32,Summon:64,Buff:128,Silence:256,Discard:512,Domain:1024,WeaponSynergy:2048,ManaRamp:4096,StatusApply:8192,Shuffle:16384,Token:32768")]
+	[Export(PropertyHint.Flags, "DirectDamage:1,DamageOverTime:2,Heal:4,Armor:8,Draw:16,Discover:32,Summon:64,Buff:128,Silence:256,Discard:512,Domain:1024,WeaponSynergy:2048,ManaRamp:4096,StatusApply:8192,Shuffle:16384,Token:32768,Mechanics:65536")]
 	public CardMechanicTag MechanicTags { get; set; } = CardMechanicTag.None;
 
 	/// <summary>
@@ -157,14 +151,6 @@ public partial class CardData : Resource, ICardData, ILocalizable
 	public bool HasKeyword(Keyword keyword)
 	{
 		return Keywords.Contains(keyword);
-	}
-
-	/// <summary>
-	/// 检查是否拥有指定标签。
-	/// </summary>
-	public bool HasTag(CardTag tag)
-	{
-		return Tags.HasFlag(tag);
 	}
 
 	/// <summary>

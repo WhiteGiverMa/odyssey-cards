@@ -147,7 +147,7 @@ public enum CardEffectType
 
 	/// <summary>
 	/// 将 N 张随机指定标签的卡牌洗入抽牌堆。
-	/// Value = 洗入数量，TargetType = CardTag 枚举值名称（如 "Mechanics"）。
+	/// Value = 洗入数量，TargetType = CardMechanicTag 枚举值名称（如 "Mechanics"）。
 	/// </summary>
 	ShuffleTribeCards = 28,
 

@@ -2,7 +2,8 @@ namespace OdysseyCards.Core;
 
 /// <summary>
 /// 卡牌关键词（炉石传说风格）。
-/// 取代旧的 CardTag 枚举（旧标签基于地图/移动设计，已废弃）。
+/// 与 <see cref="CardMechanicTag"/>（机制/种族标签）正交——
+/// 关键词描述「以什么规则触发」，机制标签描述「做什么/属于哪一类」。
 /// </summary>
 public enum Keyword
 {

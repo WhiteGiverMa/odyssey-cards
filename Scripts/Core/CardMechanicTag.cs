@@ -4,11 +4,15 @@ namespace OdysseyCards.Core;
 
 /// <summary>
 /// 卡牌机制标签（[Flags]）。
-/// 描述「这张卡做什么」的高层语义，供主题卡组生成、ThemeProfile 画像、收藏过滤使用。
-/// 与 <see cref="CardTag"/>（种族/阵营）正交：一张卡可同时拥有种族标签和机制标签。
+/// 描述「这张卡做什么」或「这张卡属于哪一类」的高层语义，供主题卡组生成、ThemeProfile 画像、收藏过滤、
+/// 卡牌效果目标过滤（如种族洗牌）使用。
+///
+/// 与 <see cref="Keyword"/>（战斗关键词）正交：一张卡可同时拥有任意机制标签组合 + 任意关键词组合。
+/// 历史上曾存在正交的 <c>CardTag</c>（种族/阵营）维度，仅 <c>Mechanics</c> 一个位；
+/// 该维度已合并到本枚举作为 <see cref="Mechanics"/>=65536，<c>CardTag</c> 已删除。
 ///
 /// 设计原则：
-///   - 此处只收录「机制类别」，不收录战斗关键词（闪击/嘲讽/亡语等见 <see cref="Keyword"/>）。
+///   - 此处收录「机制类别」与「种族/阵营类别」两类语义，统一为单一位掩码维度。
 ///   - 标签由人工填写，权威数据；不从 CardEffectType 自动推导——同一 EffectType 在不同 Value/Target
 ///     下语义可能不同（Damage 既可能是直伤也可能是 AOE 解场），自动推导会让 ThemeProfile 不可预测。
 ///   - None 是合法值，表示「通用卡」，ThemeProfile 计算时按 0 权重处理（稀释主题但不破坏主题）。
@@ -30,6 +34,7 @@ namespace OdysseyCards.Core;
 ///   StatusApply(8192)     — 状态施加：给目标挂 StatusEffect（含增益/减益）
 ///   Shuffle(16384)        — 洗牌：将某牌洗入抽牌堆（干洗/衍生洗入）
 ///   Token(32768)          — 衍生牌：将某指定牌加入手牌（Token 生成）
+///   Mechanics(65536)      — 机械族：原种族标签维度并入后的位；供种族洗牌效果、主题偏好使用
 /// </summary>
 [Flags]
 public enum CardMechanicTag
@@ -89,4 +94,9 @@ public enum CardMechanicTag
 	/// <summary>衍生牌：将某指定牌加入手牌（Token 生成）。
 	/// <see cref="Discover"/> 是其真子集——所有 Discover 都是 Token 的特例。</summary>
 	Token = 32768,
+
+	/// <summary>机械族：原正交维度 <c>CardTag.Mechanics</c> 并入后的位。
+	/// 语义上表示「这张卡属于机械族」，供种族洗牌效果（<see cref="Combat.CardEffectDispatcher"/>）过滤、
+	/// ThemeProfile 种族偏好加权使用。原 <c>CardTag</c> 枚举已删除。</summary>
+	Mechanics = 65536,
 }

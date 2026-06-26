@@ -320,14 +320,14 @@ internal sealed class CardEffectDispatcher
 	private void HandleShuffleTribeCards(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		int insertCount = effect.Value;
-		if (!Enum.TryParse<CardTag>(effect.TargetType, out var targetTag) || targetTag == CardTag.None)
+		if (!Enum.TryParse<CardMechanicTag>(effect.TargetType, out var targetTag) || targetTag == CardMechanicTag.None)
 		{
-			GD.PrintErr($"[CardEffectDispatcher] 种族洗牌：无法识别的种族标签 '{effect.TargetType}'");
+			GD.PrintErr($"[CardEffectDispatcher] 种族洗牌：无法识别的机制标签 '{effect.TargetType}'");
 			return;
 		}
 
 		var pool = GameManager.Instance.GetAllCards()
-			.Where(cardData => cardData.Tags.HasFlag(targetTag) && cardData.Type == CardType.Minion)
+			.Where(cardData => cardData.MechanicTags.HasFlag(targetTag) && cardData.Type == CardType.Minion)
 			.ToList();
 
 		if (pool.Count == 0)
