@@ -43,6 +43,13 @@
         <None Include="tests\**\*.cs" />
     </ItemGroup>
 
+    <!-- 排除工具目录 (由 Tools/CardTagEditor 等独立项目编译)。
+         Tools/ 在仓库根下但不应被主游戏程序集编译。 -->
+    <ItemGroup>
+        <Compile Remove="Tools\**\*.cs" />
+        <None Include="Tools\**\*.cs" />
+    </ItemGroup>
+
     <!-- Roslynator 分析器 -->
     <ItemGroup>
         <PackageReference Include="Roslynator.Analyzers" Version="4.12.0" PrivateAssets="all" />

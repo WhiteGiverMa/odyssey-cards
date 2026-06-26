@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<RootNamespace>OdysseyCards.Tools.CardTagEditor</RootNamespace>
+		<AssemblyName>CardTagEditor</AssemblyName>
+		<Version>0.1.0</Version>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="System.Text.Json" Version="8.0.5" />
+	</ItemGroup>
+
+	<!-- 排除测试子目录，这些文件属于 CardTagEditor.Tests 项目 -->
+	<ItemGroup>
+		<Compile Remove="Tests\**" />
+		<None Remove="Tests\**" />
+	</ItemGroup>
+
+</Project>
