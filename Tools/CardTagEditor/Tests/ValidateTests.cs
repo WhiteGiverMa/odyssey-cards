@@ -91,7 +91,7 @@ public class ValidateTests
 	}
 
 	[Fact]
-	public void Validate_LegacyTagMigration_MapsCorrectly()
+	public void ValidateLegacyTagMigrationMapsCorrectly()
 	{
 		Assert.Equal(65536, LegacyCardTagValues.MigrateBits(1));
 		Assert.Equal(0, LegacyCardTagValues.MigrateBits(0));

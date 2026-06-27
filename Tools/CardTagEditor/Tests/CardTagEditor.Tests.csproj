@@ -8,6 +8,14 @@
 		<AssemblyName>CardTagEditor.Tests</AssemblyName>
 		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>
+
+		<!-- 代码分析与工具主项目对齐 -->
+		<AnalysisMode>AllEnabledByDefault</AnalysisMode>
+		<RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
+		<!-- 测试代码风格豁免：
+		     CA1707: 测试方法名允许下划线分词（xUnit 惯例）
+		     CA1861: 测试便利性优先于常量数组提取（已尽量提取） -->
+		<NoWarn>CA1707;CA1861</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>

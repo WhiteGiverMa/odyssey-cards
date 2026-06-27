@@ -8,6 +8,12 @@ namespace OdysseyCards.Tools.CardTagEditor.Tests;
 /// </summary>
 public class KeywordsFormatTests
 {
+	// 重复使用的预期值（CA1861: 避免每次断言都分配新数组）
+	private static readonly int[] s_expected_1_7 = { 1, 7 };
+	private static readonly int[] s_expected_8 = { 8 };
+	private static readonly int[] s_expected_6 = { 6 };
+	private static readonly int[] s_expected_2_3 = { 2, 3 };
+
 	[Fact]
 	public void Parse_BareArray_ShouldReturnCorrectInts()
 	{
@@ -25,7 +31,7 @@ public class KeywordsFormatTests
 		Assert.NotNull(kwField);
 
 		var values = kwField.AsIntArray();
-		Assert.Equal(new[] { 1, 7 }, values);
+		Assert.Equal(s_expected_1_7, values);
 	}
 
 	[Fact]
@@ -45,7 +51,7 @@ public class KeywordsFormatTests
 		Assert.NotNull(kwField);
 
 		var values = kwField.AsIntArray();
-		Assert.Equal(new[] { 8 }, values);
+		Assert.Equal(s_expected_8, values);
 	}
 
 	[Fact]
@@ -82,7 +88,7 @@ public class KeywordsFormatTests
 
 		var doc = TresParser.ParseText(text);
 		var kwField = doc.GetField("Keywords");
-		kwField!.SetIntArray(new[] { 1, 7 });
+		kwField!.SetIntArray(s_expected_1_7);
 
 		var output = TresWriter.WriteToString(doc);
 
@@ -105,7 +111,7 @@ public class KeywordsFormatTests
 		var doc = TresParser.ParseText(text);
 		var kwField = doc.GetField("Keywords");
 		var values = kwField!.AsIntArray();
-		Assert.Equal(new[] { 6 }, values);
+		Assert.Equal(s_expected_6, values);
 	}
 
 	[Fact]
@@ -123,7 +129,7 @@ public class KeywordsFormatTests
 		var doc = TresParser.ParseText(text);
 		var kwField = doc.GetField("Keywords");
 		var values = kwField!.AsIntArray();
-		Assert.Equal(new[] { 8 }, values);
+		Assert.Equal(s_expected_8, values);
 	}
 
 	[Fact]
@@ -141,6 +147,6 @@ public class KeywordsFormatTests
 		var doc = TresParser.ParseText(text);
 		var kwField = doc.GetField("Keywords");
 		var values = kwField!.AsIntArray();
-		Assert.Equal(new[] { 2, 3 }, values);
+		Assert.Equal(s_expected_2_3, values);
 	}
 }
