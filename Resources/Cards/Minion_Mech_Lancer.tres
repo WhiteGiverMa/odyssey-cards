@@ -5,7 +5,7 @@
 
 [resource]
 script = ExtResource("1_data")
-Id = "minion_Mech_Lancer"
+Id = "minion_mech_lancer"
 CardName = "机械静螳"
 Description = "伏击\n拥有格挡时，攻击力+2"
 Rarity = 4

@@ -24,6 +24,7 @@
 - `IDamageModifier` 同时有 outgoing 与 incoming 两个入口；新增 modifier 必须明确阶段和作用侧。
 - `DamageContext.IsPreview` 路径不得产生副作用、日志 spam 或状态变更。
 - `IPermanentEffect` / `ITemporaryEffect` 只是生命周期标记；具体行为由 `ActiveDomain` / `StatusEffect` 等类型实现。
+- **卡牌 `Id` 字段统一使用 snake_case 全小写**（如 `spell_strike`、`minion_mech_lancer`、`domain_infinite_fire`）。禁止 PascalCase 或 camelCase（如 `spell_Alert` 已历史修正）。文件名 PascalCase 与 Id snake_case 是两层命名，不需一致。改 Id 必须同步：`Resources/Themes/*.tres` 的 `CoreCardIds` 引用、`Resources/Localization/{zh,en}.yaml` 的 `cards.{Id}.name/description` key、代码内引用此 Id 的字面量。
 
 ## Anti-Patterns
 

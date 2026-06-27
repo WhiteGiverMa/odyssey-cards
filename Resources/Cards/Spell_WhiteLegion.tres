@@ -16,7 +16,7 @@ TargetType = "Mechanics"
 
 [resource]
 script = ExtResource("1_data")
-Id = "spell_WhiteLegion"
+Id = "spell_white_legion"
 MechanicTags = 16896
 CardName = "白色军团"
 Description = "选择并弃掉1张手牌，将5张随机「机械族」洗入抽牌堆。"

@@ -626,7 +626,7 @@ public class ApprenticeMechanic : EnemyEncounter
 	{
 		foreach (var minion in combat.Board.GetEnemyMinions())
 		{
-			if (minion.Id == "minion_Mech_Lancer")
+			if (minion.Id == "minion_mech_lancer")
 				return true;
 		}
 		return false;
@@ -676,7 +676,7 @@ public class ApprenticeMechanic : EnemyEncounter
 		bool found = false;
 		foreach (var minion in combat.Board.GetEnemyMinions())
 		{
-			if (minion.Id == "minion_Mech_Lancer" && !minion.IsDead)
+			if (minion.Id == "minion_mech_lancer" && !minion.IsDead)
 			{
 				minion.GainArmor(5);
 				GD.Print($"[ApprenticeMechanic] 机械静螳获得 5 点护甲，当前护甲：{minion.CurrentArmor}");

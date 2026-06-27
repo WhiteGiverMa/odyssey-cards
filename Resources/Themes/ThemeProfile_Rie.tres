@@ -21,5 +21,5 @@ TagWeights = {
 KeywordWeights = {
 4: 1
 }
-CoreCardIds = PackedStringArray("spell_Strike", "spell_Assault", "spell_FullAssault", "spell_ignite", "domain_infinite_fire", "spell_Expose")
+CoreCardIds = PackedStringArray("spell_strike", "spell_assault", "spell_full_assault", "spell_ignite", "domain_infinite_fire", "spell_expose")
 CardWeightOverrides = {}

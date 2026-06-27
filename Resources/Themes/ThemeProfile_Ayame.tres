@@ -19,5 +19,5 @@ TagWeights = {
 1024: 2,
 32768: 1
 }
-CoreCardIds = PackedStringArray("spell_ukemi", "spell_chansu", "spell_Alert", "spell_Expose", "domain_zhijian", "domain_flying_away")
+CoreCardIds = PackedStringArray("spell_ukemi", "spell_chansu", "spell_alert", "spell_expose", "domain_zhijian", "domain_flying_away")
 CardWeightOverrides = {}

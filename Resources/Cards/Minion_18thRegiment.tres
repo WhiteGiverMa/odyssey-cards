@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_data")
-Id = "minion_18thRegiment"
+Id = "minion_18th_regiment"
 MechanicTags = 0
 CardName = "第18团"
 Description = "嘲讽"

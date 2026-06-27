@@ -365,22 +365,22 @@ room:
 	first_boss: "位面首领——守护者，击败它完成第一位面！"
 
 cards:
-  spell_Strike:
+  spell_strike:
 	name: "打击"
 	description: "对一个目标造成 3 点伤害。"
-  spell_Assault:
+  spell_assault:
 	name: "出击"
 	description: "对一个敌方目标造成 3 点伤害，抽 1 张牌。"
-  spell_Alert:
+  spell_alert:
 	name: "警戒"
 	description: "轮战\n抽 1 张牌，回复 2 点生命值"
-  minion_18thRegiment:
+  minion_18th_regiment:
 	name: "第 18 团"
 	description: "嘲讽，轮战"
-  minion_DetectiveSquad:
+  minion_detective_squad:
 	name: "武侦小组"
 	description: "闪击"
-  minion_LianshuScout:
+  minion_lianshu_scout:
 	name: "联树机器犬 侦察型"
 	description: "冲锋，轮战\n亡语：抽 1 张牌"
   domain_zhijian:
@@ -404,7 +404,7 @@ cards:
   minion_tombstone:
 	name: "墓碑"
 	description: "嘲讽。战吼：对友方英雄造成 1 点伤害。\n对防御力不低于 1 的目标造成的伤害 +2。"
-  minion_Mech_Lancer:
+  minion_mech_lancer:
 	name: "机械静螳"
 	description: "伏击\n拥有格挡时，攻击力+2"
   spell_plan:
@@ -419,7 +419,7 @@ cards:
   domain_unlimited_potential:
 	name: "无限潜能"
 	description: "解除自然增长的水晶槽上限"
-  spell_Discover:
+  spell_discover:
 	name: "发现"
 	description: "从3张随机卡牌中选取一张加入手牌"
   domain_flying_away:
@@ -431,31 +431,31 @@ cards:
   spell_ukemi:
 	name: "受身"
 	description: "获得3点格挡，抽1张牌"
-  spell_Expose:
+  spell_expose:
 	name: "暴露"
 	description: "使一个目标失去所有格挡。友方英雄获得 8 点格挡。"
-  spell_BaitTactics:
+  spell_bait_tactics:
 	name: "诱饵战术"
 	description: "使一个随从获得伏击和冲击。它受到攻击时，玩家敌方的英雄防御力-1。"
-  spell_NanoCorpseArt:
+  spell_nano_corpse_art:
 	name: "纳米散尸术"
 	description: "使一个随从失去亡语，获得「亡语：玩家英雄抽1张牌」。抽1张牌。"
   domain_idol_twilight:
 	name: "偶像的黄昏"
 	description: "领域：手中、场上和卡组中的所有友方随从获得：被攻击后，获得+1/+1。"
-  spell_MoonFishing:
+  spell_moon_fishing:
 	name: "捞月"
 	description: "从弃牌堆中的5张牌中选择2张加入手牌。"
-  spell_Animosity:
+  spell_animosity:
 	name: "敌意"
 	description: "使一个随从获得嘲讽、「受到来自玩家阵营的伤害翻倍」和亡语：玩家抽一张牌。"
   minion_centipede_aa:
 	name: "机械蜈蚣-防空型"
 	description: "敌方英雄部署费用不大于2的随从时，与本随从战斗。"
-  spell_WhiteLegion:
+  spell_white_legion:
 	name: "白色军团"
 	description: "选择并弃掉1张手牌，将5张随机「机械族」洗入抽牌堆。"
-  spell_FullAssault:
+  spell_full_assault:
 	name: "全力攻击"
 	description: "随机弃掉一张手牌，对全体敌方造成3点伤害。"
   spell_shiyoru_raidenkou:
@@ -467,11 +467,11 @@ cards:
   spell_sutaraito_spirit:
 	name: "星途精神"
 	description: "获得2个空法力水晶槽；对所有敌人造成2点伤害；抽2张牌；下回合开始时额外抽2张牌、获得2点法力。"
-  minion_WhatTheDogDoing:
+  minion_what_the_dog_doing:
 	name: "我的刀盾"
 	description: "嘲讽\n战吼：将一张复制加入相邻棋盘槽处。"
 
-  spell_BladeCrisis:
+  spell_blade_crisis:
 	name: "刀盾危机"
 	description: "选择并弃掉不大于5张牌，将等量个「我的刀盾」添加到友方棋盘槽处，并抽取等量张牌。"
 

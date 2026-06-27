@@ -10,7 +10,7 @@ Value = 3
 
 [resource]
 script = ExtResource("1_data")
-Id = "spell_Strike"
+Id = "spell_strike"
 MechanicTags = 1
 CardName = "打击"
 Description = "对一个目标造成3点伤害"

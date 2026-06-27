@@ -10,7 +10,7 @@ CustomEffectName = "BaitTactics"
 
 [resource]
 script = ExtResource("1_data")
-Id = "spell_BaitTactics"
+Id = "spell_bait_tactics"
 MechanicTags = 128
 CardName = "诱饵战术"
 Description = "使一个随从获得伏击和冲击。它受到攻击时，玩家敌方的英雄防御力-1。"

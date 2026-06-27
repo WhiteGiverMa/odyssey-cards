@@ -555,7 +555,7 @@ internal sealed class SelectionSystem
 		// 排除不可发现的卡牌（如「发现」自身不能发现「发现」）
 		var nonDiscoverableIds = new HashSet<string>
 		{
-			"spell_Discover",
+			"spell_discover",
 		};
 		pool.RemoveAll(c => nonDiscoverableIds.Contains(c.Id));
 		GD.Print($"[SelectionSystem]   过滤后池共 {pool.Count} 张");

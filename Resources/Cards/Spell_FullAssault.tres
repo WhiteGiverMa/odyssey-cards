@@ -20,7 +20,7 @@ Value = 3
 
 [resource]
 script = ExtResource("1_data")
-Id = "spell_FullAssault"
+Id = "spell_full_assault"
 MechanicTags = 513
 CardName = "全力攻击"
 Description = "随机弃掉一张手牌，对全体敌方造成3点伤害。"

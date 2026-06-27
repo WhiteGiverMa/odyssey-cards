@@ -15,7 +15,7 @@ Value = 2
 
 [resource]
 script = ExtResource("1_data")
-Id = "spell_Alert"
+Id = "spell_alert"
 MechanicTags = 20
 CardName = "警戒"
 Description = "抽1张牌，回复2点生命值"
