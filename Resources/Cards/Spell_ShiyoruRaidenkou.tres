@@ -13,7 +13,7 @@ CustomEffectName = "ShiyoruRaidenkou"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_shiyoru_raidenkou"
-MechanicTags = 1
+MechanicTags = 3
 CardName = "四夜雷电光"
 Description = "轮战。4回合内，友方回合结束时对随机敌人造成5点伤害。未结束时再次释放会叠加回合数。"
 Rarity = 2
