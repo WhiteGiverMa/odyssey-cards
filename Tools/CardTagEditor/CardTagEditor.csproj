@@ -8,6 +8,15 @@
 		<RootNamespace>OdysseyCards.Tools.CardTagEditor</RootNamespace>
 		<AssemblyName>CardTagEditor</AssemblyName>
 		<Version>0.1.0</Version>
+
+		<!-- 代码分析与主项目对齐 -->
+		<AnalysisMode>AllEnabledByDefault</AnalysisMode>
+		<RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
+		<!-- 抑制对一次性工具代码不适用或不值得的分析器规则：
+		     CA1002: 返回 List<T> 是数据容器风格（与主项目一致）
+		     CA2007: 工具单线程上下文，无需 ConfigureAwait 噪音
+		     CA1849: 工具短生命周期 IO，WriteLine 同步足够 -->
+		<NoWarn>CA1002;CA2007;CA1849</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>

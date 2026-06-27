@@ -62,7 +62,7 @@ public static class TresParser
 			var line = rawLines[i];
 
 			// 检测是否进入 [resource] 段
-			if (line.TrimStart().StartsWith("[resource]"))
+			if (line.TrimStart().StartsWith("[resource]", StringComparison.Ordinal))
 			{
 				inResource = true;
 				doc.Lines.Add(new VerbatimLine { Text = line });

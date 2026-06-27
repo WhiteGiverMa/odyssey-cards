@@ -143,9 +143,9 @@ public class WebServer : IDisposable
 		};
 	}
 
-	private object BuildThemesList()
+	private List<object> BuildThemesList()
 	{
-		return _svc.ListThemes().Select(t => new
+		return _svc.ListThemes().Select(t => (object)new
 		{
 			HeroId = t.HeroId,
 			ThemeName = t.ThemeName,
@@ -185,15 +185,19 @@ public class WebServer : IDisposable
 
 	private async Task SaveCard(HttpListenerResponse res, string id, HttpListenerRequest req)
 	{
-		var body = await ReadJsonAsync<SaveCardBody>(req);
+		// ReadJsonAsync 对空 body 返回 null——保存端点必须有 body
+		var body = await ReadJsonAsync<SaveCardBody>(req)
+			?? throw new ArgumentException("请求体不能为空");
 		_svc.SaveCard(id, body.MechanicTags, body.Keywords ?? Array.Empty<int>());
 		await SendJson(res, new { ok = true, id });
 	}
 
 	private async Task SaveTheme(HttpListenerResponse res, string hero, HttpListenerRequest req)
 	{
-		var body = await ReadJsonAsync<SaveThemeBody>(req);
-		_svc.SaveTheme(hero, body.TagWeights ?? new(), body.KeywordWeights, body.CoreCardIds ?? Array.Empty<string>(), null);
+		var body = await ReadJsonAsync<SaveThemeBody>(req)
+			?? throw new ArgumentException("请求体不能为空");
+		_svc.SaveTheme(hero, body.TagWeights ?? new(), body.KeywordWeights,
+			body.CoreCardIds ?? Array.Empty<string>(), null);
 		await SendJson(res, new { ok = true, hero });
 	}
 
@@ -238,11 +242,25 @@ public class WebServer : IDisposable
 		await res.OutputStream.WriteAsync(bytes);
 	}
 
-	public void Dispose()
+	private bool _disposed;
+
+/// <summary>标准 Dispose 模式。</summary>
+protected virtual void Dispose(bool disposing)
 	{
-		_cts.Cancel();
-		_cts.Dispose();
-		(_listener as IDisposable)?.Dispose();
+		if (_disposed) return;
+		if (disposing)
+		{
+			_cts.Cancel();
+			_cts.Dispose();
+			(_listener as IDisposable)?.Dispose();
+		}
+		_disposed = true;
+	}
+
+public void Dispose()
+	{
+		Dispose(disposing: true);
+		GC.SuppressFinalize(this);
 	}
 
 	// ===== 请求体类型 =====

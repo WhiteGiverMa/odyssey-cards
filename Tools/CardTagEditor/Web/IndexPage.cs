@@ -89,8 +89,9 @@ button.reset { background:transparent; color:var(--fg); border:1px solid #444; p
 
 				<h3>机制标签</h3>
 				<div class="tags-grid">
+					<!-- x-model 装字符串名数组；value 用 name 才能匹配勾选 -->
 					<template x-for="tag in schema.mechanicTags" :key="tag.bit">
-						<label><input type="checkbox" :value="tag.bit" x-model="cardEdit.mechanicTagsBitNames" @change="markCardDirty()">
+						<label><input type="checkbox" :value="tag.name" x-model="cardEdit.mechanicTagsBitNames" @change="markCardDirty()">
 							<span x-text="tag.name"></span></label>
 					</template>
 				</div>

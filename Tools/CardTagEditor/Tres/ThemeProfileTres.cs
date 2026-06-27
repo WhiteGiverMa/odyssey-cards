@@ -68,14 +68,15 @@ public class ThemeProfileTres
 			foreach (var line in mf.OriginalLines)
 			{
 				var trimmed = line.Trim();
-				if (trimmed.StartsWith("CardWeightOverrides") || trimmed == "}" || trimmed == "{}")
-					continue;
-				// "key": value, or "key": value
-				var colonIdx = trimmed.IndexOf(':');
-				if (colonIdx < 0) continue;
-				var k = trimmed[..colonIdx].Trim().Trim('"');
-				var v = trimmed[(colonIdx + 1)..].Trim().TrimEnd(',');
-				result[k] = int.Parse(v);
+if (trimmed.StartsWith("CardWeightOverrides", StringComparison.Ordinal)
+				|| trimmed == "}" || trimmed == "{}")
+				continue;
+			// "key": value, or "key": value
+			var colonIdx = trimmed.IndexOf(':');
+			if (colonIdx < 0) continue;
+			var k = trimmed[..colonIdx].Trim().Trim('"');
+			var v = trimmed[(colonIdx + 1)..].Trim().TrimEnd(',');
+			result[k] = int.Parse(v, System.Globalization.CultureInfo.InvariantCulture);
 			}
 			return result;
 		}
