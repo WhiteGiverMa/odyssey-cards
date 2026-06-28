@@ -423,44 +423,7 @@ public abstract class EnemyEncounter
 	protected void ExecuteAttackIntent(CombatManager combat, Hero self)
 	{
 		var intent = GetCurrentIntent(combat, self);
-		var target = intent.GetTarget(combat);
-		int rawDmg = intent.Value + Attack;
-
-		if (target is Minion minionTarget)
-		{
-			combat.TriggerBaitTacticsOnAttacked(minionTarget, self);
-
-			// 伏击检查：随从有伏击且本回合未消耗时，先手伤害有击杀取消效果
-			bool ambush = minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
-			if (ambush)
-				minionTarget.AmbushUsedThisTurn = true;
-
-			// 先造成反击伤害（正常反击 或 伏击先手）
-			self.SuppressWeaponCounter = true;
-			self.TakeDamage(minionTarget.Attack, minionTarget);
-			self.SuppressWeaponCounter = false;
-			string label = ambush ? "伏击先手" : "反击";
-			GD.Print($"[{Name}] {minionTarget.CardName} {label}，对敌人造成 {minionTarget.Attack} 伤害");
-
-			// 伏击击杀攻击者 → 攻击被取消
-			if (ambush && self.IsDead)
-			{
-				GD.Print($"[{Name}] ☠ 被 {minionTarget.CardName} 伏击击杀，攻击被取消");
-				return;
-			}
-
-			// 敌方英雄对随从造成伤害（source=self 使热力值在 DamageResolver 中生效一次）
-			combat.RequestDamageVfx(self, minionTarget, DamageKind.Attack, CombatDamageVfxKind.Attack);
-			minionTarget.TakeDamage(rawDmg, self);
-			GD.Print($"[{Name}] 攻击 {minionTarget.CardName}，造成 {rawDmg} 伤害");
-		}
-		else
-		{
-			// 敌方英雄攻击玩家英雄（或其他非随从目标）
-			if (target != null)
-				combat.RequestDamageVfx(self, target, DamageKind.Attack, CombatDamageVfxKind.Attack);
-			target?.TakeDamage(rawDmg, self);
-		}
+		combat.ExecuteEnemyHeroSmartAttack(self, intent.Value + Attack);
 	}
 
 	// ===== 统一执行方法 =====

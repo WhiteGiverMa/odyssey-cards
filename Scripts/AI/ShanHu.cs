@@ -145,33 +145,13 @@ public class ShanHu : EnemyEncounter
 
 	private void ExecuteMultiHit(CombatManager combat, Hero self, int perHit, int hits)
 	{
-		var target = ResolveAttackTarget(combat);
 		for (int i = 0; i < hits; i++)
 		{
 			if (self.IsDead)
 				break;
 
 			GD.Print($"[珊胡] 多段攻击 {i + 1}/{hits}");
-			if (target is Minion m)
-			{
-				combat.TriggerBaitTacticsOnAttacked(m, self);
-
-				bool ambush = m.HasAmbush && !m.AmbushUsedThisTurn;
-				if (ambush)
-					m.AmbushUsedThisTurn = true;
-				self.SuppressWeaponCounter = true;
-				self.TakeDamage(m.Attack, m);
-				self.SuppressWeaponCounter = false;
-				if (ambush && self.IsDead)
-					return;
-				combat.RequestDamageVfx(self, m, DamageKind.Attack, CombatDamageVfxKind.Attack);
-				m.TakeDamage(perHit + Attack, self);
-			}
-			else if (target is Hero h)
-			{
-				combat.RequestDamageVfx(self, h, DamageKind.Attack, CombatDamageVfxKind.Attack);
-				h.TakeDamage(perHit + Attack, self);
-			}
+			combat.ExecuteEnemyHeroSmartAttack(self, perHit + Attack);
 		}
 	}
 

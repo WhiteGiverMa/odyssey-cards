@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using OdysseyCards.AI.Intents;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
@@ -33,25 +32,7 @@ public class DefaultAttackMinionBrain : IIntentActor
 
 	private void OnPerformAttack(CombatManager combat, Hero? _)
 	{
-		var playerTaunts = combat.Board.GetTaunts(ofEnemy: false);
-		if (playerTaunts.Count > 0)
-		{
-			var tauntTargets = playerTaunts.Where(t => !t.IsDead).ToList();
-			if (tauntTargets.Count > 0)
-			{
-				var defender = tauntTargets[Random.Shared.Next(tauntTargets.Count)];
-				combat.ResolveMinionCombat(_body, defender);
-				if (defender.IsDead)
-					combat.Board.RemoveMinion(defender);
-				if (_body.IsDead)
-					combat.Board.RemoveMinion(_body);
-			}
-		}
-		else
-		{
-			combat.RequestDamageVfx(_body, combat.PlayerHero, DamageKind.Attack, CombatDamageVfxKind.Attack);
-			combat.PlayerHero.TakeDamage(_body.Attack, _body);
-		}
+		combat.ExecuteEnemyMinionSmartAttack(_body);
 	}
 
 	// ── MoveState 入口 ──
@@ -67,12 +48,7 @@ public class DefaultAttackMinionBrain : IIntentActor
 
 	public EnemyIntent GetCurrentIntent(CombatManager combat)
 	{
-		var playerTaunts = combat.Board.GetTaunts(ofEnemy: false);
-		IDamageTarget target;
-		if (playerTaunts.Count > 0)
-			target = playerTaunts[0];
-		else
-			target = combat.PlayerHero;
+		IDamageTarget target = combat.SelectSmartEnemyAttackTarget(_body, _body.Attack);
 
 		int dmg = DamageResolver.ResolvePreviewDamage(_body.Attack, _body, target);
 		string targetName = target switch

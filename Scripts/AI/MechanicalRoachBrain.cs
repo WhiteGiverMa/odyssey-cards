@@ -105,35 +105,8 @@ public class MechanicalRoachBrain : IIntentActor
 			return;
 		}
 
-		// Attack
-		var target = _cachedTarget ?? ResolveRoachTarget(combat);
-		if (target != null && _body.Attack > 0)
-		{
-			GD.Print($"[机械小蠊] 攻击目标，造成 {_body.Attack} 点伤害");
-			if (target is Hero hero)
-			{
-				combat.RequestDamageVfx(_body, hero, DamageKind.Attack, CombatDamageVfxKind.Attack);
-				hero.TakeDamage(_body.Attack, _body);
-			}
-			else if (target is Minion minionTarget)
-			{
-				combat.TriggerBaitTacticsOnAttacked(minionTarget);
-
-				bool ambush = minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
-				if (ambush)
-					minionTarget.AmbushUsedThisTurn = true;
-
-				if (ambush)
-				{
-					_body.TakeDamage(minionTarget.Attack, minionTarget);
-				}
-
-				if (_body.IsDead)
-					return;
-				combat.RequestDamageVfx(_body, minionTarget, DamageKind.Attack, CombatDamageVfxKind.Attack);
-				minionTarget.TakeDamage(_body.Attack, _body);
-			}
-		}
+		GD.Print($"[机械小蠊] 智能攻击，造成 {_body.Attack} 点伤害");
+		combat.ExecuteEnemyMinionSmartAttack(_body);
 	}
 
 	public void AdvanceIntent()
@@ -144,22 +117,7 @@ public class MechanicalRoachBrain : IIntentActor
 
 	private IDamageTarget ResolveRoachTarget(CombatManager combat)
 	{
-		var playerTaunts = combat.Board.GetTaunts(ofEnemy: false);
-		if (playerTaunts.Count > 0)
-			return playerTaunts[Random.Shared.Next(playerTaunts.Count)];
-
-		var candidates = new System.Collections.Generic.List<IDamageTarget>();
-		candidates.Add(combat.PlayerHero);
-		foreach (var m in combat.Board.GetPlayerMinions())
-		{
-			if (!m.IsDead && !ReferenceEquals(m, _body))
-				candidates.Add(m);
-		}
-
-		if (candidates.Count == 0)
-			return combat.PlayerHero;
-
-		return candidates[Random.Shared.Next(candidates.Count)];
+		return combat.SelectSmartEnemyAttackTarget(_body, _body.Attack);
 	}
 
 	private void ExecuteCopy(CombatManager combat)

@@ -133,6 +133,142 @@ public partial class CombatManager : Node
 		OnDamageVfxRequested?.Invoke(visualSource, target, kind, vfxKind);
 	}
 
+	public IDamageTarget SelectSmartEnemyAttackTarget(IDamageSource source, int baseDamage)
+	{
+		return SmartTargetingSystem.SelectEnemyAttackTarget(Board, PlayerHero, source, baseDamage);
+	}
+
+	public IDamageTarget SelectSmartEnemySpellTarget(IDamageSource source, int baseDamage)
+	{
+		return SmartTargetingSystem.SelectEnemySpellTarget(Board, PlayerHero, source, baseDamage);
+	}
+
+	public bool ExecuteEnemyHeroSmartAttack(Hero attacker, int baseDamage)
+	{
+		var target = SelectSmartEnemyAttackTarget(attacker, baseDamage);
+		if (target is Minion minionTarget)
+		{
+			TriggerBaitTacticsOnAttacked(minionTarget, attacker);
+
+			bool ambush = minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
+			if (ambush)
+				minionTarget.AmbushUsedThisTurn = true;
+
+			attacker.SuppressWeaponCounter = true;
+			attacker.TakeDamage(minionTarget.Attack, minionTarget);
+			attacker.SuppressWeaponCounter = false;
+
+			if (ambush && attacker.IsDead)
+				return false;
+
+			RequestDamageVfx(attacker, minionTarget, DamageKind.Attack, CombatDamageVfxKind.Attack);
+			minionTarget.TakeDamage(baseDamage, attacker, DamageKind.Attack);
+			if (minionTarget.IsDead)
+				Board.RemoveMinion(minionTarget);
+			CheckDeaths();
+			return true;
+		}
+
+		RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack);
+		target.TakeDamage(baseDamage, attacker, DamageKind.Attack);
+		CheckDeaths();
+		return true;
+	}
+
+	public bool ExecuteEnemyMinionSmartAttack(Minion attacker)
+	{
+		if (attacker.IsDead || attacker.Attack <= 0)
+			return false;
+
+		var target = SelectSmartEnemyAttackTarget(attacker, attacker.Attack);
+		if (target is Minion defender)
+		{
+			ResolveMinionCombat(attacker, defender);
+			if (defender.IsDead)
+				Board.RemoveMinion(defender);
+			if (attacker.IsDead)
+				Board.RemoveMinion(attacker);
+			CheckDeaths();
+			return true;
+		}
+
+		bool impactActive = attacker.HasImpact;
+		Hero heroTarget = target as Hero;
+		if (impactActive && heroTarget != null)
+			heroTarget.SuppressWeaponCounter = true;
+
+		RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack);
+		target.TakeDamage(attacker.Attack, attacker, DamageKind.Attack);
+
+		if (impactActive)
+		{
+			if (heroTarget != null)
+				heroTarget.SuppressWeaponCounter = false;
+			attacker.HasImpact = false;
+		}
+
+		if (attacker.IsDead)
+			Board.RemoveMinion(attacker);
+		CheckDeaths();
+		return true;
+	}
+
+	public bool CanExecuteSmartPlayerAttack()
+	{
+		if (State.IsGameOver || IsDiscovering || !State.IsPlayerTurn)
+			return false;
+
+		int remainingMana = PlayerHero.CurrentMana;
+		foreach (var attacker in Board.GetPlayerMinions())
+		{
+			if (attacker.IsDead || attacker.Attack <= 0 || !_attackTracker.CanAttack(attacker))
+				continue;
+			if (attacker.ActionCost <= remainingMana)
+				return true;
+		}
+
+		return false;
+	}
+
+	public bool ExecuteSmartPlayerAttack()
+	{
+		if (!CanExecuteSmartPlayerAttack())
+			return false;
+
+		bool attacked = false;
+		foreach (var attacker in Board.GetPlayerMinions().ToList())
+		{
+			if (attacker.IsDead || attacker.Attack <= 0 || !_attackTracker.CanAttack(attacker))
+				continue;
+			if (attacker.ActionCost > PlayerHero.CurrentMana)
+				continue;
+
+			if (!SmartTargetingSystem.TrySelectPlayerAttackTarget(Board, EnemyUnits, attacker, out var target))
+				continue;
+			if (target is Minion defender)
+			{
+				attacked |= MinionAttack(attacker, defender);
+			}
+			else if (target is Hero hero)
+			{
+				attacked |= MinionAttackHero(attacker, hero);
+			}
+		}
+
+		return attacked;
+	}
+
+	public bool DealSmartEnemySpellDamage(IDamageSource source, int baseDamage)
+	{
+		var target = SelectSmartEnemySpellTarget(source, baseDamage);
+		RequestDamageVfx(source, target, DamageKind.Effect, CombatDamageVfxKind.Spell);
+		target.TakeDamage(baseDamage, source, DamageKind.Effect);
+		if (target is Minion minion && minion.IsDead)
+			Board.RemoveMinion(minion);
+		CheckDeaths();
+		return true;
+	}
+
 	// ===== 表情系统 =====
 
 	/// <summary>
@@ -1917,9 +2053,6 @@ State.StartPlayerTurn(growthCap);
 		if (enemies.Count == 0)
 			return;
 
-		var playerTaunts = Board.GetTaunts(ofEnemy: false);
-		bool hasPlayerTaunt = playerTaunts.Count > 0;
-
 		foreach (var attacker in enemies)
 		{
 			if (attacker.IsDead)
@@ -1946,48 +2079,7 @@ State.StartPlayerTurn(growthCap);
 				continue;
 			}
 
-			// 默认行为：嘲讽随从优先攻击嘲讽，否则攻击英雄
-			if (hasPlayerTaunt)
-			{
-				// 攻击随机嘲讽随从
-				var tauntTargets = playerTaunts.Where(t => !t.IsDead).ToList();
-				if (tauntTargets.Count == 0)
-					continue;
-				var defender = tauntTargets[new Random().Next(tauntTargets.Count)];
-
-				// 通过统一战斗序列执行（自动处理伏击、冲击）
-				ResolveMinionCombat(attacker, defender);
-
-				if (defender.IsDead)
-				{
-					Board.RemoveMinion(defender);
-				}
-				if (attacker.IsDead)
-				{
-					Board.RemoveMinion(attacker);
-				}
-			}
-			else
-			{
-				// 攻击玩家英雄
-				GD.Print($"[CombatManager] ⚔ 敌方 {attacker.CardName} 攻击玩家英雄，造成 {attacker.Attack} 伤" +
-						  (attacker.HasImpact ? " [冲击]" : ""));
-
-				// 冲击：攻击时免疫武器反击
-				bool impactActive = attacker.HasImpact;
-				if (impactActive)
-					PlayerHero.SuppressWeaponCounter = true;
-
-				RequestDamageVfx(attacker, PlayerHero, DamageKind.Attack, CombatDamageVfxKind.Attack);
-				PlayerHero.TakeDamage(attacker.Attack, attacker);
-
-				if (impactActive)
-				{
-					PlayerHero.SuppressWeaponCounter = false;
-					attacker.HasImpact = false;
-					GD.Print($"[CombatManager]   🛡 冲击免疫了武器反击，冲击已消耗");
-				}
-			}
+			ExecuteEnemyMinionSmartAttack(attacker);
 		}
 	}
 

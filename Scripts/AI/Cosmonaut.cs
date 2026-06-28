@@ -121,8 +121,8 @@ public class Cosmonaut : EnemyEncounter
 		// C 动作：单目标攻击 → 触发磁轨手枪被动
 		if (move.Id == "cosmo_c")
 		{
-			var target = ResolveAttackTarget(combat);
 			int rawDmg = 10 + Attack;
+			var target = combat.SelectSmartEnemyAttackTarget(self, rawDmg);
 			if (target is Minion minionTarget)
 			{
 				combat.TriggerBaitTacticsOnAttacked(minionTarget, self);
@@ -221,25 +221,13 @@ public class Cosmonaut : EnemyEncounter
 				"cosmo_d",
 				(cm, hero) =>
 				{
-					var playerHero = cm.PlayerHero;
-					for (int hit = 0; hit < 2; hit++)
-					{
-						if (playerHero.IsDead)
-							break;
-						cm.RequestDamageVfx(self, playerHero, DamageKind.Attack, CombatDamageVfxKind.Attack);
-						playerHero.TakeDamage(3, self, DamageKind.Attack);
-					}
-					foreach (var minion in cm.Board.GetPlayerMinions())
-					{
 						for (int hit = 0; hit < 2; hit++)
 						{
-							if (minion.IsDead)
+							if (self.IsDead)
 								break;
-							cm.RequestDamageVfx(self, minion, DamageKind.Attack, CombatDamageVfxKind.Attack);
-							minion.TakeDamage(3, self, DamageKind.Attack);
+							cm.ExecuteEnemyHeroSmartAttack(self, 3);
 						}
-					}
-					GD.Print("[宇宙员] D: 对所有目标造成3伤害×2");
+						GD.Print("[宇宙员] D: 智能扫射造成3伤害×2");
 				},
 				new MultiAttackIntent(c => DamageResolver.ResolvePreviewDamage(3, self, null), 2)
 			);

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Godot;
 using OdysseyCards.AI.Intents;
 using OdysseyCards.Card;
@@ -125,12 +124,7 @@ public sealed class Goutansha : EnemyEncounter
 	{
 		for (int hit = 0; hit < 2; hit++)
 		{
-			var target = GetRandomPlayerTarget(combat);
-			if (target == null)
-				break;
-
-			combat.RequestDamageVfx(self, target, DamageKind.Effect, CombatDamageVfxKind.Spell);
-			target.TakeDamage(4, self, DamageKind.Effect);
+			combat.DealSmartEnemySpellDamage(self, 4);
 		}
 
 		self.AddDomain("scheme", null);
@@ -143,18 +137,6 @@ public sealed class Goutansha : EnemyEncounter
 		self.GainArmor(7);
 		SummonSmartEggs(combat, self, 2);
 		GD.Print("[劫蛋者] 获得 7 点格挡，并召唤 2 个智能臭鸡蛋");
-	}
-
-	private static IDamageTarget GetRandomPlayerTarget(CombatManager combat)
-	{
-		var candidates = new List<IDamageTarget> { combat.PlayerHero };
-		foreach (var minion in combat.Board.GetPlayerMinions())
-		{
-			if (!minion.IsDead)
-				candidates.Add(minion);
-		}
-
-		return candidates[Random.Shared.Next(candidates.Count)];
 	}
 
 	private static void SummonSmartEggs(CombatManager combat, Hero summoner, int count)
