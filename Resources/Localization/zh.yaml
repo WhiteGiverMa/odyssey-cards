@@ -63,6 +63,7 @@ ui:
 	reset_defaults: "重置为默认键位"
   combat:
 	end_turn: "结束回合"
+	smart_attack: "⚡ 智能攻击"
 	player_turn: "玩家回合"
 	enemy_turn: "敌人回合"
 	draw_pile: "抽牌堆"

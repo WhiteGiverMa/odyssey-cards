@@ -56,6 +56,7 @@ public static class OdysseyInput
 
 	/// <summary>结束回合（E 键）</summary>
 	public static readonly StringName EndTurn = "odyssey_end_turn";
+	public static readonly StringName SmartAttack = "odyssey_smart_attack";
 
 	/// <summary>暂停/返回（Escape，上下文区分）</summary>
 	public static readonly StringName Pause = "odyssey_pause";
@@ -93,7 +94,7 @@ public static class OdysseyInput
 		Up, Down, Left, Right, Accept, Cancel, Select, FocusNext, FocusPrev,
 		SelectCard1, SelectCard2, SelectCard3, SelectCard4, SelectCard5,
 		SelectCard6, SelectCard7, SelectCard8, SelectCard9, SelectCard10,
-		TabTarget, EndTurn, Pause, ViewDeck, ViewDiscard,
+		TabTarget, EndTurn, SmartAttack, Pause, ViewDeck, ViewDiscard,
 		PageUp, PageDown, Skip, InfoScreen, HeroPower,
 	];
 }

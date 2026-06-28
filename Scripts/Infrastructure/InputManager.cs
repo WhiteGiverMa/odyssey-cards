@@ -331,6 +331,7 @@ public partial class InputManager : Node
 
 		// 战斗命令
 		_keyMap[OdysseyInput.EndTurn] = Key.E;
+		_keyMap[OdysseyInput.SmartAttack] = Key.A;
 		_keyMap[OdysseyInput.Pause] = Key.Escape;
 		_keyMap[OdysseyInput.ViewDeck] = Key.D;
 		_keyMap[OdysseyInput.ViewDiscard] = Key.S;

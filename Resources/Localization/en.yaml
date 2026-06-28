@@ -63,6 +63,7 @@ ui:
 	reset_defaults: "Reset to Defaults"
   combat:
 	end_turn: "End Turn"
+	smart_attack: "⚡ Smart Attack"
 	player_turn: "Player Turn"
 	enemy_turn: "Enemy Turn"
 	draw_pile: "Draw Pile"

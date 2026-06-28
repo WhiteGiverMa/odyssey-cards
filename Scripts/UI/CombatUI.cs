@@ -94,6 +94,7 @@ public partial class CombatUI : Control
 	/// 回合结束按钮——右下角，文本「结束回合」。
 	/// </summary>
 	private Button _endTurnButton = null!;
+	private Button _smartAttackButton = null!;
 
 	/// <summary>
 	/// 英雄技能按钮——位于玩家区域，显示英雄技能名称和费用。
@@ -872,6 +873,8 @@ public partial class CombatUI : Control
 		// 回合结束按钮
 		_endTurnButton.Pressed += OnEndTurnPressed;
 		_unsubscribeActions.Add(() => _endTurnButton.Pressed -= OnEndTurnPressed);
+		_smartAttackButton.Pressed += OnSmartAttackPressed;
+		_unsubscribeActions.Add(() => _smartAttackButton.Pressed -= OnSmartAttackPressed);
 
 		// 英雄技能按钮
 		_heroPowerButton.Pressed += OnHeroPowerPressed;
@@ -989,6 +992,9 @@ public partial class CombatUI : Control
 		hm.PushPressedBinding(OdysseyInput.EndTurn, TryEndTurn);
 		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.EndTurn, TryEndTurn));
 
+		hm.PushPressedBinding(OdysseyInput.SmartAttack, TrySmartAttack);
+		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.SmartAttack, TrySmartAttack));
+
 		hm.PushPressedBinding(OdysseyInput.HeroPower, TryHeroPower);
 		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.HeroPower, TryHeroPower));
 
@@ -1055,12 +1061,14 @@ public partial class CombatUI : Control
 	private void OnManaChanged(int currentMana, int maxMana)
 	{
 		UpdateManaDisplay();
+		UpdateSmartAttackButton();
 	}
 
 	private void OnCombatStateChangedRefresh()
 	{
 		RefreshIntentDisplay();
 		RefreshIntentArrows();
+		UpdateSmartAttackButton();
 	}
 
 	private void OnDamageVfxRequested(object? visualSource, IDamageTarget target, DamageKind kind, CombatDamageVfxKind vfxKind)
@@ -1337,6 +1345,29 @@ public partial class CombatUI : Control
 	private void OnEndTurnPressed()
 	{
 		TryEndTurn();
+	}
+
+	private void OnSmartAttackPressed()
+	{
+		TrySmartAttack();
+	}
+
+	private void TrySmartAttack()
+	{
+		if (_combat == null)
+			return;
+		if (_combat.State.IsGameOver)
+			return;
+		if (_smartAttackButton.Disabled)
+			return;
+		if (_combat.IsDiscovering)
+			return;
+		if (!_combat.State.IsPlayerTurn)
+			return;
+
+		GD.Print("[CombatUI] 智能攻击触发");
+		if (_combat.ExecuteSmartPlayerAttack())
+			RefreshAll();
 	}
 
 	/// <summary>

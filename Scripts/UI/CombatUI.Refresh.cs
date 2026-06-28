@@ -34,6 +34,7 @@ public partial class CombatUI
 			UpdateDefenseDisplay();
 			UpdateDeckCounts();
 			UpdateHeroPowerButton();
+			UpdateSmartAttackButton();
 			UpdateWeaponDisplay();
 			UpdateStatusEffectDisplay();
 			UpdateHeatDisplay();
@@ -68,6 +69,7 @@ public partial class CombatUI
 		UpdateDefenseDisplay();
 		UpdateDeckCounts();
 		UpdateHeroPowerButton();
+		UpdateSmartAttackButton();
 
 		// 每次刷新时重置为正常模式（先重置再更新武器，避免显示被覆盖）
 		ResetSelection();
@@ -83,8 +85,18 @@ public partial class CombatUI
 		if (_combat.State.IsGameOver)
 		{
 			_endTurnButton.Disabled = true;
+			_smartAttackButton.Disabled = true;
 			_heroPowerButton.Disabled = true;
 		}
+	}
+
+	private void UpdateSmartAttackButton()
+	{
+		if (_smartAttackButton == null || _combat == null)
+			return;
+
+		_smartAttackButton.Text = Localization.Localization.T("ui.combat.smart_attack", "⚡ 智能攻击");
+		_smartAttackButton.Disabled = !_combat.CanExecuteSmartPlayerAttack();
 	}
 
 	/// <summary>

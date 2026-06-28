@@ -1755,6 +1755,7 @@ public partial class CombatUI
 
 		// 发现选牌期间禁用回合结束按钮（热键已由 HotkeyManager + _combat.IsDiscovering 守卫）
 		_endTurnButton.Disabled = true;
+		_smartAttackButton.Disabled = true;
 		GD.Print("[CombatUI] 发现选牌 UI 已显示");
 	}
 
@@ -1768,6 +1769,7 @@ public partial class CombatUI
 			_discoverUI.Hide();
 		}
 		_endTurnButton.Disabled = false;
+		UpdateSmartAttackButton();
 		GD.Print("[CombatUI] 发现选牌 UI 已隐藏");
 	}
 
@@ -1787,6 +1789,7 @@ public partial class CombatUI
 		_selectedHandCardUIs.Clear();
 
 		_endTurnButton.Disabled = true;
+		_smartAttackButton.Disabled = true;
 		HidePlayZonePanel();
 
 		float scale = UIScaler.Instance?.GetScaleFactor() ?? 1f;
@@ -1909,6 +1912,7 @@ public partial class CombatUI
 
 		// 恢复回合结束按钮
 		_endTurnButton.Disabled = false;
+		UpdateSmartAttackButton();
 
 		// 全量刷新恢复所有 UI
 		RefreshAll();

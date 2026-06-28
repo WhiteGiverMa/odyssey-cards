@@ -103,7 +103,7 @@ public partial class SettingsPage : Control
 		OdysseyInput.SelectCard7, OdysseyInput.SelectCard8, OdysseyInput.SelectCard9,
 		OdysseyInput.SelectCard10,
 		// 战斗 — 命令
-		OdysseyInput.EndTurn, OdysseyInput.Pause,
+		OdysseyInput.EndTurn, OdysseyInput.SmartAttack, OdysseyInput.Pause,
 		OdysseyInput.ViewDeck, OdysseyInput.ViewDiscard, OdysseyInput.TabTarget,
 		// 战斗 — 其他
 		OdysseyInput.InfoScreen,
@@ -132,6 +132,7 @@ public partial class SettingsPage : Control
 		[OdysseyInput.SelectCard9] = "手牌 9",
 		[OdysseyInput.SelectCard10] = "手牌 10",
 		[OdysseyInput.EndTurn] = "结束回合",
+		[OdysseyInput.SmartAttack] = "智能攻击",
 		[OdysseyInput.Pause] = "暂停",
 		[OdysseyInput.ViewDeck] = "查看牌库",
 		[OdysseyInput.ViewDiscard] = "查看弃牌堆",

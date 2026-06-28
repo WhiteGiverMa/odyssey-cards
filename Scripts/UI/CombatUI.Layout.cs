@@ -434,6 +434,21 @@ public partial class CombatUI
 	/// </summary>
 	private void CreateEndTurnButton()
 	{
+		var buttonRow = new HBoxContainer
+		{
+			Name = "CombatCommandButtonRow",
+			Alignment = BoxContainer.AlignmentMode.Center,
+		};
+		buttonRow.AddThemeConstantOverride("separation", 8);
+
+		_smartAttackButton = new Button
+		{
+			Name = "SmartAttackButton",
+			Text = Localization.Localization.T("ui.combat.smart_attack", "⚡ 智能攻击"),
+			CustomMinimumSize = new Vector2(120, 48),
+			Disabled = true,
+		};
+
 		_endTurnButton = new Button
 		{
 			Name = "EndTurnButton",
@@ -442,7 +457,9 @@ public partial class CombatUI
 		};
 
 		var buttonPlaceholder = GetNode<CenterContainer>("CombatRoot/PlayerArea/EndTurnButtonPlaceholder");
-		buttonPlaceholder?.AddChild(_endTurnButton);
+		buttonRow.AddChild(_smartAttackButton);
+		buttonRow.AddChild(_endTurnButton);
+		buttonPlaceholder?.AddChild(buttonRow);
 	}
 
 	/// <summary>
