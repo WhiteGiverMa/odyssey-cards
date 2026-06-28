@@ -311,22 +311,22 @@ public partial class CombatUI
 	/// <summary>
 	/// 更新双方英雄生命值条。
 	/// </summary>
-	private void UpdateHealthBars()
-	{
-		if (_combat == null)
-			return;
-
-		_playerHealthBar.UpdateHealth(_combat.PlayerHero.CurrentHealth, _combat.PlayerHero.MaxHealth);
-
-		// 敌方 HP 也在此处刷新——攻击/法术施放后 RefreshAll 不会触发
-		// OnCombatStateChanged（只有放置/移除随从才触发），因此需要显式更新。
-		foreach (var card in _enemyCards)
+		private void UpdateHealthBars()
 		{
-			var unit = _combat.EnemyUnits[card.EnemyIndex];
-			card.RefreshHealth(unit.Body.CurrentHealth, unit.Body.MaxHealth);
-			card.RefreshArmor(unit.Body.CurrentArmor);
+			if (_combat == null)
+				return;
+
+			_playerIdentityCard.RefreshHealth(_combat.PlayerHero.CurrentHealth, _combat.PlayerHero.MaxHealth);
+
+			// 敌方 HP 也在此处刷新——攻击/法术施放后 RefreshAll 不会触发
+			// OnCombatStateChanged（只有放置/移除随从才触发），因此需要显式更新。
+			foreach (var card in _enemyCards)
+			{
+				var unit = _combat.EnemyUnits[card.EnemyIndex];
+				card.RefreshHealth(unit.Body.CurrentHealth, unit.Body.MaxHealth);
+				card.RefreshArmor(unit.Body.CurrentArmor);
+			}
 		}
-	}
 
 	/// <summary>
 	/// 更新玩家法力值显示，格式「法力 Current/Max」。
@@ -342,66 +342,56 @@ public partial class CombatUI
 			.Replace("{max}", _combat.PlayerHero.MaxMana.ToString());
 	}
 
-	/// <summary>
-	/// 更新双方护甲值显示——护甲 > 0 时显示标签，否则隐藏。
-	/// </summary>
-	private void UpdateArmorDisplay()
-	{
-		if (_combat == null)
-			return;
-
-		// 玩家护甲
-		int playerArmor = _combat.PlayerHero.CurrentArmor;
-		_playerArmorLabel.Visible = playerArmor > 0;
-		if (playerArmor > 0)
+		/// <summary>
+		/// 更新双方护甲值显示——护甲 > 0 时显示标签，否则隐藏。
+		/// 玩家护甲已迁移到 PlayerIdentityCard。
+		/// </summary>
+		private void UpdateArmorDisplay()
 		{
-			_playerArmorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", playerArmor.ToString());
-		}
+			if (_combat == null)
+				return;
 
-		// 敌方护甲（已迁移到 EnemyIdentityCard，旧版 UI 跳过）
-		if (_enemyArmorLabel != null)
-		{
-			int enemyArmor = _combat.GetDefaultEnemyTargetUnit()?.Body.CurrentArmor ?? 0;
-			_enemyArmorLabel.Visible = enemyArmor > 0;
-			if (enemyArmor > 0)
+			// 玩家护甲（通过 PlayerIdentityCard 更新）
+			int playerArmor = _combat.PlayerHero.CurrentArmor;
+			_playerIdentityCard.RefreshArmor(playerArmor);
+
+			// 敌方护甲（已迁移到 EnemyIdentityCard，旧版 UI 跳过）
+			if (_enemyArmorLabel != null)
 			{
-				_enemyArmorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", enemyArmor.ToString());
+				int enemyArmor = _combat.GetDefaultEnemyTargetUnit()?.Body.CurrentArmor ?? 0;
+				_enemyArmorLabel.Visible = enemyArmor > 0;
+				if (enemyArmor > 0)
+				{
+					_enemyArmorLabel.Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", enemyArmor.ToString());
+				}
 			}
 		}
-	}
 
-	/// <summary>
-	/// 更新双方防御力显示——防御 != 0 时显示标签，否则隐藏。
-	/// 正防御显示为蓝色（增益），负防御显示为红色（减益/脆弱）。
-	/// </summary>
-	private void UpdateDefenseDisplay()
-	{
-		if (_combat == null)
-			return;
-
-		// 玩家防御
-		int playerDef = _combat.PlayerHero.Defense;
-		_playerDefenseLabel.Visible = playerDef != 0;
-		if (playerDef != 0)
+		/// <summary>
+		/// 更新双方防御力显示——玩家防御已迁移到 PlayerIdentityCard。
+		/// </summary>
+		private void UpdateDefenseDisplay()
 		{
-			_playerDefenseLabel.Text = Localization.Localization.T("ui.combat.defense_format", "防御: {value}").Replace("{value}", playerDef >= 0 ? $"+{playerDef}" : $"{playerDef}");
-			_playerDefenseLabel.AddThemeColorOverride("font_color",
-				playerDef > 0 ? new Color(0.3f, 0.7f, 1f) : new Color(1f, 0.3f, 0.3f));
-		}
+			if (_combat == null)
+				return;
 
-		// 敌方防御（已迁移到 EnemyIdentityCard，旧版 UI 跳过）
-		if (_enemyDefenseLabel != null)
-		{
-			int enemyDef = _combat.GetDefaultEnemyTargetUnit()?.Body.Defense ?? 0;
-			_enemyDefenseLabel.Visible = enemyDef != 0;
-			if (enemyDef != 0)
+			// 玩家防御（通过 PlayerIdentityCard 更新）
+			int playerDef = _combat.PlayerHero.Defense;
+			_playerIdentityCard.RefreshDefense(playerDef);
+
+			// 敌方防御（已迁移到 EnemyIdentityCard，旧版 UI 跳过）
+			if (_enemyDefenseLabel != null)
 			{
-				_enemyDefenseLabel.Text = Localization.Localization.T("ui.combat.defense_format", "防御: {value}").Replace("{value}", enemyDef >= 0 ? $"+{enemyDef}" : $"{enemyDef}");
-				_enemyDefenseLabel.AddThemeColorOverride("font_color",
-					enemyDef > 0 ? new Color(0.3f, 0.7f, 1f) : new Color(1f, 0.3f, 0.3f));
+				int enemyDef = _combat.GetDefaultEnemyTargetUnit()?.Body.Defense ?? 0;
+				_enemyDefenseLabel.Visible = enemyDef != 0;
+				if (enemyDef != 0)
+				{
+					_enemyDefenseLabel.Text = Localization.Localization.T("ui.combat.defense_format", "防御: {value}").Replace("{value}", enemyDef >= 0 ? $"+{enemyDef}" : $"{enemyDef}");
+					_enemyDefenseLabel.AddThemeColorOverride("font_color",
+						enemyDef > 0 ? new Color(0.3f, 0.7f, 1f) : new Color(1f, 0.3f, 0.3f));
+				}
 			}
 		}
-	}
 
 	/// <summary>
 	/// 更新武器信息显示——攻击力、费用、冷却信息。
@@ -504,44 +494,26 @@ public partial class CombatUI
 			_weaponActiveSkillButton.Visible = false;
 		}
 
-		// --- 敌方武器（已迁移到 EnemyIdentityCard） ---
-		if (_enemyWeaponLabel != null)
+		}
+
+		/// <summary>
+		/// 更新双方英雄的效果图标显示。
+		/// 玩家效果图标已迁移到 PlayerIdentityCard。
+		/// </summary>
+		private void UpdateStatusEffectDisplay()
 		{
-			var enemyWeapon = _combat.GetDefaultEnemyTargetUnit()?.Body.Weapon;
-			if (enemyWeapon != null)
+			if (_combat == null)
+				return;
+
+			// 玩家英雄效果（通过 PlayerIdentityCard 更新）
+			_playerIdentityCard.RefreshEffects(_combat.PlayerHero.GetDisplayableEffects());
+
+			// 敌方英雄效果（旧版单敌人兼容层——多敌人时使用 EnemyIdentityCard 内的 EffectBar）
+			if (_enemyEffectBar != null)
 			{
-				string disabledText = enemyWeapon.IsDisabled ? Localization.Localization.T("ui.combat.disabled_suffix", " [禁用]") : "";
-				string localEnemyWeaponName = !string.IsNullOrEmpty(enemyWeapon.NameKey)
-					? Localization.Localization.T(enemyWeapon.NameKey, enemyWeapon.Name)
-					: enemyWeapon.Name;
-				_enemyWeaponLabel.Text = Localization.Localization.T("ui.combat.enemy_weapon_format", "武器: {name} {attack}攻{disabled}")
-					.Replace("{name}", localEnemyWeaponName).Replace("{attack}", enemyWeapon.Attack.ToString()).Replace("{disabled}", disabledText);
-			}
-			else
-			{
-				_enemyWeaponLabel.Text = "";
+				_enemyEffectBar.Populate(_combat.GetDefaultEnemyTargetUnit()?.Body.GetDisplayableEffects() ?? []);
 			}
 		}
-	}
-
-	/// <summary>
-	/// 更新双方英雄的效果图标显示。
-	/// 通过 Hero.GetDisplayableEffects() 聚合所有效果，传入 EffectBar。
-	/// </summary>
-	private void UpdateStatusEffectDisplay()
-	{
-		if (_combat == null)
-			return;
-
-		// 玩家英雄效果
-		_playerEffectBar.Populate(_combat.PlayerHero.GetDisplayableEffects());
-
-		// 敌方英雄效果（旧版单敌人兼容层——多敌人时使用 EnemyIdentityCard 内的 EffectBar）
-		if (_enemyEffectBar != null)
-		{
-			_enemyEffectBar.Populate(_combat.GetDefaultEnemyTargetUnit()?.Body.GetDisplayableEffects() ?? []);
-		}
-	}
 
 	private void UpdateHeatDisplay() => _heatBar?.Refresh();
 	private void UpdateRelicDisplay() => _relicBar?.Refresh();

@@ -328,19 +328,34 @@ public partial class EnemyIdentityCard : Panel
 			_defenseLabel.AddThemeColorOverride("font_color", def > 0 ? new Color(0.3f, 0.7f, 1f) : new Color(1f, 0.3f, 0.3f));
 		}
 
-		// Weapon
-		var weapon = body.Weapon;
-		if (weapon != null)
-		{
-			string disabledText = weapon.IsDisabled
-				? $" [{Localization.Localization.T("ui.combat.weapon_disabled", "禁用")}]"
-				: "";
-			_weaponLabel.Text = $"{weapon.Name} {weapon.Attack}{Localization.Localization.T("ui.combat.attack_suffix", "攻")}{disabledText}";
-		}
-		else
-		{
-			_weaponLabel.Text = "";
-		}
+			// Weapon（含悬浮 tooltip 显示被动技能描述）
+			var weapon = body.Weapon;
+			if (weapon != null)
+			{
+				string disabledText = weapon.IsDisabled
+					? $" [{Localization.Localization.T("ui.combat.weapon_disabled", "禁用")}]"
+					: "";
+				_weaponLabel.Text = $"{weapon.Name} {weapon.Attack}{Localization.Localization.T("ui.combat.attack_suffix", "攻")}{disabledText}";
+
+				// 悬浮 tooltip：显示武器被动技能描述
+				if (weapon.PassiveSkill != null && !string.IsNullOrEmpty(weapon.PassiveSkill.Description))
+				{
+					string localPassiveDesc = !string.IsNullOrEmpty(weapon.PassiveSkill.DescKey)
+						? Localization.Localization.T(weapon.PassiveSkill.DescKey, weapon.PassiveSkill.Description)
+						: weapon.PassiveSkill.Description;
+					_weaponLabel.TooltipText = Localization.Localization.T("ui.combat.passive_skill", "被动：{desc}")
+						.Replace("{desc}", localPassiveDesc);
+				}
+				else
+				{
+					_weaponLabel.TooltipText = "";
+				}
+			}
+			else
+			{
+				_weaponLabel.Text = "";
+				_weaponLabel.TooltipText = "";
+			}
 
 		// Intent display - new or old system
 		var move = brain.GetCurrentMove(combat, body);

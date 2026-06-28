@@ -611,7 +611,7 @@ public partial class CombatUI
 		}
 
 		// 检查是否落在己方英雄面板上
-		if (_playerHeroSpellButton.Visible && _playerHeroPanel.GetGlobalRect().HasPoint(screenPos))
+		if (_playerHeroSpellButton.Visible && _playerIdentityCard.GetGlobalRect().HasPoint(screenPos))
 		{
 			GD.Print("[CombatUI] 法术松手位置：己方英雄");
 			OnPlayerHeroSpellTarget();
@@ -724,7 +724,7 @@ public partial class CombatUI
 			return;
 		}
 
-		if (_playerHeroSpellButton.Visible && _playerHeroPanel.GetGlobalRect().HasPoint(screenPos))
+		if (_playerHeroSpellButton.Visible && _playerIdentityCard.GetGlobalRect().HasPoint(screenPos))
 		{
 			OnPlayerHeroSpellTarget();
 			return;
@@ -813,10 +813,12 @@ public partial class CombatUI
 	/// 获取玩家效果栏中心点的屏幕位置，用于领域卡牌飞行动画。
 	/// 领域打出后附加到英雄，不进入任何牌堆。
 	/// </summary>
-	private Vector2 GetPlayerEffectBarCenter()
-	{
-		return _playerEffectBar.GlobalPosition + _playerEffectBar.Size / 2f;
-	}
+		private Vector2 GetPlayerEffectBarCenter()
+		{
+			if (_playerIdentityCard != null)
+				return _playerIdentityCard.EffectBar.GlobalPosition + _playerIdentityCard.EffectBar.Size / 2f;
+			return Vector2.Zero;
+		}
 
 	/// <summary>
 	/// 进入随从放置模式——高亮玩家方可用槽位（绿色）。
@@ -1574,15 +1576,12 @@ public partial class CombatUI
 	/// 用于敌方意图箭头指向玩家英雄的场景。
 	/// </summary>
 	/// <returns>生命值条屏幕中心坐标；未初始化返回 Vector2.Zero</returns>
-	private Vector2 GetPlayerHeroScreenCenter()
-	{
-		if (_playerHealthBar != null)
+		private Vector2 GetPlayerHeroScreenCenter()
 		{
-			var rect = _playerHealthBar.GetGlobalRect();
-			return new Vector2(rect.Position.X + rect.Size.X / 2, rect.Position.Y + rect.Size.Y / 2);
+			if (_playerIdentityCard != null)
+				return _playerIdentityCard.GetHealthBarScreenCenter();
+			return Vector2.Zero;
 		}
-		return Vector2.Zero;
-	}
 
 	/// <summary>
 	/// 根据目标类型解析其屏幕中心坐标。

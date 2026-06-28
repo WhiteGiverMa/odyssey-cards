@@ -186,13 +186,14 @@ public partial class CombatUI
 		};
 		container.AddChild(healthPlaceholder);
 
-		// 法力值区域占位
-		var manaPlaceholder = new CenterContainer
-		{
-			Name = "PlayerManaPlaceholder",
-			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-		};
-		container.AddChild(manaPlaceholder);
+			// 法力值区域占位——VBox 垂直堆叠法力标签和热力条，避免重叠
+			var manaPlaceholder = new VBoxContainer
+			{
+				Name = "PlayerManaPlaceholder",
+				Alignment = BoxContainer.AlignmentMode.Center,
+				SizeFlagsHorizontal = SizeFlags.ExpandFill,
+			};
+			container.AddChild(manaPlaceholder);
 
 		// 武器区域占位
 		var weaponPlaceholder = new VBoxContainer
@@ -261,46 +262,21 @@ public partial class CombatUI
 
 	// ===== 子组件创建 =====
 
-	/// <summary>
-	/// 创建双方生命值条。
-	/// 优先使用 PackedScene 实例化，回退到程序化创建（带主题样式）。
-	/// </summary>
-	private void CreateHealthBars()
-	{
-		// 玩家生命值条
-		_playerHealthBar = InstantiateHealthBar("PlayerHealthBar");
-		var playerHealthContainer = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
-		if (playerHealthContainer != null)
+		/// <summary>
+		/// 创建玩家英雄身份卡——包装玩家生命值条、护甲、防御、效果图标和施法按钮。
+		/// 替代旧的 CreateHealthBars（玩家部分）+ CreateArmorLabels（玩家部分）+ CreatePlayerHeroPanel。
+		/// </summary>
+		private void CreatePlayerIdentityCard()
 		{
-			// 生命值前缀标签
-			var hpLabel = new Label
-			{
-				Text = Localization.Localization.T("ui.combat.hp_label", "生命 "),
-				CustomMinimumSize = new Vector2(50, 24),
-			};
-			hpLabel.AddThemeColorOverride("font_color", new Color(0.7f, 1f, 0.7f));
-			hpLabel.AddThemeFontSizeOverride("font_size", 14);
-			playerHealthContainer.AddChild(hpLabel);
-			playerHealthContainer.AddChild(_playerHealthBar);
-		}
+			_playerIdentityCard = new PlayerIdentityCard();
 
-		// 敌方生命值条
-		_enemyHealthBar = InstantiateHealthBar("EnemyHealthBar");
-		var enemyHealthContainer = GetNodeOrNull<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
-		if (enemyHealthContainer != null)
-		{
-			// 生命值前缀标签
-			var hpLabel = new Label
-			{
-				Text = Localization.Localization.T("ui.combat.hp_label", "生命 "),
-				CustomMinimumSize = new Vector2(50, 24),
-			};
-			hpLabel.AddThemeColorOverride("font_color", new Color(1f, 0.6f, 0.6f));
-			hpLabel.AddThemeFontSizeOverride("font_size", 14);
-			enemyHealthContainer.AddChild(hpLabel);
-			enemyHealthContainer.AddChild(_enemyHealthBar);
+			// 存入 PlayerHealthPlaceholder
+			var playerHealthContainer = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
+			playerHealthContainer?.AddChild(_playerIdentityCard);
+
+			// 将 PlayerHeroSpellButton 引用绑定到卡内的按钮（供 CombatUI 直接使用）
+			_playerHeroSpellButton = _playerIdentityCard.HeroSpellButton;
 		}
-	}
 
 	/// <summary>
 	/// 从 PackedScene 或程序化创建生命值条实例。
@@ -365,69 +341,42 @@ public partial class CombatUI
 		_playerManaLabel.AddThemeColorOverride("font_color", new Color(0.3f, 0.7f, 1f));
 		_playerManaLabel.AddThemeFontSizeOverride("font_size", 22);
 
-		var playerManaPlaceholder = GetNode<CenterContainer>("CombatRoot/PlayerArea/PlayerManaPlaceholder");
-		playerManaPlaceholder?.AddChild(_playerManaLabel);
+			var playerManaPlaceholder = GetNode<Container>("CombatRoot/PlayerArea/PlayerManaPlaceholder");
+			playerManaPlaceholder?.AddChild(_playerManaLabel);
 	}
 
-	/// <summary>
-	/// 创建双方护甲值显示标签——初始隐藏。
-	/// </summary>
-	private void CreateArmorLabels()
-	{
-		// 玩家护甲
-		_playerArmorLabel = new Label
+		/// <summary>
+		/// 创建双方护甲值显示标签——玩家护甲/防御已迁移到 PlayerIdentityCard。
+		/// </summary>
+		private void CreateArmorLabels()
 		{
-			Name = "PlayerArmorLabel",
-			Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", "0"),
-			Visible = false,
-			CustomMinimumSize = new Vector2(100, 20),
-		};
-		_playerArmorLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.3f));
-		_playerArmorLabel.AddThemeFontSizeOverride("font_size", 14);
+			// 敌方护甲
+			_enemyArmorLabel = new Label
+			{
+				Name = "EnemyArmorLabel",
+				Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", "0"),
+				Visible = false,
+				CustomMinimumSize = new Vector2(100, 20),
+			};
+			_enemyArmorLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.3f));
+			_enemyArmorLabel.AddThemeFontSizeOverride("font_size", 14);
 
-		var playerHealthContainer = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
-		playerHealthContainer?.AddChild(_playerArmorLabel);
+			var enemyHealthContainer = GetNodeOrNull<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
+			enemyHealthContainer?.AddChild(_enemyArmorLabel);
 
-		// 敌方护甲
-		_enemyArmorLabel = new Label
-		{
-			Name = "EnemyArmorLabel",
-			Text = Localization.Localization.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", "0"),
-			Visible = false,
-			CustomMinimumSize = new Vector2(100, 20),
-		};
-		_enemyArmorLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.3f));
-		_enemyArmorLabel.AddThemeFontSizeOverride("font_size", 14);
-
-		var enemyHealthContainer = GetNodeOrNull<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
-		enemyHealthContainer?.AddChild(_enemyArmorLabel);
-
-		// 玩家防御
-		_playerDefenseLabel = new Label
-		{
-			Name = "PlayerDefenseLabel",
-			Text = "",
-			Visible = false,
-			CustomMinimumSize = new Vector2(80, 20),
-			HorizontalAlignment = HorizontalAlignment.Left,
-		};
-		_playerDefenseLabel.AddThemeColorOverride("font_color", new Color(0.3f, 0.7f, 1f));
-		_playerDefenseLabel.AddThemeFontSizeOverride("font_size", 13);
-		playerHealthContainer?.AddChild(_playerDefenseLabel);
-
-		// 敌方防御
-		_enemyDefenseLabel = new Label
-		{
-			Name = "EnemyDefenseLabel",
-			Text = "",
-			Visible = false,
-			CustomMinimumSize = new Vector2(80, 20),
-			HorizontalAlignment = HorizontalAlignment.Right,
-		};
-		_enemyDefenseLabel.AddThemeColorOverride("font_color", new Color(0.3f, 0.7f, 1f));
-		_enemyDefenseLabel.AddThemeFontSizeOverride("font_size", 13);
-		enemyHealthContainer?.AddChild(_enemyDefenseLabel);
-	}
+			// 敌方防御
+			_enemyDefenseLabel = new Label
+			{
+				Name = "EnemyDefenseLabel",
+				Text = "",
+				Visible = false,
+				CustomMinimumSize = new Vector2(80, 20),
+				HorizontalAlignment = HorizontalAlignment.Right,
+			};
+			_enemyDefenseLabel.AddThemeColorOverride("font_color", new Color(0.3f, 0.7f, 1f));
+			_enemyDefenseLabel.AddThemeFontSizeOverride("font_size", 13);
+			enemyHealthContainer?.AddChild(_enemyDefenseLabel);
+		}
 
 	/// <summary>
 	/// 创建回合结束按钮——右下角，文本「结束回合」。
@@ -584,81 +533,15 @@ public partial class CombatUI
 		enemyHeroPlaceholder.AddChild(panelContainer);
 	}
 
-	/// <summary>
-	/// 创建玩家英雄交互面板——置于玩家生命值条上方。
-	/// 蓝色边框色块，包含英雄标签和对己方英雄施法按钮。
-	/// 仅在法术目标选择模式且目标过滤允许己方英雄时显示按钮。
-	/// </summary>
-	private void CreatePlayerHeroPanel()
-	{
-		var playerHealthPlaceholder = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
-		if (playerHealthPlaceholder == null)
-			return;
-
-		// 交互面板容器
-		var panelContainer = new CenterContainer
+		/// <summary>
+		/// 创建玩家英雄交互面板——已被 CreatePlayerIdentityCard 替代。
+		/// 保留空壳以避免删除调用点带来的连锁修改。
+		/// </summary>
+		private void CreatePlayerHeroPanel()
 		{
-			Name = "PlayerHeroPanelContainer",
-			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-		};
-
-		// 可见色块面板（蓝色边框）
-		_playerHeroPanel = new Panel
-		{
-			Name = "PlayerHeroPanel",
-			CustomMinimumSize = new Vector2(140, 56),
-		};
-		var panelStyle = new StyleBoxFlat
-		{
-			BgColor = new Color(0.12f, 0.15f, 0.28f, 0.7f),
-			BorderWidthLeft = 2,
-			BorderWidthRight = 2,
-			BorderWidthTop = 2,
-			BorderWidthBottom = 2,
-			BorderColor = new Color(0.25f, 0.5f, 0.9f),
-			CornerRadiusTopLeft = 6,
-			CornerRadiusTopRight = 6,
-			CornerRadiusBottomLeft = 6,
-			CornerRadiusBottomRight = 6,
-		};
-		_playerHeroPanel.AddThemeStyleboxOverride("panel", panelStyle);
-
-		// 面板内部垂直布局
-		var panelContent = new VBoxContainer
-		{
-			Alignment = BoxContainer.AlignmentMode.Center,
-			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-			SizeFlagsVertical = SizeFlags.ExpandFill,
-		};
-		_playerHeroPanel.AddChild(panelContent);
-
-		// 英雄标签
-		var heroLabel = new Label
-		{
-			Name = "PlayerHeroLabel",
-			Text = Localization.Localization.T("ui.combat.player_hero", "我方英雄"),
-			HorizontalAlignment = HorizontalAlignment.Center,
-		};
-		heroLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.7f, 1f));
-		heroLabel.AddThemeFontSizeOverride("font_size", 16);
-		panelContent.AddChild(heroLabel);
-
-		// 对己方英雄施法按钮（法术目标模式下可见）
-		_playerHeroSpellButton = new Button
-		{
-			Name = "PlayerHeroSpellButton",
-			Text = Localization.Localization.T("ui.combat.spell_player_hero", "✦ 对己方英雄施法"),
-			CustomMinimumSize = new Vector2(140, 30),
-			Visible = false,
-		};
-		_playerHeroSpellButton.AddThemeColorOverride("font_color", new Color(0.5f, 0.7f, 1f));
-		panelContent.AddChild(_playerHeroSpellButton);
-
-		panelContainer.AddChild(_playerHeroPanel);
-		// 插入到 PlayerHealthPlaceholder 的第一个位置（生命值条之上）
-		playerHealthPlaceholder.AddChild(panelContainer);
-		playerHealthPlaceholder.MoveChild(panelContainer, 0);
-	}
+			// 不再单独创建面板；玩家身份卡已包含英雄标签和施法按钮。
+			// _playerHeroSpellButton 由 CreatePlayerIdentityCard 赋值。
+		}
 
 	/// <summary>
 	/// 创建敌方意图显示标签——置于敌方英雄面板上方。
@@ -818,49 +701,28 @@ public partial class CombatUI
 		weaponBtnContainer.AddChild(_weaponActiveSkillButton);
 
 		weaponPlaceholder.AddChild(weaponBtnContainer);
+	}
 
-		// --- 敌方武器信息 ---
-		var enemyArea = GetNode<HBoxContainer>("CombatRoot/EnemyArea");
-		if (enemyArea == null)
-			return;
-
-		_enemyWeaponLabel = new Label
+		/// <summary>
+		/// 创建状态效果图标容器。
+		/// 玩家效果图标已迁移到 PlayerIdentityCard。
+		/// </summary>
+		private void CreateStatusEffectUI()
 		{
-			Name = "EnemyWeaponLabel",
-			Text = "",
-			HorizontalAlignment = HorizontalAlignment.Center,
-			CustomMinimumSize = new Vector2(120, 18),
-		};
-		_enemyWeaponLabel.AddThemeColorOverride("font_color", new Color(1f, 0.4f, 0.4f));
-		_enemyWeaponLabel.AddThemeFontSizeOverride("font_size", 11);
-		enemyArea.AddChild(_enemyWeaponLabel);
-	}
-
-	/// <summary>
-	/// 创建状态效果图标容器。
-	/// 放置在双方英雄生命值区域下方，用于显示 buff/debuff 图标。
-	/// </summary>
-	private void CreateStatusEffectUI()
-	{
-		// 玩家效果图标栏
-		_playerEffectBar = new EffectBar { Name = "PlayerEffectBar" };
-		var playerHealthContainer = GetNode<VBoxContainer>("CombatRoot/PlayerArea/PlayerHealthPlaceholder");
-		playerHealthContainer?.AddChild(_playerEffectBar);
-
-		// 敌方效果图标栏（旧版单敌人兼容层）
-		_enemyEffectBar = new EffectBar { Name = "EnemyEffectBar" };
-		var enemyHealthContainer = GetNodeOrNull<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
-		enemyHealthContainer?.AddChild(_enemyEffectBar);
-	}
+			// 敌方效果图标栏（旧版单敌人兼容层）
+			_enemyEffectBar = new EffectBar { Name = "EnemyEffectBar" };
+			var enemyHealthContainer = GetNodeOrNull<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
+			enemyHealthContainer?.AddChild(_enemyEffectBar);
+		}
 
 	/// <summary>
 	/// 创建热力值 UI 条——放在法力值占位区域。
 	/// </summary>
-	private void CreateHeatBar()
-	{
-		_heatBar = new UI.HeatBar { Name = "HeatBar" };
-		var manaPlaceholder = GetNodeOrNull<CenterContainer>("CombatRoot/PlayerArea/PlayerManaPlaceholder");
-		manaPlaceholder?.AddChild(_heatBar);
+		private void CreateHeatBar()
+		{
+			_heatBar = new UI.HeatBar { Name = "HeatBar" };
+			var manaPlaceholder = GetNodeOrNull<Container>("CombatRoot/PlayerArea/PlayerManaPlaceholder");
+			manaPlaceholder?.AddChild(_heatBar);
 
 		if (_combat.Heat != null)
 			_heatBar.Bind(_combat.Heat);

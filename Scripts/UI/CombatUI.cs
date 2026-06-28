@@ -44,16 +44,17 @@ public partial class CombatUI : Control
 	/// </summary>
 	private Control _handArea = null!;
 
-	/// <summary>
-	/// 玩家英雄生命值条——左下角。
-	/// </summary>
-	private HealthBar _playerHealthBar = null!;
+		/// <summary>
+		/// 玩家英雄身份卡——包装玩家名字、生命值条、护甲、防御和效果图标。
+		/// 与 EnemyIdentityCard 对称，统一双方英雄的 UI 结构。
+		/// </summary>
+		private PlayerIdentityCard _playerIdentityCard = null!;
 
-	/// <summary>
-	/// 敌方英雄身份卡列表——每张卡包含名字、HP、护甲、防御、武器、意图。
-	/// 索引与 CombatManager.EnemyUnits 对应。
-	/// </summary>
-	private readonly List<EnemyIdentityCard> _enemyCards = new();
+		/// <summary>
+		/// 敌方英雄身份卡列表——每张卡包含名字、HP、护甲、防御、武器、意图。
+		/// 索引与 CombatManager.EnemyUnits 对应。
+		/// </summary>
+		private readonly List<EnemyIdentityCard> _enemyCards = new();
 
 	// ===== 旧版敌方 UI（向后兼容，逐步替换为 EnemyIdentityCard） =====
 	private HealthBar _enemyHealthBar = null!;
@@ -64,11 +65,12 @@ public partial class CombatUI : Control
 	private Action? _enemyHeroCardAction;
 	private Label _enemyIntentLabel = null!;
 	private Panel _enemyHeroPanel = null!;
-	private Label _enemyWeaponLabel = null!;
+	/// <summary>敌方武器标签（已迁移到 EnemyIdentityCard 内）。</summary>
+	// private Label _enemyWeaponLabel = null!; — replaced by EnemyIdentityCard weapon label
 	/// <summary>
-	/// 玩家效果图标栏——生命值条下方，显示 buff/debuff 图标。
+	/// 玩家效果图标栏——现由 PlayerIdentityCard 管理。
 	/// </summary>
-	private EffectBar _playerEffectBar = null!;
+	// private EffectBar _playerEffectBar = null!; — replaced by _playerIdentityCard.EffectBar
 
 	/// <summary>
 	/// 敌方效果图标栏（单敌人旧版兼容层）——生命值条下方。
@@ -102,14 +104,14 @@ public partial class CombatUI : Control
 	private Button _heroPowerButton = null!;
 
 	/// <summary>
-	/// 玩家护甲值显示——生命值条旁，护甲 > 0 时可见。
+	/// 玩家护甲值显示——现由 PlayerIdentityCard 管理。
 	/// </summary>
-	private Label _playerArmorLabel = null!;
+	// private Label _playerArmorLabel = null!; — replaced by PlayerIdentityCard
 
 	/// <summary>
-	/// 玩家防御力显示——生命值条旁，防御 != 0 时可见。
+	/// 玩家防御力显示——现由 PlayerIdentityCard 管理。
 	/// </summary>
-	private Label _playerDefenseLabel = null!;
+	// private Label _playerDefenseLabel = null!; — replaced by PlayerIdentityCard
 
 	/// <summary>
 	/// 暂停按钮——右上角，点击弹出暂停菜单。
@@ -138,12 +140,12 @@ public partial class CombatUI : Control
 	private bool _isPaused;
 
 	/// <summary>
-	/// 玩家英雄交互面板——有可见色块背景的容器。
+	/// 玩家英雄交互面板——有可见色块背景的容器。现被 PlayerIdentityCard 替代，此字段移除。
 	/// </summary>
-	private Panel _playerHeroPanel = null!;
+	// private Panel _playerHeroPanel = null!; — replaced by _playerIdentityCard
 
 	/// <summary>
-	/// 对己方英雄施法按钮——法术目标选择模式下可见。
+	/// 对己方英雄施法按钮——法术目标选择模式下可见。按钮在 PlayerIdentityCard 内。
 	/// </summary>
 	private Button _playerHeroSpellButton = null!;
 
@@ -711,12 +713,12 @@ public partial class CombatUI : Control
 		intentTooltipLayer.AddChild(tooltipParent);
 		AddChild(intentTooltipLayer);
 
-		// 创建并初始化子组件
-		SetupBoardUI();
-		SetupHandUI();
-		CreateHealthBars();
-		CreateManaLabels();
-		CreateArmorLabels();
+			// 创建并初始化子组件
+			SetupBoardUI();
+			SetupHandUI();
+			CreatePlayerIdentityCard();
+			CreateManaLabels();
+			CreateArmorLabels();
 		CreateEndTurnButton();
 		CreateHeroPowerButton();
 		CreatePlayerHeroPanel();
