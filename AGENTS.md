@@ -1,7 +1,7 @@
 # OdysseyCards（少女星途卡牌） — Godot 4.7 C# · 类炉石 Roguelite 卡牌
 
 **Updated:** 2026-06-25
-**Scale:** 192 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~37,000 行 · 38 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
+**Scale:** 192 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~37,000 行 · 46 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
 
 ## Start
 
@@ -26,7 +26,7 @@ Scripts/
 ├── Roguelike/ (5)  # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)# YAML 多语言 (LocalStr, ConcatLocalStr, ILocalizable, YamlParser)
 └── Infrastructure/ (23, Commands/9) # ChatScreen, InputManager, HotkeyManager, MobileInputRouter, SceneLifecycleGuard…
-Resources/Cards/    # 38 .tres：领域6 + 随从12 + 法术19 + 状态1
+Resources/Cards/    # 46 .tres：领域6 + 随从14 + 法术25 + 状态1
 Resources/Localization/ # zh.yaml / en.yaml
 Resources/Enemies/ Resources/Relics/ # 结构桩，当前为空
 Scenes/             # Main, Combat, Collection, Map + Card/Board/CombatPreview
@@ -320,6 +320,9 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - ✅ 版本号体系：`VERSION` 文件（仓库根，单行无 v 前缀）是唯一真源；csproj 构建期读入 `AssemblyInformationalVersion`，`VersionInfo.cs` 运行时反射读取；`build_export.ps1`/`build_android.ps1` 导出前临时注入 `project.godot`/`export_presets.cfg`，导出后恢复；`package_release.ps1` 默认读 VERSION；主菜单右下角 + ChatScreen `/version` 显示。
 - ✅ Android 签名密钥：项目专属 `debug.keystore` + `release.keystore`（25 年），配置 `android/keystore.properties`（gitignored），`build_android.ps1` 用 Godot 环境变量注入，`-Release` 切换正式签名。
 - ✅ 新增三张法术卡：四夜雷电光（轮战，英雄挂载回合触发）、十万条吸血狗（选择手牌并复制填满）、星途精神（跳费/AOE/抽牌/下回合挂载收益）。
+- ✅ 新增六张通用法术卡：引擎、检索、响应、肾上腺素、沉重打击、震慑；新增两张随从：40主战坦克、百机长。
+- ✅ 新机制失能：负面 StatusEffect，按目标所属方回合结束衰减；失能单位不能攻击或反击，英雄不能用武器攻击但仍可施放法术。
+- ✅ 获得格挡动画：Hero/Minion 护甲获得事件驱动 `🛡+N` 浮字，复用战斗跳字层。
 - ✅ 主题卡组支持 `ThemeProfile.KeywordWeights`，可按 `Keyword`（如轮战、亡语）给角色主题加权，不污染 `CardMechanicTag`。
 - ✅ 热力系统与藏品系统已存在；资源化仍未完成。
 - ✅ ActiveDomain/StatusEffect 语义边界已明确（永久 Power vs 限时 Power）；四夜雷电光、星途精神 mount 改为限时 Power 走 StatusEffect + OnTick 通道。
