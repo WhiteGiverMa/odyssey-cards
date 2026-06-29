@@ -210,6 +210,11 @@ Tests/              # tests/csharp：xUnit 12 Unit + 1 Integration(跳过)
 - `_EnterTree`/`_Ready` 注册的 HotkeyManager 绑定，必须在 `_ExitTree` 注销。
 - 模态屏用 `AddBlockingScreen` 拦截输入。
 
+### 格式化
+- **C#**：`.editorconfig` 是唯一真源——tab 缩进（4 宽度），详细规则见文件内 `[*.cs]` 段。CI 验证：`dotnet format OdysseyCards.sln --verify-no-changes`。
+- **YAML**（`Resources/Localization/*.yaml`）：无自动 formatter。缩进规则：**2 空格递增**（root 0 → level1 2 → level2 4 → level3 6），**禁止 tab**。原因：`YamlParser.GetIndentLevel` 将 tab 计为 4 空格，与标准 2 空格递增产生歧义。YAML 文件**禁止在 Godot 内置编辑器中编辑**——Godot 的 `text_editor/behavior/indent/type=0`（Tab 缩进）会破坏 YAML 缩进（已关闭 `convert_indent_on_save` 作为防护，但仍不推荐）。
+- **TS CN/TRES**：无自动 formatter。缩进规则同 C#（tab，4 宽度），由 `.editorconfig` 的 `[*.{tscn,tres}]` 段约束。
+
 ## Export Build
 
 - Godot 4 `.pck` 中 `DirAccess.Open("res://...")` 枚举目录失败；所有 DirAccess 使用点必须有硬编码回退。

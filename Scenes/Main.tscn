@@ -42,7 +42,7 @@ theme_override_font_sizes/font_size = 48
 text = "Odyssey Cards"
 horizontal_alignment = 1
 
-[node name="ButtonContainer" type="VBoxContainer" parent="MainMenuContainer"]
+[node name="ButtonContainer" type="VBoxContainer" parent="MainMenuContainer" unique_id=317526944]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -63,7 +63,7 @@ theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 24
 text = "Start Game"
 
-[node name="SettingsButton" type="Button" parent="MainMenuContainer/ButtonContainer"]
+[node name="SettingsButton" type="Button" parent="MainMenuContainer/ButtonContainer" unique_id=1711746226]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 24

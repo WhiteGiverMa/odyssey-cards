@@ -1,6 +1,6 @@
 ui:
   menu:
-    title: "奥德赛卡牌"
+    title: "少女星途卡牌"
     start_game: "开始游戏"
     hero_select_title: "选择英雄"
     hero_option_format: "{name} / {romanized}"
