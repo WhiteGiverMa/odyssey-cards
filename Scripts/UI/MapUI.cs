@@ -805,14 +805,14 @@ public partial class MapUI : Control
 	}
 
 	/// <summary>
-	/// 显示叙事事件房间——随机抽取一个事件并弹出选择界面。
+	/// 显示叙事事件房间——根据英雄 ID 随机抽取一个事件并弹出选择界面。
 	/// </summary>
 	private void ShowEventRoom(RoomDefinition room)
 	{
 		GD.Print($"[MapUI] 进入事件房间：{room.DisplayName}");
 
-		var random = new Random();
-		var eventData = EventPool.All[random.Next(EventPool.All.Length)];
+		var gm = GameManager.Instance;
+		var eventData = EventPool.GetRandomEvent(gm?.SelectedHeroId);
 		GD.Print($"[MapUI] 随机事件：{eventData.Id} — {eventData.Title}");
 
 		// 使用 EventUI 覆盖层（内部处理 MobileDialogHost 弹窗）
@@ -830,19 +830,19 @@ public partial class MapUI : Control
 	/// 参考 STS2 /event 命令：覆盖当前房间为事件，操作有效，完成后进入下一层。
 	/// 覆盖不持久化——SL 后恢复原房间。
 	/// </summary>
-	/// <param name="eventId">事件 ID，null 则随机</param>
+	/// <param name="eventId">事件 ID，null 则随机（含英雄专属事件）</param>
 	public void DevShowEvent(string? eventId)
 	{
 		GD.Print($"[MapUI] ChatScreen 覆盖当前房间为事件：{(eventId ?? "随机")}");
 
+		var gm = GameManager.Instance;
 		var eventData = eventId != null
-			? EventPool.All.FirstOrDefault(e => e.Id == eventId)
+			? EventPool.FindEvent(eventId, gm?.SelectedHeroId)
 			: null;
 
 		if (eventData == null)
 		{
-			var random = new Random();
-			eventData = EventPool.All[random.Next(EventPool.All.Length)];
+			eventData = EventPool.GetRandomEvent(gm?.SelectedHeroId);
 			GD.Print($"[MapUI] 未找到指定事件，随机选择：{eventData.Id}");
 		}
 

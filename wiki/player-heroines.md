@@ -117,6 +117,15 @@
 - 新增 `StatusEffectPolarity` 枚举（`NonNegative`/`Negative`），已知减益（`attack_zero`、`meltdown`、`weapon_disabled`、`animosity`、`vulnerable`、`weak`、`fragile`、`total_observation`、`attack_ban`、`damage_over_time`）自动判定为负面效果，用于星辉净化筛选。
 - 已知债务：英雄技能按钮的完整 UI 路径（点击→目标选择→结算）尚未完成；IronWill 是唯一 UI 完整的英雄技能。
 
+### 绮梦专属事件：镜中自我
+
+- 概念来源：轻小说《镜中自我》+ STS2 AbyssalBaths（热泉/深渊浴场）事件模式。
+- 触发条件：仅绮梦（`ayame`/`qimeng`）可遇到，在事件房间中有概率出现。
+- 选项 A「忍耐」：可重复选择。每次损失递增的生命值（-3 → -4 → -5…），永久 +1 最大生命值。选择后不退出事件。
+- 选项 B「释放」：一次性。恢复「进入事件时」最大生命值的 30%，退出事件。
+- 文案主题：绮梦深夜面对镜中的自己，在克制与放纵之间抉择——尺度卡在刚好能过审。
+- 实现状态：`EventData.CreateAyameMirrorEvent()`，`EventChoice.StaysInEvent` 支持停留事件，已接入 MapUI/EventUI/ChatScreen。
+
 ## 待确认
 
 - `棍木` 与早期草稿中的 `滚木` 是否统一为 `棍木`。

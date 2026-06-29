@@ -132,35 +132,52 @@ public partial class EventUI : Control
 		panelVBox.AddChild(_continueButton);
 	}
 
-	// ──── 交互 ────
+		// ──── 交互 ────
 
-	private void OnChoiceSelected(EventChoice choice, Button clickedButton)
-	{
-		if (_choiceSelected)
-			return;
-		_choiceSelected = true;
-
-		// 禁用所有选择按钮
-		foreach (var btn in _choiceButtons)
-			btn.Disabled = true;
-
-		// 高亮选中的按钮
-		clickedButton.Modulate = new Color(0.3f, 0.3f, 0.3f, 1);
-
-		// 执行选择效果
-		var gm = GameManager.Instance;
-		if (gm != null && choice.Execute != null)
+		private void OnChoiceSelected(EventChoice choice, Button clickedButton)
 		{
-			choice.Execute(gm);
+			if (_choiceSelected)
+				return;
+
+			// 非停留事件：锁定选择（防止二次点击）
+			// 停留事件（StaysInEvent）：允许再次选择，不锁定
+			if (!choice.StaysInEvent)
+				_choiceSelected = true;
+
+			// 禁用所有选择按钮（执行期间防抖）
+			foreach (var btn in _choiceButtons)
+				btn.Disabled = true;
+
+			// 执行选择效果
+			var gm = GameManager.Instance;
+			if (gm != null && choice.Execute != null)
+			{
+				choice.Execute(gm);
+			}
+
+			// 刷新按钮文本（Execute 可能修改了 choice.Text）
+			for (int i = 0; i < _choiceButtons.Count && i < _eventData.Choices.Length; i++)
+			{
+				_choiceButtons[i].Text = _eventData.Choices[i].Text;
+			}
+
+			if (choice.StaysInEvent)
+			{
+				// 停留事件：显示结果→重新激活按钮（不显示「继续」按钮）
+				_resultLabel.Text = choice.ResultText;
+				_resultLabel.Visible = true;
+				foreach (var btn in _choiceButtons)
+					btn.Disabled = false;
+			}
+			else
+			{
+				// 退出事件：高亮选中按钮→显示结果→显示「继续」按钮
+				clickedButton.Modulate = new Color(0.3f, 0.3f, 0.3f, 1);
+				_resultLabel.Text = choice.ResultText;
+				_resultLabel.Visible = true;
+				_continueButton.Visible = true;
+			}
 		}
-
-		// 显示结果文本
-		_resultLabel.Text = choice.ResultText;
-		_resultLabel.Visible = true;
-
-		// 显示继续按钮
-		_continueButton.Visible = true;
-	}
 }
 
 /// <summary>

@@ -240,9 +240,12 @@ public class RoomCommand : ChatScreenCommand
 		// 验证事件 ID
 		if (roomType == Roguelike.RoomType.Event && eventId != null)
 		{
-			var found = Roguelike.EventPool.All.Any(e => e.Id.Equals(eventId, StringComparison.OrdinalIgnoreCase));
+			var found = Roguelike.EventPool.FindEvent(eventId, gm.SelectedHeroId) != null;
 			if (!found)
-				return CommandResult.Fail($"未知事件: {eventId}，可用: {string.Join(", ", Roguelike.EventPool.All.Select(e => e.Id))}");
+			{
+				var knownIds = Roguelike.EventPool.All.Select(e => e.Id).Append("ayame_mirror").ToList();
+				return CommandResult.Fail($"未知事件: {eventId}，可用: {string.Join(", ", knownIds)}");
+			}
 		}
 
 		// 设置覆写
@@ -290,9 +293,13 @@ public class EventCommand : ChatScreenCommand
 
 	public override CompletionCandidate[]? GetArgCandidates(string partialArg)
 	{
-		return Roguelike.EventPool.All
-			.Where(e => e.Id.StartsWith(partialArg, StringComparison.OrdinalIgnoreCase))
+		// 通用事件 + 英雄专属事件（ayame_mirror 仅绮梦可用，补全列表中始终显示）
+		var allIds = Roguelike.EventPool.All
 			.Select(e => new CompletionCandidate(e.Id, e.Id, e.Title))
+			.ToList();
+		allIds.Add(new CompletionCandidate("ayame_mirror", "ayame_mirror", "镜中自我（绮梦专属）"));
+		return allIds
+			.Where(c => c.InsertText.StartsWith(partialArg, StringComparison.OrdinalIgnoreCase))
 			.ToArray();
 	}
 
@@ -304,9 +311,12 @@ public class EventCommand : ChatScreenCommand
 		// 验证事件 ID 有效性（非空时）
 		if (eventId != null)
 		{
-			var found = EventPool.All.Any(e => e.Id.Equals(eventId, StringComparison.OrdinalIgnoreCase));
+			var found = EventPool.FindEvent(eventId, gm?.SelectedHeroId) != null;
 			if (!found)
-				return CommandResult.Fail($"未知事件: {eventId}，可用: {string.Join(", ", EventPool.All.Select(e => e.Id))}");
+			{
+				var knownIds = EventPool.All.Select(e => e.Id).Append("ayame_mirror").ToList();
+				return CommandResult.Fail($"未知事件: {eventId}，可用: {string.Join(", ", knownIds)}");
+			}
 		}
 
 		// 情况 1：已在战斗中 → 设 RoomTypeOverride + 直接切场景

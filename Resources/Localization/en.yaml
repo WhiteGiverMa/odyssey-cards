@@ -754,6 +754,14 @@ events:
     choice_c: "Rob the traveler (gain 25 Gold, but...)"
     result_c: "You feel a pang of guilt, but the money will certainly help."
 
+  ayame_mirror:
+    title: "Mirror Self"
+    story: "Late at night, pale moonlight spills into the room.\nAyame stands before the full-length mirror, gazing at that familiar figure—\nher cheeks flush pink, cat ears twitching gently.\nShe reaches out, fingertips brushing the cold glass, her heartbeat inexplicably quickening.\nA restless stirring awakens deep within her body..."
+    choice_a: "Hold back... just a little longer (-{0} HP, +1 Max HP)"
+    result_a: "You clench your teeth and suppress the urge. Though your body feels weary, your will has grown stronger.\n(-{0} HP, +1 Max HP)"
+    choice_b: "At the limit... let it all out (Restore 30% of Max HP)"
+    result_b: "You stop holding back, letting the pent-up emotions pour out freely. Body and mind feel so much lighter."
+
 hero_power:
   iron_will:
     name: "Iron Will"
