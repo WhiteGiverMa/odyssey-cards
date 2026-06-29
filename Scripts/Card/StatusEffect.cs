@@ -50,8 +50,10 @@ public enum StatusEffectPolarity
 /// 仅由 <c>CardEffectDispatcher.HandleMountHeroEffect</c> 注入 lambda，
 /// 纯类型层不直接持有 callback；行参约束：lambda 不可在 Stacks 已归零时仍依赖副作用。
 /// </summary>
-public class StatusEffect : ITemporaryEffect
-{
+	public class StatusEffect : ITemporaryEffect
+	{
+		public const string IncapacitatedId = "incapacitated";
+
 	/// <summary>
 	/// 效果标识符。相同 ID 的效果叠加层数。
 	/// </summary>
@@ -122,10 +124,11 @@ public class StatusEffect : ITemporaryEffect
 			"fragile" => StatusEffectPolarity.Negative,
 			"total_observation" => StatusEffectPolarity.Negative,
 			"attack_ban" => StatusEffectPolarity.Negative,
-			"damage_over_time" => StatusEffectPolarity.Negative,
-			_ => StatusEffectPolarity.NonNegative,
-		};
-	}
+				"damage_over_time" => StatusEffectPolarity.Negative,
+				IncapacitatedId => StatusEffectPolarity.Negative,
+				_ => StatusEffectPolarity.NonNegative,
+			};
+		}
 
 	/// <summary>
 	/// 执行一次计时衰减。返回衰减后的剩余层数。

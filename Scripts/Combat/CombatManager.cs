@@ -145,12 +145,15 @@ public partial class CombatManager : Node
 
 	public bool ExecuteEnemyHeroSmartAttack(Hero attacker, int baseDamage)
 	{
+		if (attacker.IsIncapacitated)
+			return false;
+
 		var target = SelectSmartEnemyAttackTarget(attacker, baseDamage);
 		if (target is Minion minionTarget)
 		{
 			TriggerBaitTacticsOnAttacked(minionTarget, attacker);
 
-			bool ambush = minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
+			bool ambush = !minionTarget.IsIncapacitated && minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
 			if (ambush)
 				minionTarget.AmbushUsedThisTurn = true;
 
@@ -177,7 +180,7 @@ public partial class CombatManager : Node
 
 	public bool ExecuteEnemyMinionSmartAttack(Minion attacker)
 	{
-		if (attacker.IsDead || attacker.Attack <= 0)
+		if (attacker.IsDead || attacker.IsIncapacitated || attacker.Attack <= 0)
 			return false;
 
 		var target = SelectSmartEnemyAttackTarget(attacker, attacker.Attack);
@@ -221,7 +224,7 @@ public partial class CombatManager : Node
 		int remainingMana = PlayerHero.CurrentMana;
 		foreach (var attacker in Board.GetPlayerMinions())
 		{
-			if (attacker.IsDead || attacker.Attack <= 0 || !_attackTracker.CanAttack(attacker))
+			if (attacker.IsDead || attacker.IsIncapacitated || attacker.Attack <= 0 || !_attackTracker.CanAttack(attacker))
 				continue;
 			if (attacker.ActionCost <= remainingMana)
 				return true;
@@ -238,7 +241,7 @@ public partial class CombatManager : Node
 		bool attacked = false;
 		foreach (var attacker in Board.GetPlayerMinions().ToList())
 		{
-			if (attacker.IsDead || attacker.Attack <= 0 || !_attackTracker.CanAttack(attacker))
+			if (attacker.IsDead || attacker.IsIncapacitated || attacker.Attack <= 0 || !_attackTracker.CanAttack(attacker))
 				continue;
 			if (attacker.ActionCost > PlayerHero.CurrentMana)
 				continue;
@@ -1352,7 +1355,8 @@ State.StartPlayerTurn(growthCap);
 	{
 		TriggerBaitTacticsOnAttacked(defender);
 
-		bool ambushTriggers = defender.HasAmbush && !defender.AmbushUsedThisTurn;
+		bool defenderCanCounter = !defender.IsIncapacitated;
+		bool ambushTriggers = defenderCanCounter && defender.HasAmbush && !defender.AmbushUsedThisTurn;
 		bool impactActive = attacker.HasImpact;
 
 		GD.Print($"[CombatManager] ⚔ {attacker.CardName}（{attacker.Attack}攻/{attacker.CurrentHealth}血）攻击 " +
@@ -1396,6 +1400,10 @@ State.StartPlayerTurn(growthCap);
 			{
 				// 冲击免疫正常反击伤害
 				GD.Print($"[CombatManager]   🛡 冲击免疫了 {defender.CardName} 的反击伤害（{defender.Attack}）");
+			}
+			else if (!defenderCanCounter)
+			{
+				GD.Print($"[CombatManager]   🚫 {defender.CardName} 处于失能，无法反击");
 			}
 			else
 			{
@@ -1455,12 +1463,18 @@ State.StartPlayerTurn(growthCap);
 				  $"{b.CardName}（{b.Attack}攻/{b.CurrentHealth}血）");
 
 		// A 对 B 造成伤害（完整 DamageResolver 管线）
-		RequestDamageVfx(a, b, DamageKind.Attack, CombatDamageVfxKind.Combat);
-		b.TakeDamage(a.Attack, a);
+		if (!a.IsIncapacitated)
+		{
+			RequestDamageVfx(a, b, DamageKind.Attack, CombatDamageVfxKind.Combat);
+			b.TakeDamage(a.Attack, a);
+		}
 
 		// B 对 A 造成伤害（即使 B 已被击杀，仍遵循同时伤害规则）
-		RequestDamageVfx(b, a, DamageKind.Attack, CombatDamageVfxKind.Combat);
-		a.TakeDamage(b.Attack, b);
+		if (!b.IsIncapacitated)
+		{
+			RequestDamageVfx(b, a, DamageKind.Attack, CombatDamageVfxKind.Combat);
+			a.TakeDamage(b.Attack, b);
+		}
 
 		GD.Print($"[CombatManager]   战斗后 — {a.CardName}：{a.CurrentHealth}血，" +
 				  $"{b.CardName}：{b.CurrentHealth}血");
@@ -1795,6 +1809,7 @@ State.StartPlayerTurn(growthCap);
 
 		// 触发领域效果 — 友方回合结束时
 		_domainTriggerManager.OnPlayerTurnEnd();
+		TriggerPlayerTurnEndMinionEffects();
 		CheckDeaths();
 		if (_victoryResolver.CheckVictoryOrDefeat())
 			return;
@@ -1832,6 +1847,22 @@ State.StartPlayerTurn(growthCap);
 
 		// 检查胜负
 		_victoryResolver.CheckVictoryOrDefeat();
+	}
+
+	private void TriggerPlayerTurnEndMinionEffects()
+	{
+		foreach (var minion in Board.GetPlayerMinions().ToList())
+		{
+			if (minion.Id != "minion_centurion" || minion.IsDead)
+				continue;
+
+			const int turnEndBlock = 1;
+			const int heroMultiplier = 2;
+			foreach (var ally in Board.GetPlayerMinions())
+				ally.GainArmor(turnEndBlock);
+			PlayerHero.GainArmor(turnEndBlock * heroMultiplier);
+			GD.Print($"[CombatManager] 百机长回合结束：友方随从获得 {turnEndBlock} 点格挡，英雄获得 {turnEndBlock * heroMultiplier} 点格挡");
+		}
 	}
 
 	/// <summary>
@@ -1951,8 +1982,8 @@ State.StartPlayerTurn(growthCap);
 			if (unit.Body.IsDead)
 				continue;
 
-			// 同步敌方攻击力到意图系统（考虑武器禁用等状态）
-			unit.Brain.Attack = unit.Body.Weapon is { IsDisabled: false } ? unit.Body.Weapon.Attack : 0;
+			// 同步敌方攻击力到意图系统（考虑武器禁用/失能等状态）
+			unit.Brain.Attack = !unit.Body.IsIncapacitated && unit.Body.Weapon is { IsDisabled: false } ? unit.Body.Weapon.Attack : 0;
 			unit.Brain.ExecuteIntent(this, unit.Body);
 
 			// 2. 推进到下一意图——优先使用 MoveState 系统
@@ -2048,7 +2079,7 @@ State.StartPlayerTurn(growthCap);
 	{
 		// 回合开始时已存在的随从可以攻击，有闪击的新召唤随从也可以
 		var enemies = Board.GetEnemyMinions()
-			.Where(m => !m.IsDead && (_enemyMinionsCanAttack.Contains(m) || m.HasCharge))
+			.Where(m => !m.IsDead && !m.IsIncapacitated && (_enemyMinionsCanAttack.Contains(m) || m.HasCharge))
 			.ToList();
 		if (enemies.Count == 0)
 			return;

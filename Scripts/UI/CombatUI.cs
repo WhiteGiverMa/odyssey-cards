@@ -205,8 +205,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	private readonly List<Action> _unsubscribeActions = new();
 
-	private readonly Dictionary<Hero, (Action<DamageEventInfo, IDamageSource?> Damage, Action<int> Heal)> _heroDamageHandlers = new();
-	private readonly Dictionary<Minion, (Action<DamageEventInfo, IDamageSource?> Damage, Action<int> Heal)> _minionDamageHandlers = new();
+	private readonly Dictionary<Hero, (Action<DamageEventInfo, IDamageSource?> Damage, Action<int> Heal, Action<int> Armor)> _heroDamageHandlers = new();
+	private readonly Dictionary<Minion, (Action<DamageEventInfo, IDamageSource?> Damage, Action<int> Heal, Action<int> Armor)> _minionDamageHandlers = new();
 
 	/// <summary>
 	/// 拖拽层——卡牌拖拽时重parent到此，使其脱离 HandUI 的 HBoxContainer 布局约束。
@@ -1246,9 +1246,17 @@ public partial class CombatUI : Control
 				FloatingDamageNumber.CreateHeal(amount, pos, _damageNumberContainer);
 		};
 
+		Action<int> onArmor = amount =>
+		{
+			var pos = ResolveTargetScreenPos(hero);
+			if (pos != Vector2.Zero)
+				FloatingDamageNumber.CreateArmorGained(amount, pos, _damageNumberContainer);
+		};
+
 		hero.OnDamageTaken += onDamage;
 		hero.OnHealed += onHeal;
-		_heroDamageHandlers[hero] = (onDamage, onHeal);
+		hero.OnArmorGained += onArmor;
+		_heroDamageHandlers[hero] = (onDamage, onHeal, onArmor);
 	}
 
 	private void SubscribeMinionDamageEvents(Minion minion)
@@ -1270,9 +1278,17 @@ public partial class CombatUI : Control
 				FloatingDamageNumber.CreateHeal(amount, pos, _damageNumberContainer);
 		};
 
+		Action<int> onArmor = amount =>
+		{
+			var pos = GetMinionScreenCenter(minion);
+			if (pos != Vector2.Zero)
+				FloatingDamageNumber.CreateArmorGained(amount, pos, _damageNumberContainer);
+		};
+
 		minion.OnDamageTaken += onDamage;
 		minion.OnHealed += onHeal;
-		_minionDamageHandlers[minion] = (onDamage, onHeal);
+		minion.OnArmorGained += onArmor;
+		_minionDamageHandlers[minion] = (onDamage, onHeal, onArmor);
 	}
 
 	private void UnsubscribeMinionDamageEvents(Minion minion)
@@ -1281,6 +1297,7 @@ public partial class CombatUI : Control
 			return;
 		minion.OnDamageTaken -= handlers.Damage;
 		minion.OnHealed -= handlers.Heal;
+		minion.OnArmorGained -= handlers.Armor;
 		_minionDamageHandlers.Remove(minion);
 	}
 
@@ -1290,6 +1307,7 @@ public partial class CombatUI : Control
 		{
 			hero.OnDamageTaken -= handlers.Damage;
 			hero.OnHealed -= handlers.Heal;
+			hero.OnArmorGained -= handlers.Armor;
 		}
 		_heroDamageHandlers.Clear();
 
@@ -1297,6 +1315,7 @@ public partial class CombatUI : Control
 		{
 			minion.OnDamageTaken -= handlers.Damage;
 			minion.OnHealed -= handlers.Heal;
+			minion.OnArmorGained -= handlers.Armor;
 		}
 		_minionDamageHandlers.Clear();
 	}

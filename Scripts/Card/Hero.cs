@@ -247,6 +247,7 @@ public class Hero : IDamageTarget, IDamageSource
 	/// 在 ApplyDamage 之后触发，此时生命值已减少。
 	/// </summary>
 	public event Action<DamageEventInfo, IDamageSource?>? OnDamageTaken;
+	public event Action<int> OnArmorGained;
 
 	/// <summary>
 	/// 英雄恢复生命值时触发。参数为实际恢复量。
@@ -432,6 +433,8 @@ public class Hero : IDamageTarget, IDamageSource
 	{
 		if (SuppressWeaponCounter)
 			return;
+		if (IsIncapacitated)
+			return;
 		if (Weapon == null || !Weapon.CanCounter)
 			return;
 		if (source is not IDamageTarget target)
@@ -475,15 +478,17 @@ public class Hero : IDamageTarget, IDamageSource
 	/// 为英雄增加护甲值。
 	/// </summary>
 	/// <param name="amount">护甲增加量</param>
-	public void GainArmor(int amount)
+	public int GainArmor(int amount)
 	{
 		// 脆弱：护甲获得量 ×0.75
 		amount = _fragileModifier.ModifyArmorGain(amount);
 		if (amount <= 0)
-			return;
+			return 0;
 
 		CurrentArmor += amount;
+		OnArmorGained?.Invoke(amount);
 		GD.Print($"[Hero] 获得 {amount} 点护甲，当前护甲：{CurrentArmor}");
+		return amount;
 	}
 
 	/// <summary>
@@ -828,6 +833,8 @@ public class Hero : IDamageTarget, IDamageSource
 		return _statusEffects.ContainsKey(id) && !_statusEffects[id].IsExpired;
 	}
 
+	public bool IsIncapacitated => HasStatusEffect(StatusEffect.IncapacitatedId);
+
 	/// <summary>
 	/// 是否持有指定领域。
 	/// </summary>
@@ -871,6 +878,7 @@ public class Hero : IDamageTarget, IDamageSource
 			"fragile",
 			"attack_ban",
 			"weapon_disabled",
+			StatusEffect.IncapacitatedId,
 			"total_observation",
 		};
 
@@ -982,6 +990,8 @@ public class Hero : IDamageTarget, IDamageSource
 	public bool CanWeaponAttack()
 	{
 		if (Weapon == null)
+			return false;
+		if (IsIncapacitated)
 			return false;
 		if (Weapon.IsDisabled)
 			return false;

@@ -22,6 +22,8 @@ internal sealed class AttackTracker
 
 	public bool CanAttack(Minion attacker)
 	{
+		if (attacker.IsIncapacitated)
+			return false;
 		if (!_canAttackThisTurn.Contains(attacker))
 			return false;
 		int attacks = _attackCountThisTurn.GetValueOrDefault(attacker, 0);

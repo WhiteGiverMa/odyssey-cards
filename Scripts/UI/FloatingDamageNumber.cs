@@ -16,14 +16,17 @@ public partial class FloatingDamageNumber : Control
 	private const float HealDuration = 1.3f;         // 治疗数字动画时长
 	private const float BlockedDuration = 1.5f;      // 格挡文本动画时长
 	private const float ArmorDuration = 1.0f;        // 护甲吸收数字动画时长
+	private const float ArmorGainDuration = 1.1f;    // 获得格挡动画时长
 	private const int FontSize = 28;                  // 主数字字体大小
 	private const int ArmorFontSize = 18;             // 护甲数字字体大小
+	private const int ArmorGainFontSize = 24;         // 获得格挡字号
 	private const int BlockedFontSize = 20;           // 格挡文本字体大小
 
 	// ===== 颜色常量 =====
 	private static readonly Color DamageColor = new(1.0f, 0.25f, 0.15f);       // 橙红
 	private static readonly Color HealColor = new(0.15f, 1.0f, 0.30f);         // 绿色
 	private static readonly Color ArmorColor = new(0.70f, 0.70f, 0.80f);       // 蓝灰
+	private static readonly Color ArmorGainColor = new(0.45f, 0.78f, 1.0f);   // 亮蓝
 	private static readonly Color BlockedColor = new(0.55f, 0.60f, 0.75f);     // 深蓝灰
 
 	// ===== 实例字段 =====
@@ -75,6 +78,13 @@ public partial class FloatingDamageNumber : Control
 		CreateNumber(amount, screenPosition, HealColor, FontSize, HealDuration, parent);
 	}
 
+	public static void CreateArmorGained(int amount, Vector2 screenPosition, Node parent)
+	{
+		if (amount <= 0)
+			return;
+		CreateText($"🛡+{amount}", screenPosition + new Vector2(0, -24), ArmorGainColor, ArmorGainFontSize, ArmorGainDuration, parent);
+	}
+
 	/// <summary>
 	/// 创建单个数字跳字并启动动画。
 	/// </summary>
@@ -82,6 +92,14 @@ public partial class FloatingDamageNumber : Control
 	{
 		var fdn = new FloatingDamageNumber();
 		fdn.Initialize(amount.ToString(), position, color, fontSize, duration);
+		parent.AddChild(fdn);
+		return fdn;
+	}
+
+	private static FloatingDamageNumber CreateText(string text, Vector2 position, Color color, int fontSize, float duration, Node parent)
+	{
+		var fdn = new FloatingDamageNumber();
+		fdn.Initialize(text, position, color, fontSize, duration);
 		parent.AddChild(fdn);
 		return fdn;
 	}

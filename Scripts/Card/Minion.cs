@@ -98,19 +98,21 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	/// 为随从增加护甲值。
 	/// </summary>
 	/// <param name="amount">护甲增加量</param>
-	public void GainArmor(int amount)
+	public int GainArmor(int amount)
 	{
 		// 脆弱：护甲获得量 ×0.75
 		amount = _fragileModifier.ModifyArmorGain(amount);
 		if (amount <= 0)
-			return;
+			return 0;
 
 		_currentArmor += amount;
 		if (_currentArmor > _maxArmor)
 		{
 			_maxArmor = _currentArmor;
 		}
+		OnArmorGained?.Invoke(amount);
 		GD.Print($"[Minion:{CardName}] 获得 {amount} 点护甲，当前护甲：{CurrentArmor}");
+		return amount;
 	}
 
 	/// <summary>
@@ -166,6 +168,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	/// 随从恢复生命值时触发。参数为实际恢复量。
 	/// </summary>
 	public event Action<int>? OnHealed;
+	public event Action<int> OnArmorGained;
 
 	/// <summary>
 	/// 计算此随从的目标标签掩码。
@@ -393,6 +396,8 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	{
 		return _statusEffects.ContainsKey(id) && !_statusEffects[id].IsExpired;
 	}
+
+	public bool IsIncapacitated => HasStatusEffect(StatusEffect.IncapacitatedId);
 
 	private void ApplyStatusEffectImmediate(StatusEffect effect)
 	{

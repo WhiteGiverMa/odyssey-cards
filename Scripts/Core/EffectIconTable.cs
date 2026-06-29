@@ -1,4 +1,3 @@
-using OdysseyCards.Localization;
 using System.Collections.Generic;
 
 namespace OdysseyCards.Core;
@@ -32,6 +31,7 @@ public static class EffectIconTable
 		["total_observation"] = new() { Icon = "👁", NameKey = "effect.total_observation", DescKey = "effect.total_observation_desc", IsBuff = false },
 		["attack_ban"] = new() { Icon = "🚫", NameKey = "effect.attack_ban", DescKey = "effect.attack_ban_desc", IsBuff = false },
 		["damage_over_time"] = new() { Icon = "🩸", NameKey = "effect.damage_over_time", DescKey = "effect.damage_over_time_desc", IsBuff = false },
+		["incapacitated"] = new() { Icon = "⛔", NameKey = "effect.incapacitated", DescKey = "effect.incapacitated_desc", IsBuff = false },
 		// 限时 mount 效果（原属领域表面，归类到限时 Power，name/desc 保留 domain.* 翻译键）
 		["shiyoru_raidenkou"] = new() { Icon = "⚡", NameKey = "domain.shiyoru_raidenkou", DescKey = "domain.shiyoru_raidenkou_desc", IsBuff = true },
 		["sutaraito_spirit"] = new() { Icon = "⭐", NameKey = "domain.sutaraito_spirit", DescKey = "domain.sutaraito_spirit_desc", IsBuff = true },
@@ -97,7 +97,7 @@ public static class EffectIconTable
 		EffectIconData data,
 		EffectCategory category,
 		int stacks = 0,
-		string? sourceId = null)
+		string sourceId = null)
 	{
 		return new DisplayableEffect
 		{

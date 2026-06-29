@@ -79,9 +79,13 @@ internal sealed class CardEffectDispatcher
 			[CardEffectType.ChooseFromDiscard] = HandleChooseFromDiscard,
 			[CardEffectType.DiscardRandom] = HandleDiscardRandom,
 			[CardEffectType.DiscardChoose] = HandleDiscardChoose,
-			[CardEffectType.ShuffleTribeCards] = HandleShuffleTribeCards,
-			[CardEffectType.Custom] = HandleCustomEffect,
-		};
+				[CardEffectType.ShuffleTribeCards] = HandleShuffleTribeCards,
+				[CardEffectType.ApplyStatusToTarget] = HandleApplyStatusToTarget,
+				[CardEffectType.DrawByFriendlyMinions] = HandleDrawByFriendlyMinions,
+				[CardEffectType.GainManaSlotAndMana] = HandleGainManaSlotAndMana,
+				[CardEffectType.GainArmorToFriendlyBoard] = HandleGainArmorToFriendlyBoard,
+				[CardEffectType.Custom] = HandleCustomEffect,
+			};
 	}
 
 	public void ExecuteEffect(CardEffectData effect, object? target, IDamageSource? source = null, object? visualSource = null)
@@ -228,6 +232,15 @@ internal sealed class CardEffectDispatcher
 		GD.Print($"[CardEffectDispatcher] 获得 {effect.Value} 个法力水晶槽（总上限 {_state.PlayerMaxMana}）");
 	}
 
+	private void HandleGainManaSlotAndMana(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	{
+		int beforeMax = _state.PlayerMaxMana;
+		_state.GainManaSlot(effect.Value);
+		int gainedSlots = _state.PlayerMaxMana - beforeMax;
+		_playerCore.SetMana(_playerCore.CurrentMana + gainedSlots, _state.PlayerMaxMana);
+		GD.Print($"[CardEffectDispatcher] 获得 {gainedSlots} 个法力槽和 {gainedSlots} 点法力（当前 {_playerHero.CurrentMana}/{_playerHero.MaxMana}）");
+	}
+
 	private static void HandleRemoveNaturalManaCap(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		GD.Print("[CardEffectDispatcher] 无限潜能领域已展开，自然增长上限提升至 30");
@@ -317,8 +330,8 @@ internal sealed class CardEffectDispatcher
 		GD.Print($"[CardEffectDispatcher] 主动弃牌：从手牌 {handCopy.Count} 张中选择弃掉 {mustDiscard} 张");
 	}
 
-	private void HandleShuffleTribeCards(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
-	{
+		private void HandleShuffleTribeCards(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+		{
 		int insertCount = effect.Value;
 		if (!Enum.TryParse<CardMechanicTag>(effect.TargetType, out var targetTag) || targetTag == CardMechanicTag.None)
 		{
@@ -350,6 +363,57 @@ internal sealed class CardEffectDispatcher
 
 		_playerHero.ShuffleDrawPile();
 		GD.Print($"[CardEffectDispatcher] 种族洗牌完成：将 {insertCount} 张随机 {effect.TargetType} 随从洗入抽牌堆");
+			_notifyCombatStateChanged();
+		}
+
+	private void HandleApplyStatusToTarget(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	{
+		string statusId = string.IsNullOrWhiteSpace(effect.TargetType)
+			? StatusEffect.IncapacitatedId
+			: effect.TargetType;
+		int stacks = Math.Max(1, effect.Value);
+
+		switch (target)
+		{
+			case Hero hero:
+				hero.AddStatusEffect(new StatusEffect(statusId, stacks, GetStatusTickTimingFor(hero)));
+				break;
+			case Minion minion:
+				minion.AddStatusEffect(new StatusEffect(statusId, stacks, GetStatusTickTimingFor(minion)));
+				break;
+			default:
+				GD.Print($"[CardEffectDispatcher] 施加状态失败：目标无效（{statusId}）");
+				return;
+		}
+
+		GD.Print($"[CardEffectDispatcher] 目标获得 {stacks} 层状态「{statusId}」");
+		_notifyCombatStateChanged();
+	}
+
+	private void HandleDrawByFriendlyMinions(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	{
+		int baseDraw = effect.Value > 0 ? effect.Value : 1;
+		int minionCount = GetFriendlyMinionsFor(source).Count;
+		int drawCount = minionCount + baseDraw;
+		_playerHero.DrawCards(drawCount);
+		GD.Print($"[CardEffectDispatcher] 响应：友方随从 {minionCount} 个，抽 {drawCount} 张牌");
+	}
+
+	private void HandleGainArmorToFriendlyBoard(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	{
+		int minionArmor = Math.Max(0, effect.Value);
+		int heroMultiplier = effect.SecondaryValue > 0 ? effect.SecondaryValue : 2;
+		var minions = GetFriendlyMinionsFor(source);
+
+		foreach (var minion in minions)
+			minion.GainArmor(minionArmor);
+
+		var hero = GetFriendlyHeroFor(source);
+		int heroArmor = minionArmor * heroMultiplier;
+		hero?.GainArmor(heroArmor);
+
+		string sideLabel = IsPlayerCaster(source) ? "玩家方" : "敌方";
+		GD.Print($"[CardEffectDispatcher] {sideLabel}全体获得格挡：随从 {minionArmor}，英雄 {heroArmor}");
 		_notifyCombatStateChanged();
 	}
 
@@ -604,9 +668,35 @@ private void HandleMountHeroEffect(CardEffectData effect, object? target, IDamag
 		return IsPlayerCaster(source) ? _board.GetEnemyMinions() : _board.GetPlayerMinions();
 	}
 
-	private static TickTiming GetEnemyStatusTickTimingFor(IDamageSource? source)
+		private static TickTiming GetEnemyStatusTickTimingFor(IDamageSource? source)
+		{
+			return IsPlayerCaster(source) ? TickTiming.EnemyTurnEnd : TickTiming.PlayerTurnEnd;
+		}
+
+	private static TickTiming GetStatusTickTimingFor(Hero target)
 	{
-		return IsPlayerCaster(source) ? TickTiming.EnemyTurnEnd : TickTiming.PlayerTurnEnd;
+		return target.IsPlayerSide ? TickTiming.PlayerTurnEnd : TickTiming.EnemyTurnEnd;
+	}
+
+	private static TickTiming GetStatusTickTimingFor(Minion target)
+	{
+		return target.IsPlayerSide ? TickTiming.PlayerTurnEnd : TickTiming.EnemyTurnEnd;
+	}
+
+	private Hero? GetFriendlyHeroFor(IDamageSource? source)
+	{
+		if (IsPlayerCaster(source))
+			return _playerHero;
+
+		if (source is Hero sourceHero)
+			return sourceHero;
+
+		return _enemyUnits.FirstOrDefault(unit => !unit.Body.IsDead)?.Body;
+	}
+
+	private List<Minion> GetFriendlyMinionsFor(IDamageSource? source)
+	{
+		return IsPlayerCaster(source) ? _board.GetPlayerMinions() : _board.GetEnemyMinions();
 	}
 
 	/// <summary>
