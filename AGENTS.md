@@ -3,6 +3,10 @@
 **Updated:** 2026-06-25
 **Scale:** 192 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~37,000 行 · 46 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
 
+## 项目文化标签
+
+`#少女 #可爱 #微涩情 #轻小说 #轻松愉快 #中式&日式二次元 #轻科幻`
+
 ## Start
 
 - 本文件是公共版。本地规则见 `AGENTS_LOCAL.md`（gitignored）。
