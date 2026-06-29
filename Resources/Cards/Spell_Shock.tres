@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 31
+Value = 2
+TargetType = "incapacitated"
+
+[sub_resource type="Resource" id="SubResource_2"]
+script = ExtResource("2_effect")
+EffectType = 2
+Value = 1
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_shock"
+MechanicTags = 8208
+CardName = "震慑"
+Description = "轮战。使一个单位失能2回合，抽1张牌。"
+Rarity = 4
+Cost = 2
+Type = 1
+RequiresTarget = true
+TargetFilter = 0
+Keywords = [8]
+Effects = [SubResource("SubResource_1"), SubResource("SubResource_2")]

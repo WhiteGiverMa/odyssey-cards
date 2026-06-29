@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 34
+Value = 3
+SecondaryValue = 2
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_centurion"
+MechanicTags = 8
+CardName = "百机长"
+Description = "嘲讽。战吼：所有友方随从获得3点格挡，友方英雄获得双倍格挡。友方回合结束时，所有友方随从获得1点格挡，友方英雄获得双倍格挡。"
+Rarity = 2
+Cost = 6
+ActionCost = 3
+Type = 0
+Attack = 3
+Health = 6
+Defense = 2
+Keywords = [2, 3]
+BattlecryEffects = [SubResource("SubResource_1")]

@@ -162,7 +162,32 @@ public enum CardEffectType
 	/// 将当前法术的效果挂载到友方英雄身上。
 	/// 当前通过 CustomEffectName 分派具体英雄效果。
 	/// </summary>
-	MountHeroEffect = 30
+	MountHeroEffect = 30,
+
+	/// <summary>
+	/// 对目标施加状态效果。
+	/// Value = 层数，TargetType = 状态 ID。
+	/// 负面状态按目标所属方的回合结束衰减。
+	/// </summary>
+	ApplyStatusToTarget = 31,
+
+	/// <summary>
+	/// 按友方随从数量抽牌。
+	/// 抽牌数 = 友方随从数量 + Value。
+	/// </summary>
+	DrawByFriendlyMinions = 32,
+
+	/// <summary>
+	/// 获得法力槽并立即获得等量法力。
+	/// Value = 增加的槽数。
+	/// </summary>
+	GainManaSlotAndMana = 33,
+
+	/// <summary>
+	/// 友方全体获得格挡。
+	/// 友方随从获得 Value 点，友方英雄获得 Value * SecondaryValue 点。
+	/// </summary>
+	GainArmorToFriendlyBoard = 34
 }
 
 public partial class CardEffectData : Resource
@@ -194,7 +219,11 @@ public partial class CardEffectData : Resource
 			CardEffectType.DiscardChooseUpTo => $"选择弃掉最多{Value}张手牌",
 			CardEffectType.ShuffleTribeCards => $"将{Value}张随机{TargetType}卡牌洗入抽牌堆",
 				CardEffectType.DealDamageToAllEnemiesAndHero => $"对敌方全体造成{Value}点法术伤害",
-				CardEffectType.MountHeroEffect => CustomEffectName,
+					CardEffectType.MountHeroEffect => CustomEffectName,
+					CardEffectType.ApplyStatusToTarget => $"使目标获得{Value}层{TargetType}",
+					CardEffectType.DrawByFriendlyMinions => $"按友方随从数量抽牌（+{Value}）",
+					CardEffectType.GainManaSlotAndMana => $"获得{Value}个法力槽和{Value}点法力",
+					CardEffectType.GainArmorToFriendlyBoard => $"友方随从获得{Value}点格挡，友方英雄获得{Value * SecondaryValue}点格挡",
 			CardEffectType.SummonMinion => $"召唤{TargetType}",
 			CardEffectType.BuffMinion => $"使一个随从获得+{Value}/+{SecondaryValue}",
 			CardEffectType.RestoreHealth => $"恢复{Value}点生命值",

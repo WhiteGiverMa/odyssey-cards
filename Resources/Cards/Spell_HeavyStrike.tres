@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 0
+Value = 6
+
+[sub_resource type="Resource" id="SubResource_2"]
+script = ExtResource("2_effect")
+EffectType = 31
+Value = 3
+TargetType = "vulnerable"
+
+[sub_resource type="Resource" id="SubResource_3"]
+script = ExtResource("2_effect")
+EffectType = 31
+Value = 3
+TargetType = "incapacitated"
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_heavy_strike"
+MechanicTags = 8193
+CardName = "沉重打击"
+Description = "对一个目标造成6点伤害，使其获得3层易伤，失能3回合。"
+Rarity = 3
+Cost = 7
+Type = 1
+RequiresTarget = true
+TargetFilter = 0
+Effects = [SubResource("SubResource_1"), SubResource("SubResource_2"), SubResource("SubResource_3")]

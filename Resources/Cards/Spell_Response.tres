@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 32
+Value = 1
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_response"
+MechanicTags = 16
+CardName = "响应"
+Description = "有n个友方随从时，抽（n+1）张牌。"
+Rarity = 2
+Cost = 5
+Type = 1
+Effects = [SubResource("SubResource_1")]

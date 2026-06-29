@@ -375,9 +375,33 @@ cards:
   spell_alert:
 	name: "警戒"
 	description: "轮战\n抽 1 张牌，回复 2 点生命值"
+  spell_engine:
+	name: "引擎"
+	description: "轮战。抽2张牌。"
+  spell_retrieve:
+	name: "检索"
+	description: "抽3张牌。"
+  spell_response:
+	name: "响应"
+	description: "有n个友方随从时，抽（n+1）张牌。"
+  spell_adrenaline:
+	name: "肾上腺素"
+	description: "抽2张牌，获得1个法力槽，获得1点法力。"
+  spell_heavy_strike:
+	name: "沉重打击"
+	description: "对一个目标造成6点伤害，使其获得3层易伤，失能3回合。"
+  spell_shock:
+	name: "震慑"
+	description: "轮战。使一个单位失能2回合，抽1张牌。"
   minion_18th_regiment:
 	name: "第 18 团"
 	description: "嘲讽，轮战"
+  minion_40_main_battle_tank:
+	name: "40主战坦克"
+	description: "嘲讽。战吼：抽2张牌。"
+  minion_centurion:
+	name: "百机长"
+	description: "嘲讽。战吼：所有友方随从获得3点格挡，友方英雄获得双倍格挡。友方回合结束时，所有友方随从获得1点格挡，友方英雄获得双倍格挡。"
   minion_detective_squad:
 	name: "武侦小组"
 	description: "闪击"
@@ -624,6 +648,8 @@ effect:
   attack_ban_desc: "本回合内无法攻击。"
   damage_over_time: "持续伤害"
   damage_over_time_desc: "在该单位的友方回合开始时，受到1点直接伤害，然后减少1层。"
+  incapacitated: "失能"
+  incapacitated_desc: "无法攻击和反击。英雄无法使用武器攻击，但仍可施放法术。"
 
 domain:
   unlimited_potential: "无限潜能"

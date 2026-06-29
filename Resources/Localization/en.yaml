@@ -375,9 +375,33 @@ cards:
   spell_alert:
 	name: "Alert"
 	description: "Recycle\nDraw 1 card, restore 2 HP"
+  spell_engine:
+	name: "Engine"
+	description: "Recycle. Draw 2 cards."
+  spell_retrieve:
+	name: "Retrieve"
+	description: "Draw 3 cards."
+  spell_response:
+	name: "Response"
+	description: "If you have n friendly minions, draw n+1 cards."
+  spell_adrenaline:
+	name: "Adrenaline"
+	description: "Draw 2 cards, gain 1 Mana slot, and gain 1 Mana."
+  spell_heavy_strike:
+	name: "Heavy Strike"
+	description: "Deal 6 damage to a target. Apply 3 Vulnerable and 3 Incapacitated."
+  spell_shock:
+	name: "Shock"
+	description: "Recycle. Apply 2 Incapacitated to a unit. Draw 1 card."
   minion_18th_regiment:
 	name: "18th Regiment"
 	description: "Taunt, Recycle"
+  minion_40_main_battle_tank:
+	name: "Type 40 Main Battle Tank"
+	description: "Taunt. Battlecry: Draw 2 cards."
+  minion_centurion:
+	name: "Centurion"
+	description: "Taunt. Battlecry: all friendly minions gain 3 Block, and your hero gains double that Block. At end of your turn, all friendly minions gain 1 Block, and your hero gains double that Block."
   minion_detective_squad:
 	name: "Detective Squad"
 	description: "Charge"
@@ -621,6 +645,8 @@ effect:
   attack_ban_desc: "Cannot attack this turn."
   damage_over_time: "Damage over Time"
   damage_over_time_desc: "At the start of this unit's friendly turn, it takes 1 direct damage, then loses 1 stack."
+  incapacitated: "Incapacitated"
+  incapacitated_desc: "Cannot attack or counterattack. Heroes cannot attack with weapons, but can still cast spells."
 
 domain:
   unlimited_potential: "Unlimited Potential"

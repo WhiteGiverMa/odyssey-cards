@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 2
+Value = 2
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_engine"
+MechanicTags = 16
+CardName = "引擎"
+Description = "轮战。抽2张牌。"
+Rarity = 4
+Cost = 3
+Type = 1
+Keywords = [8]
+Effects = [SubResource("SubResource_1")]
