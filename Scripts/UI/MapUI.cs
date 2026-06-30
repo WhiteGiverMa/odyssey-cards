@@ -431,7 +431,11 @@ public partial class MapUI : Control
 		// 检查位面是否完成
 		if (_runState.IsPlaneComplete || _runState.IsRunComplete)
 		{
-			if (_runState.IsRunComplete && !_runState.IsRunFailed)
+			if (_runState.IsRunComplete && _runState.IsRunFailed)
+			{
+				ShowRunFailed();
+			}
+			else if (_runState.IsRunComplete)
 			{
 				ShowRunComplete();
 			}
@@ -982,6 +986,55 @@ public partial class MapUI : Control
 		victoryLabel.AddThemeFontSizeOverride("font_size", 24);
 		victoryLabel.AddThemeColorOverride("font_color", new Color(1, 0.85f, 0.3f, 1));
 		content.AddChild(victoryLabel);
+
+		var returnBtn = MobileDialogHost.CreateDialogButton(
+			Localization.Localization.T("ui.combat.back_to_menu", "返回主菜单"));
+		returnBtn.Pressed += () =>
+		{
+			GameManager.Instance?.ClearActiveRun();
+			GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
+		};
+		buttonRow.AddChild(returnBtn);
+	}
+
+	/// <summary>
+	/// 显示冒险失败画面——玩家阵亡或镜中自我虚脱。
+	/// 失败原因由 GameRunState.FailureReason 提供（null 则为战斗死亡通用文案）。
+	/// </summary>
+	private void ShowRunFailed()
+	{
+		// 清除所有选择卡片
+		foreach (var token in _roomZoneTokens)
+			token.Dispose();
+		_roomZoneTokens.Clear();
+
+		foreach (var child in _choicesContainer.GetChildren())
+		{
+			child.QueueFree();
+		}
+
+		_layerLabel.Text = "";
+		_progressLabel.Text = Localization.Localization.T("ui.map.adventure_failed", "冒险结束…");
+		_titleLabel.Text = Localization.Localization.T("ui.map.failed_title", "冒险结束…");
+		_quitButton.Visible = false;
+
+		// 弹出失败对话框——使用自定义失败原因或通用战斗失败文案
+		var reason = _runState.FailureReason
+			?? Localization.Localization.T("ui.map.failed_combat", "你在战斗中倒下了。\n但这只是暂时的——下次一定能走得更远。");
+
+		var (dialog, content, buttonRow) = MobileDialogHost.CreateDialog(
+			this,
+			Localization.Localization.T("ui.map.failed_title", "冒险结束…"),
+			width: 400);
+
+		var failedLabel = new Label
+		{
+			Text = reason,
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		failedLabel.AddThemeFontSizeOverride("font_size", 20);
+		failedLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.7f, 0.7f, 1));
+		content.AddChild(failedLabel);
 
 		var returnBtn = MobileDialogHost.CreateDialogButton(
 			Localization.Localization.T("ui.combat.back_to_menu", "返回主菜单"));

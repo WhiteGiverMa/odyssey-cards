@@ -5,6 +5,7 @@ using OdysseyCards.Roguelike;
 using OdysseyCards.Localization;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace OdysseyCards.UI;
 
@@ -13,25 +14,27 @@ namespace OdysseyCards.UI;
 /// 由 MapUI.ShowEventRoom 创建并添加到场景树。
 /// 选择完成后触发 OnEventComplete，由 MapUI 推进冒险。
 /// </summary>
-public partial class EventUI : Control
-{
-	// ──── 构造参数 ────
+	public partial class EventUI : Control
+	{
+		// ──── 构造参数 ────
 
-	private readonly RoomDefinition _room;
-	private readonly EventData _eventData;
+		private readonly RoomDefinition _room;
+		private readonly EventData _eventData;
 
-	/// <summary>事件完成后触发（MapUI 订阅以调用 CompleteRoomAndAdvance）。</summary>
-	public event Action? OnEventComplete;
+		/// <summary>事件完成后触发（MapUI 订阅以调用 CompleteRoomAndAdvance）。</summary>
+		public event Action? OnEventComplete;
 
-	// ──── UI 引用 ────
+		// ──── UI 引用 ────
 
-	private Control _dialog = null!;
-	private VBoxContainer _contentArea = null!;
-	private HBoxContainer _buttonArea = null!;
-	private readonly List<Button> _choiceButtons = new();
-	private Label _resultLabel = null!;
-	private Button _continueButton = null!;
-	private bool _choiceSelected;
+		private Control _dialog = null!;
+		private Label _storyLabel = null!;
+		private Label _titleLabel = null!;
+		private VBoxContainer _contentArea = null!;
+		private HBoxContainer _buttonArea = null!;
+		private readonly List<Button> _choiceButtons = new();
+		private Label _resultLabel = null!;
+		private Button _continueButton = null!;
+		private bool _choiceSelected;
 
 	// ──── 构造 ────
 
@@ -74,6 +77,11 @@ public partial class EventUI : Control
 		_contentArea = content;
 		_buttonArea = buttonRow;
 
+		// 缓存对话框标题标签引用（用于涩情开关实时刷新）
+		// 从 buttonRow 的父节点（PanelVBox）获取第一个 Label（标题）
+		var titleBox = _buttonArea.GetParent();
+		_titleLabel = titleBox != null ? titleBox.GetChild<Label>(0) : new Label();
+
 		// ── 叙事文本 ──
 		var storyLabel = new Label
 		{
@@ -84,6 +92,7 @@ public partial class EventUI : Control
 		storyLabel.AddThemeFontSizeOverride("font_size", 16);
 		storyLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.8f, 0.9f, 1));
 		_contentArea.AddChild(storyLabel);
+		_storyLabel = storyLabel;
 
 		// 故事与按钮之间的间距
 		var spacer = new Control { CustomMinimumSize = new Vector2(0, 16) };
@@ -176,6 +185,59 @@ public partial class EventUI : Control
 				_resultLabel.Text = choice.ResultText;
 				_resultLabel.Visible = true;
 				_continueButton.Visible = true;
+		}
+	}
+
+		// ──── 涩情文案实时刷新 ────
+
+		public override void _EnterTree()
+		{
+			base._EnterTree();
+			if (UIScaler.Instance != null)
+				UIScaler.Instance.OnLewdTextChanged += RefreshLewdText;
+		}
+
+		public override void _ExitTree()
+		{
+			base._ExitTree();
+			if (UIScaler.Instance != null)
+				UIScaler.Instance.OnLewdTextChanged -= RefreshLewdText;
+		}
+
+		/// <summary>
+		/// 涩情开关切换时重新从事件池读取文本并刷新 UI。
+		/// 仅对 ayame_mirror 事件生效（其他事件无涩情版文案）。
+		/// </summary>
+		private void RefreshLewdText()
+		{
+			if (!_eventData.Id.StartsWith("ayame_mirror"))
+				return;
+			if (!IsInsideTree())
+				return;
+			// BuildUI 未完成（如 dialog 尚未构造完毕）时跳过
+			if (_titleLabel == null || _storyLabel == null)
+				return;
+
+			var gm = GameManager.Instance;
+			if (gm == null)
+				return;
+
+			var fresh = EventPool.FindEvent(_eventData.Id, gm.SelectedHeroId);
+			if (fresh == null)
+				return;
+
+			// 更新标题
+			string icon = MapUIIcons.GetRoomIcon(_room.Type);
+			_titleLabel.Text = $"{icon} {fresh.Title}";
+
+			// 更新叙事文本
+			_storyLabel.Text = fresh.Story;
+
+			// 更新选择按钮文本（尚未选择时）
+			if (!_choiceSelected && fresh.Choices.Length == _choiceButtons.Count)
+			{
+				for (int i = 0; i < _choiceButtons.Count; i++)
+					_choiceButtons[i].Text = fresh.Choices[i].Text;
 			}
 		}
 }

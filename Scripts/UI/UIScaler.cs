@@ -337,7 +337,11 @@ namespace OdysseyCards.UI
 			// 同步到 GameManager 供 Roguelike 层读取
 			if (GameManager.Instance != null)
 				GameManager.Instance.LewdTextEnabled = enabled;
+			OnLewdTextChanged?.Invoke();
 		}
+
+		/// <summary>涩情文案切换事件——EventUI 等订阅用于实时刷新显示文本。</summary>
+		public event Action? OnLewdTextChanged;
 
 		/// <summary>设置弹道特效缩放并持久化（范围 0.0~5.0）。</summary>
 		public void SetProjectileScale(float scale)
@@ -462,6 +466,10 @@ namespace OdysseyCards.UI
 			CardDescriptionCentered = config.GetValue("visual", "card_description_centered", false).AsBool();
 			DevModeEnabled = config.GetValue("visual", "dev_mode", false).AsBool();
 			LewdTextEnabled = config.GetValue("visual", "lewd_text", false).AsBool();
+
+			// 持久化恢复后同步到 GameManager（Roguelike 层读取入口）
+			if (GameManager.Instance != null)
+				GameManager.Instance.LewdTextEnabled = LewdTextEnabled;
 			ProjectileScale = (float)config.GetValue("visual", "projectile_scale", 1.0).AsDouble();
 			CardFlyScale = (float)config.GetValue("visual", "card_fly_scale", 1.0).AsDouble();
 			DamageNumberScale = (float)config.GetValue("visual", "damage_number_scale", 1.0).AsDouble();
