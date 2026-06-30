@@ -152,6 +152,9 @@ ui:
     adventure_complete: "Adventure Complete!"
     victory_title: "★ Victory ★"
     victory_desc: "You defeated the Guardian!\nFirst Plane completed!"
+    failed_title: "Adventure Ended…"
+    adventure_failed: "Adventure Ended…"
+    failed_combat: "You fell in battle.\nBut it's only temporary — you'll go further next time."
     error_title: "Error"
     error_format: "An error occurred: {message}"
     reward_title: "Choose a Reward"
@@ -762,6 +765,7 @@ events:
     result_a: "You clench your teeth and suppress the urge. Though your body feels weary, your will has grown stronger.\n(-{0} HP, +1 Max HP)"
     choice_b: "At the limit... let it all out (Restore 30% of Max HP)"
     result_b: "You stop holding back, letting the pent-up emotions pour out freely. Body and mind feel so much lighter."
+    death: "You've held on for too long… after one fierce release, you no longer have the strength to continue the adventure."
 
   ayame_mirror_lewd:
     title: "Mirror Self♥"
@@ -770,6 +774,7 @@ events:
     result_a: "Ayame's fingers churn squelch-squelch inside her little slit♥ The pleasure swells to the brink of collapse—then is forcibly held back. Each iron-clad endurance makes that taut string a little more resilient.\n\"Not yet… don't want to let go yet♥\" Her body grows wearier from the mounting pleasure, but her will grows sterner.\n(-{0} HP, +1 Max HP)"
     choice_b: "Can't take it anymore… let it go watching the mirror♥ (Restore 30% of Max HP)"
     result_b: "Ayame gives in, fingers pumping and churning faster, hunting for her G-spot. The squelch-squelch of her slick grows louder and louder; her little slit leaks like a faucet that won't shut.\n\"Ahh♥—\" Staring at her own lewd, dissolute reflection, her juices spray out like a showerhead in a mist, deliberately splattering all over Sokou's mirror—so embarrassing, so thrilling♥\nAfter the climax passes, her whole body goes soft and limp, and body and mind both feel so much lighter♥"
+    death: "You held on too long, and that one intense session left your body melting into a puddle… you're too exhausted to play cards anymore♥"
 
 hero_power:
   iron_will:
