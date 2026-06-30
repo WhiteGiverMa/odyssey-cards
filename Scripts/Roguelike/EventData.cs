@@ -379,10 +379,24 @@ public class EventData
 					entryMaxHp = gm.PlayerMaxHealth;
 
 				int lostHp = penalty;
-				gm.PlayerHealth = Math.Max(gm.PlayerHealth - lostHp, 1);
+				gm.PlayerHealth = gm.PlayerHealth - lostHp;
 				gm.PlayerMaxHealth += 1;
 				gm.SavePlayerHealth(gm.PlayerHealth, gm.PlayerMaxHealth);
 				penalty++;
+
+				// 检查是否因承受太多而"虚脱"——HP 归零触发特殊失败
+				if (gm.PlayerHealth <= 0)
+				{
+					choiceA.StaysInEvent = false;
+					var deathReason = L($"{prefix}.death",
+						"你承受了太多……在一次酣畅淋漓的释放后，已经没有力气继续冒险了。");
+					choiceA.ResultText = deathReason;
+					if (gm.RunState != null)
+						gm.RunState.FailureReason = deathReason;
+					gm.RunState?.FailRun();
+					return;
+				}
+
 				choiceA.Text = string.Format(choiceATemplate, penalty);
 				choiceA.ResultText = string.Format(resultATemplate, lostHp);
 			};

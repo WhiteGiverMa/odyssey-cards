@@ -45,6 +45,12 @@ public class GameRunState
 	/// </summary>
 	public bool IsRunFailed { get; private set; }
 
+	/// <summary>
+	/// 失败原因文本（由触发失败的系统设置，MapUI ShowRunFailed 展示）。
+	/// null 表示战斗死亡，非 null 表示特殊失败（如镜中自我虚脱）。
+	/// </summary>
+	public string? FailureReason { get; set; }
+
 	// ===== 运行事件 =====
 
 	/// <summary>
