@@ -15,6 +15,9 @@
              ItemGroup 显式注入，避免重复。 -->
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 
+        <!-- 全局开启可空引用类型注解上下文，消除 CS8632 -->
+        <Nullable>annotations</Nullable>
+
         <!-- 代码分析增强 -->
         <AnalysisMode>AllEnabledByDefault</AnalysisMode>
         <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>

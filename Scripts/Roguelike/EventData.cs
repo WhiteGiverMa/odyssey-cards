@@ -359,8 +359,8 @@ public class EventData
 			int entryMaxHp = 0;    // 进入事件时的生命值上限（首次执行时捕获）
 
 			// ── 涩情文案开关：从 GameManager 读取（由 UIScaler 持久化并同步）──
-			bool lewd = GameManager.Instance?.LewdTextEnabled ?? false;
-			string prefix = lewd ? "ayame_mirror_lewd" : "ayame_mirror";
+			bool ecchi = GameManager.Instance?.EcchiTextEnabled ?? false;
+			string prefix = ecchi ? "ayame_mirror_ecchi" : "ayame_mirror";
 
 			string choiceATemplate = L($"{prefix}.choice_a", "忍耐……再坚持一会儿（-{0} 生命，+1 生命上限）");
 			string resultATemplate = L($"{prefix}.result_a", "你咬紧牙关，克制住了冲动。虽然身体有些疲惫，但意志更加坚定了。\n（-{0} 生命，+1 生命上限）");

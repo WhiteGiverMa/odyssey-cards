@@ -107,6 +107,7 @@ Tests/              # tests/csharp：xUnit 12 Unit + 1 Integration(跳过)
 | **目标/单位** | IDamageTarget 接口实现 | Hero : IDamageTarget, IDamageSource、Minion : Card, IDamageTarget, IDamageSource | 玩家英雄、敌方英雄、友方随从、敌方随从、衍生衍生牌生成的临时单位都是「单位」。卡牌效果的目标都是 unit。 |
 | **直伤卡** | CardMechanicTag.DirectDamage flag 标记的卡 | CardData.MechanicTags | 由人工权威标注，**不从 CardEffectType 自动推导**。火力筛选（理惠）与 ThemeProfile 直伤维度共用此真源。 |
 | **触发时机（tick timing）** | STS2 的 AfterSideTurnStart/End | TickTiming enum + Hero/Minion.TickStatusEffects(timing) | 玩家回合开始/结束、敌方回合开始/结束四档。StatusEffect.OnTick 在 Tick() 衰减**之前**触发（对齐 STS2「先 heal 再 Decrement」），避免最后一帧丢触发。 |
+| **涩情文案（ecchi）** | 设置页「涩情文案♥️」开关 | `UIScaler.EcchiTextEnabled` + `GameManager.EcchiTextEnabled`，持久化 key `visual/ecchi_text` | 事件文案按此开关切换过审版 / 涩情版前缀。YAML key 加 `_ecchi` 后缀区分（如 `ayame_mirror_ecchi`）。外部命名统一用 `ecchi`（日语「エッチ」），不用 `lewd`。 |
 
 「领域」这一玩家可见术语只指 **永久 Power**——限时挂载效果不是「领域」。
 

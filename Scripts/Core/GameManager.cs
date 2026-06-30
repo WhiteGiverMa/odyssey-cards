@@ -50,7 +50,7 @@ public partial class GameManager : Node
 	/// <summary>
 	/// 涩情文案开关。由 UIScaler 持久化并同步，Roguelike 层通过此属性读取。
 	/// </summary>
-	public bool LewdTextEnabled { get; set; }
+	public bool EcchiTextEnabled { get; set; }
 
 	/// <summary>
 	/// 当前选择的英雄 ID。新冒险开始时由主菜单英雄选择界面设置。

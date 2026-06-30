@@ -10,6 +10,9 @@
         <!-- 测试不需要导出 -->
         <EnableDynamicLoading>false</EnableDynamicLoading>
 
+        <!-- 全局可空引用类型注解 -->
+        <Nullable>annotations</Nullable>
+
         <!-- 代码分析 (与主项目一致) -->
         <AnalysisMode>AllEnabledByDefault</AnalysisMode>
         <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>

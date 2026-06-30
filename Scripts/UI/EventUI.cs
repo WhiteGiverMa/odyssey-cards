@@ -194,21 +194,21 @@ namespace OdysseyCards.UI;
 		{
 			base._EnterTree();
 			if (UIScaler.Instance != null)
-				UIScaler.Instance.OnLewdTextChanged += RefreshLewdText;
+				UIScaler.Instance.OnEcchiTextChanged += RefreshEcchiText;
 		}
 
 		public override void _ExitTree()
 		{
 			base._ExitTree();
 			if (UIScaler.Instance != null)
-				UIScaler.Instance.OnLewdTextChanged -= RefreshLewdText;
+				UIScaler.Instance.OnEcchiTextChanged -= RefreshEcchiText;
 		}
 
 		/// <summary>
 		/// 涩情开关切换时重新从事件池读取文本并刷新 UI。
 		/// 仅对 ayame_mirror 事件生效（其他事件无涩情版文案）。
 		/// </summary>
-		private void RefreshLewdText()
+		private void RefreshEcchiText()
 		{
 			if (!_eventData.Id.StartsWith("ayame_mirror"))
 				return;
