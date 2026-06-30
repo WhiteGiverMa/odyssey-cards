@@ -46,6 +46,7 @@ public partial class SettingsPage : Control
 	private CheckBox _intentValueFloatingToggle = null!;
 	private CheckBox _intentTooltipShowAllToggle = null!;
 	private CheckBox _devModeToggle = null!;
+	private CheckBox _lewdTextToggle = null!;
 	private Button _consoleButton = null!;
 	private Label _emoteIdleTimeLabel = null!;
 	private HSlider _emoteIdleTimeSlider = null!;
@@ -238,6 +239,7 @@ public partial class SettingsPage : Control
 		_intentTooltipShowAllToggle.Toggled -= OnIntentTooltipShowAllToggled;
 		_backButton.Pressed -= OnBackPressed;
 		_devModeToggle.Toggled -= OnDevModeToggled;
+		_lewdTextToggle.Toggled -= OnLewdTextToggled;
 		_consoleButton.Pressed -= OnConsolePressed;
 		_emoteIdleTimeSlider.ValueChanged -= OnEmoteIdleTimeChanged;
 		_emoteVarMinSlider.ValueChanged -= OnEmoteVarMinChanged;
@@ -556,6 +558,18 @@ public partial class SettingsPage : Control
 		};
 		_devModeToggle.AddThemeFontSizeOverride("font_size", 20);
 		_gameContainer.AddChild(CreateCenteredRow(_devModeToggle));
+
+		// 涩情文案开关
+		bool lewdText = UIScaler.Instance?.LewdTextEnabled ?? false;
+		// 同步到 GameManager（Roguelike 层读取）
+		GameManager.Instance.LewdTextEnabled = lewdText;
+		_lewdTextToggle = new CheckBox
+		{
+			Text = Loc.T("ui.settings.lewd_text", "涩情文案♥️"),
+			ButtonPressed = lewdText,
+		};
+		_lewdTextToggle.AddThemeFontSizeOverride("font_size", 20);
+		_gameContainer.AddChild(CreateCenteredRow(_lewdTextToggle));
 
 		_consoleButton = new Button
 		{
@@ -888,6 +902,7 @@ public partial class SettingsPage : Control
 		_intentTooltipShowAllToggle.Toggled += OnIntentTooltipShowAllToggled;
 		_backButton.Pressed += OnBackPressed;
 		_devModeToggle.Toggled += OnDevModeToggled;
+		_lewdTextToggle.Toggled += OnLewdTextToggled;
 		_consoleButton.Pressed += OnConsolePressed;
 		_emoteIdleTimeSlider.ValueChanged += OnEmoteIdleTimeChanged;
 		_emoteVarMinSlider.ValueChanged += OnEmoteVarMinChanged;
@@ -979,6 +994,11 @@ public partial class SettingsPage : Control
 		ChatScreen.IsDevMode = on;
 		_consoleButton.Visible = on;
 		UIScaler.Instance?.SetDevMode(on); // 持久化
+	}
+
+	private void OnLewdTextToggled(bool on)
+	{
+		UIScaler.Instance?.SetLewdText(on); // 持久化 + 同步到 GameManager
 	}
 
 	private void OnConsolePressed()

@@ -358,8 +358,12 @@ public class EventData
 			int penalty = 3;       // 当前耐力惩罚 HP 值（首次 -3，后续 -4、-5...）
 			int entryMaxHp = 0;    // 进入事件时的生命值上限（首次执行时捕获）
 
-			string choiceATemplate = L("ayame_mirror.choice_a", "忍耐……再坚持一会儿（-{0} 生命，+1 生命上限）");
-			string resultATemplate = L("ayame_mirror.result_a", "你咬紧牙关，克制住了冲动。虽然身体有些疲惫，但意志更加坚定了。\n（-{0} 生命，+1 生命上限）");
+			// ── 涩情文案开关：从 GameManager 读取（由 UIScaler 持久化并同步）──
+			bool lewd = GameManager.Instance?.LewdTextEnabled ?? false;
+			string prefix = lewd ? "ayame_mirror_lewd" : "ayame_mirror";
+
+			string choiceATemplate = L($"{prefix}.choice_a", "忍耐……再坚持一会儿（-{0} 生命，+1 生命上限）");
+			string resultATemplate = L($"{prefix}.result_a", "你咬紧牙关，克制住了冲动。虽然身体有些疲惫，但意志更加坚定了。\n（-{0} 生命，+1 生命上限）");
 
 			var choiceA = new EventChoice
 			{
@@ -385,8 +389,8 @@ public class EventData
 
 			var choiceB = new EventChoice
 			{
-				Text = L("ayame_mirror.choice_b", "已经到极限了……释放吧（恢复 30% 生命上限）"),
-				ResultText = L("ayame_mirror.result_b", "你不再压抑自己，尽情释放了积攒已久的情绪。身心都轻松了许多。"),
+				Text = L($"{prefix}.choice_b", "已经到极限了……释放吧（恢复 30% 生命上限）"),
+				ResultText = L($"{prefix}.result_b", "你不再压抑自己，尽情释放了积攒已久的情绪。身心都轻松了许多。"),
 				StaysInEvent = false,
 			};
 
@@ -401,15 +405,15 @@ public class EventData
 				gm.PlayerHealth = Math.Min(gm.PlayerHealth + healAmount, gm.PlayerMaxHealth);
 				int actualHeal = gm.PlayerHealth - beforeHp;
 				gm.SavePlayerHealth(gm.PlayerHealth, gm.PlayerMaxHealth);
-				choiceB.ResultText = L("ayame_mirror.result_b", "你不再压抑自己，尽情释放了积攒已久的情绪。身心都轻松了许多。")
+				choiceB.ResultText = L($"{prefix}.result_b", "你不再压抑自己，尽情释放了积攒已久的情绪。身心都轻松了许多。")
 					+ $"\n（恢复了 {actualHeal} 点生命）";
 			};
 
 			return new EventData
 			{
 				Id = "ayame_mirror",
-				Title = L("ayame_mirror.title", "镜中自我"),
-				Story = L("ayame_mirror.story",
+				Title = L($"{prefix}.title", "镜中自我"),
+				Story = L($"{prefix}.story",
 					"夜深人静，皎洁的月光洒进房间。\n绮梦站在落地镜前，凝视着镜中那个熟悉的身影——\n少女的脸颊泛起红晕，猫耳轻轻颤动。\n她伸出手，指尖触碰到冰凉的镜面，心跳莫名加速。\n身体深处传来一阵难以言喻的躁动……"),
 				Choices = new EventChoice[] { choiceA, choiceB },
 			};
