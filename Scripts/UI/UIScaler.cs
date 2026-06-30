@@ -49,6 +49,8 @@ namespace OdysseyCards.UI
 		public bool IntentTooltipShowAll { get; private set; }
 		public bool CardDescriptionCentered { get; private set; }
 		public bool DevModeEnabled { get; private set; }
+		/// <summary>涩情文案开关（仅存档需持久化，运行时由 GameManager 同步给 EventData 读取）。</summary>
+		public bool LewdTextEnabled { get; private set; }
 
 		/// <summary>稀有度颜色方案索引：0=经典（金/银/铜），1=新版（紫/蓝/绿）。</summary>
 		public int RarityColorSchemeIndex { get; private set; }
@@ -322,6 +324,21 @@ namespace OdysseyCards.UI
 			SaveSettings();
 		}
 
+		/// <summary>设置涩情文案模式并持久化到 user://settings.cfg。</summary>
+		public void SetLewdText(bool enabled)
+		{
+			if (LewdTextEnabled == enabled)
+			{
+				return;
+			}
+
+			LewdTextEnabled = enabled;
+			SaveSettings();
+			// 同步到 GameManager 供 Roguelike 层读取
+			if (GameManager.Instance != null)
+				GameManager.Instance.LewdTextEnabled = enabled;
+		}
+
 		/// <summary>设置弹道特效缩放并持久化（范围 0.0~5.0）。</summary>
 		public void SetProjectileScale(float scale)
 		{
@@ -407,6 +424,7 @@ namespace OdysseyCards.UI
 			config.SetValue("visual", "intent_tooltip_show_all", IntentTooltipShowAll);
 			config.SetValue("visual", "card_description_centered", CardDescriptionCentered);
 			config.SetValue("visual", "dev_mode", DevModeEnabled);
+			config.SetValue("visual", "lewd_text", LewdTextEnabled);
 			config.SetValue("visual", "projectile_scale", ProjectileScale);
 			config.SetValue("visual", "card_fly_scale", CardFlyScale);
 			config.SetValue("visual", "damage_number_scale", DamageNumberScale);
@@ -443,6 +461,7 @@ namespace OdysseyCards.UI
 			IntentTooltipShowAll = config.GetValue("visual", "intent_tooltip_show_all", false).AsBool();
 			CardDescriptionCentered = config.GetValue("visual", "card_description_centered", false).AsBool();
 			DevModeEnabled = config.GetValue("visual", "dev_mode", false).AsBool();
+			LewdTextEnabled = config.GetValue("visual", "lewd_text", false).AsBool();
 			ProjectileScale = (float)config.GetValue("visual", "projectile_scale", 1.0).AsDouble();
 			CardFlyScale = (float)config.GetValue("visual", "card_fly_scale", 1.0).AsDouble();
 			DamageNumberScale = (float)config.GetValue("visual", "damage_number_scale", 1.0).AsDouble();
