@@ -1114,6 +1114,9 @@ State.StartPlayerTurn(growthCap);
 			}
 		}
 
+		if (!selectionTriggered && card.Type == CardType.Spell && card.Data.HasMechanicTag(CardMechanicTag.DirectDamage))
+			TriggerDirectDamageSpellMinionEffects(card);
+
 		// 如果触发了选牌效果，延迟清理——确认选择后处理 RemoveFromHand/CheckDeaths
 		if (selectionTriggered)
 		{
@@ -1853,16 +1856,82 @@ State.StartPlayerTurn(growthCap);
 	{
 		foreach (var minion in Board.GetPlayerMinions().ToList())
 		{
-			if (minion.Id != "minion_centurion" || minion.IsDead)
+			if (minion.IsDead)
 				continue;
 
-			const int turnEndBlock = 1;
-			const int heroMultiplier = 2;
-			foreach (var ally in Board.GetPlayerMinions())
-				ally.GainArmor(turnEndBlock);
-			PlayerHero.GainArmor(turnEndBlock * heroMultiplier);
-			GD.Print($"[CombatManager] 百机长回合结束：友方随从获得 {turnEndBlock} 点格挡，英雄获得 {turnEndBlock * heroMultiplier} 点格挡");
+			if (minion.Id == "minion_centurion")
+				TriggerCenturionTurnEndBlock();
+
+			if (minion.Id == "minion_lianshu_transport")
+				HandleLianshuTransportTurnEnd(minion);
 		}
+	}
+
+	private void TriggerCenturionTurnEndBlock()
+	{
+		const int turnEndBlock = 1;
+		const int heroMultiplier = 2;
+		foreach (var ally in Board.GetPlayerMinions())
+			ally.GainArmor(turnEndBlock);
+		PlayerHero.GainArmor(turnEndBlock * heroMultiplier);
+		GD.Print($"[CombatManager] 百机长回合结束：友方随从获得 {turnEndBlock} 点格挡，英雄获得 {turnEndBlock * heroMultiplier} 点格挡");
+	}
+
+	private void HandleLianshuTransportTurnEnd(Minion minion)
+	{
+		var card = minion.ToRuntimeCard();
+		if (minion.EndTurnDrawPileReturnsRemaining > 0)
+		{
+			card.EndTurnDrawPileReturnsRemaining = minion.EndTurnDrawPileReturnsRemaining - 1;
+			if (Board.RecallMinion(minion))
+			{
+				_attackTracker.Remove(minion);
+				PlayerHero.AddToDrawPileBottom(card);
+				GD.Print($"[CombatManager] 联树机器犬运输型回合结束：返回抽牌堆，剩余返回次数 {card.EndTurnDrawPileReturnsRemaining}");
+			}
+			return;
+		}
+
+		if (Board.RecallMinion(minion))
+		{
+			_attackTracker.Remove(minion);
+			PlayerHero.AddToDiscardPile(card);
+			GD.Print("[CombatManager] 联树机器犬运输型回合结束：返回次数耗尽，进入弃牌堆");
+		}
+	}
+
+	private void TriggerDirectDamageSpellMinionEffects(Card.Card spell)
+	{
+		foreach (var minion in Board.GetPlayerMinions().ToList())
+		{
+			if (minion.Id != "minion_mingshan_walking_support" || minion.IsDead)
+				continue;
+
+			var target = SelectRandomEnemyTarget();
+			if (target == null)
+				return;
+
+			RequestDamageVfx(minion, target, DamageKind.Effect, CombatDamageVfxKind.Spell);
+			target.TakeDamage(minion.Attack, minion, DamageKind.Effect);
+			GD.Print($"[CombatManager] {minion.CardName} 响应直伤法术「{spell.CardName}」：造成 {minion.Attack} 点法术伤害");
+		}
+	}
+
+	private IDamageTarget? SelectRandomEnemyTarget()
+	{
+		var candidates = new List<IDamageTarget>();
+		foreach (var enemy in EnemyUnits)
+		{
+			if (!enemy.Body.IsDead)
+				candidates.Add(enemy.Body);
+		}
+		candidates.AddRange(Board.GetEnemyMinions());
+		if (candidates.Count == 0)
+			return null;
+
+		using var rng = new RandomNumberGenerator();
+		rng.Randomize();
+		return candidates[rng.RandiRange(0, candidates.Count - 1)];
 	}
 
 	/// <summary>

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OdysseyCards.AI;
+using AiIntentType = OdysseyCards.AI.Intents.IntentType;
 using OdysseyCards.Card;
 using OdysseyCards.Character;
 using OdysseyCards.Core;
@@ -632,6 +633,14 @@ private void HandleMountHeroEffect(CardEffectData effect, object? target, IDamag
 				HandleBoundlessDarkness(effect, source);
 				break;
 
+			case "MambaMissile":
+				HandleMambaMissile(effect, source, visualSource);
+				break;
+
+			case "ElbowStrike":
+				HandleElbowStrike(effect, target, source, visualSource);
+				break;
+
 			case "ExplainEffect":
 				HandleExplainEffect(effect, target);
 				break;
@@ -697,6 +706,92 @@ private void HandleMountHeroEffect(CardEffectData effect, object? target, IDamag
 	private List<Minion> GetFriendlyMinionsFor(IDamageSource? source)
 	{
 		return IsPlayerCaster(source) ? _board.GetPlayerMinions() : _board.GetEnemyMinions();
+	}
+
+	private void HandleMambaMissile(CardEffectData effect, IDamageSource? source, object? visualSource)
+	{
+		int hitCount = effect.Value > 0 ? effect.Value : 5;
+		int damage = effect.SecondaryValue > 0 ? effect.SecondaryValue : 3;
+		using var rng = new RandomNumberGenerator();
+		rng.Randomize();
+
+		int actualHits = 0;
+		for (int i = 0; i < hitCount; i++)
+		{
+			var target = SelectWeightedEnemyThreat(source, rng);
+			if (target == null)
+				break;
+
+			_requestDamageVfx(visualSource, target, DamageKind.Effect, CombatDamageVfxKind.Spell);
+			target.TakeDamage(damage, source, DamageKind.Effect);
+			actualHits++;
+		}
+
+		GD.Print($"[CardEffectDispatcher] 曼巴导弹：发射 {actualHits}/{hitCount} 枚，每枚 {damage} 点伤害");
+		_notifyCombatStateChanged();
+	}
+
+	private IDamageTarget? SelectWeightedEnemyThreat(IDamageSource? source, RandomNumberGenerator rng)
+	{
+		var candidates = new List<(IDamageTarget Target, int Weight)>();
+
+		foreach (var enemyHero in GetEnemyHeroesFor(source))
+			candidates.Add((enemyHero, GetHeroThreatWeight(enemyHero)));
+
+		foreach (var minion in GetEnemyMinionsFor(source))
+		{
+			if (!minion.IsDead)
+				candidates.Add((minion, Math.Max(1, minion.IsIncapacitated ? 1 : minion.Attack)));
+		}
+
+		if (candidates.Count == 0)
+			return null;
+
+		int totalWeight = candidates.Sum(candidate => candidate.Weight);
+		int roll = rng.RandiRange(1, totalWeight);
+		foreach (var (target, weight) in candidates)
+		{
+			roll -= weight;
+			if (roll <= 0)
+				return target;
+		}
+
+		return candidates[^1].Target;
+	}
+
+	private int GetHeroThreatWeight(Hero hero)
+	{
+		int attackThreat = Math.Max(0, ((IDamageSource)hero).BaseAttack);
+		var combat = CombatManager.Instance;
+		if (combat == null)
+			return Math.Max(1, attackThreat);
+
+		var unit = _enemyUnits.FirstOrDefault(enemy => enemy.Body == hero);
+		if (unit == null)
+			return Math.Max(1, attackThreat);
+
+		var intent = unit.GetCurrentIntent(combat);
+		int intentThreat = intent.Type switch
+		{
+			AiIntentType.Attack or AiIntentType.MultiAttack or AiIntentType.DeathBlow or AiIntentType.SpellCast => intent.GetEffectiveDamage(combat),
+			_ => 0,
+		};
+		return Math.Max(1, attackThreat + intentThreat);
+	}
+
+	private void HandleElbowStrike(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	{
+		if (target is not IDamageTarget damageTarget)
+		{
+			GD.Print("[CardEffectDispatcher] 肘击需要有效目标");
+			return;
+		}
+
+		int multiplier = effect.Value > 0 ? effect.Value : 1;
+		int damage = _playerHero.CurrentArmor * multiplier;
+		_requestDamageVfx(visualSource, damageTarget, DamageKind.Effect, CombatDamageVfxKind.Spell);
+		damageTarget.TakeDamage(damage, source, DamageKind.Effect);
+		GD.Print($"[CardEffectDispatcher] 肘击：按英雄格挡造成 {damage} 点伤害");
 	}
 
 	/// <summary>
