@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_mingshan_walking_support"
+MechanicTags = 65537
+CardName = "「岷山」步行支援机"
+Description = "闪击，冲击。在友方英雄释放直伤法术时，对随机敌人造成等同于攻击力的伤害。"
+Rarity = 3
+Cost = 5
+ActionCost = 0
+Type = 0
+Attack = 3
+Health = 5
+Defense = 1
+Keywords = [1, 7]

@@ -5,21 +5,19 @@
 
 [sub_resource type="Resource" id="SubResource_1"]
 script = ExtResource("2_effect")
-EffectType = 2
-Value = 2
+EffectType = 17
+Value = 1
+CustomEffectName = "ElbowStrike"
 
 [resource]
 script = ExtResource("1_data")
-Id = "minion_40_main_battle_tank"
-MechanicTags = 16
-CardName = "40主战坦克"
-Description = "嘲讽。战吼：抽2张牌。"
+Id = "spell_elbow_strike"
+MechanicTags = 9
+CardName = "肘击"
+Description = "造成等同于你英雄格挡值的伤害。"
 Rarity = 4
-Cost = 6
-ActionCost = 2
-Type = 0
-Attack = 5
-Health = 5
-Defense = 1
-Keywords = [2, 3]
-BattlecryEffects = [SubResource("SubResource_1")]
+Cost = 2
+Type = 1
+RequiresTarget = true
+TargetFilter = 2
+Effects = [SubResource("SubResource_1")]

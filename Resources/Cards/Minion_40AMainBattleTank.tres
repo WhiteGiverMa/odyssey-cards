@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_40a_main_battle_tank"
+MechanicTags = 65536
+CardName = "40A主战坦克"
+Description = "嘲讽。"
+Rarity = 4
+Cost = 7
+ActionCost = 2
+Type = 0
+Attack = 7
+Health = 7
+Defense = 2
+Keywords = [2]
