@@ -85,8 +85,8 @@ public class PlayCommand : ChatScreenCommand
 {
 	public override string Name => "play";
 	public override string[] Aliases => ["p"];
-	public override string Signature => "/play <card_id>";
-	public override string Description => "从手牌打出领域/无目标法术。";
+	public override string Signature => "/play <card_id> [enemy|player|eslotN|pslotN]";
+	public override string Description => "从手牌打出领域/法术；目标法术可指定默认英雄或槽位。";
 
 	public override CompletionCandidate[]? GetArgCandidates(string partialArg)
 	{
@@ -114,16 +114,123 @@ public class PlayCommand : ChatScreenCommand
 		if (cardToPlay == null)
 			return CommandResult.Fail($"手牌中没有卡牌: {playId}");
 
+		bool hasTargetArg = args.Length >= 2;
+		object target = cm.PlayerHero;
+		string targetLabel = "默认目标";
+		if (hasTargetArg && !TryResolveTarget(cm, args, out target, out targetLabel, out var error))
+			return CommandResult.Fail(error);
+
 		bool played = cardToPlay.Type switch
 		{
 			CardType.Domain => cm.PlayDomain(cardToPlay),
-			CardType.Spell when !cardToPlay.Data.RequiresTarget => cm.PlaySpell(cardToPlay, cm.PlayerHero),
+			CardType.Spell when cardToPlay.Data.RequiresTarget && hasTargetArg => cm.PlaySpell(cardToPlay, target),
+			CardType.Spell when cardToPlay.Data.RequiresTarget => false,
+			CardType.Spell => cm.PlaySpell(cardToPlay, target),
 			_ => false
 		};
 
+		if (played)
+			RefreshCombatUI(cm);
+
 		return played
-			? CommandResult.Ok($"打出「{cardToPlay.GetLocalizedName()}」")
-			: CommandResult.Fail($"无法通过 /play 打出「{cardToPlay.GetLocalizedName()}」");
+			? CommandResult.Ok(hasTargetArg
+				? $"打出「{cardToPlay.GetLocalizedName()}」→ {targetLabel}"
+				: $"打出「{cardToPlay.GetLocalizedName()}」")
+			: CommandResult.Fail(cardToPlay.Data.RequiresTarget
+				? $"「{cardToPlay.GetLocalizedName()}」需要目标，用法: {Signature}"
+				: $"无法通过 /play 打出「{cardToPlay.GetLocalizedName()}」");
+	}
+
+	private static bool TryResolveTarget(CombatManager cm, string[] args, out object target, out string label, out string error)
+	{
+		target = cm.PlayerHero;
+		label = "玩家英雄";
+		error = "";
+		string kind = args[1].Trim().ToLowerInvariant();
+
+		if (args.Length > 3)
+		{
+			error = "目标参数过多，用法: /play <card_id> [enemy|player|eslotN|pslotN]";
+			return false;
+		}
+
+		if (kind is "enemy" or "enemy_hero" or "ehero" or "eh")
+		{
+			var enemy = cm.GetDefaultEnemyTargetUnit();
+			if (enemy == null)
+			{
+				error = "没有可用的敌方英雄目标";
+				return false;
+			}
+
+			target = enemy.Body;
+			label = "敌方英雄";
+			return true;
+		}
+
+		if (kind is "player" or "player_hero" or "self" or "phero" or "ph")
+			return true;
+
+		if (kind == "eslot" || kind.StartsWith("eslot", StringComparison.OrdinalIgnoreCase))
+			return TryResolveSlotTarget(cm, args, isPlayerSide: false, "eslot", "敌方", out target, out label, out error);
+
+		if (kind == "pslot" || kind.StartsWith("pslot", StringComparison.OrdinalIgnoreCase))
+			return TryResolveSlotTarget(cm, args, isPlayerSide: true, "pslot", "己方", out target, out label, out error);
+
+		error = $"未知目标: {args[1]}；可用 enemy/player/eslotN/pslotN";
+		return false;
+	}
+
+	private static bool TryResolveSlotTarget(
+		CombatManager cm,
+		string[] args,
+		bool isPlayerSide,
+		string prefix,
+		string sideLabel,
+		out object target,
+		out string label,
+		out string error)
+	{
+		target = cm.PlayerHero;
+		label = "";
+		error = "";
+		string kind = args[1].Trim().ToLowerInvariant();
+		string indexText;
+		if (kind == prefix)
+		{
+			if (args.Length < 3)
+			{
+				error = $"{prefix} 需要槽位 0-4";
+				return false;
+			}
+
+			indexText = args[2];
+		}
+		else if (kind.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+		{
+			indexText = kind[prefix.Length..].TrimStart(':', '_', '-');
+		}
+		else
+		{
+			return false;
+		}
+
+		if (!int.TryParse(indexText, out int slot) || slot < 0 || slot >= Board.MaxSlotsPerSide)
+		{
+			error = $"{prefix} 槽位需为 0-4";
+			return false;
+		}
+
+		var minion = cm.Board.GetMinionAt(slot, isPlayerSide);
+		if (minion == null)
+		{
+			error = $"{sideLabel}{slot} 槽位没有随从";
+			return false;
+		}
+
+		target = minion;
+		label = $"{sideLabel}{slot} 槽位随从「{minion.GetLocalizedName()}」";
+		return true;
 	}
 }
 
