@@ -1,7 +1,7 @@
 # OdysseyCards（少女星途卡牌） — Godot 4.7 C# · 类炉石 Roguelite 卡牌
 
 **Updated:** 2026-06-25
-**Scale:** 192 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~37,000 行 · 46 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
+**Scale:** 192 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~37,000 行 · 52 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
 
 ## 项目文化标签
 
@@ -30,7 +30,7 @@ Scripts/
 ├── Roguelike/ (5)  # EventSelector, RoomData, GameRunState, EventData, BlessingData
 ├── Localization/ (5)# YAML 多语言 (LocalStr, ConcatLocalStr, ILocalizable, YamlParser)
 └── Infrastructure/ (23, Commands/9) # ChatScreen, InputManager, HotkeyManager, MobileInputRouter, SceneLifecycleGuard…
-Resources/Cards/    # 46 .tres：领域6 + 随从14 + 法术25 + 状态1
+Resources/Cards/    # 52 .tres：领域6 + 随从18 + 法术27 + 状态1
 Resources/Localization/ # zh.yaml / en.yaml
 Resources/Enemies/ Resources/Relics/ # 结构桩，当前为空
 Scenes/             # Main, Combat, Collection, Map + Card/Board/CombatPreview
@@ -261,7 +261,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 | `/damage -c N` | 点击模式：隐藏控制台→点击目标造成伤害→右键取消 |
 | `/draw N` `/mana N` `/heal N` `/armor N` | 资源/生命调试 |
 | `/end` `/refresh` `/clear` | 回合/UI/控制台 |
-| `/token <id> [n]` `/play <id>` `/summon_player <id> <slot>` | 卡牌/召唤 QA |
+| `/token <id> [n]` `/play <id> [target]` `/summon_player <id> <slot>` | 卡牌/召唤 QA；`/play` 目标可用 `enemy`/`player`/`eslotN`/`pslotN` |
 | `/fight <enemy>` | 直接与指定敌人战斗，跳过地图 |
 | `/addrelic <id>` `/unlock_all` | 藏品/解锁 |
 | `/intent_debug` `/tags` | 意图/标签调试 |
@@ -331,6 +331,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - ✅ Android 签名密钥：项目专属 `debug.keystore` + `release.keystore`（25 年），配置 `android/keystore.properties`（gitignored），`build_android.ps1` 用 Godot 环境变量注入，`-Release` 切换正式签名。
 - ✅ 新增三张法术卡：四夜雷电光（轮战，英雄挂载回合触发）、十万条吸血狗（选择手牌并复制填满）、星途精神（跳费/AOE/抽牌/下回合挂载收益）。
 - ✅ 新增六张通用法术卡：引擎、检索、响应、肾上腺素、沉重打击、震慑；新增两张随从：40主战坦克、百机长。
+- ✅ 新增六张卡牌：曼巴导弹、肘击、40A主战坦克、40B主战坦克、「岷山」步行支援机、联树机器犬运输型；岷山响应直伤法术，运输型拥有单卡独立的两次回抽牌堆计数。
 - ✅ 新机制失能：负面 StatusEffect，按目标所属方回合结束衰减；失能单位不能攻击或反击，英雄不能用武器攻击但仍可施放法术。
 - ✅ 获得格挡动画：Hero/Minion 护甲获得事件驱动 `🛡+N` 浮字，复用战斗跳字层。
 - ✅ 主题卡组支持 `ThemeProfile.KeywordWeights`，可按 `Keyword`（如轮战、亡语）给角色主题加权，不污染 `CardMechanicTag`。
