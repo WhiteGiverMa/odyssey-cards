@@ -134,7 +134,9 @@ public class PlayCommand : ChatScreenCommand
 
 		return played
 			? CommandResult.Ok(hasTargetArg
-				? $"打出「{cardToPlay.GetLocalizedName()}」→ {targetLabel}"
+				? (cardToPlay.Data.RequiresTarget
+					? $"打出「{cardToPlay.GetLocalizedName()}」→ {targetLabel}"
+					: $"打出「{cardToPlay.GetLocalizedName()}」（无需目标，忽略额外参数）")
 				: $"打出「{cardToPlay.GetLocalizedName()}」")
 			: CommandResult.Fail(cardToPlay.Data.RequiresTarget
 				? $"「{cardToPlay.GetLocalizedName()}」需要目标，用法: {Signature}"
