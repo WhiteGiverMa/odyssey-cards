@@ -397,9 +397,21 @@ cards:
   spell_shock:
     name: "Shock"
     description: "Recycle. Apply 2 Incapacitated to a unit. Draw 1 card."
+  spell_mamba_missile:
+    name: "Mamba Missile"
+    description: "Deal 3 damage to random enemies 5 times. Enemies with higher damage output are more likely to be hit."
+  spell_elbow_strike:
+    name: "Elbow Strike"
+    description: "Deal damage equal to your hero's Block."
   minion_18th_regiment:
     name: "18th Regiment"
     description: "Taunt, Recycle"
+  minion_40a_main_battle_tank:
+    name: "Type 40A Main Battle Tank"
+    description: "Taunt."
+  minion_40b_main_battle_tank:
+    name: "Type 40B Main Battle Tank"
+    description: "Charge."
   minion_40_main_battle_tank:
     name: "Type 40 Main Battle Tank"
     description: "Taunt. Battlecry: Draw 2 cards."
@@ -412,6 +424,12 @@ cards:
   minion_lianshu_scout:
     name: "Lianshu Mech Hound Scout"
     description: "Charge, Recycle\nLast Words: Draw 1 card"
+  minion_mingshan_walking_support:
+    name: "Mingshan Walking Support Machine"
+    description: "Charge, Impact. When your hero casts a direct-damage spell, deal damage equal to this minion's Attack to a random enemy."
+  minion_lianshu_transport:
+    name: "Lianshu Mech Hound Transport"
+    description: "Charge. Battlecry: Draw 2 cards and restore 2 Health to your hero. At end of turn, if this is in play, return it to the draw pile. After this happens twice, put it into the discard pile instead."
   domain_zhijian:
     name: "Blade Sharp"
     description: "Domain: Friendly minions gain +1 Attack when deployed"

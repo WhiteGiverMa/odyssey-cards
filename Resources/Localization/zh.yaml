@@ -397,9 +397,21 @@ cards:
   spell_shock:
     name: "震慑"
     description: "轮战。使一个单位失能2回合，抽1张牌。"
+  spell_mamba_missile:
+    name: "曼巴导弹"
+    description: "对随机敌人造成3点伤害5次。伤害高的敌人更可能被击中。"
+  spell_elbow_strike:
+    name: "肘击"
+    description: "造成等同于你英雄格挡值的伤害。"
   minion_18th_regiment:
     name: "第 18 团"
     description: "嘲讽，轮战"
+  minion_40a_main_battle_tank:
+    name: "40A主战坦克"
+    description: "嘲讽。"
+  minion_40b_main_battle_tank:
+    name: "40B主战坦克"
+    description: "闪击。"
   minion_40_main_battle_tank:
     name: "40主战坦克"
     description: "嘲讽。战吼：抽2张牌。"
@@ -412,6 +424,12 @@ cards:
   minion_lianshu_scout:
     name: "联树机器犬 侦察型"
     description: "冲锋，轮战\n亡语：抽 1 张牌"
+  minion_mingshan_walking_support:
+    name: "「岷山」步行支援机"
+    description: "闪击，冲击。在友方英雄释放直伤法术时，对随机敌人造成等同于攻击力的伤害。"
+  minion_lianshu_transport:
+    name: "联树机器犬 运输型"
+    description: "闪击。战吼：抽2张牌，友方英雄回复2点生命。回合结束时若在场上，回到抽牌堆。如此2次后，回合结束时进入弃牌堆。"
   domain_zhijian:
     name: "执锐"
     description: "领域：友方随从部署时攻击力+1"
