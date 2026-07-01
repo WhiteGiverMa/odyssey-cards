@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using OdysseyCards.Card;
 
 namespace OdysseyCards.Combat;
@@ -156,6 +155,29 @@ public class Board
 				return;
 			}
 		}
+	}
+
+	/// <summary>
+	/// 将随从从战场召回到其他区域，不触发死亡事件和亡语。
+	/// </summary>
+	public bool RecallMinion(Minion minion)
+	{
+		ArgumentNullException.ThrowIfNull(minion);
+
+		var slots = minion.IsPlayerSide ? PlayerSlots : EnemySlots;
+		for (int i = 0; i < MaxSlotsPerSide; i++)
+		{
+			if (slots[i] != minion)
+				continue;
+
+			OnMinionPreRemove?.Invoke(minion, i, minion.IsPlayerSide);
+			slots[i] = null;
+			minion.BoardSlotIndex = -1;
+			OnMinionRemoved?.Invoke(minion);
+			return true;
+		}
+
+		return false;
 	}
 
 	// ===== 批量查询 =====

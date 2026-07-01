@@ -39,6 +39,11 @@ public class Card
 	public int CostModifier { get; set; }
 
 	/// <summary>
+	/// 回合结束回到抽牌堆的剩余次数；-1 表示此牌不使用该计数器。
+	/// </summary>
+	internal int EndTurnDrawPileReturnsRemaining { get; set; } = -1;
+
+	/// <summary>
 	/// 计算考虑所有运行时修改后的有效费用。
 	/// 最低为 0，不封顶。
 	/// </summary>
@@ -89,6 +94,7 @@ public class Card
 	public void CopyRuntimeModifiersFrom(Card other)
 	{
 		CostModifier = other.CostModifier;
+		EndTurnDrawPileReturnsRemaining = other.EndTurnDrawPileReturnsRemaining;
 	}
 
 	/// <summary>

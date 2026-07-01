@@ -527,6 +527,8 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		: this(card.Data, isPlayerSide)
 	{
 		CopyRuntimeModifiersFrom(card);
+		if (Id == "minion_lianshu_transport" && EndTurnDrawPileReturnsRemaining < 0)
+			EndTurnDrawPileReturnsRemaining = 2;
 	}
 
 	/// <summary>
