@@ -359,6 +359,12 @@ internal sealed class SelectionSystem
 		_pendingDiscardIsBladeCrisis = isBladeCrisis;
 		_pendingHandSelectCanCancel = true;
 		_pendingHandSelectConfirmed = null;
+		if (!isBladeCrisis && ShouldAutoConfirmForcedAll(handOptions, min, max))
+		{
+			AutoConfirmForcedAllHandSelection(handOptions);
+			return;
+		}
+
 		SetHandSelectingState();
 	}
 
@@ -380,7 +386,50 @@ internal sealed class SelectionSystem
 		_pendingSelectionMode = mode;
 		_pendingHandSelectCanCancel = canCancel;
 		_pendingHandSelectConfirmed = onConfirmed;
+		if (ShouldAutoConfirmForcedAll(handOptions, min, max))
+		{
+			AutoConfirmForcedAllHandSelection(handOptions);
+			return;
+		}
+
 		SetHandSelectingState();
+	}
+
+	private static bool ShouldAutoConfirmForcedAll(List<Card.Card> handOptions, int min, int max)
+	{
+		return handOptions.Count > 0 && min == max && handOptions.Count == min;
+	}
+
+	private void AutoConfirmForcedAllHandSelection(IReadOnlyList<Card.Card> selectedCards)
+	{
+		if (_pendingHandSelectConfirmed != null)
+		{
+			_pendingHandSelectConfirmed(selectedCards);
+		}
+		else
+		{
+			foreach (var card in selectedCards)
+				_playerHero.DiscardCard(card);
+		}
+
+		if (_pendingDiscoverSpellCard != null)
+		{
+			_playerHero.DiscardCard(_pendingDiscoverSpellCard);
+			_pendingDiscoverSpellCard = null;
+		}
+
+		_pendingHandDiscardSelection = null;
+		_pendingDiscardMin = 0;
+		_pendingDiscardMax = 0;
+		_pendingDiscardIsBladeCrisis = false;
+		_pendingSelectionMode = CombatManager.PendingSelectionMode.Discover;
+		_pendingHandSelectCanCancel = true;
+		_pendingHandSelectConfirmed = null;
+		_state.ResumePlayerTurn();
+
+		_checkDeaths();
+		_checkVictoryOrDefeat();
+		_notifyCombatStateChanged();
 	}
 
 	// ===== 手牌选择系统（STS2 风格） =====

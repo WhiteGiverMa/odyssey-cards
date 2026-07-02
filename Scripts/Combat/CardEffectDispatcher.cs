@@ -321,14 +321,9 @@ internal sealed class CardEffectDispatcher
 			return;
 		}
 
-		if (handCopy.Count < mustDiscard)
-		{
-			GD.Print($"[CardEffectDispatcher] 主动弃牌：手牌数量({handCopy.Count})不足，需要弃{mustDiscard}张");
-			return;
-		}
-
-		_beginHandDiscardSelection(handCopy, mustDiscard, mustDiscard, false);
-		GD.Print($"[CardEffectDispatcher] 主动弃牌：从手牌 {handCopy.Count} 张中选择弃掉 {mustDiscard} 张");
+		int discardCount = Math.Min(mustDiscard, handCopy.Count);
+		_beginHandDiscardSelection(handCopy, discardCount, discardCount, false);
+		GD.Print($"[CardEffectDispatcher] 主动弃牌：从手牌 {handCopy.Count} 张中弃掉 {discardCount}/{mustDiscard} 张");
 	}
 
 		private void HandleShuffleTribeCards(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
