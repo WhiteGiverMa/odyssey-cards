@@ -233,6 +233,13 @@ public partial class GameManager : Node
 		"res://Resources/Cards/Spell_Strike.tres",
 		"res://Resources/Cards/Spell_WhiteLegion.tres",
 		"res://Resources/Cards/Status_Fatigue.tres",
+		// 超体系列（2025-07-05）
+		"res://Resources/Cards/Spell_SmokeRestore.tres",
+		"res://Resources/Cards/Spell_FragBullet.tres",
+		"res://Resources/Cards/Spell_SmokeDodge.tres",
+		"res://Resources/Cards/Spell_NaDaoFangYu.tres",
+		"res://Resources/Cards/Domain_PreemptiveStrike.tres",
+		"res://Resources/Cards/Minion_RayanGe.tres",
 	};
 
 	/// <summary>

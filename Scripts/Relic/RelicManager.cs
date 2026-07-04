@@ -131,6 +131,9 @@ public class RelicManager
 			"good_dream_pillow" => new GoodDreamPillowRelic(),
 			"tactical_nuke" => new TacticalNukeRelic(),
 			"intern_badge" => new InternBadgeRelic(),
+			"magical_top" => new MagicalTopRelic(),
+			"bump_fire_stock" => new BumpFireStockRelic(),
+			"super_body_box" => new SuperBodyBoxRelic(),
 			_ => null,
 		};
 	}
