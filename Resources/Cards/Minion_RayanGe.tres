@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_rayan_ge"
+MechanicTags = 131136
+CardName = "拉烟哥"
+Description = "闪击。首次攻击时使友方英雄获得1层烟幕。"
+Rarity = 3
+Cost = 3
+ActionCost = 1
+Type = 0
+Attack = 4
+Health = 4
+Defense = 0
+Keywords = Array[int]([1])

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 1
+Value = 1
+TargetType = "preemptive_strike"
+
+[resource]
+script = ExtResource("1_data")
+Id = "domain_preemptive_strike"
+MechanicTags = 132097
+DomainId = "preemptive_strike"
+CardName = "先发制人"
+Description = "领域：每回合的第一张直伤卡牌，每有1张手牌其造成的伤害值+10%。"
+Rarity = 2
+Cost = 3
+Type = 2
+Effects = [SubResource("SubResource_1")]

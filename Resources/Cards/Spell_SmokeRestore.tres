@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+Value = 4
+CustomEffectName = "SmokeRestore"
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_smoke_restore"
+MechanicTags = 131076
+CardName = "烟雾恢复"
+Description = "使所有有「烟幕」的友方单位+4生命值。"
+Rarity = 3
+Cost = 3
+Type = 1
+Effects = [SubResource("SubResource_1")]

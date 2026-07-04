@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+Value = 3
+CustomEffectName = "NaDaoFangYu"
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_nadao_fangyu"
+MechanicTags = 2072
+CardName = "拿刀防卫"
+Description = "友方英雄获得+3攻击力直到下个敌方回合结束，抽1张牌；抉择：*在本次获得轮战*或*多抽1张牌*。"
+Rarity = 3
+Cost = 3
+Type = 1
+Effects = [SubResource("SubResource_1")]

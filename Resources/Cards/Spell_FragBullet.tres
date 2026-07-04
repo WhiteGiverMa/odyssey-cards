@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+Value = 5
+SecondaryValue = 18
+CustomEffectName = "FragBullet"
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_frag_bullet"
+MechanicTags = 131073
+CardName = "碎片子弹"
+Description = "对一个敌人造成5点伤害；其生命值低于18%时，获得「致命裂痕」，再受到来自友方单位的伤害后将其消灭。无法斩杀boss。"
+Rarity = 1
+Cost = 2
+Type = 1
+RequiresTarget = true
+TargetFilter = 10
+Effects = [SubResource("SubResource_1")]
