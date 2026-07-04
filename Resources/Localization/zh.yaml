@@ -1,4 +1,4 @@
-ui:
+﻿ui:
   menu:
     title: "少女星途卡牌"
     start_game: "开始游戏"
@@ -429,6 +429,25 @@ cards:
     description: "闪击，冲击。在友方英雄释放直伤法术时，对随机敌人造成等同于攻击力的伤害。"
   minion_lianshu_transport:
     name: "联树机器犬 运输型"
+  spell_smoke_restore:
+    name: "烟雾恢复"
+    description: "使所有有「烟幕」的友方单位+4生命值。"
+  spell_frag_bullet:
+    name: "碎片子弹"
+    description: "对一个敌人造成5点伤害；其生命值低于18％时，再受到来自友方单位的伤害后将其消灭。无法斩杀boss。"
+  spell_smoke_dodge:
+    name: "烟遁"
+    description: "使所有友方单位获得1层烟幕，抽1张牌。"
+  spell_nadao_fangyu:
+    name: "拿刀防卫"
+    description: "友方英雄获得+3攻击力直到下个敌方回合结束，抽1张牌；抉择：*在本次获得轮战*或*多抽1张牌*。"
+  domain_preemptive_strike:
+    name: "先发制人"
+    description: "领域：每回合的第一张直伤卡牌，每有1张手牌其造成的伤害值+10％。"
+  minion_rayan_ge:
+    name: "拉烟哥"
+    description: "闪击。首次攻击时使友方英雄获得1层烟幕。"
+
     description: "闪击。战吼：抽2张牌，友方英雄回复2点生命。回合结束时若在场上，回到抽牌堆。如此2次后，回合结束时进入弃牌堆。"
   domain_zhijian:
     name: "执锐"
@@ -826,6 +845,7 @@ hero:
     name: "溯光"
     desc: "25点生命值。使用射线手枪从弃牌堆中的轮战牌获得攻击力，并用「重整」洗切牌堆、抽牌弃牌。"
 
+  # 烟遁 / 烟雾恢复 / 碎片子弹 / 拿刀防卫 / 先发制人 / 拉烟哥
 tag:
   direct_damage: "直伤"
   damage_over_time: "持续"
@@ -839,7 +859,27 @@ tag:
   discard: "弃牌"
   domain: "领域"
   weapon_synergy: "武器"
-  mana_ramp: "跳费"
+  mana_ramp: "法力"
   status_apply: "状态"
-  shuffle: "洗切"
+  shuffle: "洗牌"
   token: "衍生"
+  super_body: "超体"
+
+relic:
+  magical_top:
+    name: "魔幻陀螺"
+    desc: "没有手牌时抽1张牌。"
+  bump_fire_stock:
+    name: "撞火枪托"
+    desc: "你的英雄武器每回合可攻击次数+1。"
+  super_body_box:
+    name: "超体插件盒"
+    desc: "战斗开始时，将随机一张超体牌放入你的手牌，使其花费为0。"
+
+status:
+  smokescreen:
+    name: "烟幕"
+    desc: "无法被敌方武器/随从攻击命中。"
+  fatal_rift:
+    name: "致命裂痕"
+    desc: "生命值低于18%时，受友方伤害后消灭。boss免疫。"

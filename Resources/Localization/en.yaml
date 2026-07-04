@@ -1,4 +1,4 @@
-ui:
+﻿ui:
   menu:
     title: "Odyssey Cards"
     start_game: "Start Game"
@@ -840,3 +840,24 @@ tag:
   status_apply: "Status"
   shuffle: "Shuffle"
   token: "Token"
+
+
+# New cards / relics / status (2025-07-05)
+spell_smoke_restore:
+  name: "Smoke Recovery"
+  description: "Restore 4 Health to all friendly units with Smokescreen."
+spell_frag_bullet:
+  name: "Frag Bullet"
+  description: "Deal 5 damage to an enemy. If HP < 18%, apply Fatal Rift (dies after taking friendly damage, bosses immune)."
+spell_smoke_dodge:
+  name: "Smoke Dodge"
+  description: "Give all friendly units 1 Smokescreen. Draw 1 card."
+spell_nadao_fangyu:
+  name: "Take The Blade"
+  description: "Friendly hero gains +3 ATK until next enemy turn ends. Draw 1 card. Choose One: *Gain Recycle this match* or *Draw 1 extra card*."
+domain_preemptive_strike:
+  name: "Preemptive Strike"
+  description: "Domain: Each turn, your first Direct Damage card deals +10% damage per card in hand."
+minion_rayan_ge:
+  name: "Smoke Bro"
+  description: "Charge. On first attack, give your hero 1 Smokescreen."

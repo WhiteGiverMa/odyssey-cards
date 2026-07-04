@@ -35,6 +35,9 @@ public static class EffectIconTable
 		// 限时 mount 效果（原属领域表面，归类到限时 Power，name/desc 保留 domain.* 翻译键）
 		["shiyoru_raidenkou"] = new() { Icon = "⚡", NameKey = "domain.shiyoru_raidenkou", DescKey = "domain.shiyoru_raidenkou_desc", IsBuff = true },
 		["sutaraito_spirit"] = new() { Icon = "⭐", NameKey = "domain.sutaraito_spirit", DescKey = "domain.sutaraito_spirit_desc", IsBuff = true },
+		// 新状态（2025-07-05）
+		["smokescreen"] = new() { Icon = "🌫", NameKey = "status.smokescreen.name", DescKey = "status.smokescreen.desc", IsBuff = true },
+		["fatal_rift"] = new() { Icon = "💀", NameKey = "status.fatal_rift.name", DescKey = "status.fatal_rift.desc", IsBuff = false },
 	};
 
 	private static readonly Dictionary<string, EffectIconData> _domains = new()
@@ -46,6 +49,8 @@ public static class EffectIconTable
 		["focus"] = new() { Icon = "🎯", NameKey = "domain.focus", DescKey = "domain.focus_desc", IsBuff = true },
 		["scheme"] = new() { Icon = "🪺", NameKey = "domain.scheme", DescKey = "domain.scheme_desc", IsBuff = true },
 		["inescapable_flaw"] = new() { Icon = "🥚", NameKey = "domain.inescapable_flaw", DescKey = "domain.inescapable_flaw_desc", IsBuff = false },
+		// 新领域（2025-07-05）
+		["preemptive_strike"] = new() { Icon = "⚔", NameKey = "domain.preemptive_strike", DescKey = "domain.preemptive_strike_desc", IsBuff = true },
 	};
 
 	private static readonly Dictionary<string, EffectIconData> _keywordSources = new()

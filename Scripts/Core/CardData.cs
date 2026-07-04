@@ -68,7 +68,7 @@ public partial class CardData : Resource, ICardData, ILocalizable
 	/// 历史上的 <c>CardTag</c>（种族/阵营）维度已合并入本字段（<c>Mechanics</c> 位=65536）。
 	/// 详见 <see cref="CardMechanicTag"/> 的设计原则。
 	/// </summary>
-	[Export(PropertyHint.Flags, "DirectDamage:1,DamageOverTime:2,Heal:4,Armor:8,Draw:16,Discover:32,Summon:64,Buff:128,Silence:256,Discard:512,Domain:1024,WeaponSynergy:2048,ManaRamp:4096,StatusApply:8192,Shuffle:16384,Token:32768,Mechanics:65536")]
+	[Export(PropertyHint.Flags, "DirectDamage:1,DamageOverTime:2,Heal:4,Armor:8,Draw:16,Discover:32,Summon:64,Buff:128,Silence:256,Discard:512,Domain:1024,WeaponSynergy:2048,ManaRamp:4096,StatusApply:8192,Shuffle:16384,Token:32768,Mechanics:65536,SuperBody:131072")]
 	public CardMechanicTag MechanicTags { get; set; } = CardMechanicTag.None;
 
 	/// <summary>

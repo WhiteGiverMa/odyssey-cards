@@ -59,7 +59,7 @@ public class ValidateTests
 	{
 		int all = CardMechanicTagValues.AllBits.Aggregate(0, (a, b) => a | b);
 		Assert.Equal(CardMechanicTagValues.AllValidBits, all);
-		Assert.Equal(17, CardMechanicTagValues.AllBits.Length); // 17 个有效位
+		Assert.Equal(18, CardMechanicTagValues.AllBits.Length); // 18 个有效位（含 SuperBody）
 	}
 
 	[Fact]

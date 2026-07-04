@@ -24,12 +24,13 @@ public static class CardMechanicTagValues
 	public const int Shuffle = 16384;
 	public const int Token = 32768;
 	public const int Mechanics = 65536;
+	public const int SuperBody = 131072;
 
 	/// <summary>所有有效位值，按声明顺序。</summary>
 	public static readonly int[] AllBits = new[]
 	{
 		DirectDamage, DamageOverTime, Heal, Armor, Draw, Discover, Summon, Buff,
-		Silence, Discard, Domain, WeaponSynergy, ManaRamp, StatusApply, Shuffle, Token, Mechanics
+		Silence, Discard, Domain, WeaponSynergy, ManaRamp, StatusApply, Shuffle, Token, Mechanics, SuperBody
 	};
 
 	/// <summary>位值→英文名 映射。</summary>
@@ -52,6 +53,7 @@ public static class CardMechanicTagValues
 		[Shuffle] = "Shuffle",
 		[Token] = "Token",
 		[Mechanics] = "Mechanics",
+		[SuperBody] = "SuperBody",
 	};
 
 	/// <summary>英文名→位值 映射。</summary>
