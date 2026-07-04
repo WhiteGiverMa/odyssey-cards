@@ -28,8 +28,13 @@ internal sealed class CardEffectDispatcher
 		private readonly Action<List<Card.Card>, int> _beginDiscardDiscoverSelection;
 		private readonly Action<List<Card.Card>, int, int, bool> _beginHandDiscardSelection;
 		private readonly Action<Card.Card> _beginCopyHandFillSelection;
+		/// <summary>抉择 UI 触发回调——参数：titleKey, titleFallback, optionLabels, optionDescriptions, onChosen(index)。</summary>
+		private readonly Action<string, string, IReadOnlyList<string>, IReadOnlyList<string>, Action<int>> _beginChooseOne;
 		private readonly Action<object?, IDamageTarget, DamageKind, CombatDamageVfxKind> _requestDamageVfx;
 	private readonly Dictionary<CardEffectType, Action<CardEffectData, object?, IDamageSource?, object?>> _handlers;
+
+	// 先发制人领域：每回合首张直伤牌是否已消费
+	private bool _preemptiveStrikeConsumedThisTurn;
 
 	public CardEffectDispatcher(
 		CommanderCore playerCore,
@@ -42,6 +47,7 @@ internal sealed class CardEffectDispatcher
 		Action<List<Card.Card>, int> beginDiscardDiscoverSelection,
 		Action<List<Card.Card>, int, int, bool> beginHandDiscardSelection,
 		Action<Card.Card> beginCopyHandFillSelection,
+		Action<string, string, IReadOnlyList<string>, IReadOnlyList<string>, Action<int>> beginChooseOne,
 		Action<object?, IDamageTarget, DamageKind, CombatDamageVfxKind> requestDamageVfx)
 	{
 		_playerCore = playerCore;
@@ -54,6 +60,7 @@ internal sealed class CardEffectDispatcher
 		_beginDiscardDiscoverSelection = beginDiscardDiscoverSelection;
 		_beginHandDiscardSelection = beginHandDiscardSelection;
 		_beginCopyHandFillSelection = beginCopyHandFillSelection;
+		_beginChooseOne = beginChooseOne;
 		_requestDamageVfx = requestDamageVfx;
 
 		_handlers = new Dictionary<CardEffectType, Action<CardEffectData, object?, IDamageSource?, object?>>()
@@ -102,6 +109,19 @@ internal sealed class CardEffectDispatcher
 
 	private void HandleDamage(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
+		int finalDamage = effect.Value;
+
+		// 先发制人领域：每回合首张直伤牌按手牌数 +10%/张
+		if (!_preemptiveStrikeConsumedThisTurn && _playerHero.HasDomain("preemptive_strike")
+			&& source is IDamageSource src && src.IsPlayerSide)
+		{
+			_preemptiveStrikeConsumedThisTurn = true;
+			int handCount = _playerHero.DeckState.Hand.Count;
+			float multiplier = 1.0f + handCount * 0.1f;
+			finalDamage = (int)(effect.Value * multiplier);
+			GD.Print($"[CardEffectDispatcher] 先发制人：手牌{handCount}张，伤害 ×{multiplier:F1} = {finalDamage}");
+		}
+
 		if (target is Minion minionTarget)
 		{
 			_requestDamageVfx(visualSource, minionTarget, DamageKind.Effect, CombatDamageVfxKind.Spell);
@@ -179,8 +199,24 @@ internal sealed class CardEffectDispatcher
 
 	private void HandleHeal(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
-		_playerCore.Heal(effect.Value);
-		GD.Print($"[CardEffectDispatcher] 恢复 {effect.Value} 点生命值（当前 {_playerHero.CurrentHealth}）");
+		// ponytail: 修复 BUG——Heal 忽略 target，总是治疗玩家英雄。
+		// 现在按 target 分流：Minion 走贴膜（Minion.Heal 抬高 MaxHealth）；Hero 走 Clamp(MaxHealth)。
+		// 兼容：target 为 null（旧调用路径），回退治疗玩家英雄。
+		switch (target)
+		{
+			case Minion minionTarget:
+				minionTarget.Heal(effect.Value);
+				GD.Print($"[CardEffectDispatcher] 恢复 {effect.Value} 点生命值（随从 {minionTarget.CardName}，当前 {minionTarget.CurrentHealth}/{minionTarget.MaxHealth}）");
+				return;
+			case Hero heroTarget:
+				heroTarget.Heal(effect.Value);
+				GD.Print($"[CardEffectDispatcher] 恢复 {effect.Value} 点生命值（英雄，当前 {heroTarget.CurrentHealth}/{heroTarget.MaxHealth}）");
+				return;
+			default:
+				_playerCore.Heal(effect.Value);
+				GD.Print($"[CardEffectDispatcher] 恢复 {effect.Value} 点生命值（默认玩家英雄，当前 {_playerHero.CurrentHealth}）");
+				return;
+		}
 	}
 
 	private void HandleGainArmor(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
@@ -640,6 +676,24 @@ private void HandleMountHeroEffect(CardEffectData effect, object? target, IDamag
 				HandleExplainEffect(effect, target);
 				break;
 
+			// ===== 新卡效果（2025-07-05） =====
+
+			case "SmokeRestore":
+				HandleSmokeRestore(effect);
+				break;
+
+			case "FragBullet":
+				HandleFragBullet(effect, target, source, visualSource);
+				break;
+
+			case "SmokeDodge":
+				HandleSmokeDodge(effect);
+				break;
+
+			case "NaDaoFangYu":
+				HandleNaDaoFangYu(effect);
+				break;
+
 			default:
 				GD.Print($"[CardEffectDispatcher] 未处理的Custom效果：{effect.CustomEffectName}");
 				break;
@@ -859,6 +913,239 @@ private void HandleMountHeroEffect(CardEffectData effect, object? target, IDamag
 		GD.Print("[CardEffectDispatcher] 解释：此牌将返回手牌（由CombatManager处理）");
 		_notifyCombatStateChanged();
 	}
+
+	// ===== 新卡效果（2025-07-05） =====
+
+	/// <summary>烟雾恢复——友方带烟幕的单位 +4 生命值。</summary>
+	private void HandleSmokeRestore(CardEffectData effect)
+	{
+		int amount = effect.Value > 0 ? effect.Value : 4;
+		int healed = 0;
+
+		// 玩家英雄+友方随从中有烟幕的
+		if (_playerHero.HasSmokeScreen)
+		{
+			_playerHero.Heal(amount);
+			healed++;
+		}
+		foreach (var minion in _board.GetPlayerMinions())
+		{
+			if (!minion.IsDead && minion.HasSmokeScreen)
+			{
+				minion.Heal(amount);
+				healed++;
+			}
+		}
+		GD.Print($"[CardEffectDispatcher] 烟雾恢复：{healed} 个带烟幕的友方单位恢复 {amount} 点生命值");
+		_notifyCombatStateChanged();
+	}
+
+	/// <summary>碎片子弹——对目标造成 5 点伤害；若 HP<18% 挂致命裂痕（再受友方伤害后消灭，boss 免斩杀提示一次）。</summary>
+	private void HandleFragBullet(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	{
+		int damage = effect.Value > 0 ? effect.Value : 5;
+		int fatalThresholdPercent = effect.SecondaryValue > 0 ? effect.SecondaryValue : 18;
+
+		// Step 1: 造成直伤
+		ExecuteEffect(new CardEffectData { EffectType = CardEffectType.Damage, Value = damage }, target, source, visualSource);
+
+		// Step 2: 检查 HP < 阈值 → 挂致命裂痕
+		if (target is Hero heroTarget)
+		{
+			if (!heroTarget.IsDead && heroTarget.CurrentHealth > 0)
+			{
+				float ratio = (float)heroTarget.CurrentHealth / heroTarget.MaxHealth;
+				if (ratio < fatalThresholdPercent / 100f)
+				{
+					ApplyFatalRift(heroTarget as IDamageTarget, heroTarget);
+				}
+			}
+		}
+		else if (target is Minion minionTarget)
+		{
+			if (!minionTarget.IsDead && minionTarget.CurrentHealth > 0)
+			{
+				float ratio = (float)minionTarget.CurrentHealth / minionTarget.MaxHealth;
+				if (ratio < fatalThresholdPercent / 100f)
+				{
+					ApplyFatalRift(minionTarget, minionTarget);
+				}
+			}
+		}
+	}
+
+	private bool _fatalRiftBossShownOnce;
+
+	private void ApplyFatalRift(IDamageTarget target, object entity)
+	{
+		// ponytail: Boss 免疫斩杀——挂负面但不算消灭。
+		// 通过 EnemyEncounter.IsBoss 标志检查。
+		bool isBoss = false;
+		if (entity is Hero h && !h.IsPlayerSide && _enemyUnits.Any(u => ReferenceEquals(u.Body, h) && u.Brain.IsBoss))
+		{
+			isBoss = true;
+			if (!_fatalRiftBossShownOnce)
+			{
+				GD.Print("[CardEffectDispatcher] BOSS免疫斩杀——致命裂痕已挂为负面（无消灭效果）");
+				_fatalRiftBossShownOnce = true;
+			}
+		}
+
+		const string statusId = "fatal_rift";
+		var se = new StatusEffect(statusId, 1, TickTiming.EnemyTurnEnd, StatusEffectPolarity.Negative);
+
+		switch (entity)
+		{
+			case Hero heroEntity:
+				heroEntity.AddStatusEffect(se);
+				break;
+			case Minion minionEntity:
+				minionEntity.AddStatusEffect(se);
+				break;
+		}
+
+		// 订阅伤害事件——每次受到友方伤害后检查消灭条件
+		if (target is Minion m)
+		{
+			m.OnDamageTaken += (info, src) =>
+			{
+				if (src != null && src.IsPlayerSide && m.HasStatusEffect("fatal_rift") && !m.IsDead)
+				{
+					float r = (float)m.CurrentHealth / m.MaxHealth;
+					if (r < 0.18f)
+						TriggerFatalRiftElimination(m, m.CurrentHealth, m.MaxHealth, isBoss);
+				}
+			};
+		}
+		else if (target is Hero heroTarget && !heroTarget.IsPlayerSide)
+		{
+			heroTarget.OnDamageTaken += (info, src) =>
+			{
+				if (src != null && src.IsPlayerSide && heroTarget.HasStatusEffect("fatal_rift") && !heroTarget.IsDead)
+				{
+					float r = (float)heroTarget.CurrentHealth / heroTarget.MaxHealth;
+					if (r < 0.18f)
+						TriggerFatalRiftElimination(heroTarget, heroTarget.CurrentHealth, heroTarget.MaxHealth, isBoss);
+				}
+			};
+		}
+
+		if (!isBoss)
+		{
+			GD.Print($"[CardEffectDispatcher] 致命裂痕已挂；生命值低于阈值时受友方伤害后消灭");
+		}
+	}
+
+	private void TriggerFatalRiftElimination(IDamageTarget fatalTarget, int currentHp, int maxHp,
+		bool isBoss)
+	{
+		if (isBoss)
+		{
+			if (!_fatalRiftBossShownOnce)
+			{
+				GD.Print("[CardEffectDispatcher] BOSS免疫致命裂痕斩杀——负面已存在但消灭不生效");
+				_fatalRiftBossShownOnce = true;
+			}
+			return;
+		}
+
+		GD.Print($"[CardEffectDispatcher] 致命裂痕触发消灭——目标生命值 {currentHp}/{maxHp} (<18%)");
+		_requestDamageVfx(_playerHero, fatalTarget, DamageKind.Effect, CombatDamageVfxKind.Spell);
+		fatalTarget.TakeDamage(9999, _playerHero, DamageKind.Effect);
+		_notifyCombatStateChanged();
+	}
+
+	/// <summary>烟遁——所有友方单位获得 1 层烟幕，抽 1 张牌。</summary>
+	private void HandleSmokeDodge(CardEffectData effect)
+	{
+		int stacks = effect.Value > 0 ? effect.Value : 1;
+		int drawCount = effect.SecondaryValue > 0 ? effect.SecondaryValue : 1;
+		int applied = 0;
+
+		_playerHero.AddStatusEffect(new StatusEffect(
+			StatusEffect.SmokescreenId, stacks, TickTiming.PlayerTurnEnd, StatusEffectPolarity.NonNegative));
+		applied++;
+
+		foreach (var minion in _board.GetPlayerMinions())
+		{
+			if (!minion.IsDead)
+			{
+				minion.AddStatusEffect(new StatusEffect(
+					StatusEffect.SmokescreenId, stacks, TickTiming.PlayerTurnEnd, StatusEffectPolarity.NonNegative));
+				applied++;
+			}
+		}
+
+		_playerHero.DrawCards(drawCount);
+		GD.Print($"[CardEffectDispatcher] 烟遁：{applied} 个友方单位获得 {stacks} 层烟幕，抽 {drawCount} 张牌");
+		_notifyCombatStateChanged();
+	}
+
+	/// <summary>拿刀防卫——友方英雄 +3 攻击力直到下个敌方回合结束，抽 1 张牌；抉择：获得轮战 或 多抽 1 张。</summary>
+	private void HandleNaDaoFangYu(CardEffectData effect)
+	{
+		int attackBonus = effect.Value > 0 ? effect.Value : 3;
+		int drawCount = 1;
+
+		// 临时攻击增益 modifier——加到英雄武器/法术伤害
+		var attackMod = new NaDaoFangYuDamageModifier(attackBonus);
+		_playerHero._damageModifiers.Add(attackMod);
+
+		_playerHero.DrawCards(drawCount);
+		GD.Print($"[CardEffectDispatcher] 拿刀防卫：英雄攻击+{attackBonus}，抽{drawCount}张牌——等待抉择");
+
+		// 抉择：在本次获得轮战 或 多抽1张牌
+		_beginChooseOne(
+			"ui.choose_one.nadaofangyu",
+			"抉择：",
+			new[] { "获得轮战", "多抽1张牌" },
+			new[] { "在本次获得轮战效果", "额外多抽1张牌" },
+			(chosenIndex) =>
+			{
+				if (chosenIndex == 0)
+				{
+					GD.Print("[CardEffectDispatcher] 拿刀防卫：获得轮战");
+					const string recycleId = "nadaofangyu_recycle";
+					_playerHero.AddStatusEffect(new StatusEffect(recycleId, 1, TickTiming.EnemyTurnEnd, StatusEffectPolarity.NonNegative));
+				}
+				else if (chosenIndex == 1)
+				{
+					_playerHero.DrawCards(1);
+					GD.Print("[CardEffectDispatcher] 拿刀防卫：多抽1张牌（共2张）");
+				}
+			});
+
+		// 下个敌方回合结束后移除攻击增益
+		const string atkBuffId = "nadaofangyu_atk_buff";
+		_playerHero.AddStatusEffect(new StatusEffect(atkBuffId, 1, TickTiming.EnemyTurnEnd, StatusEffectPolarity.NonNegative)
+		{
+			OnTick = _ =>
+			{
+				_playerHero._damageModifiers.Remove(attackMod);
+				GD.Print("[CardEffectDispatcher] 拿刀防卫：攻击增益已移除");
+			},
+		});
+	}
+
+	/// <summary>拿刀防卫专用伤害修改器——英雄造成的伤害加固定值。</summary>
+	private sealed class NaDaoFangYuDamageModifier(int bonus) : IDamageModifier
+	{
+		public DamagePhase Phase => DamagePhase.ADDITIVE;
+
+		public int ModifyDamageDealt(int currentDamage, DamageContext context)
+		{
+			if (context.Source is Hero h && h.IsPlayerSide)
+				return currentDamage + bonus;
+			return currentDamage;
+		}
+
+		public int ModifyDamageTaken(int currentDamage, DamageContext context) => currentDamage;
+	}
+
+	// === 工具方法 ===
+
+	/// <summary>重置先发制人领域回合标记——由 DomainTriggerManager 每回合调用。</summary>
+	public void ResetPreemptiveStrike() => _preemptiveStrikeConsumedThisTurn = false;
 
 	private List<Card.Card> GetRandomCardsFromDiscard(int count)
 	{
