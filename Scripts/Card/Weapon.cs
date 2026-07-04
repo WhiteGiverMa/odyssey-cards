@@ -33,7 +33,7 @@ public class Weapon
 	/// <summary>
 	/// 每回合最大可攻击次数。默认 1。
 	/// </summary>
-	public int AttacksPerTurn { get; init; } = 1;
+	public int AttacksPerTurn { get; set; } = 1;
 
 	/// <summary>
 	/// 被动技能。可为 null 表示无被动效果。

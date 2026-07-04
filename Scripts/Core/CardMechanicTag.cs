@@ -99,4 +99,8 @@ public enum CardMechanicTag
 	/// 语义上表示「这张卡属于机械族」，供种族洗牌效果（<see cref="Combat.CardEffectDispatcher"/>）过滤、
 	/// ThemeProfile 种族偏好加权使用。原 <c>CardTag</c> 枚举已删除。</summary>
 	Mechanics = 65536,
+
+	/// <summary>超体：neta 和平精英「超体对抗」玩法。一类机制标签，同直伤/token一样属人工权威标注。
+	/// 供「超体插件盒」藏品检索与未来超体联动效果使用。</summary>
+	SuperBody = 131072,
 }

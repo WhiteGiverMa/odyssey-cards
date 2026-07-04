@@ -212,8 +212,16 @@ public abstract class EnemyEncounter
 	/// </summary>
 	public int CurrentMoveIndex { get; protected set; }
 
-	/// <summary>是否使用了新的 MoveState 意图系统。</summary>
+/// <summary>是否使用了新的 MoveState 意图系统。</summary>
 	public bool HasMoveStates => MoveStates != null;
+
+	/// <summary>
+	/// 是否为本位面的 Boss（位面结束时出现的首领）。
+	/// 由 CombatManager 在战斗初始化时根据 <see cref="Roguelike.RoomType"/> 设置。
+	/// Boss 受斩杀类效果（如「致命裂痕」）时只显示一次"BOSS免疫斩杀"提示，不再结算消灭。
+	/// ponytail: 当前每位面仅一个 Boss；未来双 Boss 拓展时此标志仍按单位粒度独立。
+	/// </summary>
+	public bool IsBoss { get; set; }
 
 	/// <summary>
 	/// 敌人初始武器。

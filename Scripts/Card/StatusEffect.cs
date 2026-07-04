@@ -54,6 +54,12 @@ public enum StatusEffectPolarity
 	{
 		public const string IncapacitatedId = "incapacitated";
 
+		/// <summary>烟幕状态 ID——有烟幕的单位无法被敌方武器/随从攻击命中（但法术仍可命中）。</summary>
+		public const string SmokescreenId = "smokescreen";
+
+		/// <summary>致命裂痕状态 ID——敌方目标血量低于阈值且被友方伤害后消灭（碎片子弹）。</summary>
+		public const string FatalRiftId = "fatal_rift";
+
 	/// <summary>
 	/// 效果标识符。相同 ID 的效果叠加层数。
 	/// </summary>
@@ -125,7 +131,8 @@ public enum StatusEffectPolarity
 			"total_observation" => StatusEffectPolarity.Negative,
 			"attack_ban" => StatusEffectPolarity.Negative,
 				"damage_over_time" => StatusEffectPolarity.Negative,
-				IncapacitatedId => StatusEffectPolarity.Negative,
+IncapacitatedId => StatusEffectPolarity.Negative,
+				FatalRiftId => StatusEffectPolarity.Negative,
 				_ => StatusEffectPolarity.NonNegative,
 			};
 		}
