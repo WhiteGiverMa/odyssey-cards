@@ -979,6 +979,26 @@ public partial class CombatUI : Control
 		_attackDragFsm.OnCancel += OnAttackDragCancel;
 		_unsubscribeActions.Add(() => _attackDragFsm.OnCancel -= OnAttackDragCancel);
 
+		// 抉择（参考炉石 Choose One）—— CombatManager 经其回调链弹出 ChooseOneUI
+		_combat.ChooseOneRequested += OnChooseOneRequested;
+		_unsubscribeActions.Add(() => _combat.ChooseOneRequested -= OnChooseOneRequested);
+
+	}
+
+	/// <summary>CombatManager 抉择请求——弹出 ChooseOneUI 异步等待玩家选择，完成后通过 request.OnChosen 回调返回。</summary>
+	private async void OnChooseOneRequested(CombatManager.ChooseOneRequest request)
+	{
+		if (request == null)
+			return;
+		var ui = new ChooseOneUI();
+		AddChild(ui);
+		int result = await ui.ShowAsync(
+			request.TitleKey,
+			request.TitleFallback,
+			request.OptionLabels,
+			request.OptionDescriptions,
+			canSkip: false);
+		request.OnChosen.Invoke(result);
 	}
 
 	/// <summary>
