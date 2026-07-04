@@ -225,6 +225,14 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	public bool HasBaitTacticsOnAttacked { get; private set; }
 
 	/// <summary>
+	/// 首次攻击时使友方英雄获得1层烟幕——拉烟哥专属 OneShot 效果。
+	/// ponytail: 后续可扩展为泛用"首次攻击附加效果"机制。
+	/// </summary>
+	internal bool HasSmokeGrantOnFirstAttack { get; set; }
+
+	internal bool _firstAttackDone;
+
+	/// <summary>
 	/// 获得「诱饵战术」授予的关键词与被攻击触发效果。
 	/// </summary>
 	public void GrantBaitTactics()
@@ -399,6 +407,12 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
 	public bool IsIncapacitated => HasStatusEffect(StatusEffect.IncapacitatedId);
 
+	/// <summary>
+	/// 是否处于烟幕状态——有烟幕的随从无法被敌方武器/随从攻击命中，但法术仍可命中。
+	/// 见 <see cref="StatusEffect.SmokescreenId"/>。
+	/// </summary>
+	public bool HasSmokeScreen => HasStatusEffect(StatusEffect.SmokescreenId);
+
 	private void ApplyStatusEffectImmediate(StatusEffect effect)
 	{
 		switch (effect.Id)
@@ -483,6 +497,9 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		: base(data)
 	{
 		IsPlayerSide = isPlayerSide;
+		// 拉烟哥专属：首攻烟幕 OneShot 效果
+		HasSmokeGrantOnFirstAttack = data.Id == "minion_rayan_ge";
+		_firstAttackDone = false;
 		_focusModifier = new FocusSpellDamageModifier(GetFocusStacks);
 
 		// 从卡牌数据复制战斗属性

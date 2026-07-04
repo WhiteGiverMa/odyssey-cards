@@ -836,6 +836,12 @@ public class Hero : IDamageTarget, IDamageSource
 	public bool IsIncapacitated => HasStatusEffect(StatusEffect.IncapacitatedId);
 
 	/// <summary>
+	/// 是否处于烟幕状态——有烟幕的英雄无法被敌方武器/随从攻击命中，但法术仍可命中。
+	/// 见 <see cref="StatusEffect.SmokescreenId"/>。
+	/// </summary>
+	public bool HasSmokeScreen => HasStatusEffect(StatusEffect.SmokescreenId);
+
+	/// <summary>
 	/// 是否持有指定领域。
 	/// </summary>
 	public bool HasDomain(string domainId)
