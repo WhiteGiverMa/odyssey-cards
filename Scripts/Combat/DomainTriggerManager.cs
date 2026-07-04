@@ -26,6 +26,9 @@ internal sealed class DomainTriggerManager
 	private bool _enemyHeroAttackedThisTurn;
 	private bool _enemyHeroAttackPenetratedThisTurn;
 
+	// 先发制人领域：每回合首张直伤牌按手牌数 +10%/张
+	private bool _preemptiveStrikeUsedThisTurn;
+
 	public DomainTriggerManager(
 		CommanderCore playerCore,
 		Hero playerHero,
@@ -100,7 +103,29 @@ internal sealed class DomainTriggerManager
 		}
 	}
 
-public void OnPlayerTurnEnd()
+public void OnPlayerTurnStart()
+	{
+		_preemptiveStrikeUsedThisTurn = false;
+		_enemyHeroAttackedThisTurn = false;
+		_enemyHeroAttackPenetratedThisTurn = false;
+	}
+
+	/// <summary>
+	/// 先发制人伤害倍率查询——每回合首张直伤牌时返回（1 + 手牌数 × 10%），
+	/// 之后同一回合内返回 1.0（不叠加）。
+	/// </summary>
+	public float ConsumePreemptiveStrikeMultiplier()
+	{
+		if (_preemptiveStrikeUsedThisTurn)
+			return 1.0f;
+		if (!_playerHero.HasDomain("preemptive_strike"))
+			return 1.0f;
+		_preemptiveStrikeUsedThisTurn = true;
+		int handCount = _playerHero.DeckState.Hand.Count;
+		return 1.0f + handCount * 0.1f;
+	}
+
+	public void OnPlayerTurnEnd()
 	{
 		foreach (var domain in _playerHero.ActiveDomains.Values.ToList())
 		{

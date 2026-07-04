@@ -11,15 +11,36 @@ internal static class SmartTargetingSystem
 {
 	private const int NearTieRange = 2;
 
-	public static IDamageTarget SelectEnemyAttackTarget(Board board, Hero playerHero, IDamageSource source, int baseDamage)
+	public static IDamageTarget? SelectEnemyAttackTarget(Board board, Hero playerHero, IDamageSource source, int baseDamage)
 	{
+		// ponytail: 烟幕——有烟幕的友方单位无法被敌方武器/随从攻击命中。
+		// 嘲讽目标中有烟幕的也排除；若嘲讽全被烟幕保护，降级到全体候选继续过滤。
+		// 全部候选都被烟幕保护 → 返回 null（攻击将被调用方跳过）。
 		var taunts = board.GetTaunts(ofEnemy: false).Cast<IDamageTarget>().ToList();
 		if (taunts.Count > 0)
-			return SelectBest(taunts, source, baseDamage, preferBoardControl: true);
+		{
+			taunts = taunts.Where(t => !IsProtectedBySmokeScreen(t)).ToList();
+			if (taunts.Count > 0)
+				return SelectBest(taunts, source, baseDamage, preferBoardControl: true);
+		}
 
 		var candidates = new List<IDamageTarget> { playerHero };
 		candidates.AddRange(board.GetPlayerMinions());
+		candidates = candidates.Where(t => !IsProtectedBySmokeScreen(t)).ToList();
+		if (candidates.Count == 0)
+			return null;
 		return SelectBest(candidates, source, baseDamage, preferBoardControl: false);
+	}
+
+	/// <summary>目标是否有烟幕保护（仅阻挡攻击，不阻挡法术）。</summary>
+	private static bool IsProtectedBySmokeScreen(IDamageTarget target)
+	{
+		return target switch
+		{
+			Minion m => m.HasSmokeScreen,
+			Hero h => h.HasSmokeScreen,
+			_ => false,
+		};
 	}
 
 	public static IDamageTarget SelectEnemySpellTarget(Board board, Hero playerHero, IDamageSource source, int baseDamage)

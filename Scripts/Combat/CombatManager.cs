@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 using OdysseyCards.AI;
 using OdysseyCards.Card;
 using OdysseyCards.Core;
@@ -26,6 +26,45 @@ public partial class CombatManager : Node
 	/// 战斗管理器全局单例。
 	/// </summary>
 	public static CombatManager Instance { get; private set; }
+
+	// ===== 抉择 UI（参考炉石 Choose One） =====
+
+	/// <summary>
+	/// 抉择 UI 请求载荷。由 <see cref="BeginChooseOne"/> 触发，<see cref="ChooseOneRequested"/> 事件携带本结构。
+	/// UI 监听事件后弹出 <see cref="UI.ChooseOneUI"/>，玩家选完后回调 <c>OnChosen</c>（index 0-based；跳过=-1）。
+	/// </summary>
+	public sealed class ChooseOneRequest
+	{
+		public string TitleKey { get; init; } = "";
+		public string TitleFallback { get; init; } = "";
+		public IReadOnlyList<string> OptionLabels { get; init; } = Array.Empty<string>();
+		public IReadOnlyList<string> OptionDescriptions { get; init; } = Array.Empty<string>();
+		public Action<int> OnChosen { get; init; } = _ => { };
+	}
+
+	/// <summary>
+	/// 抉择 UI 事件——请求 UI 弹出抉择界面。CombatUI 订阅。
+	/// </summary>
+	public event Action<ChooseOneRequest>? ChooseOneRequested;
+
+	/// <summary>
+	/// 触发抉择 UI——由 CardEffectDispatcher 经此回调调用。
+	/// </summary>
+	private void BeginChooseOne(string titleKey, string titleFallback,
+		IReadOnlyList<string> optionLabels, IReadOnlyList<string> optionDescriptions,
+		Action<int> onChosen)
+	{
+		var request = new ChooseOneRequest
+		{
+			TitleKey = titleKey,
+			TitleFallback = titleFallback,
+			OptionLabels = optionLabels,
+			OptionDescriptions = optionDescriptions,
+			OnChosen = onChosen,
+		};
+		GD.Print($"[CombatManager] 触发抉择：{titleFallback}（{optionLabels.Count} 个选项）");
+		ChooseOneRequested?.Invoke(request);
+	}
 
 	// ===== 内部引用 =====
 
@@ -133,7 +172,7 @@ public partial class CombatManager : Node
 		OnDamageVfxRequested?.Invoke(visualSource, target, kind, vfxKind);
 	}
 
-	public IDamageTarget SelectSmartEnemyAttackTarget(IDamageSource source, int baseDamage)
+	public IDamageTarget? SelectSmartEnemyAttackTarget(IDamageSource source, int baseDamage)
 	{
 		return SmartTargetingSystem.SelectEnemyAttackTarget(Board, PlayerHero, source, baseDamage);
 	}
@@ -149,6 +188,11 @@ public partial class CombatManager : Node
 			return false;
 
 		var target = SelectSmartEnemyAttackTarget(attacker, baseDamage);
+		if (target == null)
+		{
+			GD.Print($"[CombatManager] 敌方英雄的攻击被烟幕完全阻挡，跳过");
+			return false;
+		}
 		if (target is Minion minionTarget)
 		{
 			TriggerBaitTacticsOnAttacked(minionTarget, attacker);
@@ -184,6 +228,11 @@ public partial class CombatManager : Node
 			return false;
 
 		var target = SelectSmartEnemyAttackTarget(attacker, attacker.Attack);
+		if (target == null)
+		{
+			GD.Print($"[CombatManager] 随从 {attacker.CardName} 的攻击被烟幕完全阻挡，跳过");
+			return false;
+		}
 		if (target is Minion defender)
 		{
 			ResolveMinionCombat(attacker, defender);
@@ -574,6 +623,7 @@ public partial class CombatManager : Node
 
 		// 为每个 EnemyEncounter 创建对应的 Hero + EnemyUnit
 		var enemyUnits = new List<EnemyUnit>();
+		bool isBossEncounter = GameManager.Instance.RunState?.SelectedRoom?.Type == Roguelike.RoomType.Boss;
 		foreach (var enc in encounters)
 		{
 			var enemyCore = new CommanderCore();
@@ -581,6 +631,7 @@ public partial class CombatManager : Node
 			enemyCore.SetMana(0, 0);
 			var enemyHero = new Hero(enemyCore, false);
 			var unit = new EnemyUnit(enemyHero, enc);
+			enc.IsBoss = isBossEncounter; // 标记 Boss——斩杀类效果（致命裂痕）对此单位无效但仍提示一次
 			enemyUnits.Add(unit);
 
 			// 注入敌方被动技能
@@ -710,9 +761,10 @@ public partial class CombatManager : Node
 				NotifyCombatStateChanged,
 				_selectionSystem.HandleDiscoverEffect,
 				_selectionSystem.BeginDiscardDiscoverSelection,
-				_selectionSystem.BeginHandDiscardSelection,
-				BeginCopyHandFillSelection,
-				RequestDamageVfx);
+_selectionSystem.BeginHandDiscardSelection,
+			BeginCopyHandFillSelection,
+			BeginChooseOne,
+			RequestDamageVfx);
 		_deathHandler = new DeathHandler(Board, PlayerHero, _effectDispatcher, _attackTracker);
 		_weaponAttack = new WeaponAttackSystem(
 			Board,
@@ -835,6 +887,10 @@ State.StartPlayerTurn(growthCap);
 
 		// 藏品 〜 回合开始时触发，位于 mount 状态之后，以便藏品逻辑可以看到已结算的法力/手牌。
 		_relicManager.TriggerTurnStart(this);
+
+		// 领域回合开始 + 先发制人重置
+		_domainTriggerManager.OnPlayerTurnStart();
+		_effectDispatcher.ResetPreemptiveStrike();
 
 		// 回合开始抽 1 张牌
 		PlayerHero.DrawCards(1);
@@ -1107,7 +1163,10 @@ State.StartPlayerTurn(growthCap);
 		foreach (var effect in card.Data.Effects)
 		{
 			ResolveSpellEffect(effect, target, card);
-			if (IsDiscovering)
+if (IsDiscovering)
+		{
+			return false;
+		}
 			{
 				selectionTriggered = true;
 				_selectionSystem.SetPendingDiscoverSpellCard(card);
@@ -1559,6 +1618,15 @@ State.StartPlayerTurn(growthCap);
 		{
 			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 行动花费 {attacker.ActionCost}，当前法力不足（{PlayerHero.CurrentMana}）");
 			return false;
+
+		// RayanGe one-shot: first attack grants friendly hero 1 smokescreen
+		if (attacker.HasSmokeGrantOnFirstAttack && !attacker._firstAttackDone)
+		{
+			attacker._firstAttackDone = true;
+			PlayerHero.AddStatusEffect(new OdysseyCards.Card.StatusEffect(
+				OdysseyCards.Card.StatusEffect.SmokescreenId, 1,
+				OdysseyCards.Card.TickTiming.PlayerTurnEnd));
+		}
 		}
 
 		// 验证：防御方有效性
@@ -1665,6 +1733,15 @@ State.StartPlayerTurn(growthCap);
 			return false;
 		}
 
+
+		// RayanGe one-shot: first attack grants friendly hero 1 smokescreen
+		if (attacker.HasSmokeGrantOnFirstAttack && !attacker._firstAttackDone)
+		{
+			attacker._firstAttackDone = true;
+			PlayerHero.AddStatusEffect(new OdysseyCards.Card.StatusEffect(
+				OdysseyCards.Card.StatusEffect.SmokescreenId, 1,
+				OdysseyCards.Card.TickTiming.PlayerTurnEnd));
+		}
 		// 嘲讽检测（攻击英雄）
 		var enemyTaunts = Board.GetTaunts(ofEnemy: true);
 		if (enemyTaunts.Count > 0)
