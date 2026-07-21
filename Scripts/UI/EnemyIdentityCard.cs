@@ -60,9 +60,8 @@ public partial class EnemyIdentityCard : Panel
 		EnemyIndex = enemyIndex;
 		var unit = combat.EnemyUnits[enemyIndex];
 
-		// Panel setup
-		CustomMinimumSize = new Vector2(180, 110);
-		SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		// Panel setup——紧凑信息条（不 ExpandFill，EnemyArea HBox 居中排列，多敌人时自然并拢）
+		CustomMinimumSize = new Vector2(210, 162);
 
 		// --- Style: border via StyleBoxFlat ---
 		_normalBorderStyle = new StyleBoxFlat
@@ -105,9 +104,17 @@ public partial class EnemyIdentityCard : Panel
 			MouseFilter = MouseFilterEnum.Pass,
 		};
 		AddChild(content);
+		content.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 
-		// Row 1: Name + HP
+		// Row 1: 底座光环 + Name + HP
 		var row1 = new HBoxContainer();
+		var aura = new HeroAuraRing
+		{
+			RingColor = new Color("#ff6b7a"), // 敌方绯红
+			SizeFlagsVertical = SizeFlags.ShrinkCenter,
+		};
+		row1.AddChild(aura);
+
 		_nameLabel = new Label
 		{
 			Text = unit.Brain.Name,

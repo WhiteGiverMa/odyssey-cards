@@ -110,7 +110,7 @@ public partial class CombatUI
 			Name = "EnemyArea",
 			Alignment = BoxContainer.AlignmentMode.Center,
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-			CustomMinimumSize = new Vector2(0, 110),
+			CustomMinimumSize = new Vector2(0, 170),
 		};
 
 		// 暂停按钮（右上角）
@@ -282,7 +282,7 @@ public partial class CombatUI
 
 	/// <summary>
 	/// 从 PackedScene 或程序化创建生命值条实例。
-	/// 程序化创建时附加主题样式和百分比文本标签，尺寸使用 UIScaler 缩放。
+	/// 样式统一由 HealthBar._Ready 应用星途底座（此处不再覆盖）。
 	/// </summary>
 	private HealthBar InstantiateHealthBar(string name)
 	{
@@ -300,26 +300,6 @@ public partial class CombatUI
 				CustomMinimumSize = new Vector2(180 * scale, 22 * scale),
 				SizeFlagsHorizontal = SizeFlags.Expand,
 			};
-
-			// 主题样式：暗底 + 绿色填充 + 圆角
-			var bgStyle = new StyleBoxFlat
-			{
-				BgColor = new Color(0.12f, 0.12f, 0.12f),
-				CornerRadiusTopLeft = 3,
-				CornerRadiusTopRight = 3,
-				CornerRadiusBottomLeft = 3,
-				CornerRadiusBottomRight = 3,
-			};
-			var fillStyle = new StyleBoxFlat
-			{
-				BgColor = new Color(0.22f, 0.72f, 0.22f),
-				CornerRadiusTopLeft = 3,
-				CornerRadiusTopRight = 3,
-				CornerRadiusBottomLeft = 3,
-				CornerRadiusBottomRight = 3,
-			};
-			hb.AddThemeStyleboxOverride("background", bgStyle);
-			hb.AddThemeStyleboxOverride("fill", fillStyle);
 		}
 
 		hb.Name = name;

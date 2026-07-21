@@ -111,10 +111,16 @@ public partial class CollectionUI : Control
 	{
 		GD.Print("[CollectionUI] _Ready — 初始化牌组编辑界面");
 
+		// 场景淡入（星途微交互）
+		MicroFX.FadeIn(this);
+
 		SetupUI();
 		SetProcessInput(true);
 		CaptureCheckpoint();
 		RefreshAll();
+
+		// 星途全局主题 + 按钮悬停微交互（RefreshAll 后的动态按钮由各自重建点补充）
+		UIThemeFactory.ApplyTo(this);
 
 		// 订阅事件
 		GameManager.Instance.LanguageChanged += OnLanguageChanged;

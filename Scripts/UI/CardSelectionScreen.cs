@@ -222,6 +222,9 @@ public abstract partial class CardSelectionScreen : Control
 		// 订阅语言变更（先取消再订阅防止 BuildOverlay 被多次调用时重复订阅）
 		GameManager.Instance.LanguageChanged -= OnLanguageChanged;
 		GameManager.Instance.LanguageChanged += OnLanguageChanged;
+
+		// 星途全局主题 + 按钮悬停微交互（一次性屏幕，构建时统一应用）
+		UIThemeFactory.ApplyTo(this);
 	}
 
 	private void ClearExistingLayout()

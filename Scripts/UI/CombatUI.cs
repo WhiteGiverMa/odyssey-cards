@@ -410,6 +410,9 @@ public partial class CombatUI : Control
 		AddToGroup("CombatUI");
 		GD.Print("[CombatUI] _Ready");
 
+		// 场景淡入（星途微交互）
+		MicroFX.FadeIn(this);
+
 		BuildLayout();
 
 		// 订阅分辨率变化——窗口缩放时重新计算尺寸
@@ -750,6 +753,10 @@ public partial class CombatUI : Control
 
 		// 订阅热键（HotkeyManager 回调）
 		SubscribeHotkeys();
+
+		// 星途全局主题 + 按钮悬停微交互（在全部子组件创建后统一应用；
+		// 散点 AddThemeColorOverride 优先于 Theme，既有视觉不回归）
+		UIThemeFactory.ApplyTo(this);
 
 		GD.Print("[CombatUI] 初始化完成");
 	}

@@ -26,6 +26,7 @@ public partial class MapUI : Control
 	private ScrollContainer _scrollContainer = null!;
 	private VBoxContainer _choicesContainer = null!;
 	private Button _quitButton = null!;
+	private MapPathView _pathView = null!;
 
 	// ===== 暂停菜单 =====
 
@@ -98,6 +99,9 @@ public partial class MapUI : Control
 			return;
 
 		GD.Print("[MapUI] _Ready — 初始化地图界面");
+
+		// 场景淡入（星途微交互）
+		MicroFX.FadeIn(this);
 
 		var gm = GameManager.Instance;
 		_runState = gm?.RunState;
@@ -271,7 +275,7 @@ public partial class MapUI : Control
 		// 顶部与中部间距
 		topSection.AddChild(CreateSpacer(16));
 
-		// ===== 中部区域 — 可滚动房间卡片列表（左右留 10% 边距 ≈ 80% 宽度） =====
+		// ===== 中部区域 — 上：路径可视化（路线结构）；下：当前层房间卡片列表 =====
 		var centerMargin = new MarginContainer
 		{
 			Name = "CenterMargin",
@@ -281,17 +285,40 @@ public partial class MapUI : Control
 		centerMargin.AddThemeConstantOverride("margin_right", 40);
 		root.AddChild(centerMargin);
 
+		var centerVBox = new VBoxContainer
+		{
+			Name = "CenterVBox",
+			SizeFlagsVertical = SizeFlags.ExpandFill,
+		};
+		centerVBox.AddThemeConstantOverride("separation", 10);
+		centerMargin.AddChild(centerVBox);
+
+		// 路径可视化——层间节点连线 + 当前位置脉动（吃满剩余高度）
+		_pathView = new MapPathView
+		{
+			Name = "PathView",
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+			SizeFlagsVertical = SizeFlags.ExpandFill,
+		};
+		_pathView.OnCurrentRoomActivated += HandleRoomSelected;
+		centerVBox.AddChild(_pathView);
+
+		// 当前层房间卡片（详情文本：名称 + 描述 + 敌人预览）
+		// 注意：ScrollContainer 不会按内容撑高（Godot 经典坑），必须显式最小高度——
+		// 卡片 80px × 最多 2 张 + 间距 16 + 余量 8 = 184
 		_scrollContainer = new ScrollContainer
 		{
 			Name = "ScrollContainer",
 			HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-			SizeFlagsVertical = SizeFlags.ExpandFill,
+			CustomMinimumSize = new Vector2(0, 184),
 		};
-		centerMargin.AddChild(_scrollContainer);
+		centerVBox.AddChild(_scrollContainer);
 
 		_choicesContainer = new VBoxContainer
 		{
 			Name = "ChoicesContainer",
+			// ExpandFill 撑满 ScrollContainer 宽度，否则卡片塌陷到文本宽度
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 		};
 		_choicesContainer.AddThemeConstantOverride("separation", 16);
 		_scrollContainer.AddChild(_choicesContainer);
@@ -319,6 +346,9 @@ public partial class MapUI : Control
 		// 移动端：TapZone；桌面端：Button.Pressed
 		RegisterQuitInteraction();
 		bottomSection.AddChild(_quitButton);
+
+		// 星途全局主题 + 按钮悬停微交互（房间卡片在 RefreshRoomChoices 中补充递归）
+		UIThemeFactory.ApplyTo(this);
 	}
 
 	/// <summary>
@@ -478,6 +508,10 @@ public partial class MapUI : Control
 			_choicesContainer.AddChild(card);
 			RegisterRoomInteraction(card, room);
 		}
+
+		// 路径可视化同步 + 新卡片按钮悬停微交互（卡片是动态重建的，需重新递归）
+		_pathView.Refresh(_runState);
+		UIThemeFactory.ApplyHoverFX(_choicesContainer);
 	}
 
 	/// <summary>
@@ -957,6 +991,10 @@ public partial class MapUI : Control
 	/// </summary>
 	private void ShowRunComplete()
 	{
+		// 路径可视化终态（全部完成，Boss 打勾）
+		if (_runState != null)
+			_pathView.Refresh(_runState);
+
 		// 清除所有选择卡片
 		foreach (var token in _roomZoneTokens)
 			token.Dispose();
@@ -1003,6 +1041,10 @@ public partial class MapUI : Control
 	/// </summary>
 	private void ShowRunFailed()
 	{
+		// 路径可视化终态（已走到的位置）
+		if (_runState != null)
+			_pathView.Refresh(_runState);
+
 		// 清除所有选择卡片
 		foreach (var token in _roomZoneTokens)
 			token.Dispose();

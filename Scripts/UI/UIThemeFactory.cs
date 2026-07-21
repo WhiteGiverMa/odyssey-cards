@@ -94,6 +94,28 @@ public static class UIThemeFactory
 	public static void ResetSharedTheme() => _shared = null;
 
 	/// <summary>
+	/// 将全局主题与按钮悬停微交互应用到整棵子树。
+	/// 根节点挂共享 Theme（所有后代继承），并递归为所有 Button 附加 hover FX。
+	/// 动态后加的按钮不在覆盖范围内——由调用方在重建后重调 ApplyHoverFX。
+	/// </summary>
+	public static void ApplyTo(Control root)
+	{
+		root.Theme = GetSharedTheme();
+		ApplyHoverFX(root);
+	}
+
+	/// <summary>递归为子树内所有 Button 附加悬停微交互（幂等，可重复调用）。</summary>
+	public static void ApplyHoverFX(Node root)
+	{
+		foreach (var child in root.GetChildren())
+		{
+			if (child is BaseButton btn)
+				MicroFX.AttachHoverFX(btn);
+			ApplyHoverFX(child);
+		}
+	}
+
+	/// <summary>
 	/// 创建按钮样式——圆角 + 描边 + 内边距。
 	/// </summary>
 	public static StyleBoxFlat CreateButtonStyle(Color bg, Color border, int radius = 8, int borderWidth = 1)

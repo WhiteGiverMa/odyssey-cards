@@ -45,7 +45,8 @@ public partial class PlayerIdentityCard : Control
 			CornerRadiusBottomRight = 6,
 		};
 
-		_panel = new Panel { CustomMinimumSize = new Vector2(140, 56) };
+		_panel = new Panel();
+		_panel.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 		_panel.AddThemeStyleboxOverride("panel", panelStyle);
 		AddChild(_panel);
 
@@ -58,9 +59,17 @@ public partial class PlayerIdentityCard : Control
 			MouseFilter = MouseFilterEnum.Pass,
 		};
 		_panel.AddChild(content);
+		content.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 
-		// Row 1: Name + HeroSpellButton
+		// Row 1: 底座光环 + Name + HeroSpellButton
 		var nameRow = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+		var aura = new HeroAuraRing
+		{
+			RingColor = new Color("#7fd8ff"), // 玩家青金
+			SizeFlagsVertical = SizeFlags.ShrinkCenter,
+		};
+		nameRow.AddChild(aura);
+
 		_nameLabel = new Label
 		{
 			Text = Loc.T("ui.combat.player_hero", "我方英雄"),

@@ -4,15 +4,15 @@ using OdysseyCards.Heat;
 namespace OdysseyCards.UI;
 
 /// <summary>
-/// 热力值 UI 条——显示在战斗界面全局位置。
-/// 显示当前热力值百分比和进度条。
+/// 热力值 UI 条——显示在战斗界面法力区域。
+/// 文本标签 + HeatBarFill 自绘火焰渐变条（低温青金 / 正常暖橙 / 过热绯红脉动）。
 /// </summary>
 public partial class HeatBar : HBoxContainer
 {
 	private HeatSystem? _heat;
 
 	private Label? _label;
-	private ProgressBar? _bar;
+	private HeatBarFill? _fill;
 
 	public HeatBar()
 	{
@@ -39,20 +39,12 @@ public partial class HeatBar : HBoxContainer
 	/// </summary>
 	public void Refresh()
 	{
-		if (_heat == null || _label == null || _bar == null)
+		if (_heat == null || _label == null || _fill == null)
 			return;
 
 		float pct = _heat.CurrentHeat * 100f;
 		_label.Text = $"热力 {pct:F0}%";
-		_bar.Value = pct;
-
-		// 根据热力值级别变色
-		if (_heat.CurrentHeat < 0.4f)
-			_bar.Modulate = new Color(0.3f, 0.8f, 1.0f); // 蓝（低温）
-		else if (_heat.CurrentHeat < 1.2f)
-			_bar.Modulate = new Color(1.0f, 0.7f, 0.2f); // 橙（正常）
-		else
-			_bar.Modulate = new Color(1.0f, 0.2f, 0.2f); // 红（过热）
+		_fill.SetHeat(_heat.CurrentHeat);
 	}
 
 	private void EnsureControls()
@@ -64,11 +56,7 @@ public partial class HeatBar : HBoxContainer
 		_label.AddThemeFontSizeOverride("font_size", 12);
 		AddChild(_label);
 
-		_bar = new ProgressBar();
-		_bar.CustomMinimumSize = new Vector2(100, 12);
-		_bar.MinValue = 0;
-		_bar.MaxValue = 300;
-		_bar.ShowPercentage = false;
-		AddChild(_bar);
+		_fill = new HeatBarFill();
+		AddChild(_fill);
 	}
 }

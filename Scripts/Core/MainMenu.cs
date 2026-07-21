@@ -38,8 +38,11 @@ public partial class MainMenu : Control
 	{
 		Localization.Localization.Initialize();
 
-		// 星途全局主题：按钮五态/面板/字色统一（子控件全部继承）
-		Theme = UIThemeFactory.GetSharedTheme();
+		// 场景淡入（星途微交互）
+		MicroFX.FadeIn(this);
+
+		// 星途全局主题 + 按钮悬停微交互：按钮五态/面板/字色统一（子控件全部继承）
+		UIThemeFactory.ApplyTo(this);
 
 		// 星空背景取代纯色底（密星 + 流星，主界面氛围）
 		var starfield = new StarfieldBackground { Name = "Starfield", StarCount = 170 };
@@ -53,6 +56,12 @@ public partial class MainMenu : Control
 		_settingsButton = GetNode<Button>("MainMenuContainer/ButtonContainer/SettingsButton");
 		_titleLabel = GetNode<Label>("MainMenuContainer/TitleLabel");
 		_buttonContainer = GetNode<VBoxContainer>("MainMenuContainer/ButtonContainer");
+
+		// 标题装饰：呼吸微光 + 环绕小星星（主菜单记忆点）
+		MicroFX.BreathingGlow(_titleLabel);
+		var orbit = new TitleStarOrbit { Name = "TitleStarOrbit" };
+		AddChild(orbit);
+		orbit.Track(_titleLabel);
 
 		// 动态插入「我的收藏」按钮
 		_collectionButton = new Button
@@ -119,6 +128,9 @@ public partial class MainMenu : Control
 		_quitButton.AddThemeFontSizeOverride("font_size", 20);
 		_quitButton.Pressed += OnQuitPressed;
 		_buttonContainer.AddChild(_quitButton);
+
+		// 动态插入的按钮补充悬停微交互（ApplyTo 早于它们的创建）
+		UIThemeFactory.ApplyHoverFX(_buttonContainer);
 
 		// 根据当前是否有活跃冒险控制 Continue / Abandon 按钮的可见性
 		// 运行完成（胜利/失败）后不显示继续/放弃按钮
@@ -300,6 +312,9 @@ public partial class MainMenu : Control
 		AddChild(overlay);
 		_heroSelectOverlay = overlay;
 		_mainMenuContainer.Visible = false;
+
+		// 英雄选择弹窗按钮悬停微交互（动态创建，不在 _Ready 递归范围内）
+		UIThemeFactory.ApplyHoverFX(overlay);
 
 		if (MobileInputRouter.IsMobile)
 		{
