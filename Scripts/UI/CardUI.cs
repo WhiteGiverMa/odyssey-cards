@@ -42,7 +42,6 @@ public partial class CardUI : Control
 	private static readonly Color ClrHeader = new("#2a2a20");
 	private static readonly Color ClrMana = new("#4488cc");
 	private static readonly Color ClrTextWhite = new("#f0f0e8");
-	private static readonly Color ClrArtworkPlaceholder = new("#555548");
 	private static readonly Color ClrDescBg = new("#4a4a40");
 	private static readonly Color ClrDescText = new("#ccccaa");
 	private static readonly Color ClrStatsBg = new("#1a1a10");
@@ -148,8 +147,7 @@ public partial class CardUI : Control
 	private ColorRect _actionCostBg = null!;
 	private Label _actionCostLabel = null!;
 	private Label _nameLabel = null!;
-	private ColorRect _artworkRect = null!;
-	private Label _artworkLabel = null!;
+	private CardArtworkView _artworkView = null!;
 
 	// 随从属性（攻击力 / 生命值）
 	private ColorRect _attackBg = null!;
@@ -418,32 +416,20 @@ public partial class CardUI : Control
 	}
 
 	/// <summary>
-	/// 构建中央卡图占位区域（灰色矩形 + 水印文字）。
+	/// 构建中央卡图区域（程序化生成卡面，0 美术资产）。
 	/// </summary>
 	private void BuildArtworkArea(float s, Vector2 size)
 	{
 		float y = HEADER_H * s;
 		float h = ARTWORK_H * s;
 
-		_artworkRect = new ColorRect
-		{
-			Color = ClrArtworkPlaceholder,
-			Size = new Vector2(size.X, h),
-			Position = new Vector2(0, y),
-		};
-		AddChild(_artworkRect);
-
-		_artworkLabel = new Label
+		_artworkView = new CardArtworkView
 		{
 			Size = new Vector2(size.X, h),
 			Position = new Vector2(0, y),
-			HorizontalAlignment = HorizontalAlignment.Center,
-			VerticalAlignment = VerticalAlignment.Center,
-			Text = "Odyssey",
+			MouseFilter = MouseFilterEnum.Ignore,
 		};
-		_artworkLabel.AddThemeColorOverride("font_color", new Color("#888870"));
-		_artworkLabel.AddThemeFontSizeOverride("font_size", (int)(9 * s));
-		AddChild(_artworkLabel);
+		AddChild(_artworkView);
 	}
 
 	/// <summary>
@@ -523,8 +509,8 @@ public partial class CardUI : Control
 			Text = Loc.T("ui.card.type_spell", "法术"),
 			Visible = false,
 		};
-		_spellTypeLabel.AddThemeColorOverride("font_color", new Color("#ccccaa"));
-		_spellTypeLabel.AddThemeFontSizeOverride("font_size", (int)(14 * s));
+		_spellTypeLabel.AddThemeColorOverride("font_color", new Color(0.95f, 0.95f, 0.9f, 0.85f));
+		_spellTypeLabel.AddThemeFontSizeOverride("font_size", (int)(9 * s));
 		AddChild(_spellTypeLabel);
 	}
 
@@ -620,8 +606,8 @@ public partial class CardUI : Control
 		_nameLabel.HorizontalAlignment = GetNameAlignment();
 		ApplyNameFontSize(s);
 
-		// 卡图区域：有真实资源时隐藏占位文字
-		_artworkLabel.Visible = card.Data.Artwork == null;
+		// 卡图区域：程序化生成（真实 Artwork 存在时优先）
+		_artworkView.Setup(card.Data);
 
 		// 根据类型切换显示模式
 		if (card.Type == CardType.Minion)
@@ -656,9 +642,6 @@ public partial class CardUI : Control
 
 		// 名字（绕过本地化）
 		_nameLabel.Text = "预览卡牌";
-
-		// 卡图占位
-		_artworkLabel.Visible = true;
 
 		// 攻击力 / 生命值（随从布局）
 		if (_attackLabel != null)
@@ -1204,14 +1187,11 @@ public partial class CardUI : Control
 	/// </summary>
 	private void ApplyArtworkLayout(float artworkTop, float artworkHeight, Vector2 size, float s)
 	{
-		_artworkRect.Position = new Vector2(0, artworkTop);
-		_artworkRect.Size = new Vector2(size.X, artworkHeight);
+		_artworkView.Position = new Vector2(0, artworkTop);
+		_artworkView.Size = new Vector2(size.X, artworkHeight);
 
-		_artworkLabel.Position = new Vector2(0, artworkTop);
-		_artworkLabel.Size = new Vector2(size.X, artworkHeight);
-
-		_spellTypeLabel.Position = new Vector2(0, artworkTop);
-		_spellTypeLabel.Size = new Vector2(size.X, artworkHeight);
+		_spellTypeLabel.Position = new Vector2(0, artworkTop + artworkHeight - 15f * s);
+		_spellTypeLabel.Size = new Vector2(size.X, 15f * s);
 
 		float statWidth = STATS_W * s;
 		float statHeight = STATS_H * s;
