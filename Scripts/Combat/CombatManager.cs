@@ -1,4 +1,4 @@
-﻿using Godot;
+using Godot;
 using OdysseyCards.AI;
 using OdysseyCards.Card;
 using OdysseyCards.Core;
