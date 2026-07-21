@@ -54,16 +54,6 @@ public partial class MainMenu : Control
 		_titleLabel = GetNode<Label>("MainMenuContainer/TitleLabel");
 		_buttonContainer = GetNode<VBoxContainer>("MainMenuContainer/ButtonContainer");
 
-		// 占位资源只在编辑器开发期生成。
-		try
-		{
-			PlaceholderAssetGenerator.GenerateAllPlaceholders();
-		}
-		catch (Exception ex)
-		{
-			GD.PushWarning($"[MainMenu] PlaceholderAssetGenerator skipped: {ex.Message}");
-		}
-
 		// 动态插入「我的收藏」按钮
 		_collectionButton = new Button
 		{
