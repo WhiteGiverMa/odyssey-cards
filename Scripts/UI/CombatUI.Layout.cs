@@ -23,13 +23,15 @@ public partial class CombatUI
 		AnchorRight = 1;
 		AnchorBottom = 1;
 
-		// 战斗背景
-		var bg = new ColorRect
+		// 战斗背景——稀疏星空 + 战场中央微光晕
+		var bg = new StarfieldBackground
 		{
 			Name = "CombatBackground",
-			Color = new Color(0.08f, 0.08f, 0.12f, 1f),
-			AnchorsPreset = (int)LayoutPreset.FullRect,
+			StarCount = 60,
+			EnableMeteors = false,
+			CenterGlow = true,
 		};
+		bg.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 		AddChild(bg);
 
 		// 根容器

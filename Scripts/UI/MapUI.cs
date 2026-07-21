@@ -198,11 +198,11 @@ public partial class MapUI : Control
 	/// </summary>
 	private void SetupUI()
 	{
-		// 背景 — 全屏深色
-		var bg = new ColorRect
+		// 背景 — 中密度星空（路线探索氛围）
+		var bg = new StarfieldBackground
 		{
 			Name = "Background",
-			Color = new Color(0.08f, 0.08f, 0.12f, 1),
+			StarCount = 100,
 			MouseFilter = MouseFilterEnum.Ignore,
 		};
 		bg.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);

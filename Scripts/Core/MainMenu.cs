@@ -38,6 +38,16 @@ public partial class MainMenu : Control
 	{
 		Localization.Localization.Initialize();
 
+		// 星途全局主题：按钮五态/面板/字色统一（子控件全部继承）
+		Theme = UIThemeFactory.GetSharedTheme();
+
+		// 星空背景取代纯色底（密星 + 流星，主界面氛围）
+		var starfield = new StarfieldBackground { Name = "Starfield", StarCount = 170 };
+		starfield.SetAnchorsPreset(LayoutPreset.FullRect);
+		AddChild(starfield);
+		MoveChild(starfield, 1);
+		GetNode<ColorRect>("Background").Visible = false;
+
 		_mainMenuContainer = GetNode<Control>("MainMenuContainer");
 		_startButton = GetNode<Button>("MainMenuContainer/ButtonContainer/StartButton");
 		_settingsButton = GetNode<Button>("MainMenuContainer/ButtonContainer/SettingsButton");
