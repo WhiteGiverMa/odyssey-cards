@@ -42,8 +42,11 @@ public partial class BoardUI : Control
 	private static readonly Color _bgHighlight = new(0.2f, 0.6f, 0.2f, 0.6f);
 	private static readonly Color _bgDimmed = new(0.1f, 0.1f, 0.1f);
 	private static readonly Color _textDimmed = new(0.35f, 0.35f, 0.35f);
-	private static readonly Color _borderNormal = new(0.3f, 0.3f, 0.3f);
 	private static readonly Color _borderHighlight = new(0.3f, 0.85f, 0.3f);
+
+	// 阵营边框色（星途色板：玩家青金 / 敌方绯红）
+	private static readonly Color _borderPlayer = new(0.3f, 0.55f, 0.7f);
+	private static readonly Color _borderEnemy = new(0.62f, 0.3f, 0.35f);
 	private static readonly Color _textDim = new(0.5f, 0.5f, 0.5f);
 	private static readonly Color _textBright = new(0.9f, 0.9f, 0.9f);
 
@@ -777,6 +780,40 @@ public partial class BoardUI : Control
 		public bool IsDimmed { get; private set; }
 
 		/// <summary>
+		/// 阵营边框色（玩家青金 / 敌方绯红）。
+		/// </summary>
+		private Color FactionBorderColor => IsPlayerSide ? _borderPlayer : _borderEnemy;
+
+		/// <summary>空槽呼吸脉动是否进行中。</summary>
+		private bool _pulsing;
+
+		/// <summary>
+		/// 空槽位呼吸脉动——边框 alpha 缓慢起伏，提示「可放置区域」。
+		/// 全场空槽共享同一相位（全局时钟驱动），有随从 / 高亮 / 悬停时暂停并恢复不透明。
+		/// </summary>
+		public override void _Process(double delta)
+		{
+			bool idleEmpty = OccupyingMinion == null && !IsHighlighted && !_isHovered;
+			if (!idleEmpty)
+			{
+				if (_pulsing)
+				{
+					_pulsing = false;
+					// 特殊状态退出呼吸时确保边框恢复不透明（颜色由各状态刷新函数掌管）
+					if (!IsHighlighted)
+						_borderRect.Color = FactionBorderColor;
+				}
+				return;
+			}
+
+			_pulsing = true;
+			float time = (float)Time.GetTicksMsec() / 1000f;
+			float pulse = 0.55f + 0.35f * (0.5f + 0.5f * Mathf.Sin(time * 2.2f));
+			var c = FactionBorderColor;
+			_borderRect.Color = new Color(c.R, c.G, c.B, pulse);
+		}
+
+		/// <summary>
 		/// 当前槽位上的随从（null 表示空槽位）。
 		/// </summary>
 		public Minion? OccupyingMinion { get; private set; }
@@ -836,10 +873,10 @@ public partial class BoardUI : Control
 			SizeFlagsHorizontal = SizeFlags.ExpandFill;
 			MouseFilter = MouseFilterEnum.Stop;
 
-			// 边框背景
+			// 边框背景（按阵营着色）
 			_borderRect = new ColorRect
 			{
-				Color = _borderNormal,
+				Color = IsPlayerSide ? _borderPlayer : _borderEnemy,
 				AnchorsPreset = (int)LayoutPreset.FullRect,
 				Size = CustomMinimumSize
 			};
@@ -1100,7 +1137,7 @@ public partial class BoardUI : Control
 			}
 			else
 			{
-				_borderRect.Color = _borderNormal;
+				_borderRect.Color = FactionBorderColor;
 				ApplyBackgroundColor();
 				ApplyTextColor();
 			}
@@ -1146,7 +1183,7 @@ public partial class BoardUI : Control
 				}
 				else
 				{
-					_borderRect.Color = _borderNormal;
+					_borderRect.Color = FactionBorderColor;
 					ApplyBackgroundColor();
 					ApplyTextColor();
 				}
