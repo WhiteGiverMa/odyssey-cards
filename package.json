@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "scripts": {
+    "format:localization": "prettier --write Resources/Localization/en.yaml",
+    "check:localization": "prettier --check Resources/Localization/en.yaml"
+  },
+  "devDependencies": {
+    "prettier": "3.6.2"
+  }
+}

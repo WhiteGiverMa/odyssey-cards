@@ -1,0 +1,14 @@
+{
+  "endOfLine": "crlf",
+  "printWidth": 120,
+  "overrides": [
+    {
+      "files": ["Resources/Localization/*.yaml"],
+      "options": {
+        "parser": "yaml",
+        "tabWidth": 2,
+        "useTabs": false
+      }
+    }
+  ]
+}

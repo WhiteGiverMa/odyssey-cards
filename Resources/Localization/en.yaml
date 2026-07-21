@@ -275,7 +275,7 @@
     deck_overflow_title: "Deck Over Limit"
     deck_overflow_message: "Deck exceeds the limit (max 20 cards).\nPlease remove cards before saving."
     delete_confirm_title: "Confirm Delete Deck"
-    delete_confirm_message: "Delete deck \"{name}\"? ({count} cards)"
+    delete_confirm_message: 'Delete deck "{name}"? ({count} cards)'
     changes_undone: "Changes undone"
     deck_file_filter: "JSON Deck Files"
   info_screen:
@@ -840,7 +840,6 @@ tag:
   status_apply: "Status"
   shuffle: "Shuffle"
   token: "Token"
-
 
 # New cards / relics / status (2025-07-05)
 spell_smoke_restore:

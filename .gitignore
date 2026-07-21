@@ -20,6 +20,7 @@ Resources/Themes/ThemeProfiles.preview.md
 # C# / .NET
 bin/
 obj/
+node_modules/
 *.sln
 *.csproj.user
 *.tmp
@@ -30,6 +31,7 @@ obj/
 # Build results
 [Dd]ebug/
 [Rr]elease/
+tests/csharp/TestResults/
 x64/
 x86/
 [Bb]in/
