@@ -327,24 +327,34 @@ public partial class CombatUI
 	}
 
 	/// <summary>
-	/// 创建玩家法力值显示标签。
+	/// 创建玩家法力值显示——六边形水晶阵列（主体）+ 数字标签（辅助小字）。
 	/// 敌人使用意图系统，不显示法力值。
 	/// </summary>
 	private void CreateManaLabels()
 	{
-		// 玩家法力值（底部中央）
+		var playerManaPlaceholder = GetNode<Container>("CombatRoot/PlayerArea/PlayerManaPlaceholder");
+
+		// 法力水晶条（图形化主体）
+		float scale = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+		_manaCrystalBar = new ManaCrystalBar
+		{
+			Name = "ManaCrystalBar",
+			CustomMinimumSize = new Vector2(140 * scale, 24 * scale),
+		};
+		playerManaPlaceholder?.AddChild(_manaCrystalBar);
+
+		// 玩家法力数字（辅助小字）
 		_playerManaLabel = new Label
 		{
 			Name = "PlayerManaLabel",
 			Text = Localization.Localization.T("ui.combat.mana_format", "法力 {current}/{max}").Replace("{current}", "0").Replace("{max}", "1"),
 			HorizontalAlignment = HorizontalAlignment.Center,
-			CustomMinimumSize = new Vector2(120, 32),
+			CustomMinimumSize = new Vector2(120, 18),
 		};
-		_playerManaLabel.AddThemeColorOverride("font_color", new Color(0.3f, 0.7f, 1f));
-		_playerManaLabel.AddThemeFontSizeOverride("font_size", 22);
+		_playerManaLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.8f, 1f, 0.8f));
+		_playerManaLabel.AddThemeFontSizeOverride("font_size", 13);
 
-			var playerManaPlaceholder = GetNode<Container>("CombatRoot/PlayerArea/PlayerManaPlaceholder");
-			playerManaPlaceholder?.AddChild(_playerManaLabel);
+		playerManaPlaceholder?.AddChild(_playerManaLabel);
 	}
 
 		/// <summary>

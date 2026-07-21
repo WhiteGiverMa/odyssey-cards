@@ -91,6 +91,7 @@ public partial class CombatUI : Control
 	/// 玩家法力值显示——底部中央，格式「3/3」。
 	/// </summary>
 	private Label _playerManaLabel = null!;
+	private ManaCrystalBar _manaCrystalBar = null!;
 
 	/// <summary>
 	/// 回合结束按钮——右下角，文本「结束回合」。

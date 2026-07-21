@@ -329,7 +329,7 @@ public partial class CombatUI
 		}
 
 	/// <summary>
-	/// 更新玩家法力值显示，格式「法力 Current/Max」。
+	/// 更新玩家法力值显示——水晶阵列逐颗点亮/熄灭，数字标签辅助。
 	/// 敌人使用意图系统，不跟踪法力值。
 	/// </summary>
 	private void UpdateManaDisplay()
@@ -337,9 +337,12 @@ public partial class CombatUI
 		if (_combat == null)
 			return;
 
+		int current = _combat.PlayerHero.CurrentMana;
+		int max = _combat.PlayerHero.MaxMana;
+		_manaCrystalBar.SetMana(current, max);
 		_playerManaLabel.Text = Localization.Localization.T("ui.combat.mana_format", "法力 {current}/{max}")
-			.Replace("{current}", _combat.PlayerHero.CurrentMana.ToString())
-			.Replace("{max}", _combat.PlayerHero.MaxMana.ToString());
+			.Replace("{current}", current.ToString())
+			.Replace("{max}", max.ToString());
 	}
 
 		/// <summary>
