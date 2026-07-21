@@ -221,13 +221,13 @@ public class Cosmonaut : EnemyEncounter
 				"cosmo_d",
 				(cm, hero) =>
 				{
-						for (int hit = 0; hit < 2; hit++)
-						{
-							if (self.IsDead)
-								break;
-							cm.ExecuteEnemyHeroSmartAttack(self, 3);
-						}
-						GD.Print("[宇宙员] D: 智能扫射造成3伤害×2");
+					for (int hit = 0; hit < 2; hit++)
+					{
+						if (self.IsDead)
+							break;
+						cm.ExecuteEnemyHeroSmartAttack(self, 3);
+					}
+					GD.Print("[宇宙员] D: 智能扫射造成3伤害×2");
 				},
 				new MultiAttackIntent(c => DamageResolver.ResolvePreviewDamage(3, self, null), 2)
 			);

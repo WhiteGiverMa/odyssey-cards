@@ -1,6 +1,6 @@
-using OdysseyCards.Combat;
 using System;
 using System.Linq;
+using OdysseyCards.Combat;
 using static OdysseyCards.Infrastructure.Commands.CombatUIHelper;
 
 namespace OdysseyCards.Infrastructure.Commands;

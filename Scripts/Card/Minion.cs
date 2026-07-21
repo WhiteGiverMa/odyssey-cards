@@ -1,8 +1,8 @@
-using Godot;
-using OdysseyCards.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Godot;
+using OdysseyCards.Core;
 
 namespace OdysseyCards.Card;
 
@@ -760,16 +760,16 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		// 4. Granted keywords (not from CardData baseline)
 		CollectGrantedKeywordEffects(effects);
 
-	// 5. Runtime modifiers
-	if (HasIdolTwilightBuff)
-	{
-		var data = EffectIconTable.GetDomain("idol_twilight");
-		if (data != null)
+		// 5. Runtime modifiers
+		if (HasIdolTwilightBuff)
 		{
-			effects.Add(EffectIconTable.ToDisplayable(
-				data.Value, EffectCategory.Domain, 1));
+			var data = EffectIconTable.GetDomain("idol_twilight");
+			if (data != null)
+			{
+				effects.Add(EffectIconTable.ToDisplayable(
+					data.Value, EffectCategory.Domain, 1));
+			}
 		}
-	}
 
 		if (_deathrattleReplaced)
 		{

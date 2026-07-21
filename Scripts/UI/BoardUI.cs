@@ -1,11 +1,10 @@
+using System;
+using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
-using OdysseyCards.Localization;
-using System;
-using System.Collections.Generic;
 
 namespace OdysseyCards.UI;
 

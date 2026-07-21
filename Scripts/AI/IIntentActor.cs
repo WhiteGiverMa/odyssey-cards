@@ -1,5 +1,5 @@
-using OdysseyCards.Combat;
 using OdysseyCards.Card;
+using OdysseyCards.Combat;
 
 namespace OdysseyCards.AI;
 

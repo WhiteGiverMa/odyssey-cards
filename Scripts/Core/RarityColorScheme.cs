@@ -47,7 +47,8 @@ public static class RarityColorScheme
 	public static Color GetColor(int schemeIndex, CardRarity rarity)
 	{
 		int r = (int)rarity;
-		if (r < 0 || r > 6) r = 4; // 兜底：一般
+		if (r < 0 || r > 6)
+			r = 4; // 兜底：一般
 
 		var palette = schemeIndex == 0 ? ClassicColors : NewColors;
 		return palette[r];

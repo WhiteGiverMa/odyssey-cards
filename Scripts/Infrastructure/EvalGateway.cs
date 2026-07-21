@@ -1,10 +1,9 @@
-using Godot;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using OdysseyCards.AI;
+using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
 
@@ -319,12 +318,18 @@ public partial class EvalGateway : Node
 		// 基本类型
 		switch (value)
 		{
-			case bool b: return Variant.From(b);
-			case int i: return Variant.From(i);
-			case long l: return Variant.From(l);
-			case float f: return Variant.From(f);
-			case double d: return Variant.From(d);
-			case string s: return Variant.From(s);
+			case bool b:
+				return Variant.From(b);
+			case int i:
+				return Variant.From(i);
+			case long l:
+				return Variant.From(l);
+			case float f:
+				return Variant.From(f);
+			case double d:
+				return Variant.From(d);
+			case string s:
+				return Variant.From(s);
 		}
 
 		// Godot 原生类型（直接返回，Godot C# 绑定会处理）
@@ -336,9 +341,12 @@ public partial class EvalGateway : Node
 			return gdArr;
 
 		// Godot 数值类型
-		if (value is Vector2 vec2) return Variant.From(vec2);
-		if (value is Vector3 vec3) return Variant.From(vec3);
-		if (value is Color col) return Variant.From(col);
+		if (value is Vector2 vec2)
+			return Variant.From(vec2);
+		if (value is Vector3 vec3)
+			return Variant.From(vec3);
+		if (value is Color col)
+			return Variant.From(col);
 
 		// enum → int + 元信息
 		if (value is Enum enumValue)

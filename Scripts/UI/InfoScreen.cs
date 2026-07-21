@@ -5,7 +5,6 @@ using Godot;
 using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
 using OdysseyCards.Relic;
-using OdysseyCards.Roguelike;
 using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.UI;

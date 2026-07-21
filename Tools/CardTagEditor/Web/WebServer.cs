@@ -103,7 +103,7 @@ public class WebServer : IDisposable
 					return;
 				case "GET" when path == "api/validate":
 					await SendJson(res, _svc.Validate());
-				 return;
+					return;
 				case "GET" when path == "api/schema":
 					await SendJson(res, BuildSchemaDto());
 					return;
@@ -244,10 +244,11 @@ public class WebServer : IDisposable
 
 	private bool _disposed;
 
-/// <summary>标准 Dispose 模式。</summary>
-protected virtual void Dispose(bool disposing)
+	/// <summary>标准 Dispose 模式。</summary>
+	protected virtual void Dispose(bool disposing)
 	{
-		if (_disposed) return;
+		if (_disposed)
+			return;
 		if (disposing)
 		{
 			_cts.Cancel();
@@ -257,7 +258,7 @@ protected virtual void Dispose(bool disposing)
 		_disposed = true;
 	}
 
-public void Dispose()
+	public void Dispose()
 	{
 		Dispose(disposing: true);
 		GC.SuppressFinalize(this);

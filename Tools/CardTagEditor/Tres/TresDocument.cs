@@ -119,7 +119,8 @@ public class OwnedField : TresLine
 	{
 		var source = OverrideText ?? OriginalText;
 		var eqIdx = source.IndexOf('=');
-		if (eqIdx < 0) return "";
+		if (eqIdx < 0)
+			return "";
 		return source[(eqIdx + 1)..].Trim();
 	}
 
@@ -154,7 +155,8 @@ public class OwnedField : TresLine
 
 	public override IEnumerable<string> GetLines()
 	{
-		if (_deleted) yield break;
+		if (_deleted)
+			yield break;
 		yield return OverrideText ?? OriginalText;
 	}
 
@@ -183,21 +185,26 @@ public class OwnedField : TresLine
 
 		// 找到 [...] 部分
 		var bracketStart = value.IndexOf('[');
-		if (bracketStart < 0) return Array.Empty<int>();
+		if (bracketStart < 0)
+			return Array.Empty<int>();
 
 		// 找到匹配的 ]
 		var depth = 0;
 		var bracketEnd = -1;
 		for (int i = bracketStart; i < value.Length; i++)
 		{
-			if (value[i] == '[') depth++;
-			else if (value[i] == ']') { depth--; if (depth == 0) { bracketEnd = i; break; } }
+			if (value[i] == '[')
+				depth++;
+			else if (value[i] == ']')
+			{ depth--; if (depth == 0) { bracketEnd = i; break; } }
 		}
 
-		if (bracketEnd < 0) return Array.Empty<int>();
+		if (bracketEnd < 0)
+			return Array.Empty<int>();
 
 		var inner = value[(bracketStart + 1)..bracketEnd].Trim();
-		if (string.IsNullOrEmpty(inner)) return Array.Empty<int>();
+		if (string.IsNullOrEmpty(inner))
+			return Array.Empty<int>();
 
 		return inner.Split(',', StringSplitOptions.RemoveEmptyEntries)
 			.Select(s => int.Parse(s.Trim(), System.Globalization.CultureInfo.InvariantCulture))
@@ -208,12 +215,15 @@ public class OwnedField : TresLine
 	public static string[] ParseStringArray(string value)
 	{
 		var parenStart = value.IndexOf('(');
-		if (parenStart < 0) return Array.Empty<string>();
+		if (parenStart < 0)
+			return Array.Empty<string>();
 		var parenEnd = value.LastIndexOf(')');
-		if (parenEnd < 0) return Array.Empty<string>();
+		if (parenEnd < 0)
+			return Array.Empty<string>();
 
 		var inner = value[(parenStart + 1)..parenEnd].Trim();
-		if (string.IsNullOrEmpty(inner)) return Array.Empty<string>();
+		if (string.IsNullOrEmpty(inner))
+			return Array.Empty<string>();
 
 		// 匹配带引号的字符串（考虑转义，但 .tres 中不会有转义引号）
 		var result = new List<string>();
@@ -221,7 +231,8 @@ public class OwnedField : TresLine
 		var start = 0;
 		for (int i = 0; i < inner.Length; i++)
 		{
-			if (inner[i] == '"') { inQuote = !inQuote; }
+			if (inner[i] == '"')
+			{ inQuote = !inQuote; }
 			else if (inner[i] == ',' && !inQuote)
 			{
 				result.Add(TrimQuotes(inner[start..i].Trim()));
@@ -275,7 +286,8 @@ public class OwnedMultiLineField : TresLine
 
 			// 匹配 "key: value," 或 "key: value"
 			var colonIdx = trimmed.IndexOf(':');
-			if (colonIdx < 0) continue;
+			if (colonIdx < 0)
+				continue;
 			var k = int.Parse(trimmed[..colonIdx].Trim(), System.Globalization.CultureInfo.InvariantCulture);
 			var v = trimmed[(colonIdx + 1)..].Trim().TrimEnd(',');
 			result[k] = int.Parse(v, System.Globalization.CultureInfo.InvariantCulture);

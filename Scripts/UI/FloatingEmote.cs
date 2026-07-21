@@ -46,7 +46,8 @@ public partial class FloatingEmote : Control
 	{
 		// 读取表情缩放设置
 		float vfxScale = UIScaler.Instance?.EmoteScale ?? 1.0f;
-		if (vfxScale < 0.01f) vfxScale = 1.0f;
+		if (vfxScale < 0.01f)
+			vfxScale = 1.0f;
 
 		int scaledFontSize = Mathf.RoundToInt(FontSize * vfxScale);
 		int scaledBgPaddingH = Mathf.RoundToInt(BgPaddingH * vfxScale);

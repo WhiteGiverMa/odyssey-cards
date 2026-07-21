@@ -1,9 +1,8 @@
+using System;
+using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
-using System;
-using System.Collections.Generic;
-using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.UI;
 

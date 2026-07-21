@@ -1,8 +1,7 @@
-using System.Collections;
 using System.Collections.Generic;
 using Godot;
-using Xunit;
 using OdysseyCards.Infrastructure;
+using Xunit;
 
 namespace OdysseyCards.Tests.Unit;
 
@@ -282,8 +281,8 @@ public class EvalGatewayTests
 		public string PublicField = "";
 		// 使用 `号声明私有字段，反射可访问（BindingFlags.NonPublic）
 		// Roslyn 分析器建议属性 vs 字段，这里是测试专用
-		#pragma warning disable CA1051 // 不要将可见实例字段更改为属性
+#pragma warning disable CA1051 // 不要将可见实例字段更改为属性
 		public int _privateField = 99;
-		#pragma warning restore CA1051
+#pragma warning restore CA1051
 	}
 }

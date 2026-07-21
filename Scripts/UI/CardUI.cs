@@ -908,8 +908,8 @@ public partial class CardUI : Control
 				// 拖拽松手 → 转入 clickSelectMode 并通知 CombatUI
 				Vector2 dropPos = mousePosition;
 				_hasDragged = false;
-			_clickSelectMode = true;
-			OnCardDropped?.Invoke(this, dropPos);
+				_clickSelectMode = true;
+				OnCardDropped?.Invoke(this, dropPos);
 			}
 			else if (!_clickSelectMode)
 			{
@@ -976,13 +976,13 @@ public partial class CardUI : Control
 			bool wasDragging = _hasDragged;
 			_isDragging = false;
 			_hasDragged = false;
-		_clickSelectMode = false;
-		_isHoverEffectActive = false;
-		KillHoverTween();
-		MouseFilter = MouseFilterEnum.Stop;
-		OffsetTop = 0;
+			_clickSelectMode = false;
+			_isHoverEffectActive = false;
+			KillHoverTween();
+			MouseFilter = MouseFilterEnum.Stop;
+			OffsetTop = 0;
 
-		if (wasDragging)
+			if (wasDragging)
 			{
 				// 拖拽后松手 → 触发 OnCardDropped
 				OnCardDropped?.Invoke(this, dropScreenPos);
@@ -1337,7 +1337,8 @@ public partial class CardUI : Control
 	/// </summary>
 	private void UpdateRarityIndicator(Card.Card card, float s)
 	{
-		if (_rarityLabel == null) return;
+		if (_rarityLabel == null)
+			return;
 
 		var rarity = card.Data.Rarity;
 		int scheme = UIScaler.Instance?.RarityColorSchemeIndex ?? 0;
@@ -1354,7 +1355,8 @@ public partial class CardUI : Control
 	/// </summary>
 	private void OnRarityColorSchemeChanged()
 	{
-		if (!_built || Card == null || _rarityLabel == null) return;
+		if (!_built || Card == null || _rarityLabel == null)
+			return;
 
 		var rarity = Card.Data.Rarity;
 		int scheme = UIScaler.Instance?.RarityColorSchemeIndex ?? 0;

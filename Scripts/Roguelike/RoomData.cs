@@ -1,6 +1,4 @@
-using Godot;
 using System.Collections.Generic;
-using OdysseyCards.Localization;
 
 namespace OdysseyCards.Roguelike;
 

@@ -1,9 +1,9 @@
-using Godot;
-using OdysseyCards.Core;
-using OdysseyCards.Infrastructure;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Godot;
+using OdysseyCards.Core;
+using OdysseyCards.Infrastructure;
 using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.UI;
@@ -267,15 +267,18 @@ public partial class ChooseOneUI : Control
 				hm.RemovePressedBinding(OdysseyInput.SelectCardActions[i], _selectActions[i]);
 		}
 		_selectActions = Array.Empty<Action>();
-		if (_acceptAction != null) { hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
+		if (_acceptAction != null)
+		{ hm.RemovePressedBinding(OdysseyInput.Accept, _acceptAction); _acceptAction = null; }
 		if (_skipAction != null)
 		{
 			hm.RemovePressedBinding(OdysseyInput.Skip, _skipAction);
 			hm.RemovePressedBinding(OdysseyInput.Cancel, _skipAction);
 			_skipAction = null;
 		}
-		if (_leftAction != null) { hm.RemovePressedBinding(OdysseyInput.Left, _leftAction); _leftAction = null; }
-		if (_rightAction != null) { hm.RemovePressedBinding(OdysseyInput.Right, _rightAction); _rightAction = null; }
+		if (_leftAction != null)
+		{ hm.RemovePressedBinding(OdysseyInput.Left, _leftAction); _leftAction = null; }
+		if (_rightAction != null)
+		{ hm.RemovePressedBinding(OdysseyInput.Right, _rightAction); _rightAction = null; }
 	}
 
 	private void CycleFocus(int direction)
@@ -287,8 +290,10 @@ public partial class ChooseOneUI : Control
 		else
 		{
 			_focusedIndex += direction;
-			if (_focusedIndex >= _optionButtons.Count) _focusedIndex = 0;
-			else if (_focusedIndex < 0) _focusedIndex = _optionButtons.Count - 1;
+			if (_focusedIndex >= _optionButtons.Count)
+				_focusedIndex = 0;
+			else if (_focusedIndex < 0)
+				_focusedIndex = _optionButtons.Count - 1;
 		}
 		ApplyFocusVisual();
 	}

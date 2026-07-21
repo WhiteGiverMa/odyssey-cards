@@ -1,10 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
 using OdysseyCards.UI;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Timer = Godot.Timer;
 
 namespace OdysseyCards.Infrastructure;
@@ -210,7 +210,8 @@ public partial class ChatScreen : Node
 		{
 			if (keyEvent.Keycode == Key.Quoteleft) // 反引号键
 			{
-				if (!IsDevMode) return; // 非开发者模式下禁止快捷键呼出
+				if (!IsDevMode)
+					return; // 非开发者模式下禁止快捷键呼出
 				Toggle();
 				GetViewport().SetInputAsHandled();
 			}

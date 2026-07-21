@@ -1,4 +1,3 @@
-using OdysseyCards.Tools.CardTagEditor.Tres;
 using OdysseyCards.Tools.CardTagEditor.Schema;
 using OdysseyCards.Tools.CardTagEditor.Services;
 using Xunit;
@@ -105,7 +104,8 @@ public class ValidateTests
 			if (File.Exists(Path.Combine(dir, "project.godot")))
 				return dir;
 			var parent = Path.GetDirectoryName(dir);
-			if (parent == dir) break;
+			if (parent == dir)
+				break;
 			dir = parent!;
 		}
 		throw new DirectoryNotFoundException("未找到 project.godot");

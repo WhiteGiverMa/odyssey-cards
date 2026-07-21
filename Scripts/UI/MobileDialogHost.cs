@@ -1,6 +1,6 @@
+using System;
 using Godot;
 using OdysseyCards.Infrastructure;
-using System;
 
 namespace OdysseyCards.UI;
 

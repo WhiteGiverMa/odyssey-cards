@@ -31,7 +31,8 @@ public class CardTagService
 			if (File.Exists(Path.Combine(dir, "project.godot")))
 				return dir;
 			var parent = Path.GetDirectoryName(dir);
-			if (parent == dir) break;
+			if (parent == dir)
+				break;
 			dir = parent!;
 		}
 
@@ -123,7 +124,8 @@ public class CardTagService
 		{
 			var doc = TresParser.Parse(file);
 			var card = new CardDataTres(doc);
-			if (string.IsNullOrEmpty(card.Id)) continue;
+			if (string.IsNullOrEmpty(card.Id))
+				continue;
 			allCardIds.Add(card.Id);
 		}
 
@@ -196,7 +198,8 @@ public class CardTagService
 			var doc = TresParser.Parse(file);
 			var card = new CardDataTres(doc);
 
-			if (!card.HasTags) continue; // 已迁移或无 Tags
+			if (!card.HasTags)
+				continue; // 已迁移或无 Tags
 
 			var oldTags = card.Tags ?? 0;
 			var oldMechanicTags = card.MechanicTags;

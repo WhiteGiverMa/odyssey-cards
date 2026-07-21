@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Card;
-using OdysseyCards.Core;
 
 namespace OdysseyCards.Combat;
 

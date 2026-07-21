@@ -1,6 +1,6 @@
+using System;
 using Godot;
 using OdysseyCards.Core;
-using System;
 
 namespace OdysseyCards.UI;
 
@@ -132,7 +132,8 @@ public partial class FloatingDamageNumber : Control
 	{
 		// 读取伤害数字缩放设置
 		float vfxScale = UIScaler.Instance?.DamageNumberScale ?? 1.0f;
-		if (vfxScale < 0.01f) vfxScale = 1.0f;
+		if (vfxScale < 0.01f)
+			vfxScale = 1.0f;
 
 		int scaledFontSize = Mathf.RoundToInt(fontSize * vfxScale);
 		float scaledFloatDistance = FloatDistance * vfxScale;

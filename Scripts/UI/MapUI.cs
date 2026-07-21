@@ -1,12 +1,10 @@
-using Godot;
-using OdysseyCards.Core;
-using OdysseyCards.Relic;
-using OdysseyCards.Roguelike;
-using OdysseyCards.Localization;
-using OdysseyCards.Infrastructure;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using Godot;
+using OdysseyCards.Core;
+using OdysseyCards.Infrastructure;
+using OdysseyCards.Relic;
+using OdysseyCards.Roguelike;
 
 namespace OdysseyCards.UI;
 

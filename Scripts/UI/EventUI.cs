@@ -1,11 +1,9 @@
+using System;
+using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
 using OdysseyCards.Roguelike;
-using OdysseyCards.Localization;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace OdysseyCards.UI;
 
@@ -14,27 +12,27 @@ namespace OdysseyCards.UI;
 /// 由 MapUI.ShowEventRoom 创建并添加到场景树。
 /// 选择完成后触发 OnEventComplete，由 MapUI 推进冒险。
 /// </summary>
-	public partial class EventUI : Control
-	{
-		// ──── 构造参数 ────
+public partial class EventUI : Control
+{
+	// ──── 构造参数 ────
 
-		private readonly RoomDefinition _room;
-		private readonly EventData _eventData;
+	private readonly RoomDefinition _room;
+	private readonly EventData _eventData;
 
-		/// <summary>事件完成后触发（MapUI 订阅以调用 CompleteRoomAndAdvance）。</summary>
-		public event Action? OnEventComplete;
+	/// <summary>事件完成后触发（MapUI 订阅以调用 CompleteRoomAndAdvance）。</summary>
+	public event Action? OnEventComplete;
 
-		// ──── UI 引用 ────
+	// ──── UI 引用 ────
 
-		private Control _dialog = null!;
-		private Label _storyLabel = null!;
-		private Label _titleLabel = null!;
-		private VBoxContainer _contentArea = null!;
-		private HBoxContainer _buttonArea = null!;
-		private readonly List<Button> _choiceButtons = new();
-		private Label _resultLabel = null!;
-		private Button _continueButton = null!;
-		private bool _choiceSelected;
+	private Control _dialog = null!;
+	private Label _storyLabel = null!;
+	private Label _titleLabel = null!;
+	private VBoxContainer _contentArea = null!;
+	private HBoxContainer _buttonArea = null!;
+	private readonly List<Button> _choiceButtons = new();
+	private Label _resultLabel = null!;
+	private Button _continueButton = null!;
+	private bool _choiceSelected;
 
 	// ──── 构造 ────
 
@@ -141,105 +139,105 @@ namespace OdysseyCards.UI;
 		panelVBox.AddChild(_continueButton);
 	}
 
-		// ──── 交互 ────
+	// ──── 交互 ────
 
-		private void OnChoiceSelected(EventChoice choice, Button clickedButton)
+	private void OnChoiceSelected(EventChoice choice, Button clickedButton)
+	{
+		if (_choiceSelected)
+			return;
+
+		// 非停留事件：锁定选择（防止二次点击）
+		// 停留事件（StaysInEvent）：允许再次选择，不锁定
+		if (!choice.StaysInEvent)
+			_choiceSelected = true;
+
+		// 禁用所有选择按钮（执行期间防抖）
+		foreach (var btn in _choiceButtons)
+			btn.Disabled = true;
+
+		// 执行选择效果
+		var gm = GameManager.Instance;
+		if (gm != null && choice.Execute != null)
 		{
-			if (_choiceSelected)
-				return;
+			choice.Execute(gm);
+		}
 
-			// 非停留事件：锁定选择（防止二次点击）
-			// 停留事件（StaysInEvent）：允许再次选择，不锁定
-			if (!choice.StaysInEvent)
-				_choiceSelected = true;
+		// 刷新按钮文本（Execute 可能修改了 choice.Text）
+		for (int i = 0; i < _choiceButtons.Count && i < _eventData.Choices.Length; i++)
+		{
+			_choiceButtons[i].Text = _eventData.Choices[i].Text;
+		}
 
-			// 禁用所有选择按钮（执行期间防抖）
+		if (choice.StaysInEvent)
+		{
+			// 停留事件：显示结果→重新激活按钮（不显示「继续」按钮）
+			_resultLabel.Text = choice.ResultText;
+			_resultLabel.Visible = true;
 			foreach (var btn in _choiceButtons)
-				btn.Disabled = true;
-
-			// 执行选择效果
-			var gm = GameManager.Instance;
-			if (gm != null && choice.Execute != null)
-			{
-				choice.Execute(gm);
-			}
-
-			// 刷新按钮文本（Execute 可能修改了 choice.Text）
-			for (int i = 0; i < _choiceButtons.Count && i < _eventData.Choices.Length; i++)
-			{
-				_choiceButtons[i].Text = _eventData.Choices[i].Text;
-			}
-
-			if (choice.StaysInEvent)
-			{
-				// 停留事件：显示结果→重新激活按钮（不显示「继续」按钮）
-				_resultLabel.Text = choice.ResultText;
-				_resultLabel.Visible = true;
-				foreach (var btn in _choiceButtons)
-					btn.Disabled = false;
-			}
-			else
-			{
-				// 退出事件：高亮选中按钮→显示结果→显示「继续」按钮
-				clickedButton.Modulate = new Color(0.3f, 0.3f, 0.3f, 1);
-				_resultLabel.Text = choice.ResultText;
-				_resultLabel.Visible = true;
-				_continueButton.Visible = true;
+				btn.Disabled = false;
+		}
+		else
+		{
+			// 退出事件：高亮选中按钮→显示结果→显示「继续」按钮
+			clickedButton.Modulate = new Color(0.3f, 0.3f, 0.3f, 1);
+			_resultLabel.Text = choice.ResultText;
+			_resultLabel.Visible = true;
+			_continueButton.Visible = true;
 		}
 	}
 
-		// ──── 涩情文案实时刷新 ────
+	// ──── 涩情文案实时刷新 ────
 
-		public override void _EnterTree()
+	public override void _EnterTree()
+	{
+		base._EnterTree();
+		if (UIScaler.Instance != null)
+			UIScaler.Instance.OnEcchiTextChanged += RefreshEcchiText;
+	}
+
+	public override void _ExitTree()
+	{
+		base._ExitTree();
+		if (UIScaler.Instance != null)
+			UIScaler.Instance.OnEcchiTextChanged -= RefreshEcchiText;
+	}
+
+	/// <summary>
+	/// 涩情开关切换时重新从事件池读取文本并刷新 UI。
+	/// 仅对 ayame_mirror 事件生效（其他事件无涩情版文案）。
+	/// </summary>
+	private void RefreshEcchiText()
+	{
+		if (!_eventData.Id.StartsWith("ayame_mirror"))
+			return;
+		if (!IsInsideTree())
+			return;
+		// BuildUI 未完成（如 dialog 尚未构造完毕）时跳过
+		if (_titleLabel == null || _storyLabel == null)
+			return;
+
+		var gm = GameManager.Instance;
+		if (gm == null)
+			return;
+
+		var fresh = EventPool.FindEvent(_eventData.Id, gm.SelectedHeroId);
+		if (fresh == null)
+			return;
+
+		// 更新标题
+		string icon = MapUIIcons.GetRoomIcon(_room.Type);
+		_titleLabel.Text = $"{icon} {fresh.Title}";
+
+		// 更新叙事文本
+		_storyLabel.Text = fresh.Story;
+
+		// 更新选择按钮文本（尚未选择时）
+		if (!_choiceSelected && fresh.Choices.Length == _choiceButtons.Count)
 		{
-			base._EnterTree();
-			if (UIScaler.Instance != null)
-				UIScaler.Instance.OnEcchiTextChanged += RefreshEcchiText;
+			for (int i = 0; i < _choiceButtons.Count; i++)
+				_choiceButtons[i].Text = fresh.Choices[i].Text;
 		}
-
-		public override void _ExitTree()
-		{
-			base._ExitTree();
-			if (UIScaler.Instance != null)
-				UIScaler.Instance.OnEcchiTextChanged -= RefreshEcchiText;
-		}
-
-		/// <summary>
-		/// 涩情开关切换时重新从事件池读取文本并刷新 UI。
-		/// 仅对 ayame_mirror 事件生效（其他事件无涩情版文案）。
-		/// </summary>
-		private void RefreshEcchiText()
-		{
-			if (!_eventData.Id.StartsWith("ayame_mirror"))
-				return;
-			if (!IsInsideTree())
-				return;
-			// BuildUI 未完成（如 dialog 尚未构造完毕）时跳过
-			if (_titleLabel == null || _storyLabel == null)
-				return;
-
-			var gm = GameManager.Instance;
-			if (gm == null)
-				return;
-
-			var fresh = EventPool.FindEvent(_eventData.Id, gm.SelectedHeroId);
-			if (fresh == null)
-				return;
-
-			// 更新标题
-			string icon = MapUIIcons.GetRoomIcon(_room.Type);
-			_titleLabel.Text = $"{icon} {fresh.Title}";
-
-			// 更新叙事文本
-			_storyLabel.Text = fresh.Story;
-
-			// 更新选择按钮文本（尚未选择时）
-			if (!_choiceSelected && fresh.Choices.Length == _choiceButtons.Count)
-			{
-				for (int i = 0; i < _choiceButtons.Count; i++)
-					_choiceButtons[i].Text = fresh.Choices[i].Text;
-			}
-		}
+	}
 }
 
 /// <summary>

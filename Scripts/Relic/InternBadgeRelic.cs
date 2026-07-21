@@ -1,6 +1,6 @@
+using Godot;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
-using Godot;
 
 namespace OdysseyCards.Relic;
 

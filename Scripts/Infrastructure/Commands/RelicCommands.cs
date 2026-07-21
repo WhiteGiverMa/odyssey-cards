@@ -1,8 +1,8 @@
-using OdysseyCards.Core;
-using OdysseyCards.Relic;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using OdysseyCards.Core;
+using OdysseyCards.Relic;
 
 namespace OdysseyCards.Infrastructure.Commands;
 

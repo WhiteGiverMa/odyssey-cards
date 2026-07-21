@@ -1,10 +1,10 @@
 using Godot;
+using OdysseyCards.Character;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
-using OdysseyCards.Character;
 using static OdysseyCards.Infrastructure.Commands.CombatUIHelper;
-using Minion = OdysseyCards.Card.Minion;
 using Hero = OdysseyCards.Card.Hero;
+using Minion = OdysseyCards.Card.Minion;
 
 namespace OdysseyCards.Infrastructure.Commands;
 

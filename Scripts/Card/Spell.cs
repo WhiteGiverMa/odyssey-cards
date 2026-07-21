@@ -1,5 +1,5 @@
-using OdysseyCards.Core;
 using System.Collections.Generic;
+using OdysseyCards.Core;
 
 namespace OdysseyCards.Card;
 

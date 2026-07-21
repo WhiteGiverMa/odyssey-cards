@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using Xunit;
 using OdysseyCards.Core;
+using Xunit;
 
 namespace OdysseyCards.Tests.Unit;
 

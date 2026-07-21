@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
-using OdysseyCards.Character;
 using OdysseyCards.Infrastructure;
-using OdysseyCards.Localization;
 using OdysseyCards.UI;
 
 namespace OdysseyCards.Core;

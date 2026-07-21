@@ -1,7 +1,6 @@
-using Godot;
 using System.Collections.Generic;
+using Godot;
 using OdysseyCards.AI;
-using OdysseyCards.AI.Intents;
 
 namespace OdysseyCards.UI;
 

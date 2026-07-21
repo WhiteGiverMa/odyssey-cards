@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OdysseyCards.Card;
-using OdysseyCards.Core;
 using OdysseyCards.Combat;
+using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
 using Loc = OdysseyCards.Localization.Localization;
 
@@ -813,12 +813,12 @@ public partial class CombatUI
 	/// 获取玩家效果栏中心点的屏幕位置，用于领域卡牌飞行动画。
 	/// 领域打出后附加到英雄，不进入任何牌堆。
 	/// </summary>
-		private Vector2 GetPlayerEffectBarCenter()
-		{
-			if (_playerIdentityCard != null)
-				return _playerIdentityCard.EffectBar.GlobalPosition + _playerIdentityCard.EffectBar.Size / 2f;
-			return Vector2.Zero;
-		}
+	private Vector2 GetPlayerEffectBarCenter()
+	{
+		if (_playerIdentityCard != null)
+			return _playerIdentityCard.EffectBar.GlobalPosition + _playerIdentityCard.EffectBar.Size / 2f;
+		return Vector2.Zero;
+	}
 
 	/// <summary>
 	/// 进入随从放置模式——高亮玩家方可用槽位（绿色）。
@@ -1576,12 +1576,12 @@ public partial class CombatUI
 	/// 用于敌方意图箭头指向玩家英雄的场景。
 	/// </summary>
 	/// <returns>生命值条屏幕中心坐标；未初始化返回 Vector2.Zero</returns>
-		private Vector2 GetPlayerHeroScreenCenter()
-		{
-			if (_playerIdentityCard != null)
-				return _playerIdentityCard.GetHealthBarScreenCenter();
-			return Vector2.Zero;
-		}
+	private Vector2 GetPlayerHeroScreenCenter()
+	{
+		if (_playerIdentityCard != null)
+			return _playerIdentityCard.GetHealthBarScreenCenter();
+		return Vector2.Zero;
+	}
 
 	/// <summary>
 	/// 根据目标类型解析其屏幕中心坐标。
@@ -1597,7 +1597,7 @@ public partial class CombatUI
 				? _boardUI.GetSlotScreenCenter(m.BoardSlotIndex, m.IsPlayerSide)
 				: Vector2.Zero,
 			Hero h => h.IsPlayerSide ? GetPlayerHeroScreenCenter() :
-			          GetEnemyHeroIndex(h) is var idx && idx >= 0 ? GetEnemyIdentityCardCenter(idx) : Vector2.Zero,
+					  GetEnemyHeroIndex(h) is var idx && idx >= 0 ? GetEnemyIdentityCardCenter(idx) : Vector2.Zero,
 			_ => Vector2.Zero
 		};
 	}
@@ -1607,7 +1607,8 @@ public partial class CombatUI
 	/// </summary>
 	private int GetEnemyHeroIndex(Hero hero)
 	{
-		if (_combat == null) return -1;
+		if (_combat == null)
+			return -1;
 		for (int i = 0; i < _combat.EnemyUnits.Count; i++)
 			if (_combat.EnemyUnits[i].Body == hero)
 				return i;
@@ -1824,10 +1825,10 @@ public partial class CombatUI
 
 		// === 头部提示标签 ===
 		string headerText;
-			if (_combat.CurrentSelectionMode == Combat.CombatManager.PendingSelectionMode.CopyHandFill)
-				headerText = Loc.T("ui.combat.copy_hand_fill_title", "选择 1 张手牌，用它的复制填满手牌");
-			else if (_combat.CurrentSelectionMode == Combat.CombatManager.PendingSelectionMode.RestructureDiscard)
-				headerText = Loc.T("ui.combat.restructure_discard_title", "重整：选择 1 张手牌弃掉");
+		if (_combat.CurrentSelectionMode == Combat.CombatManager.PendingSelectionMode.CopyHandFill)
+			headerText = Loc.T("ui.combat.copy_hand_fill_title", "选择 1 张手牌，用它的复制填满手牌");
+		else if (_combat.CurrentSelectionMode == Combat.CombatManager.PendingSelectionMode.RestructureDiscard)
+			headerText = Loc.T("ui.combat.restructure_discard_title", "重整：选择 1 张手牌弃掉");
 		else if (_combat.CurrentSelectionMode == Combat.CombatManager.PendingSelectionMode.DevDiscard)
 			headerText = Loc.T("ui.combat.dev_discard_title", "调试弃牌：选择任意张手牌弃掉");
 		else if (_combat.HandSelectMin == _combat.HandSelectMax)

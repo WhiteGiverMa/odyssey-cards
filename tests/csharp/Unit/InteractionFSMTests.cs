@@ -1,7 +1,6 @@
-using System;
 using Godot;
-using Xunit;
 using OdysseyCards.UI;
+using Xunit;
 
 namespace OdysseyCards.Tests.Unit;
 

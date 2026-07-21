@@ -1,5 +1,5 @@
-using Xunit;
 using OdysseyCards.Combat;
+using Xunit;
 
 namespace OdysseyCards.Tests.Unit;
 

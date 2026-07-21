@@ -1064,16 +1064,16 @@ public class Hero : IDamageTarget, IDamageSource
 			var data = EffectIconTable.GetStatusEffect(id);
 			if (data == null)
 				continue;
-				effects.Add(new DisplayableEffect
-				{
-					Icon = data.Value.Icon,
-					Name = Localization.Localization.T(data.Value.NameKey, ""),
+			effects.Add(new DisplayableEffect
+			{
+				Icon = data.Value.Icon,
+				Name = Localization.Localization.T(data.Value.NameKey, ""),
 				Stacks = se.Stacks,
-					Description = Localization.Localization.T(data.Value.DescKey, ""),
-					IsBuff = !se.IsNegative,
-					Category = EffectCategory.StatusEffect,
-					SourceId = id,
-				});
+				Description = Localization.Localization.T(data.Value.DescKey, ""),
+				IsBuff = !se.IsNegative,
+				Category = EffectCategory.StatusEffect,
+				SourceId = id,
+			});
 		}
 
 		// 2. ActiveDomains

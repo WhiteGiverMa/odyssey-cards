@@ -1,15 +1,15 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using OdysseyCards.AI;
 using OdysseyCards.Card;
-using OdysseyCards.Core;
 using OdysseyCards.Character;
+using OdysseyCards.Core;
 using OdysseyCards.Heat;
 using OdysseyCards.Relic;
 using OdysseyCards.Roguelike;
 using OdysseyCards.UI;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace OdysseyCards.Combat;
 
@@ -874,7 +874,7 @@ _selectionSystem.BeginHandDiscardSelection,
 		int growthCap = PlayerHero.ActiveDomains.ContainsKey("unlimited_potential")
 			? GameState.HardMaxManaCap
 			: GameState.MaxManaCrystals;
-State.StartPlayerTurn(growthCap);
+		State.StartPlayerTurn(growthCap);
 		_playerCore.SetMana(State.PlayerMana, State.PlayerMaxMana);
 
 		// 状态效果 + 限时 mount 〜 在藏品之前触发：原 sutaraito_spirit 走领域通道时也位于此处，
@@ -1163,10 +1163,10 @@ State.StartPlayerTurn(growthCap);
 		foreach (var effect in card.Data.Effects)
 		{
 			ResolveSpellEffect(effect, target, card);
-if (IsDiscovering)
-		{
-			return false;
-		}
+			if (IsDiscovering)
+			{
+				return false;
+			}
 			{
 				selectionTriggered = true;
 				_selectionSystem.SetPendingDiscoverSpellCard(card);
@@ -1619,14 +1619,14 @@ if (IsDiscovering)
 			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 行动花费 {attacker.ActionCost}，当前法力不足（{PlayerHero.CurrentMana}）");
 			return false;
 
-		// RayanGe one-shot: first attack grants friendly hero 1 smokescreen
-		if (attacker.HasSmokeGrantOnFirstAttack && !attacker._firstAttackDone)
-		{
-			attacker._firstAttackDone = true;
-			PlayerHero.AddStatusEffect(new OdysseyCards.Card.StatusEffect(
-				OdysseyCards.Card.StatusEffect.SmokescreenId, 1,
-				OdysseyCards.Card.TickTiming.PlayerTurnEnd));
-		}
+			// RayanGe one-shot: first attack grants friendly hero 1 smokescreen
+			if (attacker.HasSmokeGrantOnFirstAttack && !attacker._firstAttackDone)
+			{
+				attacker._firstAttackDone = true;
+				PlayerHero.AddStatusEffect(new OdysseyCards.Card.StatusEffect(
+					OdysseyCards.Card.StatusEffect.SmokescreenId, 1,
+					OdysseyCards.Card.TickTiming.PlayerTurnEnd));
+			}
 		}
 
 		// 验证：防御方有效性

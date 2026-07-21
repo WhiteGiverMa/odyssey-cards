@@ -103,7 +103,7 @@ internal sealed class DomainTriggerManager
 		}
 	}
 
-public void OnPlayerTurnStart()
+	public void OnPlayerTurnStart()
 	{
 		_preemptiveStrikeUsedThisTurn = false;
 		_enemyHeroAttackedThisTurn = false;
@@ -146,9 +146,9 @@ public void OnPlayerTurnStart()
 					GD.Print($"[DomainTriggerManager] 「无限火力」触发：洗入 {shuffleCount} 张打击（{domain.StackCount}层）");
 					break;
 
-				// 「shiyoru_raidenkou」「sutaraito_spirit」已迁移到限时 Power（StatusEffect）通道，
-				// 触发逻辑在 CardEffectDispatcher.MountShiyoruRaidenkou/MountSutaraitoSpirit 的 OnTick 中。
-				// 见 AGENTS.md「语义边界」节。
+					// 「shiyoru_raidenkou」「sutaraito_spirit」已迁移到限时 Power（StatusEffect）通道，
+					// 触发逻辑在 CardEffectDispatcher.MountShiyoruRaidenkou/MountSutaraitoSpirit 的 OnTick 中。
+					// 见 AGENTS.md「语义边界」节。
 			}
 		}
 	}

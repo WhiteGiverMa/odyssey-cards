@@ -1,8 +1,8 @@
+using System;
+using System.Collections.Generic;
 using Godot;
 using OdysseyCards.AI;
 using OdysseyCards.Core;
-using System;
-using System.Collections.Generic;
 
 namespace OdysseyCards.Roguelike;
 

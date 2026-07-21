@@ -1,7 +1,7 @@
-using Xunit;
-using OdysseyCards.Combat;
 using OdysseyCards.Card;
+using OdysseyCards.Combat;
 using OdysseyCards.Core;
+using Xunit;
 
 namespace OdysseyCards.Tests.Integration;
 

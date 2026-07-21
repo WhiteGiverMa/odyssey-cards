@@ -87,7 +87,8 @@ public partial class CardFlyVfx : Control
 
 		// 读取卡牌飞行缩放设置
 		_scale = UIScaler.Instance?.CardFlyScale ?? 1.0f;
-		if (_scale < 0.01f) _scale = 1.0f;
+		if (_scale < 0.01f)
+			_scale = 1.0f;
 
 		// 全屏覆盖，不拦截鼠标事件
 		MouseFilter = MouseFilterEnum.Ignore;
@@ -223,7 +224,8 @@ public partial class CardFlyVfx : Control
 
 		// 读取卡牌飞行缩放设置
 		_scale = UIScaler.Instance?.CardFlyScale ?? 1.0f;
-		if (_scale < 0.01f) _scale = 1.0f;
+		if (_scale < 0.01f)
+			_scale = 1.0f;
 		MouseFilter = MouseFilterEnum.Ignore;
 		SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 		AddChild(_card);

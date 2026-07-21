@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
-using OdysseyCards.Localization;
 
 namespace OdysseyCards.UI;
 

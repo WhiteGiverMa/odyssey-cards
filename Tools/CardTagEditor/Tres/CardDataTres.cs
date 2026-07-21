@@ -31,7 +31,8 @@ public class CardDataTres
 		set
 		{
 			var f = _doc.GetField("MechanicTags");
-			if (f != null) f.SetInt(value);
+			if (f != null)
+				f.SetInt(value);
 		}
 	}
 
@@ -56,7 +57,8 @@ public class CardDataTres
 		set
 		{
 			var f = _doc.GetField("Keywords");
-			if (f != null) f.SetIntArray(value);
+			if (f != null)
+				f.SetIntArray(value);
 		}
 	}
 
@@ -82,7 +84,8 @@ public class CardDataTres
 	public bool MigrateTags()
 	{
 		var tags = Tags;
-		if (tags == null) return false; // 已迁移或无 Tags
+		if (tags == null)
+			return false; // 已迁移或无 Tags
 
 		int oldMechanics = MechanicTags;
 		int newBits = LegacyCardTagValues.MigrateBits(tags.Value);

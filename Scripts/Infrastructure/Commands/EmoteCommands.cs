@@ -1,9 +1,9 @@
 #nullable enable
 
-using OdysseyCards.Combat;
-using OdysseyCards.Core;
 using System;
 using System.Linq;
+using OdysseyCards.Combat;
+using OdysseyCards.Core;
 
 namespace OdysseyCards.Infrastructure.Commands;
 

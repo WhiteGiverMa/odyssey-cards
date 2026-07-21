@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OdysseyCards.AI;
-using OdysseyCards.Card;
 using OdysseyCards.Character;
 using OdysseyCards.Core;
 using OdysseyCards.Roguelike;

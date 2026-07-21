@@ -1,9 +1,8 @@
+using System;
+using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
-using OdysseyCards.Localization;
-using System;
-using System.Collections.Generic;
 
 namespace OdysseyCards.UI;
 
@@ -208,7 +207,7 @@ public partial class EffectBar : HBoxContainer
 		{
 			if (child is EffectIcon icon && !icon.IsQueuedForDeletion())
 			{
-			icon.Disable();
+				icon.Disable();
 				icon.Visible = false;
 				RemoveChild(icon);
 				icon.QueueFree();

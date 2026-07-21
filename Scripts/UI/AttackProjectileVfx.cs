@@ -1,6 +1,6 @@
+using System;
 using Godot;
 using OdysseyCards.Combat;
-using System;
 
 namespace OdysseyCards.UI;
 
@@ -48,7 +48,8 @@ public partial class AttackProjectileVfx : Control
 
 		// 读取弹道缩放设置
 		_scale = UIScaler.Instance?.ProjectileScale ?? 1.0f;
-		if (_scale < 0.01f) _scale = 1.0f;
+		if (_scale < 0.01f)
+			_scale = 1.0f;
 
 		var mid = (_from + _to) * 0.5f;
 		var direction = _to - _from;

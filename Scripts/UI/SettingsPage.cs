@@ -1,8 +1,8 @@
+using System;
+using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
-using System;
-using System.Collections.Generic;
 using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.UI;
@@ -516,8 +516,11 @@ public partial class SettingsPage : Control
 		_emoteIdleTimeLabel = CreateSettingLabel("ui.settings.emote_idle_time", "Emote Idle Time");
 		_emoteIdleTimeSlider = new HSlider
 		{
-			MinValue = 3.0, MaxValue = 15.0, Step = 0.5,
-			Value = currentIdleTime, CustomMinimumSize = new Vector2(160, 0),
+			MinValue = 3.0,
+			MaxValue = 15.0,
+			Step = 0.5,
+			Value = currentIdleTime,
+			CustomMinimumSize = new Vector2(160, 0),
 		};
 		_emoteIdleTimeValueLabel = new Label { Text = $"{currentIdleTime:F1}s", CustomMinimumSize = new Vector2(50, 0) };
 		_emoteIdleTimeValueLabel.AddThemeFontSizeOverride("font_size", 16);
@@ -528,8 +531,11 @@ public partial class SettingsPage : Control
 		_emoteVarMinLabel = CreateSettingLabel("ui.settings.emote_variation_min", "Variation Min");
 		_emoteVarMinSlider = new HSlider
 		{
-			MinValue = 0.1, MaxValue = 3.0, Step = 0.1,
-			Value = currentVarMin, CustomMinimumSize = new Vector2(160, 0),
+			MinValue = 0.1,
+			MaxValue = 3.0,
+			Step = 0.1,
+			Value = currentVarMin,
+			CustomMinimumSize = new Vector2(160, 0),
 		};
 		_emoteVarMinValueLabel = new Label { Text = $"×{currentVarMin:F1}", CustomMinimumSize = new Vector2(50, 0) };
 		_emoteVarMinValueLabel.AddThemeFontSizeOverride("font_size", 16);
@@ -539,8 +545,11 @@ public partial class SettingsPage : Control
 		_emoteVarMaxLabel = CreateSettingLabel("ui.settings.emote_variation_max", "Variation Max");
 		_emoteVarMaxSlider = new HSlider
 		{
-			MinValue = 0.1, MaxValue = 3.0, Step = 0.1,
-			Value = currentVarMax, CustomMinimumSize = new Vector2(160, 0),
+			MinValue = 0.1,
+			MaxValue = 3.0,
+			Step = 0.1,
+			Value = currentVarMax,
+			CustomMinimumSize = new Vector2(160, 0),
 		};
 		_emoteVarMaxValueLabel = new Label { Text = $"×{currentVarMax:F1}", CustomMinimumSize = new Vector2(50, 0) };
 		_emoteVarMaxValueLabel.AddThemeFontSizeOverride("font_size", 16);
@@ -876,8 +885,11 @@ public partial class SettingsPage : Control
 		label = CreateSettingLabel(key, fallback);
 		slider = new HSlider
 		{
-			MinValue = 0.0, MaxValue = 5.0, Step = 0.1,
-			Value = currentValue, CustomMinimumSize = new Vector2(160, 0),
+			MinValue = 0.0,
+			MaxValue = 5.0,
+			Step = 0.1,
+			Value = currentValue,
+			CustomMinimumSize = new Vector2(160, 0),
 		};
 		valueLabel = new Label
 		{

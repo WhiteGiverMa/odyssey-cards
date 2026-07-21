@@ -19,9 +19,9 @@ namespace OdysseyCards.Roguelike;
 ///
 /// 权重计算：对每张候选卡 card，
 ///   weight = Σ(标签权重 × 卡的标签命中) + 人工 override
-	/// 其中「标签命中」= card.MechanicTags.HasFlag(tag) ? 1 : 0
-	/// 关键词偏好通过 ThemeProfile.KeywordWeights 以同样方式叠加。
-	/// 未在任何 ThemeProfile.TagWeights 中列出的标签贡献 0。
+/// 其中「标签命中」= card.MechanicTags.HasFlag(tag) ? 1 : 0
+/// 关键词偏好通过 ThemeProfile.KeywordWeights 以同样方式叠加。
+/// 未在任何 ThemeProfile.TagWeights 中列出的标签贡献 0。
 /// weight 可为负（不擅长的卡），生成器在加权随机时 clamp 到最小 1（避免完全排除但大幅降权）。
 /// </summary>
 public static class ThemedDeckGenerator

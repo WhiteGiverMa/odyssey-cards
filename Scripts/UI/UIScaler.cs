@@ -347,7 +347,8 @@ namespace OdysseyCards.UI
 		public void SetProjectileScale(float scale)
 		{
 			scale = Mathf.Clamp(scale, 0.0f, 5.0f);
-			if (Mathf.Abs(ProjectileScale - scale) < 0.001f) return;
+			if (Mathf.Abs(ProjectileScale - scale) < 0.001f)
+				return;
 			ProjectileScale = scale;
 			SaveSettings();
 			OnParticleEffectSettingsChanged?.Invoke();
@@ -357,7 +358,8 @@ namespace OdysseyCards.UI
 		public void SetCardFlyScale(float scale)
 		{
 			scale = Mathf.Clamp(scale, 0.0f, 5.0f);
-			if (Mathf.Abs(CardFlyScale - scale) < 0.001f) return;
+			if (Mathf.Abs(CardFlyScale - scale) < 0.001f)
+				return;
 			CardFlyScale = scale;
 			SaveSettings();
 			OnParticleEffectSettingsChanged?.Invoke();
@@ -367,7 +369,8 @@ namespace OdysseyCards.UI
 		public void SetDamageNumberScale(float scale)
 		{
 			scale = Mathf.Clamp(scale, 0.0f, 5.0f);
-			if (Mathf.Abs(DamageNumberScale - scale) < 0.001f) return;
+			if (Mathf.Abs(DamageNumberScale - scale) < 0.001f)
+				return;
 			DamageNumberScale = scale;
 			SaveSettings();
 			OnParticleEffectSettingsChanged?.Invoke();
@@ -377,7 +380,8 @@ namespace OdysseyCards.UI
 		public void SetEmoteScale(float scale)
 		{
 			scale = Mathf.Clamp(scale, 0.0f, 5.0f);
-			if (Mathf.Abs(EmoteScale - scale) < 0.001f) return;
+			if (Mathf.Abs(EmoteScale - scale) < 0.001f)
+				return;
 			EmoteScale = scale;
 			SaveSettings();
 			OnParticleEffectSettingsChanged?.Invoke();
@@ -387,7 +391,8 @@ namespace OdysseyCards.UI
 		public void SetDeployAnimationSpeed(float speed)
 		{
 			speed = Mathf.Clamp(speed, 0.1f, 3.0f);
-			if (Mathf.Abs(DeployAnimationSpeed - speed) < 0.001f) return;
+			if (Mathf.Abs(DeployAnimationSpeed - speed) < 0.001f)
+				return;
 			DeployAnimationSpeed = speed;
 			SaveSettings();
 			OnParticleEffectSettingsChanged?.Invoke();
@@ -397,7 +402,8 @@ namespace OdysseyCards.UI
 		public void SetRarityColorScheme(int schemeIndex)
 		{
 			schemeIndex = Mathf.Clamp(schemeIndex, 0, RarityColorScheme.SchemeCount - 1);
-			if (RarityColorSchemeIndex == schemeIndex) return;
+			if (RarityColorSchemeIndex == schemeIndex)
+				return;
 			RarityColorSchemeIndex = schemeIndex;
 			SaveSettings();
 			OnRarityColorSchemeChanged?.Invoke();

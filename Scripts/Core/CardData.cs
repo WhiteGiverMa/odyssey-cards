@@ -1,6 +1,6 @@
+using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Localization;
-using System.Collections.Generic;
 using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.Core;

@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OdysseyCards.AI;
-using AiIntentType = OdysseyCards.AI.Intents.IntentType;
 using OdysseyCards.Card;
 using OdysseyCards.Character;
 using OdysseyCards.Core;
+using AiIntentType = OdysseyCards.AI.Intents.IntentType;
 
 namespace OdysseyCards.Combat;
 
@@ -24,13 +24,13 @@ internal sealed class CardEffectDispatcher
 	private readonly Board _board;
 	private readonly GameState _state;
 	private readonly Action _notifyCombatStateChanged;
-		private readonly Action<CardEffectData> _handleDiscoverEffect;
-		private readonly Action<List<Card.Card>, int> _beginDiscardDiscoverSelection;
-		private readonly Action<List<Card.Card>, int, int, bool> _beginHandDiscardSelection;
-		private readonly Action<Card.Card> _beginCopyHandFillSelection;
-		/// <summary>抉择 UI 触发回调——参数：titleKey, titleFallback, optionLabels, optionDescriptions, onChosen(index)。</summary>
-		private readonly Action<string, string, IReadOnlyList<string>, IReadOnlyList<string>, Action<int>> _beginChooseOne;
-		private readonly Action<object?, IDamageTarget, DamageKind, CombatDamageVfxKind> _requestDamageVfx;
+	private readonly Action<CardEffectData> _handleDiscoverEffect;
+	private readonly Action<List<Card.Card>, int> _beginDiscardDiscoverSelection;
+	private readonly Action<List<Card.Card>, int, int, bool> _beginHandDiscardSelection;
+	private readonly Action<Card.Card> _beginCopyHandFillSelection;
+	/// <summary>抉择 UI 触发回调——参数：titleKey, titleFallback, optionLabels, optionDescriptions, onChosen(index)。</summary>
+	private readonly Action<string, string, IReadOnlyList<string>, IReadOnlyList<string>, Action<int>> _beginChooseOne;
+	private readonly Action<object?, IDamageTarget, DamageKind, CombatDamageVfxKind> _requestDamageVfx;
 	private readonly Dictionary<CardEffectType, Action<CardEffectData, object?, IDamageSource?, object?>> _handlers;
 
 	// 先发制人领域：每回合首张直伤牌是否已消费
@@ -75,25 +75,25 @@ internal sealed class CardEffectDispatcher
 			[CardEffectType.Heal] = HandleHeal,
 			[CardEffectType.RestoreHealth] = HandleHeal,
 			[CardEffectType.GainArmor] = HandleGainArmor,
-				[CardEffectType.GainMaxHealth] = HandleGainMaxHealth,
-				[CardEffectType.SummonMinion] = HandleSummonMinion,
-				[CardEffectType.BuffMinion] = HandleBuffMinion,
-				[CardEffectType.GainEnergy] = HandleGainEnergy,
-				[CardEffectType.GainManaSlot] = HandleGainManaSlot,
-				[CardEffectType.RemoveNaturalManaCap] = HandleRemoveNaturalManaCap,
-				[CardEffectType.Discover] = HandleDiscoverEffectDispatch,
-				[CardEffectType.MountHeroEffect] = HandleMountHeroEffect,
+			[CardEffectType.GainMaxHealth] = HandleGainMaxHealth,
+			[CardEffectType.SummonMinion] = HandleSummonMinion,
+			[CardEffectType.BuffMinion] = HandleBuffMinion,
+			[CardEffectType.GainEnergy] = HandleGainEnergy,
+			[CardEffectType.GainManaSlot] = HandleGainManaSlot,
+			[CardEffectType.RemoveNaturalManaCap] = HandleRemoveNaturalManaCap,
+			[CardEffectType.Discover] = HandleDiscoverEffectDispatch,
+			[CardEffectType.MountHeroEffect] = HandleMountHeroEffect,
 			[CardEffectType.ReplaceDeathrattleWithDraw] = HandleReplaceDeathrattleWithDraw,
 			[CardEffectType.ChooseFromDiscard] = HandleChooseFromDiscard,
 			[CardEffectType.DiscardRandom] = HandleDiscardRandom,
 			[CardEffectType.DiscardChoose] = HandleDiscardChoose,
-				[CardEffectType.ShuffleTribeCards] = HandleShuffleTribeCards,
-				[CardEffectType.ApplyStatusToTarget] = HandleApplyStatusToTarget,
-				[CardEffectType.DrawByFriendlyMinions] = HandleDrawByFriendlyMinions,
-				[CardEffectType.GainManaSlotAndMana] = HandleGainManaSlotAndMana,
-				[CardEffectType.GainArmorToFriendlyBoard] = HandleGainArmorToFriendlyBoard,
-				[CardEffectType.Custom] = HandleCustomEffect,
-			};
+			[CardEffectType.ShuffleTribeCards] = HandleShuffleTribeCards,
+			[CardEffectType.ApplyStatusToTarget] = HandleApplyStatusToTarget,
+			[CardEffectType.DrawByFriendlyMinions] = HandleDrawByFriendlyMinions,
+			[CardEffectType.GainManaSlotAndMana] = HandleGainManaSlotAndMana,
+			[CardEffectType.GainArmorToFriendlyBoard] = HandleGainArmorToFriendlyBoard,
+			[CardEffectType.Custom] = HandleCustomEffect,
+		};
 	}
 
 	public void ExecuteEffect(CardEffectData effect, object? target, IDamageSource? source = null, object? visualSource = null)
@@ -244,25 +244,25 @@ internal sealed class CardEffectDispatcher
 		}
 	}
 
-		private void HandleBuffMinion(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	private void HandleBuffMinion(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	{
+		if (target is Minion buffTarget)
 		{
-			if (target is Minion buffTarget)
-			{
-				GD.Print($"[CardEffectDispatcher] BuffMinion：{effect.GetDescription()} → {buffTarget.CardName}（原型：暂未实现属性修改）");
+			GD.Print($"[CardEffectDispatcher] BuffMinion：{effect.GetDescription()} → {buffTarget.CardName}（原型：暂未实现属性修改）");
 		}
 		else
 		{
 			GD.Print("[CardEffectDispatcher] BuffMinion 需要有效的随从目标");
-			}
 		}
+	}
 
-		private void HandleGainEnergy(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
-		{
-			_playerHero.GainMana(effect.Value);
-			GD.Print($"[CardEffectDispatcher] 获得 {effect.Value} 点临时法力（当前 {_playerHero.CurrentMana}/{_playerHero.MaxMana}）");
-		}
+	private void HandleGainEnergy(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	{
+		_playerHero.GainMana(effect.Value);
+		GD.Print($"[CardEffectDispatcher] 获得 {effect.Value} 点临时法力（当前 {_playerHero.CurrentMana}/{_playerHero.MaxMana}）");
+	}
 
-		private void HandleGainManaSlot(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	private void HandleGainManaSlot(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		_state.GainManaSlot(effect.Value);
 		_playerCore.SetMana(_playerCore.CurrentMana, _state.PlayerMaxMana);
@@ -362,8 +362,8 @@ internal sealed class CardEffectDispatcher
 		GD.Print($"[CardEffectDispatcher] 主动弃牌：从手牌 {handCopy.Count} 张中弃掉 {discardCount}/{mustDiscard} 张");
 	}
 
-		private void HandleShuffleTribeCards(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
-		{
+	private void HandleShuffleTribeCards(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	{
 		int insertCount = effect.Value;
 		if (!Enum.TryParse<CardMechanicTag>(effect.TargetType, out var targetTag) || targetTag == CardMechanicTag.None)
 		{
@@ -395,8 +395,8 @@ internal sealed class CardEffectDispatcher
 
 		_playerHero.ShuffleDrawPile();
 		GD.Print($"[CardEffectDispatcher] 种族洗牌完成：将 {insertCount} 张随机 {effect.TargetType} 随从洗入抽牌堆");
-			_notifyCombatStateChanged();
-		}
+		_notifyCombatStateChanged();
+	}
 
 	private void HandleApplyStatusToTarget(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
@@ -449,7 +449,7 @@ internal sealed class CardEffectDispatcher
 		_notifyCombatStateChanged();
 	}
 
-private void HandleMountHeroEffect(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
+	private void HandleMountHeroEffect(CardEffectData effect, object? target, IDamageSource? source, object? visualSource)
 	{
 		switch (effect.CustomEffectName)
 		{
@@ -726,10 +726,10 @@ private void HandleMountHeroEffect(CardEffectData effect, object? target, IDamag
 		return IsPlayerCaster(source) ? _board.GetEnemyMinions() : _board.GetPlayerMinions();
 	}
 
-		private static TickTiming GetEnemyStatusTickTimingFor(IDamageSource? source)
-		{
-			return IsPlayerCaster(source) ? TickTiming.EnemyTurnEnd : TickTiming.PlayerTurnEnd;
-		}
+	private static TickTiming GetEnemyStatusTickTimingFor(IDamageSource? source)
+	{
+		return IsPlayerCaster(source) ? TickTiming.EnemyTurnEnd : TickTiming.PlayerTurnEnd;
+	}
 
 	private static TickTiming GetStatusTickTimingFor(Hero target)
 	{

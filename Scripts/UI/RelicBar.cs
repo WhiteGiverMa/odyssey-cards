@@ -1,6 +1,6 @@
+using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Relic;
-using System.Collections.Generic;
 
 namespace OdysseyCards.UI;
 

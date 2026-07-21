@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OdysseyCards.Card;
-using OdysseyCards.Core;
 using OdysseyCards.Character;
 using OdysseyCards.Combat;
+using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
 
 namespace OdysseyCards.UI;
@@ -44,17 +44,17 @@ public partial class CombatUI : Control
 	/// </summary>
 	private Control _handArea = null!;
 
-		/// <summary>
-		/// 玩家英雄身份卡——包装玩家名字、生命值条、护甲、防御和效果图标。
-		/// 与 EnemyIdentityCard 对称，统一双方英雄的 UI 结构。
-		/// </summary>
-		private PlayerIdentityCard _playerIdentityCard = null!;
+	/// <summary>
+	/// 玩家英雄身份卡——包装玩家名字、生命值条、护甲、防御和效果图标。
+	/// 与 EnemyIdentityCard 对称，统一双方英雄的 UI 结构。
+	/// </summary>
+	private PlayerIdentityCard _playerIdentityCard = null!;
 
-		/// <summary>
-		/// 敌方英雄身份卡列表——每张卡包含名字、HP、护甲、防御、武器、意图。
-		/// 索引与 CombatManager.EnemyUnits 对应。
-		/// </summary>
-		private readonly List<EnemyIdentityCard> _enemyCards = new();
+	/// <summary>
+	/// 敌方英雄身份卡列表——每张卡包含名字、HP、护甲、防御、武器、意图。
+	/// 索引与 CombatManager.EnemyUnits 对应。
+	/// </summary>
+	private readonly List<EnemyIdentityCard> _enemyCards = new();
 
 	// ===== 旧版敌方 UI（向后兼容，逐步替换为 EnemyIdentityCard） =====
 	private HealthBar _enemyHealthBar = null!;
@@ -717,12 +717,12 @@ public partial class CombatUI : Control
 		intentTooltipLayer.AddChild(tooltipParent);
 		AddChild(intentTooltipLayer);
 
-			// 创建并初始化子组件
-			SetupBoardUI();
-			SetupHandUI();
-			CreatePlayerIdentityCard();
-			CreateManaLabels();
-			CreateArmorLabels();
+		// 创建并初始化子组件
+		SetupBoardUI();
+		SetupHandUI();
+		CreatePlayerIdentityCard();
+		CreateManaLabels();
+		CreateArmorLabels();
 		CreateEndTurnButton();
 		CreateHeroPowerButton();
 		CreatePlayerHeroPanel();

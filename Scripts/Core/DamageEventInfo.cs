@@ -1,5 +1,3 @@
-using System;
-
 namespace OdysseyCards.Core;
 
 /// <summary>

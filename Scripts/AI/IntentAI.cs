@@ -212,7 +212,7 @@ public abstract class EnemyEncounter
 	/// </summary>
 	public int CurrentMoveIndex { get; protected set; }
 
-/// <summary>是否使用了新的 MoveState 意图系统。</summary>
+	/// <summary>是否使用了新的 MoveState 意图系统。</summary>
 	public bool HasMoveStates => MoveStates != null;
 
 	/// <summary>

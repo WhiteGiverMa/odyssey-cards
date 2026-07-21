@@ -1,8 +1,8 @@
 #nullable enable
+using System.Linq;
 using OdysseyCards.AI;
 using OdysseyCards.Combat;
 using OdysseyCards.UI;
-using System.Linq;
 using static OdysseyCards.Infrastructure.Commands.CombatUIHelper;
 
 namespace OdysseyCards.Infrastructure.Commands;
