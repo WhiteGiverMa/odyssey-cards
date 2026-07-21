@@ -73,7 +73,8 @@ Tests/              # tests/csharp：xUnit 12 Unit + 1 Integration(跳过)
 | 意图图标/提示 | `UI/IntentIcon.cs`, `IntentTooltip.cs`, `EnemyIdentityCard.cs` | 悬停/长按，敌方英雄攻击绿框在 EnemyIdentityCard |
 | UI 总控 | `UI/CombatUI*.cs` | 4 个 partial：核心/Layout/Refresh/Selection；详见 `Scripts/UI/AGENTS.md` |
 | 手牌 | `UI/HandUI.cs` | 风扇交叠，Control 手动布局（非 Container） |
-| 卡牌交互 | `UI/CardUI.cs` | `[Tool]` 预览 + 点击/拖拽状态机 |
+| 卡牌交互 | `UI/CardUI.cs` | `[Tool]` 预览 + 点击/拖拽状态机；卡图区由 CardArtworkView 程序化生成 |
+| 星途视觉系统 | `Core/CardArtworkGenerator.cs`, `UI/CardArtworkView.cs`, `UI/StarfieldBackground.cs`, `UI/UIThemeFactory.cs`, `UI/ManaCrystalBar.cs` | 0 美术资产程序化视觉：卡图生成（ID 哈希种子）、星云星空背景、全局主题色板、六边形法力水晶 |
 | 交互状态机 | `UI/InteractionFSM.cs` | 纯 C#；统一 Idle/CardPickedUp/Targeting/BoardDrag 阶段转换 |
 | 棋盘 UI | `UI/BoardUI.cs` | `[Tool]` 预览，2×5 BoardSlot |
 | 收藏 | `UI/CollectionUI.cs`, `CardGrid.cs` | 浏览/编辑/分页/过滤 |
@@ -310,6 +311,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - 攻击双交互：箭头追随+松手攻击/右键取消，敌方英雄整卡绿色攻击高亮。
 - 导出回退：DirAccess 优先 + 硬编码回退。
 - 关键词检测：比较运行时 vs `CardData` 基线区分“自带”vs“授予”。
+- 程序化视觉（星途视觉系统）：0 美术资产原则——卡图 = ID 哈希种子派生规格（纯函数可测）+ `_Draw` 矢量绘制（渐变底/星点/几何符号/稀有度光晕）；背景 = FastNoiseLite 星云纹理（根除 8bit banding）+ 视差星点；主题 = UIThemeFactory 单例 Theme + 星途色板（深空#12101F/星粉#FF9ED2/青金#7FD8FF/暖金#FFD98E/绯红#FF6B7A）；真图通道保留（CardData.Artwork 非 null 时优先）。
 
 ## State
 
@@ -337,6 +339,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - ✅ 主题卡组支持 `ThemeProfile.KeywordWeights`，可按 `Keyword`（如轮战、亡语）给角色主题加权，不污染 `CardMechanicTag`。
 - ✅ 热力系统与藏品系统已存在；资源化仍未完成。
 - ✅ ActiveDomain/StatusEffect 语义边界已明确（永久 Power vs 限时 Power）；四夜雷电光、星途精神 mount 改为限时 Power 走 StatusEffect + OnTick 通道。
+- ✅ 星途视觉系统 v1（PRD: issue #2）：程序化卡图生成器（61 张卡全有独特卡面，ID 哈希种子可复现，主题风格分派 ayame=Rune/rie/sokou=Mecha）、全局主题工厂 + 星途色板、星云星空背景（主菜单/战斗/地图三档密度）、六边形法力水晶、棋盘阵营色边框（玩家青金/敌方绯红 + 空槽同步呼吸）；STS 遗物 PlaceholderAssetGenerator 已删，Assets 死图 212→24（仅保留 _backup 引用的 Demo jpg）。
 - ✅ 术语对照表已建立（Architecture Rules → 术语对照段），涵盖领域/限时挂载/状态/目标单位/直伤卡/触发时机。
 - ⚠️ `Spell.cs` 从未实例化（死代码）。
 - ⚠️ `RailPistolPassive.cs`、`SafeAreaContainer.cs` 当前孤立。
