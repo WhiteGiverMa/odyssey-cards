@@ -184,6 +184,7 @@
     keyword_deathrattle: "亡"
     keyword_ambush: "伏"
     keyword_impact: "击"
+    speed_prefix: "速"
     defense_prefix: "防"
   card_grid:
     filter_all: "全部"
@@ -429,6 +430,7 @@ cards:
     description: "闪击，冲击。在友方英雄释放直伤法术时，对随机敌人造成等同于攻击力的伤害。"
   minion_lianshu_transport:
     name: "联树机器犬 运输型"
+    description: "闪击。战吼：抽2张牌，友方英雄回复2点生命。回合结束时若在场上，回到抽牌堆。如此2次后，回合结束时进入弃牌堆。"
   spell_smoke_restore:
     name: "烟雾恢复"
     description: "使所有有「烟幕」的友方单位+4生命值。"
@@ -448,7 +450,6 @@ cards:
     name: "拉烟哥"
     description: "闪击。首次攻击时使友方英雄获得1层烟幕。"
 
-    description: "闪击。战吼：抽2张牌，友方英雄回复2点生命。回合结束时若在场上，回到抽牌堆。如此2次后，回合结束时进入弃牌堆。"
   domain_zhijian:
     name: "执锐"
     description: "领域：友方随从部署时攻击力+1"
@@ -713,6 +714,7 @@ domain:
   sutaraito_spirit_desc: "下回合开始时额外抽2张牌并获得2点法力。"
 
 stat:
+  speed_format: "速度 {speed}"
   attack_up: "攻击力+{value}"
   attack_down: "攻击力{value}"
   defense_up: "防御力+{value}"

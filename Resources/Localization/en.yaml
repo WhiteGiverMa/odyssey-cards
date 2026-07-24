@@ -184,6 +184,7 @@
     keyword_deathrattle: "D"
     keyword_ambush: "A"
     keyword_impact: "I"
+    speed_prefix: "Spd"
     defense_prefix: "Def"
   card_grid:
     filter_all: "All"
@@ -691,6 +692,7 @@ domain:
   sutaraito_spirit_desc: "At the start of your next turn, draw 2 extra cards and gain 2 Mana."
 
 stat:
+  speed_format: "Speed {speed}"
   attack_up: "Attack +{value}"
   attack_down: "Attack {value}"
   defense_up: "Defense +{value}"
