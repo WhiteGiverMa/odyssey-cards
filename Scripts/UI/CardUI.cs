@@ -619,8 +619,15 @@ public partial class CardUI : Control
 			ShowSpellLayout(card, s);
 		}
 
-		// 描述文字（本地化）
-		_descLabel.Text = card.GetLocalizedDescription();
+		// 描述文字（本地化）；随从补充速度，避免出牌前无法判断目标范围。
+		string description = card.GetLocalizedDescription();
+		if (card.Type == CardType.Minion)
+		{
+			string speedText = Loc.T("stat.speed_format", "速度 {speed}")
+				.Replace("{speed}", card.Data.Speed.ToString());
+			description = $"{speedText}\n{description}";
+		}
+		_descLabel.Text = description;
 
 		// 稀有度标识（所有卡牌类型均显示）
 		UpdateRarityIndicator(card, s);

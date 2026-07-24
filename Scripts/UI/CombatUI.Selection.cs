@@ -936,50 +936,47 @@ public partial class CombatUI
 	}
 
 	/// <summary>
-	/// 高亮合法攻击目标——敌方有嘲讽随从时仅高亮嘲讽目标，
-	/// 无嘲讽时高亮所有敌方随从并显示攻击英雄按钮。
+	/// 高亮合法攻击目标——统一应用速度与嘲讽拦截规则。
 	/// </summary>
 	private void HighlightValidAttackTargets()
 	{
 		_boardUI.ClearHighlights();
 		_enemyHeroCardAction = OnEnemyHeroAttackPressed;
-
-		var enemyTaunts = _combat.Board.GetTaunts(ofEnemy: true);
-		if (enemyTaunts.Count > 0)
+		if (_selectedAttacker == null || _selectedAttacker.IsDead)
 		{
-			// 有嘲讽——仅高亮嘲讽随从
-			var tauntIndices = enemyTaunts
-				.Where(m => m.BoardSlotIndex >= 0)
-				.Select(m => m.BoardSlotIndex)
-				.ToList();
-
-			_boardUI.HighlightSlots(tauntIndices, isPlayerSide: false, highlight: true);
 			SetEnemyHeroAttackTargetsVisible(false);
-
-			GD.Print($"[CombatUI] 攻击目标模式——敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
+			return;
 		}
-		else
+
+		var legalTargets = GetLegalEnemyAttackTargets(_selectedAttacker);
+		var legalMinionIndices = legalTargets
+			.OfType<Minion>()
+			.Where(m => m.BoardSlotIndex >= 0)
+			.Select(m => m.BoardSlotIndex)
+			.ToList();
+		if (legalMinionIndices.Count > 0)
+			_boardUI.HighlightSlots(legalMinionIndices, isPlayerSide: false, highlight: true);
+
+		var legalHeroes = legalTargets.OfType<Hero>().ToList();
+		SetEnemyHeroAttackTargetsVisible(legalHeroes.Count > 0, legalHeroes);
+
+		GD.Print($"[CombatUI] 攻击目标模式——合法随从 {legalMinionIndices.Count} 个，合法英雄 {legalHeroes.Count} 个");
+	}
+
+	private List<IDamageTarget> GetLegalEnemyAttackTargets(IDamageSource attacker)
+	{
+		var candidates = new List<IDamageTarget>();
+		candidates.AddRange(_combat.Board.GetEnemyMinions().Where(m => !m.IsDead));
+		foreach (var unit in _combat.EnemyUnits)
 		{
-			// 无嘲讽——高亮所有敌方随从
-			var allEnemyIndices = new List<int>();
-			for (int i = 0; i < Board.MaxSlotsPerSide; i++)
-			{
-				var m = _combat.Board.GetMinionAt(i, isPlayerSide: false);
-				if (m != null && !m.IsDead)
-				{
-					allEnemyIndices.Add(i);
-				}
-			}
-
-			if (allEnemyIndices.Count > 0)
-			{
-				_boardUI.HighlightSlots(allEnemyIndices, isPlayerSide: false, highlight: true);
-			}
-
-			SetEnemyHeroAttackTargetsVisible(true);
-
-			GD.Print("[CombatUI] 攻击目标模式——可攻击敌方英雄");
+			if (!unit.Body.IsDead)
+				candidates.Add(unit.Body);
 		}
+
+		return AttackTargetRules.GetLegalAttackTargets(
+			attacker,
+			candidates,
+			_combat.Board.GetTaunts(ofEnemy: true));
 	}
 
 	private void OnEnemyHeroCardActionPressed(int enemyIndex)
@@ -1010,10 +1007,14 @@ public partial class CombatUI
 		return index >= 0 ? _combat.EnemyUnits[index].Body : null;
 	}
 
-	private void SetEnemyHeroAttackTargetsVisible(bool visible)
+	private void SetEnemyHeroAttackTargetsVisible(bool visible, IReadOnlyCollection<Hero>? legalTargets = null)
 	{
 		for (int i = 0; i < _enemyCards.Count; i++)
-			_enemyCards[i].SetAttackTargetHighlight(visible && !_combat.EnemyUnits[i].Body.IsDead);
+		{
+			var hero = _combat.EnemyUnits[i].Body;
+			bool isLegal = legalTargets == null || legalTargets.Contains(hero);
+			_enemyCards[i].SetAttackTargetHighlight(visible && isLegal && !hero.IsDead);
+		}
 	}
 
 	private void SetEnemyHeroSpellTargetsVisible(bool visible, string text)
@@ -1362,7 +1363,7 @@ public partial class CombatUI
 	}
 
 	/// <summary>
-	/// 高亮武器攻击合法目标——敌方随从（受嘲讽限制）+ 敌方英雄。</summary>
+	/// 高亮武器攻击合法目标——统一应用速度与嘲讽拦截规则。</summary>
 	private void HighlightWeaponTargets()
 	{
 		_boardUI.ClearHighlights();
@@ -1381,46 +1382,22 @@ public partial class CombatUI
 				_boardUI.HighlightSlots(allPlayerIndices, isPlayerSide: true, highlight: true);
 		}
 
-		var enemyTaunts = _combat.Board.GetTaunts(ofEnemy: true);
-		if (enemyTaunts.Count > 0)
-		{
-			// 有嘲讽——仅高亮嘲讽随从
-			var tauntIndices = enemyTaunts
-				.Where(m => m.BoardSlotIndex >= 0)
-				.Select(m => m.BoardSlotIndex)
-				.ToList();
+		var legalTargets = GetLegalEnemyAttackTargets(_combat.PlayerHero);
+		var legalMinionIndices = legalTargets
+			.OfType<Minion>()
+			.Where(m => m.BoardSlotIndex >= 0)
+			.Select(m => m.BoardSlotIndex)
+			.ToList();
+		if (legalMinionIndices.Count > 0)
+			_boardUI.HighlightSlots(legalMinionIndices, isPlayerSide: false, highlight: true);
 
-			_boardUI.HighlightSlots(tauntIndices, isPlayerSide: false, highlight: true);
-			SetEnemyHeroAttackTargetsVisible(false);
+		_enemyHeroCardAction = OnWeaponAttackHeroPressed;
+		foreach (var card in _enemyCards)
+			card.AttackButton.Text = Loc.T("ui.combat.weapon_attack_cost", "⚔ 武器攻击 ({cost}费)").Replace("{cost}", _combat.PlayerHero.Weapon!.AttackCost.ToString());
+		var legalHeroes = legalTargets.OfType<Hero>().ToList();
+		SetEnemyHeroAttackTargetsVisible(legalHeroes.Count > 0, legalHeroes);
 
-			GD.Print($"[CombatUI] 武器攻击模式——敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
-		}
-		else
-		{
-			// 无嘲讽——高亮所有敌方随从
-			var allEnemyIndices = new List<int>();
-			for (int i = 0; i < Board.MaxSlotsPerSide; i++)
-			{
-				var m = _combat.Board.GetMinionAt(i, isPlayerSide: false);
-				if (m != null && !m.IsDead)
-				{
-					allEnemyIndices.Add(i);
-				}
-			}
-
-			if (allEnemyIndices.Count > 0)
-			{
-				_boardUI.HighlightSlots(allEnemyIndices, isPlayerSide: false, highlight: true);
-			}
-
-			// 显示攻击英雄按钮 + 绿色高亮
-			_enemyHeroCardAction = OnWeaponAttackHeroPressed;
-			foreach (var card in _enemyCards)
-				card.AttackButton.Text = Loc.T("ui.combat.weapon_attack_cost", "⚔ 武器攻击 ({cost}费)").Replace("{cost}", _combat.PlayerHero.Weapon!.AttackCost.ToString());
-			SetEnemyHeroAttackTargetsVisible(true);
-
-			GD.Print("[CombatUI] 武器攻击模式——可攻击敌方英雄或随从");
-		}
+		GD.Print($"[CombatUI] 武器攻击模式——合法随从 {legalMinionIndices.Count} 个，合法英雄 {legalHeroes.Count} 个");
 	}
 
 	/// <summary>

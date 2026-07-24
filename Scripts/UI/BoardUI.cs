@@ -1083,7 +1083,8 @@ public partial class BoardUI : Control
 
 			// 随从名称与战斗属性
 			string defenseStr = minion.Defense != 0 ? $" {Localization.Localization.T("ui.board.defense_prefix", "防")}{minion.Defense:+0;-#}" : "";
-			string display = $"{minion.GetLocalizedName()}\n{minion.Attack}/{minion.CurrentHealth}{defenseStr}";
+			string speedStr = $" {Localization.Localization.T("ui.board.speed_prefix", "速")}{minion.Speed}";
+			string display = $"{minion.GetLocalizedName()}\n{minion.Attack}/{minion.CurrentHealth}{speedStr}{defenseStr}";
 
 			// 关键词标签
 			var keywords = new List<string>(4);
