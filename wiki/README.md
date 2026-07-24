@@ -16,6 +16,7 @@ wiki 也不是准确状态参考；实现状态以实际 UX、当前代码和项
 - [敌人英雄](enemy-heroes.md)
 - [敌人随从](enemy-minions.md)
 - [关键词、状态与领域](keywords-status-domains.md)
+- [攻击速度与嘲讽](attack-speed-and-taunt.md)
 - [藏品与热力](relics-and-heat.md)
 - [路线、房间与奖励](route-rooms-rewards.md)
 - [交互与表现 UX](ux.md)
