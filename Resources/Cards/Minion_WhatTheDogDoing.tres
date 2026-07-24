@@ -21,5 +21,6 @@ Type = 0
 Attack = 4
 Health = 4
 Defense = 1
+Speed = 3
 Keywords = Array[int]([2, 3])
 BattlecryEffects = Array[ExtResource("2_effect")]([SubResource("SubResource_1")])

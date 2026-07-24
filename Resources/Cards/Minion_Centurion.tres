@@ -22,5 +22,6 @@ Type = 0
 Attack = 3
 Health = 6
 Defense = 2
+Speed = 3
 Keywords = [2, 3]
 BattlecryEffects = [SubResource("SubResource_1")]

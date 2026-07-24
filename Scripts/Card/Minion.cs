@@ -74,6 +74,11 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	/// </summary>
 	public int Defense { get; private set; }
 
+	/// <summary>
+	/// 速度。越高越能攻击高速目标；普通攻击不能命中更高速的非嘲讽目标。
+	/// </summary>
+	public int Speed { get; }
+
 	// ===== 护甲系统 =====
 
 	private int _currentArmor;
@@ -509,6 +514,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
 		// 复制防御力
 		Defense = data.Defense;
+		Speed = SpeedRules.Clamp(data.Speed);
 
 		// 注册防御力修改器到 DamageModifiers
 		_damageModifiers.Add(new OdysseyCards.Core.DefenseModifier(() => Defense));

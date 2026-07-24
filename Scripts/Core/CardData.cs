@@ -56,6 +56,11 @@ public partial class CardData : Resource, ICardData, ILocalizable
 	[Export] public int Defense { get; set; } = 0;
 
 	/// <summary>
+	/// 速度（仅随从）。普通攻击只能命中速度不高于攻击者的目标。
+	/// </summary>
+	[Export(PropertyHint.Range, "1,5,1")] public int Speed { get; set; } = SpeedRules.Default;
+
+	/// <summary>
 	/// 对防御力不低于 1 的目标造成的额外伤害。
 	/// 这是来源侧“造成的伤害”修改器，攻击、战吼和其他带来源的效果都会计算。
 	/// </summary>

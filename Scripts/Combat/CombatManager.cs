@@ -679,11 +679,11 @@ public partial class CombatManager : Node
 		_playerCore.InitializeHealth(player.MaxHealth, player.CurrentHealth);
 		_playerCore.SetMana(0, 0);
 		_playerCore.MaxHandSize = 10; // 统一手牌上限，覆盖 CombatDeckState 默认值 9
-		PlayerHero = new Hero(_playerCore, true);
+		var heroProfile = GameManager.Instance?.SelectedHeroProfile ?? HeroProfile.Get(null);
+		PlayerHero = new Hero(_playerCore, true, heroProfile.BaseSpeed);
 
 		// 从 Player 复制英雄技能设置（由 GameManager.CreateNewPlayer 注入）
 		PlayerHero.HeroPower = Player.HeroPower;
-		var heroProfile = GameManager.Instance?.SelectedHeroProfile ?? HeroProfile.Get(null);
 		if (heroProfile.StartingDefense != 0)
 			PlayerHero.ModifyDefense(heroProfile.StartingDefense);
 

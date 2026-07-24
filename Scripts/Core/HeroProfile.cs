@@ -18,6 +18,7 @@ public sealed class HeroProfile
 	public string DefaultDescription { get; init; } = "演示配置英雄。30点生命，离子手枪与铁腕。";
 	public int MaxHealth { get; init; } = 30;
 	public int StartingDefense { get; init; }
+	public int BaseSpeed { get; init; } = SpeedRules.Default;
 	public Func<IHeroPower> CreateHeroPower { get; init; } = () => new IronWillHeroPower();
 	public Func<Weapon> CreateWeapon { get; init; } = () => new IonPistol();
 

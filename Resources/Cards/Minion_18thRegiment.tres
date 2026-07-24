@@ -14,4 +14,5 @@ ActionCost = 1
 Type = 0
 Attack = 1
 Health = 4
+Speed = 3
 Keywords = Array[int]([2, 8])

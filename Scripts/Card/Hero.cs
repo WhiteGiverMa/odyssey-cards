@@ -139,6 +139,11 @@ public class Hero : IDamageTarget, IDamageSource
 	public bool IsPlayerSide { get; }
 
 	/// <summary>
+	/// 英雄当前速度。速度是基础战斗属性，不改变回合顺序。
+	/// </summary>
+	public int Speed { get; }
+
+	/// <summary>
 	/// 当前护甲值。护甲在生命值之前吸收伤害。
 	/// </summary>
 	public int CurrentArmor { get; private set; }
@@ -311,10 +316,11 @@ public class Hero : IDamageTarget, IDamageSource
 	/// <param name="core">指挥官核心，不可为 null</param>
 	/// <param name="isPlayerSide">是否为玩家方英雄</param>
 	/// <exception cref="ArgumentNullException">当 core 为 null 时抛出</exception>
-	public Hero(CommanderCore core, bool isPlayerSide)
+	public Hero(CommanderCore core, bool isPlayerSide, int speed = SpeedRules.Default)
 	{
 		_core = core ?? throw new ArgumentNullException(nameof(core));
 		IsPlayerSide = isPlayerSide;
+		Speed = SpeedRules.Clamp(speed);
 		_focusModifier = new FocusSpellDamageModifier(GetFocusStacks);
 
 		// 注册防御力修改器
