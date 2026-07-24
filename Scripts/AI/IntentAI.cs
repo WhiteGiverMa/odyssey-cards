@@ -277,7 +277,7 @@ public abstract class EnemyEncounter
 		if (intent.Type == IntentType.Attack)
 		{
 			// 首次解析时锁定目标 — 保证意图显示和执行阶段攻击同一随从。
-			_cachedAttackTarget ??= ResolveAttackTarget(combat);
+			_cachedAttackTarget ??= ResolveAttackTarget(combat, self);
 			var cachedTarget = _cachedAttackTarget;
 			intent.TargetSelector = _ => cachedTarget;
 			intent.DamageCalc = (c) =>
@@ -306,7 +306,7 @@ public abstract class EnemyEncounter
 
 			if (mappedType == IntentType.Attack)
 			{
-				_cachedAttackTarget ??= ResolveAttackTarget(combat);
+				_cachedAttackTarget ??= ResolveAttackTarget(combat, self);
 				var cachedTarget = _cachedAttackTarget;
 				intent.TargetSelector = _ => cachedTarget;
 				intent.DamageCalc = _ => attackIntent.GetTotalDamage(combat);
@@ -346,17 +346,14 @@ public abstract class EnemyEncounter
 
 	/// <summary>
 	/// 默认攻击目标选择器。
-	/// 根据战场实时状态：若玩家方有嘲讽随从则随机选择一个，否则攻击玩家英雄。
+	/// 根据战场实时状态，使用统一的普通攻击目标规则选择合法目标。
 	/// 子类可重写以实现特殊的目标选择逻辑（如"总是攻击最左侧随从"）。
 	/// </summary>
 	/// <param name="combat">战斗管理器</param>
 	/// <returns>攻击目标</returns>
-	protected virtual IDamageTarget ResolveAttackTarget(CombatManager combat)
+	protected virtual IDamageTarget? ResolveAttackTarget(CombatManager combat, IDamageSource source)
 	{
-		var taunts = combat.Board.GetTaunts(ofEnemy: false);
-		if (taunts.Count > 0)
-			return taunts[Random.Shared.Next(taunts.Count)];
-		return combat.PlayerHero;
+		return combat.SelectSmartEnemyAttackTarget(source, Attack);
 	}
 
 	/// <summary>

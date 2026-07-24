@@ -210,7 +210,7 @@ public class Cosmonaut : EnemyEncounter
 				"cosmo_c",
 				null, // ExecuteIntent handles C
 				new SingleAttackIntent(c =>
-					DamageResolver.ResolvePreviewDamage(10 + Attack, self, ResolveAttackTarget(c)))
+					DamageResolver.ResolvePreviewDamage(10 + Attack, self, ResolveAttackTarget(c, self)))
 			);
 		}
 		else

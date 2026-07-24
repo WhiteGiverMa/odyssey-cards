@@ -14,22 +14,28 @@ internal static class SmartTargetingSystem
 	public static IDamageTarget? SelectEnemyAttackTarget(Board board, Hero playerHero, IDamageSource source, int baseDamage)
 	{
 		// ponytail: 烟幕——有烟幕的友方单位无法被敌方武器/随从攻击命中。
-		// 嘲讽目标中有烟幕的也排除；若嘲讽全被烟幕保护，降级到全体候选继续过滤。
+		// 嘲讽目标中有烟幕的也排除；嘲讽拦截也只使用未被烟幕保护的目标。
 		// 全部候选都被烟幕保护 → 返回 null（攻击将被调用方跳过）。
-		var taunts = board.GetTaunts(ofEnemy: false).Cast<IDamageTarget>().ToList();
-		if (taunts.Count > 0)
-		{
-			taunts = taunts.Where(t => !IsProtectedBySmokeScreen(t)).ToList();
-			if (taunts.Count > 0)
-				return SelectBest(taunts, source, baseDamage, preferBoardControl: true);
-		}
-
-		var candidates = new List<IDamageTarget> { playerHero };
-		candidates.AddRange(board.GetPlayerMinions());
+		var candidates = new List<IDamageTarget>();
+		if (!playerHero.IsDead)
+			candidates.Add(playerHero);
+		candidates.AddRange(board.GetPlayerMinions().Where(m => !m.IsDead));
 		candidates = candidates.Where(t => !IsProtectedBySmokeScreen(t)).ToList();
 		if (candidates.Count == 0)
 			return null;
-		return SelectBest(candidates, source, baseDamage, preferBoardControl: false);
+
+		var taunts = board.GetTaunts(ofEnemy: false)
+			.Where(t => !t.IsDead && !IsProtectedBySmokeScreen(t))
+			.ToList();
+		var legalTargets = AttackTargetRules.GetLegalAttackTargets(source, candidates, taunts);
+		if (legalTargets.Count == 0)
+			return null;
+
+		return SelectBest(
+			legalTargets,
+			source,
+			baseDamage,
+			preferBoardControl: legalTargets.Any(t => t is Minion { HasTaunt: true }));
 	}
 
 	/// <summary>目标是否有烟幕保护（仅阻挡攻击，不阻挡法术）。</summary>
@@ -52,28 +58,29 @@ internal static class SmartTargetingSystem
 
 	public static bool TrySelectPlayerAttackTarget(Board board, IReadOnlyList<EnemyUnit> enemyUnits, Minion attacker, out IDamageTarget target)
 	{
-		var taunts = board.GetTaunts(ofEnemy: true).Cast<IDamageTarget>().ToList();
-		if (taunts.Count > 0)
-		{
-			target = SelectBest(taunts, attacker, attacker.Attack, preferBoardControl: true);
-			return true;
-		}
-
 		var candidates = new List<IDamageTarget>();
-		candidates.AddRange(board.GetEnemyMinions());
+		candidates.AddRange(board.GetEnemyMinions().Where(m => !m.IsDead));
 		foreach (var unit in enemyUnits)
 		{
 			if (!unit.Body.IsDead)
 				candidates.Add(unit.Body);
 		}
 
-		if (candidates.Count == 0)
+		var taunts = board.GetTaunts(ofEnemy: true)
+			.Where(t => !t.IsDead)
+			.ToList();
+		var legalTargets = AttackTargetRules.GetLegalAttackTargets(attacker, candidates, taunts);
+		if (legalTargets.Count == 0)
 		{
 			target = attacker;
 			return false;
 		}
 
-		target = SelectBest(candidates, attacker, attacker.Attack, preferBoardControl: false);
+		target = SelectBest(
+			legalTargets,
+			attacker,
+			attacker.Attack,
+			preferBoardControl: legalTargets.Any(t => t is Minion { HasTaunt: true }));
 		return true;
 	}
 

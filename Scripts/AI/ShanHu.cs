@@ -68,13 +68,13 @@ public class ShanHu : EnemyEncounter
 			return new MoveState(
 				"shanhu_single_attack",
 				(cm, hero) => ExecuteAttackIntent(cm, hero),
-				new SingleAttackIntent(c => DamageResolver.ResolvePreviewDamage(damage + Attack, self, ResolveAttackTarget(c))));
+				new SingleAttackIntent(c => DamageResolver.ResolvePreviewDamage(damage + Attack, self, ResolveAttackTarget(c, self))));
 		}
 
 		return new MoveState(
 			"shanhu_multi_attack",
 			(cm, hero) => ExecuteMultiHit(cm, hero, 2, 2),
-			new MultiAttackIntent(c => DamageResolver.ResolvePreviewDamage(2 + Attack, self, ResolveAttackTarget(c)), 2));
+			new MultiAttackIntent(c => DamageResolver.ResolvePreviewDamage(2 + Attack, self, ResolveAttackTarget(c, self)), 2));
 	}
 
 	public override void ExecuteIntent(CombatManager combat, Hero self)

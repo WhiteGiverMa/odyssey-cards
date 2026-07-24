@@ -67,13 +67,13 @@ public class ZhangLang : EnemyEncounter
 			return new MoveState(
 				"zhanglang_single_attack",
 				(cm, hero) => ExecuteAttackIntent(cm, hero),
-				new SingleAttackIntent(c => DamageResolver.ResolvePreviewDamage(damage + Attack, self, ResolveAttackTarget(c))));
+				new SingleAttackIntent(c => DamageResolver.ResolvePreviewDamage(damage + Attack, self, ResolveAttackTarget(c, self))));
 		}
 
 		return new MoveState(
 			"zhanglang_multi_attack",
 			(cm, hero) => ExecuteMultiHit(cm, hero, 1, 3),
-			new MultiAttackIntent(c => DamageResolver.ResolvePreviewDamage(1 + Attack, self, ResolveAttackTarget(c)), 3));
+			new MultiAttackIntent(c => DamageResolver.ResolvePreviewDamage(1 + Attack, self, ResolveAttackTarget(c, self)), 3));
 	}
 
 	public override void ExecuteIntent(CombatManager combat, Hero self)
