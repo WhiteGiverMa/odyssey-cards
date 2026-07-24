@@ -1068,7 +1068,7 @@ internal sealed class CardEffectDispatcher
 
 		foreach (var minion in _board.GetPlayerMinions())
 		{
-			if (!minion.IsDead)
+			if (!minion.IsDead && !minion.HasTaunt)
 			{
 				minion.AddStatusEffect(new StatusEffect(
 					StatusEffect.SmokescreenId, stacks, TickTiming.PlayerTurnEnd, StatusEffectPolarity.NonNegative));

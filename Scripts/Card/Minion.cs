@@ -194,7 +194,20 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	/// <summary>
 	/// 嘲讽：敌方随从必须优先攻击此随从。
 	/// </summary>
-	public bool HasTaunt { get; internal set; }
+	private bool _hasTaunt;
+	public bool HasTaunt
+	{
+		get => _hasTaunt;
+		internal set
+		{
+			if (_hasTaunt == value)
+				return;
+
+			_hasTaunt = value;
+			if (value && HasStatusEffect(StatusEffect.SmokescreenId))
+				RemoveStatusEffect(StatusEffect.SmokescreenId);
+		}
+	}
 
 	/// <summary>
 	/// 战吼：从手牌中打出时触发效果。
@@ -355,6 +368,12 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
 	public void AddStatusEffect(StatusEffect effect)
 	{
+		if (effect.Id == StatusEffect.SmokescreenId && HasTaunt)
+		{
+			GD.Print($"[Minion:{CardName}] 已有嘲讽，忽略烟幕状态");
+			return;
+		}
+
 		if (_statusEffects.TryGetValue(effect.Id, out var existing))
 		{
 			existing.Stacks += effect.Stacks;
@@ -414,9 +433,10 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
 	/// <summary>
 	/// 是否处于烟幕状态——有烟幕的随从无法被敌方武器/随从攻击命中，但法术仍可命中。
+	/// 嘲讽与烟幕不能共存；拥有嘲讽时烟幕会被立即移除。
 	/// 见 <see cref="StatusEffect.SmokescreenId"/>。
 	/// </summary>
-	public bool HasSmokeScreen => HasStatusEffect(StatusEffect.SmokescreenId);
+	public bool HasSmokeScreen => !HasTaunt && HasStatusEffect(StatusEffect.SmokescreenId);
 
 	private void ApplyStatusEffectImmediate(StatusEffect effect)
 	{
