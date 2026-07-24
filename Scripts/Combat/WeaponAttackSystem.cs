@@ -81,6 +81,18 @@ internal sealed class WeaponAttackSystem
 			return false;
 		}
 
+		if (target == null || target.IsDead || target.IsPlayerSide)
+		{
+			GD.PrintErr("[CombatManager] HeroWeaponAttackHero 失败 — 目标英雄无效");
+			return false;
+		}
+
+		if (!AttackTargetRules.CanAttackTarget(_playerHero, target, _board.GetTaunts(ofEnemy: true)))
+		{
+			GD.PrintErr($"[CombatManager] HeroWeaponAttackHero 失败 — 无法攻击目标英雄（速度或嘲讽拦截）");
+			return false;
+		}
+
 		// 消耗法力
 		_playerHero.SpendMana(_playerHero.Weapon.AttackCost);
 
@@ -176,11 +188,10 @@ internal sealed class WeaponAttackSystem
 			return false;
 		}
 
-		// 嘲讽检测：武器攻击也受嘲讽限制
-		var enemyTaunts = _board.GetTaunts(ofEnemy: true);
-		if (!isFriendlyTarget && enemyTaunts.Count > 0 && !enemyTaunts.Contains(target))
+		if (!isFriendlyTarget
+			&& !AttackTargetRules.CanAttackTarget(_playerHero, target, _board.GetTaunts(ofEnemy: true)))
 		{
-			GD.PrintErr($"[CombatManager] HeroWeaponAttackMinion 失败 — 敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
+			GD.PrintErr($"[CombatManager] HeroWeaponAttackMinion 失败 — 无法攻击目标随从（速度或嘲讽拦截）");
 			return false;
 		}
 

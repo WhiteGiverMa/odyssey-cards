@@ -1642,11 +1642,10 @@ _selectionSystem.BeginHandDiscardSelection,
 			return false;
 		}
 
-		// 嘲讽检测：敌方有嘲讽随从时，只能攻击嘲讽目标
-		var enemyTaunts = Board.GetTaunts(ofEnemy: true);
-		if (enemyTaunts.Count > 0 && !enemyTaunts.Contains(defender))
+		// 统一攻击目标合法性：速度先判定，符合条件的嘲讽再拦截。
+		if (!AttackTargetRules.CanAttackTarget(attacker, defender, Board.GetTaunts(ofEnemy: true)))
 		{
-			GD.PrintErr($"[CombatManager] MinionAttack 失败 — 敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡，必须先攻击嘲讽目标");
+			GD.PrintErr($"[CombatManager] MinionAttack 失败 — {attacker.CardName} 无法攻击目标 {defender.CardName}（速度或嘲讽拦截）");
 			return false;
 		}
 
@@ -1742,11 +1741,10 @@ _selectionSystem.BeginHandDiscardSelection,
 				OdysseyCards.Card.StatusEffect.SmokescreenId, 1,
 				OdysseyCards.Card.TickTiming.PlayerTurnEnd));
 		}
-		// 嘲讽检测（攻击英雄）
-		var enemyTaunts = Board.GetTaunts(ofEnemy: true);
-		if (enemyTaunts.Count > 0)
+		// 统一攻击目标合法性：英雄也参与速度比较，嘲讽仅在能拦截时生效。
+		if (!AttackTargetRules.CanAttackTarget(attacker, hero, Board.GetTaunts(ofEnemy: true)))
 		{
-			GD.PrintErr($"[CombatManager] MinionAttackHero 失败 — 敌方有 {enemyTaunts.Count} 个嘲讽随从阻挡");
+			GD.PrintErr($"[CombatManager] MinionAttackHero 失败 — {attacker.CardName} 无法攻击敌方英雄（速度或嘲讽拦截）");
 			return false;
 		}
 
