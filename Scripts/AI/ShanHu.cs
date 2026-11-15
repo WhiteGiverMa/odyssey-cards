@@ -67,7 +67,7 @@ public class ShanHu : EnemyEncounter
 			int damage = _currentSingleAttackDamage;
 			return new MoveState(
 				"shanhu_single_attack",
-				(cm, hero) => ExecuteAttackIntent(cm, hero),
+				(cm, hero) => cm.ExecuteEnemyHeroSmartAttack(hero!, damage + Attack),
 				new SingleAttackIntent(c => DamageResolver.ResolvePreviewDamage(damage + Attack, self, ResolveAttackTarget(c, self))));
 		}
 
@@ -155,7 +155,7 @@ public class ShanHu : EnemyEncounter
 		}
 	}
 
-	private void ExecuteArmorGrant(CombatManager combat)
+	private static void ExecuteArmorGrant(CombatManager combat)
 	{
 		var candidates = combat.EnemyUnits
 			.Select(u => u.Body)

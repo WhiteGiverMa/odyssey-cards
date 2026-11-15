@@ -56,6 +56,7 @@ public class RailPistol : Weapon
 			attackCost: 0,
 			passive: new RailPistolPassive())
 	{
+		Range = WeaponRange.Ranged;
 	}
 
 	public override string NameKey => "weapon.rail_pistol.name";

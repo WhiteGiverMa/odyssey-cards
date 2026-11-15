@@ -27,8 +27,7 @@ public partial class CardData : Resource, ICardData, ILocalizable
 	[Export] public int Cost { get; set; } = 1;
 
 	/// <summary>
-	/// 行动花费——随从攻击时额外消耗的法力值。
-	/// 类似 KARDS，攻击从法力池中扣除。仅随从牌有效。
+	/// 行动花费——每次推进或普通攻击分别消耗的法力值。仅随从牌有效。
 	/// </summary>
 	[Export] public int ActionCost { get; set; } = 0;
 
@@ -56,9 +55,12 @@ public partial class CardData : Resource, ICardData, ILocalizable
 	[Export] public int Defense { get; set; } = 0;
 
 	/// <summary>
-	/// 速度（仅随从）。普通攻击只能命中速度不高于攻击者的目标。
+	/// 随从兵种，决定行动配额和普通攻击射程。
 	/// </summary>
-	[Export(PropertyHint.Range, "1,5,1")] public int Speed { get; set; } = SpeedRules.Default;
+	[Export] public UnitClass UnitClass { get; set; } = UnitClass.Vanguard;
+
+	/// <summary>敌占前线时，仅能指定敌方前线单位的近战法术。</summary>
+	[Export] public bool FrontlineOnlySpell { get; set; } = false;
 
 	/// <summary>
 	/// 对防御力不低于 1 的目标造成的额外伤害。
@@ -73,7 +75,7 @@ public partial class CardData : Resource, ICardData, ILocalizable
 	/// 历史上的 <c>CardTag</c>（种族/阵营）维度已合并入本字段（<c>Mechanics</c> 位=65536）。
 	/// 详见 <see cref="CardMechanicTag"/> 的设计原则。
 	/// </summary>
-	[Export(PropertyHint.Flags, "DirectDamage:1,DamageOverTime:2,Heal:4,Armor:8,Draw:16,Discover:32,Summon:64,Buff:128,Silence:256,Discard:512,Domain:1024,WeaponSynergy:2048,ManaRamp:4096,StatusApply:8192,Shuffle:16384,Token:32768,Mechanics:65536,SuperBody:131072")]
+	[Export(PropertyHint.Flags, "DirectDamage:1,DamageOverTime:2,Heal:4,Armor:8,Draw:16,Discover:32,Summon:64,Buff:128,Silence:256,Discard:512,Domain:1024,WeaponSynergy:2048,ManaRamp:4096,StatusApply:8192,Shuffle:16384,Token:32768,Mechanics:65536,SuperBody:131072,Intel:262144")]
 	public CardMechanicTag MechanicTags { get; set; } = CardMechanicTag.None;
 
 	/// <summary>
@@ -140,12 +142,12 @@ public partial class CardData : Resource, ICardData, ILocalizable
 
 	public string GetLocalizedName()
 	{
-		return this.Local("name").Resolve();
+		return Loc.T($"cards.{Id}.name", CardName);
 	}
 
 	public string GetLocalizedDescription(Dictionary<string, object> parameters = null)
 	{
-		return this.Local("description", parameters).Resolve();
+		return Loc.T($"cards.{Id}.description", Description, parameters);
 	}
 
 	// ===== 便捷查询方法 =====

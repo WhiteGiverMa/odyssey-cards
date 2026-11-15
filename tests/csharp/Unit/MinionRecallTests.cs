@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Runtime.CompilerServices;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
 using Xunit;
@@ -42,22 +40,12 @@ namespace OdysseyCards.Tests.Unit
 
 		private static Minion CreateMinion(bool isPlayerSide)
 		{
-			var minion = (Minion)RuntimeHelpers.GetUninitializedObject(typeof(Minion));
-			SetBackingField(minion, nameof(Minion.IsPlayerSide), isPlayerSide);
-			minion.BoardSlotIndex = -1;
-			return minion;
+			return new Minion("recall_test", isPlayerSide);
 		}
 
 		private static Card.Card CreateCard()
 		{
-			return (Card.Card)RuntimeHelpers.GetUninitializedObject(typeof(Card.Card));
-		}
-
-		private static void SetBackingField<T>(object instance, string propertyName, T value)
-		{
-			FieldInfo field = instance.GetType().GetField($"<{propertyName}>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
-			Assert.NotNull(field);
-			field.SetValue(instance, value);
+			return new Card.Card("recall_card");
 		}
 	}
 }

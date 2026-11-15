@@ -39,4 +39,16 @@ public class KeywordTests
 		var values = Enum.GetValues<Keyword>();
 		Assert.True(values.Length >= 7, $"Expected at least 7 keywords, got {values.Length}");
 	}
+
+	[Fact]
+	public void SerializedFrontlineValues_AreStable()
+	{
+		Assert.Equal(0, (int)UnitClass.Vanguard);
+		Assert.Equal(1, (int)UnitClass.Assault);
+		Assert.Equal(2, (int)UnitClass.Support);
+		Assert.Equal(3, (int)UnitClass.Skirmisher);
+		Assert.Equal(12, (int)Keyword.Guard);
+		Assert.Equal(262144, (int)CardMechanicTag.Intel);
+		Assert.Equal(35, (int)CardEffectType.Intel);
+	}
 }

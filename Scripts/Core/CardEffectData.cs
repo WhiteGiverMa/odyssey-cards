@@ -187,7 +187,10 @@ public enum CardEffectType
 	/// 友方全体获得格挡。
 	/// 友方随从获得 Value 点，友方英雄获得 Value * SecondaryValue 点。
 	/// </summary>
-	GainArmorToFriendlyBoard = 34
+	GainArmorToFriendlyBoard = 34,
+
+	/// <summary>情报：Value 为揭露点数，未用完的点数转为溢出情报。</summary>
+	Intel = 35,
 }
 
 public partial class CardEffectData : Resource
@@ -205,6 +208,7 @@ public partial class CardEffectData : Resource
 			CardEffectType.Damage => $"造成{Value}点伤害",
 			CardEffectType.Heal => $"恢复{Value}点生命值",
 			CardEffectType.DrawCards => $"抽{Value}张牌",
+			CardEffectType.Intel => $"情报{Value}",
 			CardEffectType.GainEnergy => $"获得{Value}点法力值",
 			CardEffectType.GainMaxHealth => $"获得+{Value}最大生命值",
 			CardEffectType.DealDamageToTarget => $"对一个随从造成{Value}点伤害",

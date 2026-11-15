@@ -19,10 +19,10 @@ public sealed class InternBadgeRelic : AbstractRelic
 	public override void OnBattleStart(CombatManager combat)
 	{
 		// 从注册表获取疲劳卡牌数据
-		var fatigueData = GameManager.Instance.GetCardById("fatigue");
+		var fatigueData = GameManager.Instance.GetCardById("status_tiredness");
 		if (fatigueData == null)
 		{
-			GD.PrintErr("[InternBadge] 未找到疲劳卡牌数据（id: fatigue）");
+			GD.PrintErr("[InternBadge] 未找到疲劳卡牌数据（id: status_tiredness）");
 			return;
 		}
 

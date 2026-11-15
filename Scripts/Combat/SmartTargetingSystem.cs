@@ -20,14 +20,7 @@ internal static class SmartTargetingSystem
 		if (!playerHero.IsDead)
 			candidates.Add(playerHero);
 		candidates.AddRange(board.GetPlayerMinions().Where(m => !m.IsDead));
-		candidates = candidates.Where(t => !IsProtectedBySmokeScreen(t)).ToList();
-		if (candidates.Count == 0)
-			return null;
-
-		var taunts = board.GetTaunts(ofEnemy: false)
-			.Where(t => !t.IsDead && !IsProtectedBySmokeScreen(t))
-			.ToList();
-		var legalTargets = AttackTargetRules.GetLegalAttackTargets(source, candidates, taunts);
+		var legalTargets = AttackTargetRules.GetLegalAttackTargets(board, source, candidates);
 		if (legalTargets.Count == 0)
 			return null;
 
@@ -38,17 +31,6 @@ internal static class SmartTargetingSystem
 			preferBoardControl: legalTargets.Any(t => t is Minion { HasTaunt: true }));
 	}
 
-	/// <summary>目标是否有烟幕保护（仅阻挡攻击，不阻挡法术）。</summary>
-	private static bool IsProtectedBySmokeScreen(IDamageTarget target)
-	{
-		return target switch
-		{
-			Minion m => m.HasSmokeScreen,
-			Hero h => h.HasSmokeScreen,
-			_ => false,
-		};
-	}
-
 	public static IDamageTarget SelectEnemySpellTarget(Board board, Hero playerHero, IDamageSource source, int baseDamage)
 	{
 		var candidates = new List<IDamageTarget> { playerHero };
@@ -56,7 +38,8 @@ internal static class SmartTargetingSystem
 		return SelectBest(candidates, source, baseDamage, preferBoardControl: false, DamageKind.Effect);
 	}
 
-	public static bool TrySelectPlayerAttackTarget(Board board, IReadOnlyList<EnemyUnit> enemyUnits, Minion attacker, out IDamageTarget target)
+	public static bool TrySelectPlayerAttackTarget(Board board, IReadOnlyList<EnemyUnit> enemyUnits, Minion attacker,
+		out IDamageTarget target, Func<IDamageTarget, bool>? canAttack = null)
 	{
 		var candidates = new List<IDamageTarget>();
 		candidates.AddRange(board.GetEnemyMinions().Where(m => !m.IsDead));
@@ -66,10 +49,8 @@ internal static class SmartTargetingSystem
 				candidates.Add(unit.Body);
 		}
 
-		var taunts = board.GetTaunts(ofEnemy: true)
-			.Where(t => !t.IsDead)
-			.ToList();
-		var legalTargets = AttackTargetRules.GetLegalAttackTargets(attacker, candidates, taunts);
+		var legalTargets = canAttack == null ? AttackTargetRules.GetLegalAttackTargets(board, attacker, candidates)
+			: candidates.Where(canAttack).ToList();
 		if (legalTargets.Count == 0)
 		{
 			target = attacker;

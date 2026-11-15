@@ -74,4 +74,7 @@ public enum Keyword
 	/// 参考 STS2 的 Sly 关键词：CardKeyword.Sly → IsSlyThisTurn → AutoPlay。
 	/// </summary>
 	Qiqiao,
+
+	/// <summary>守护：掩护同阵线紧邻的非守护、非嘲讽随从。</summary>
+	Guard = 12,
 }

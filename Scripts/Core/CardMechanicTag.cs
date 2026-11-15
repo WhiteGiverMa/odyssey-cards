@@ -35,6 +35,7 @@ namespace OdysseyCards.Core;
 ///   Shuffle(16384)        — 洗牌：将某牌洗入抽牌堆（干洗/衍生洗入）
 ///   Token(32768)          — 衍生牌：将某指定牌加入手牌（Token 生成）
 ///   Mechanics(65536)      — 机械族：原种族标签维度并入后的位；供种族洗牌效果、主题偏好使用
+///   Intel(262144)         — 情报：揭露暗牌与溢出生命/格挡收益
 /// </summary>
 [Flags]
 public enum CardMechanicTag
@@ -103,4 +104,7 @@ public enum CardMechanicTag
 	/// <summary>超体：neta 和平精英「超体对抗」玩法。一类机制标签，同直伤/token一样属人工权威标注。
 	/// 供「超体插件盒」藏品检索与未来超体联动效果使用。</summary>
 	SuperBody = 131072,
+
+	/// <summary>情报：揭露敌方暗牌，剩余点数回复生命或转为格挡。</summary>
+	Intel = 262144,
 }

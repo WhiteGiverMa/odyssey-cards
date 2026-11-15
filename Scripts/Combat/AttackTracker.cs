@@ -1,48 +1,43 @@
 using System.Collections.Generic;
 using OdysseyCards.Card;
+using OdysseyCards.Core;
 
 namespace OdysseyCards.Combat;
 
-/// <summary>
-/// 攻击追踪器——管理本回合内随从的"可否攻击"和"已攻击次数"状态。
-/// 从 CombatManager 拆出，解除回合流转/攻击系统/死亡处理之间的数据耦合。
-/// </summary>
+/// <summary>四兵种行动配额。部署冷却、移动与攻击次数不依赖 UI 或法力镜像。</summary>
 internal sealed class AttackTracker
 {
-	private readonly HashSet<Minion> _canAttackThisTurn = new();
-	private readonly Dictionary<Minion, int> _attackCountThisTurn = new();
+	private readonly HashSet<Minion> _ready = new();
+	private readonly HashSet<Minion> _moved = new();
+	private readonly Dictionary<Minion, int> _attacks = new();
 
 	public void Reset()
 	{
-		_canAttackThisTurn.Clear();
-		_attackCountThisTurn.Clear();
+		_ready.Clear();
+		_moved.Clear();
+		_attacks.Clear();
 	}
 
-	public void AddCharged(Minion minion) => _canAttackThisTurn.Add(minion);
-
-	public bool CanAttack(Minion attacker)
+	public void AddCharged(Minion minion) => _ready.Add(minion);
+	public void RegisterDeployment(Minion minion)
 	{
-		if (attacker.IsIncapacitated)
-			return false;
-		if (!_canAttackThisTurn.Contains(attacker))
-			return false;
-		int attacks = _attackCountThisTurn.GetValueOrDefault(attacker, 0);
-		int maxAttacks = attacker.HasWindfury ? 2 : 1;
-		return attacks < maxAttacks;
+		Remove(minion);
+		if (minion.HasCharge)
+			AddCharged(minion);
 	}
 
-	public void RecordAttack(Minion attacker)
-	{
-		int newCount = _attackCountThisTurn.GetValueOrDefault(attacker, 0) + 1;
-		_attackCountThisTurn[attacker] = newCount;
-		int maxAttacks = attacker.HasWindfury ? 2 : 1;
-		if (newCount >= maxAttacks)
-			_canAttackThisTurn.Remove(attacker);
-	}
-
+	private bool IsReady(Minion minion) => !minion.IsDead && !minion.IsIncapacitated && minion.BoardRow != null && _ready.Contains(minion);
+	public bool CanMove(Minion minion) => IsReady(minion) && !_moved.Contains(minion)
+		&& (minion.UnitClass == UnitClass.Assault || _attacks.GetValueOrDefault(minion) == 0);
+	public bool CanAttack(Minion minion) => IsReady(minion) && !minion.HasStatusEffect("attack_ban")
+		&& (minion.UnitClass == UnitClass.Assault || !_moved.Contains(minion))
+		&& _attacks.GetValueOrDefault(minion) < (minion.UnitClass == UnitClass.Assault && minion.HasWindfury ? 2 : 1);
+	public void RecordMove(Minion minion) => _moved.Add(minion);
+	public void RecordAttack(Minion minion) => _attacks[minion] = _attacks.GetValueOrDefault(minion) + 1;
 	public void Remove(Minion minion)
 	{
-		_canAttackThisTurn.Remove(minion);
-		_attackCountThisTurn.Remove(minion);
+		_ready.Remove(minion);
+		_moved.Remove(minion);
+		_attacks.Remove(minion);
 	}
 }

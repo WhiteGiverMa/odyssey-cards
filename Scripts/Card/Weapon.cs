@@ -1,5 +1,13 @@
 namespace OdysseyCards.Card;
 
+/// <summary>英雄武器的主动普通攻击射程。</summary>
+public enum WeaponRange
+{
+	Melee,
+	Ranged,
+	FriendlySupport,
+}
+
 /// <summary>
 /// 英雄武器。
 /// 英雄出场自带，不可替换。使用武器攻击消耗法力水晶并造成武器攻击力伤害，
@@ -8,6 +16,8 @@ namespace OdysseyCards.Card;
 /// </summary>
 public class Weapon
 {
+	public WeaponRange Range { get; set; } = WeaponRange.Melee;
+	public bool IgnoreCounterAttack { get; set; }
 	/// <summary>
 	/// 武器名称。
 	/// </summary>

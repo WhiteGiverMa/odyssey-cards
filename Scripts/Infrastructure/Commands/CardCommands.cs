@@ -217,9 +217,9 @@ public class PlayCommand : ChatScreenCommand
 			return false;
 		}
 
-		if (!int.TryParse(indexText, out int slot) || slot < 0 || slot >= Board.MaxSlotsPerSide)
+		if (!int.TryParse(indexText, out int slot) || slot < 0 || slot >= Board.SupportCapacity)
 		{
-			error = $"{prefix} 槽位需为 0-4";
+			error = $"{prefix} 支援线槽位需为 0-3";
 			return false;
 		}
 
@@ -421,7 +421,7 @@ internal static class SummonCommandHelper
 		if (cm == null)
 			return CommandResult.Fail("未在战斗中");
 		if (args.Length < 2)
-			return CommandResult.Fail($"用法: /summon_{(isPlayerSide ? "player" : "enemy")} <card_id> <slot0-4>");
+			return CommandResult.Fail($"用法: /summon_{(isPlayerSide ? "player" : "enemy")} <card_id> <support-slot0-3>");
 
 		var all = GameManager.Instance?.GetAllCards() ?? [];
 		var cardData = all.FirstOrDefault(c => string.Equals(c.Id, args[0], StringComparison.OrdinalIgnoreCase));
@@ -430,11 +430,12 @@ internal static class SummonCommandHelper
 		if (!cardData.IsMinion)
 			return CommandResult.Fail($"「{cardData.CardName}」不是随从牌");
 
-		if (!int.TryParse(args[1], out var slot) || slot < 0 || slot >= Board.MaxSlotsPerSide)
-			return CommandResult.Fail("槽位需为 0-4");
+		if (!int.TryParse(args[1], out var slot) || slot < 0 || slot >= Board.SupportCapacity)
+			return CommandResult.Fail("支援线槽位需为 0-3");
 
 		var minion = new Minion(cardData, isPlayerSide);
-		cm.Board.PlaceMinion(minion, slot);
+		if (!cm.Board.PlaceMinion(minion, slot))
+			return CommandResult.Fail("支援线目标槽位已占用，召唤跳过");
 		RefreshCombatUI(cm);
 		return CommandResult.Ok($"已在{sideLabel}槽位 {slot} 召唤「{minion.GetLocalizedName()}」");
 	}

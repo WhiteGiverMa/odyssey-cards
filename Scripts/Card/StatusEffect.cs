@@ -1,5 +1,5 @@
 using System;
-using Godot;
+using GD = OdysseyCards.Core.ModelLog;
 using OdysseyCards.Core;
 
 namespace OdysseyCards.Card;

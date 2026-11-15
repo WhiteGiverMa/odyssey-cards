@@ -6,125 +6,80 @@ using OdysseyCards.Core;
 
 namespace OdysseyCards.Combat;
 
-/// <summary>
-/// 普通攻击目标合法性规则的唯一实现。
-/// 反击、伏击和法术不经过此模块。
-/// </summary>
-internal static class AttackTargetRules
+/// <summary>普通攻击唯一目标规则：基础射程 → 嘲讽 → 邻格守护 → 游击护航。</summary>
+public static class AttackTargetRules
 {
-	/// <summary>
-	/// 速度相等或攻击者更快时，攻击者可以追上目标。
-	/// </summary>
-	public static bool CanReach(int attackerSpeed, int targetSpeed)
+	public static bool BaseReachable(Board board, IDamageSource attacker, IDamageTarget target, BoardRow? attackerRow = null)
 	{
-		return attackerSpeed >= targetSpeed;
-	}
-
-	/// <summary>
-	/// 判断普通攻击目标是否合法。
-	/// 速度检查先于嘲讽拦截，嘲讽不能让攻击者攻击原本追不上的非嘲讽目标。
-	/// </summary>
-	public static bool CanAttackTarget(
-		int attackerSpeed,
-		int targetSpeed,
-		bool targetIsTaunt,
-		IReadOnlyList<int> tauntSpeeds)
-	{
-		// 直接攻击存活嘲讽时，嘲讽目标本身豁免速度检查。
-		if (targetIsTaunt)
-			return true;
-
-		if (!CanReach(attackerSpeed, targetSpeed))
-			return false;
-
-		return !tauntSpeeds.Any(tauntSpeed =>
-			TauntIntercepts(attackerSpeed, targetSpeed, tauntSpeed));
-	}
-
-	/// <summary>
-	/// 判断一只嘲讽是否能拦截当前攻击。
-	/// 嘲讽必须不慢于攻击者，也必须追得上其正在保护的目标。
-	/// </summary>
-	public static bool TauntIntercepts(int attackerSpeed, int targetSpeed, int tauntSpeed)
-	{
-		return tauntSpeed >= attackerSpeed && tauntSpeed >= targetSpeed;
-	}
-
-	/// <summary>
-	/// 使用运行时单位计算攻击目标合法性。
-	/// </summary>
-	public static bool CanAttackTarget(
-		IDamageSource attacker,
-		IDamageTarget target,
-		IReadOnlyList<Minion> defenderTaunts)
-	{
+		ArgumentNullException.ThrowIfNull(board);
 		ArgumentNullException.ThrowIfNull(attacker);
 		ArgumentNullException.ThrowIfNull(target);
-		ArgumentNullException.ThrowIfNull(defenderTaunts);
+		if (attacker is not IDamageTarget sourceTarget || IsDead(sourceTarget) || IsDead(target))
+			return false;
+		bool targetSide = target switch { Minion m => m.IsPlayerSide, Hero h => h.IsPlayerSide, _ => attacker.IsPlayerSide };
+		if (attacker.IsPlayerSide == targetSide || target is Minion tm && (!board.Contains(tm) || tm.HasSmokeScreen)
+			|| target is Hero { HasSmokeScreen: true })
+			return false;
+		if (attacker is Minion am && !board.Contains(am))
+			return false;
+		if (attacker is Hero { Weapon: null })
+			return false;
 
-		bool targetIsTaunt = target is Minion { HasTaunt: true, IsDead: false };
-		return CanAttackTarget(
-			GetSpeed(attacker),
-			GetSpeed(target),
-			targetIsTaunt,
-			defenderTaunts.Select(taunt => taunt.Speed).ToArray());
+		bool ranged = attacker is Minion { UnitClass: UnitClass.Support or UnitClass.Skirmisher }
+			|| attacker is Hero { Weapon.Range: WeaponRange.Ranged };
+		if (attacker is Hero { Weapon.Range: WeaponRange.FriendlySupport })
+			return false;
+		if (ranged)
+			return true;
+		if (target is Minion { UnitClass: UnitClass.Skirmisher, BoardRow: not BoardRow.Frontline })
+			return false;
+
+		bool targetFrontline = GetTargetRow(target) == BoardRow.Frontline;
+		if (attacker is Minion minion)
+			return (attackerRow ?? minion.BoardRow) == BoardRow.Frontline ? !targetFrontline : targetFrontline;
+		var opposingOwner = attacker.IsPlayerSide ? FrontlineOwner.Enemy : FrontlineOwner.Player;
+		return board.FrontlineOwner == opposingOwner ? targetFrontline : !targetFrontline;
 	}
 
-	/// <summary>
-	/// 从候选目标中筛出普通攻击可达的目标。
-	/// </summary>
-	public static List<IDamageTarget> GetLegalAttackTargets(
-		IDamageSource attacker,
-		IEnumerable<IDamageTarget> candidates,
-		IReadOnlyList<Minion> defenderTaunts)
+	public static bool CanAttackTarget(Board board, IDamageSource attacker, IDamageTarget target, BoardRow? attackerRow = null)
 	{
-		ArgumentNullException.ThrowIfNull(candidates);
-		return candidates
-			.Where(target => CanAttackTarget(attacker, target, defenderTaunts))
-			.ToList();
+		if (!BaseReachable(board, attacker, target, attackerRow))
+			return false;
+		BoardRow row = target is Minion minion ? minion.BoardRow!.Value : Board.SupportRow(!attacker.IsPlayerSide);
+		var reachable = board.GetAllMinions()
+			.Where(m => BaseReachable(board, attacker, m, attackerRow)).ToList();
+		bool tauntIntercepts = reachable.Any(m => m.HasTaunt && (target is Hero || m.BoardRow == row));
+		if (tauntIntercepts)
+			return target is Minion { HasTaunt: true };
+		if (target is Minion { HasTaunt: true })
+			return true;
+
+		if (target is Minion { HasGuard: false } guarded && reachable.Any(g => Protects(g, guarded)))
+			return false;
+		if (attacker is not Minion { UnitClass: UnitClass.Skirmisher })
+			return true;
+		var escorts = reachable.Where(m => m.BoardRow == row && m.UnitClass == UnitClass.Skirmisher && !m.IsIncapacitated).ToList();
+		if (escorts.Count == 0 || target is Minion { UnitClass: UnitClass.Skirmisher })
+			return true;
+		// 挡刀守护主动暴露：允许先拆守护，再拆游击，绝不形成护航/守护循环锁。
+		return target is Minion { HasGuard: true } guard && guard.UnitClass != UnitClass.Skirmisher
+			&& escorts.Any(escort => Protects(guard, escort));
 	}
 
-	/// <summary>
-	/// 获取能拦截指定非嘲讽目标的存活嘲讽列表。
-	/// </summary>
-	public static List<Minion> GetInterceptingTaunts(
-		IDamageSource attacker,
-		IDamageTarget target,
-		IEnumerable<Minion> defenderTaunts)
+	private static bool Protects(Minion guard, Minion target) => guard.HasGuard && !target.HasGuard && !target.HasTaunt
+		&& guard.BoardRow == target.BoardRow && Math.Abs(guard.BoardSlotIndex - target.BoardSlotIndex) == 1;
+
+	public static List<IDamageTarget> GetLegalAttackTargets(Board board, IDamageSource attacker, IEnumerable<IDamageTarget> candidates)
+		=> candidates.Where(target => CanAttackTarget(board, attacker, target)).ToList();
+
+	/// <summary>限前线法术只应用前线阻挡，不应用烟幕、嘲讽或游击免摸。</summary>
+	public static bool CanTargetFrontlineSpell(Board board, bool casterIsPlayerSide, IDamageTarget target)
 	{
-		ArgumentNullException.ThrowIfNull(defenderTaunts);
-		if (target is Minion { HasTaunt: true, IsDead: false })
-			return new List<Minion>();
-
-		int attackerSpeed = GetSpeed(attacker);
-		int targetSpeed = GetSpeed(target);
-		if (!CanReach(attackerSpeed, targetSpeed))
-			return new List<Minion>();
-
-		return defenderTaunts
-			.Where(taunt => !taunt.IsDead
-				&& taunt.HasTaunt
-				&& TauntIntercepts(attackerSpeed, targetSpeed, taunt.Speed))
-			.ToList();
+		bool opposingFrontline = board.FrontlineOwner == (casterIsPlayerSide ? FrontlineOwner.Enemy : FrontlineOwner.Player);
+		return !IsDead(target) && (target is not Minion minion || board.Contains(minion))
+			&& (!opposingFrontline || target is Minion { BoardRow: BoardRow.Frontline });
 	}
 
-	public static int GetSpeed(IDamageSource source)
-	{
-		return source switch
-		{
-			Hero hero => hero.Speed,
-			Minion minion => minion.Speed,
-			_ => throw new ArgumentException("普通攻击来源必须是英雄或随从。", nameof(source)),
-		};
-	}
-
-	public static int GetSpeed(IDamageTarget target)
-	{
-		return target switch
-		{
-			Hero hero => hero.Speed,
-			Minion minion => minion.Speed,
-			_ => throw new ArgumentException("普通攻击目标必须是英雄或随从。", nameof(target)),
-		};
-	}
+	private static bool IsDead(IDamageTarget target) => target switch { Minion m => m.IsDead, Hero h => h.IsDead, _ => true };
+	private static BoardRow? GetTargetRow(IDamageTarget target) => target is Minion minion ? minion.BoardRow : null;
 }

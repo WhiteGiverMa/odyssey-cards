@@ -33,7 +33,7 @@ public struct EnemyIntent
 	/// 注入时机：<see cref="EnemyEncounter.GetCurrentIntent"/> 为 Attack 意图自动注入。
 	/// 若为 null 则退化为无目标攻击（非 Attack 意图）。
 	/// </summary>
-	public Func<CombatManager, IDamageTarget>? TargetSelector;
+	public Func<CombatManager, IDamageTarget?>? TargetSelector;
 
 	/// <summary>
 	/// 伤害计算函数——每次调用重新走 DamageResolver 管线，反映当前力量/易伤等修饰。
@@ -427,8 +427,11 @@ public abstract class EnemyEncounter
 	/// <param name="combat">战斗管理器</param>
 	protected void ExecuteAttackIntent(CombatManager combat, Hero self)
 	{
-		var intent = GetCurrentIntent(combat, self);
-		combat.ExecuteEnemyHeroSmartAttack(self, intent.Value + Attack);
+		// 不把已走伤害管线的预览值再次作为基础伤害结算。
+		var move = GetCurrentMove(combat, self);
+		int baseDamage = move.Intents.Count > 0 && move.Intents[0] is AttackIntent attackIntent
+			? attackIntent.GetSingleDamage(combat) : IntentPattern[CurrentPatternIndex].Value;
+		combat.ExecuteEnemyHeroSmartAttack(self, baseDamage + Attack);
 	}
 
 	// ===== 统一执行方法 =====

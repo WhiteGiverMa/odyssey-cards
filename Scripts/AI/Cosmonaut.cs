@@ -24,6 +24,7 @@ namespace OdysseyCards.AI;
 /// </summary>
 public class Cosmonaut : EnemyEncounter
 {
+	public override Weapon CreateWeapon() => new RailPistol();
 	private const string ExplainCardId = "spell_explain";
 
 	// 状态机变量
@@ -122,33 +123,7 @@ public class Cosmonaut : EnemyEncounter
 		if (move.Id == "cosmo_c")
 		{
 			int rawDmg = 10 + Attack;
-			var target = combat.SelectSmartEnemyAttackTarget(self, rawDmg);
-			if (target is Minion minionTarget)
-			{
-				combat.TriggerBaitTacticsOnAttacked(minionTarget, self);
-				bool ambush = minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
-				if (ambush)
-					minionTarget.AmbushUsedThisTurn = true;
-
-				self.SuppressWeaponCounter = true;
-				self.TakeDamage(minionTarget.Attack, minionTarget);
-				self.SuppressWeaponCounter = false;
-				if (ambush && self.IsDead)
-					return;
-
-				combat.RequestDamageVfx(self, minionTarget, DamageKind.Attack, CombatDamageVfxKind.Attack);
-				minionTarget.TakeDamage(rawDmg, self);
-			}
-			else
-			{
-				if (target != null)
-					combat.RequestDamageVfx(self, target, DamageKind.Attack, CombatDamageVfxKind.Attack);
-				target?.TakeDamage(rawDmg, self);
-			}
-
-			// 磁轨手枪被动
-			self.Weapon?.PassiveSkill?.OnWeaponHit(target, self);
-			GD.Print($"[宇宙员] 磁轨锁定：{target}");
+			combat.ExecuteEnemyHeroSmartAttack(self, rawDmg);
 		}
 		else
 		{
@@ -158,7 +133,7 @@ public class Cosmonaut : EnemyEncounter
 
 	// ===== MoveState 创建 =====
 
-	private MoveState CreateMoveA(CombatManager combat)
+	private static MoveState CreateMoveA(CombatManager combat)
 	{
 		return new MoveState(
 			"cosmo_a",
@@ -174,7 +149,7 @@ public class Cosmonaut : EnemyEncounter
 		);
 	}
 
-	private MoveState CreateMoveB(CombatManager combat, Hero self)
+	private static MoveState CreateMoveB(CombatManager combat, Hero self)
 	{
 		return new MoveState(
 			"cosmo_b",
@@ -234,7 +209,7 @@ public class Cosmonaut : EnemyEncounter
 		}
 	}
 
-	private MoveState CreateMoveE(CombatManager combat)
+	private static MoveState CreateMoveE(CombatManager combat)
 	{
 		return new MoveState(
 			"cosmo_e",

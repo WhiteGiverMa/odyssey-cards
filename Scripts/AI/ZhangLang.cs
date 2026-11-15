@@ -66,7 +66,7 @@ public class ZhangLang : EnemyEncounter
 			int damage = _currentSingleAttackDamage;
 			return new MoveState(
 				"zhanglang_single_attack",
-				(cm, hero) => ExecuteAttackIntent(cm, hero),
+				(cm, hero) => cm.ExecuteEnemyHeroSmartAttack(hero!, damage + Attack),
 				new SingleAttackIntent(c => DamageResolver.ResolvePreviewDamage(damage + Attack, self, ResolveAttackTarget(c, self))));
 		}
 
@@ -154,7 +154,7 @@ public class ZhangLang : EnemyEncounter
 		}
 	}
 
-	private void ExecuteSummon(CombatManager combat)
+	private static void ExecuteSummon(CombatManager combat)
 	{
 		if (!combat.Board.CanPlaceMinion(isPlayerSide: false))
 			return;
