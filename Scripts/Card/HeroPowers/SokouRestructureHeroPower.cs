@@ -50,6 +50,7 @@ public class SokouRestructureHeroPower : IHeroPower, IChargeCooldownSkill
 		}
 
 		combat.BeginForcedHandDiscardSelection(
+			hero,
 			hero.DeckState.Hand.ToList(),
 			1,
 			CombatManager.PendingSelectionMode.RestructureDiscard,

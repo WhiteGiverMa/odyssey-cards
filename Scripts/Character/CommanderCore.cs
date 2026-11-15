@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Godot;
+using GD = OdysseyCards.Core.ModelLog;
 
 namespace OdysseyCards.Character;
 
@@ -48,7 +48,7 @@ public class CommanderCore
 	/// <summary>
 	/// 最大法力水晶。
 	/// </summary>
-	public int MaxMana { get; private set; } = 0;
+	public int MaxMana { get; private set; }
 
 	/// <summary>
 	/// 最大手牌数。
@@ -121,7 +121,8 @@ public class CommanderCore
 	/// </summary>
 	public void Heal(int amount)
 	{
-		CurrentHealth = Mathf.Min(MaxHealth, CurrentHealth + amount);
+		if (amount > 0 && !IsDead)
+			CurrentHealth = Math.Min(MaxHealth, CurrentHealth + amount);
 	}
 
 	/// <summary>
@@ -142,13 +143,13 @@ public class CommanderCore
 
 	public void SpendMana(int amount)
 	{
-		CurrentMana = Math.Max(0, CurrentMana - amount);
+		CurrentMana = Math.Max(0, CurrentMana - Math.Max(0, amount));
 		OnManaChanged?.Invoke(CurrentMana, MaxMana);
 	}
 
 	public void GainMana(int amount)
 	{
-		CurrentMana = Math.Min(MaxMana + amount, CurrentMana + amount);
+		CurrentMana = Math.Clamp(CurrentMana + Math.Max(0, amount), 0, HardMaxManaCap);
 		OnManaChanged?.Invoke(CurrentMana, MaxMana);
 	}
 
@@ -160,14 +161,29 @@ public class CommanderCore
 
 	public void SetMana(int current, int max)
 	{
-		MaxMana = max;
-		CurrentMana = current;
+		MaxMana = Math.Clamp(max, 0, HardMaxManaCap);
+		CurrentMana = Math.Clamp(current, 0, HardMaxManaCap);
 		OnManaChanged?.Invoke(CurrentMana, MaxMana);
 	}
 
 	public bool CanSpendMana(int amount)
 	{
-		return CurrentMana >= amount;
+		return amount >= 0 && CurrentMana >= amount;
+	}
+
+	public bool TrySpendMana(int amount)
+	{
+		if (!CanSpendMana(amount))
+			return false;
+		SpendMana(amount);
+		return true;
+	}
+
+	public int GainManaSlots(int amount, bool fillNewSlots = false)
+	{
+		int gained = Math.Min(Math.Max(0, amount), HardMaxManaCap - MaxMana);
+		SetMana(CurrentMana + (fillNewSlots ? gained : 0), MaxMana + gained);
+		return gained;
 	}
 
 	// ===== 牌堆操作 =====
@@ -239,9 +255,9 @@ public class CommanderCore
 	/// <summary>
 	/// 开始回合：增加最大水晶（上限10），填满当前水晶。
 	/// </summary>
-	public void StartTurn()
+	public void StartTurn(int naturalGrowthCap = MaxManaCrystals)
 	{
-		if (MaxMana < MaxManaCrystals)
+		if (MaxMana < Math.Min(naturalGrowthCap, HardMaxManaCap))
 		{
 			MaxMana++;
 		}

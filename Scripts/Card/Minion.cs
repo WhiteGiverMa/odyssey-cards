@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Godot;
+using GD = OdysseyCards.Core.ModelLog;
+using OdysseyCards.Combat;
 using OdysseyCards.Core;
 
 namespace OdysseyCards.Card;
@@ -14,6 +15,8 @@ namespace OdysseyCards.Card;
 /// </summary>
 public class Minion : Card, IDamageSource, IDamageTarget
 {
+	/// <summary>部署者用于亡语、领域、召回的资源归属；离场后仍保留。</summary>
+	public Hero? OwnerHero { get; internal set; }
 	/// <summary>
 	/// 伤害修改器列表（防御力修改器等）。
 	/// internal 访问允许 CombatManager 注入战斗触发的修饰器（如敌意伤害翻倍）。
@@ -75,9 +78,12 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	public int Defense { get; private set; }
 
 	/// <summary>
-	/// 速度。越高越能攻击高速目标；普通攻击不能命中更高速的非嘲讽目标。
+	/// 兵种决定射程、反击免疫与行动配额。
 	/// </summary>
-	public int Speed { get; }
+	public UnitClass UnitClass { get; }
+
+	/// <summary>场外为 null；只有 Board 可以改变阵线与槽位。</summary>
+	public BoardRow? BoardRow { get; internal set; }
 
 	// ===== 护甲系统 =====
 
@@ -98,6 +104,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	/// 是否拥有护甲。
 	/// </summary>
 	public bool HasArmor => CurrentArmor > 0;
+	public void RemoveArmor() => _currentArmor = 0;
 
 	/// <summary>
 	/// 为随从增加护甲值。
@@ -149,7 +156,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	/// 在战场上的槽位索引。
 	/// -1 表示尚未放置在战场上。
 	/// </summary>
-	public int BoardSlotIndex { get; set; } = -1;
+	public int BoardSlotIndex { get; internal set; } = -1;
 
 	/// <summary>
 	/// 是否属于玩家方。
@@ -168,6 +175,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	/// 在 ApplyDamage 之后触发，此时生命值已减少。
 	/// </summary>
 	public event Action<DamageEventInfo, IDamageSource?>? OnDamageTaken;
+	public event Action<Minion, IDamageSource, int>? OnAttacked;
 
 	/// <summary>
 	/// 随从恢复生命值时触发。参数为实际恢复量。
@@ -187,12 +195,12 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	// ===== 关键词属性 =====
 
 	/// <summary>
-	/// 闪击：召唤的回合即可攻击。
+	/// 闪击：解除召唤回合整备冷却，解锁所属兵种的行动配额。
 	/// </summary>
 	public bool HasCharge { get; }
 
 	/// <summary>
-	/// 嘲讽：敌方随从必须优先攻击此随从。
+	/// 嘲讽：可达时保护同阵线普通目标与己方 HQ。
 	/// </summary>
 	private bool _hasTaunt;
 	public bool HasTaunt
@@ -205,6 +213,18 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
 			_hasTaunt = value;
 			if (value && HasStatusEffect(StatusEffect.SmokescreenId))
+				RemoveStatusEffect(StatusEffect.SmokescreenId);
+		}
+	}
+
+	private bool _hasGuard;
+	public bool HasGuard
+	{
+		get => _hasGuard;
+		internal set
+		{
+			_hasGuard = value;
+			if (value)
 				RemoveStatusEffect(StatusEffect.SmokescreenId);
 		}
 	}
@@ -286,14 +306,14 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	/// <summary>
 	/// 战吼效果列表（来源自卡牌数据）。
 	/// </summary>
-	public IReadOnlyList<CardEffectData> BattlecryEffects => Data.BattlecryEffects;
+	public IReadOnlyList<CardEffectData> BattlecryEffects => Data?.BattlecryEffects ?? (IReadOnlyList<CardEffectData>)Array.Empty<CardEffectData>();
 
 	/// <summary>
 	/// 亡语效果列表（来源自卡牌数据）。
 	/// </summary>
 	public IReadOnlyList<CardEffectData> DeathrattleEffects => _runtimeDeathrattleEffects is { } effects
 		? effects
-		: Data.DeathrattleEffects;
+		: Data?.DeathrattleEffects ?? (IReadOnlyList<CardEffectData>)Array.Empty<CardEffectData>();
 
 	/// <summary>
 	/// 向此随从追加一条亡语效果。保留原有亡语（包括 CardData 原始亡语和运行时替换的亡语），
@@ -304,7 +324,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		if (_runtimeDeathrattleEffects == null)
 		{
 			// 首次追加：先复制 CardData 原始亡语为运行时列表，再追加
-			_runtimeDeathrattleEffects = Data.DeathrattleEffects.ToList();
+			_runtimeDeathrattleEffects = DeathrattleEffects.ToList();
 		}
 		_runtimeDeathrattleEffects.Add(effect);
 		HasDeathrattle = true;
@@ -368,7 +388,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
 	public void AddStatusEffect(StatusEffect effect)
 	{
-		if (effect.Id == StatusEffect.SmokescreenId && HasTaunt)
+		if (effect.Id == StatusEffect.SmokescreenId && (HasTaunt || HasGuard))
 		{
 			GD.Print($"[Minion:{CardName}] 已有嘲讽，忽略烟幕状态");
 			return;
@@ -398,16 +418,15 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
 	public void TickStatusEffects(TickTiming timing)
 	{
-		var expiredIds = _statusEffects
-			.Where(kv => kv.Value.TickOn == timing)
-			.Select(kv => { kv.Value.Tick(); return kv; })
-			.Where(kv => kv.Value.IsExpired)
-			.Select(kv => kv.Key)
-			.ToList();
-
-		foreach (var id in expiredIds)
+		foreach (var (id, effect) in _statusEffects.ToList())
 		{
-			RemoveStatusEffect(id);
+			if (effect.TickOn != timing)
+				continue;
+			if (!effect.IsExpired)
+				effect.OnTick?.Invoke(effect);
+			effect.Tick();
+			if (effect.IsExpired)
+				RemoveStatusEffect(id);
 		}
 	}
 
@@ -436,7 +455,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	/// 嘲讽与烟幕不能共存；拥有嘲讽时烟幕会被立即移除。
 	/// 见 <see cref="StatusEffect.SmokescreenId"/>。
 	/// </summary>
-	public bool HasSmokeScreen => !HasTaunt && HasStatusEffect(StatusEffect.SmokescreenId);
+	public bool HasSmokeScreen => !HasTaunt && !HasGuard && HasStatusEffect(StatusEffect.SmokescreenId);
 
 	private void ApplyStatusEffectImmediate(StatusEffect effect)
 	{
@@ -519,13 +538,12 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	/// <param name="data">卡牌数据资源（必须是随从类型）</param>
 	/// <param name="isPlayerSide">是否属于玩家方</param>
 	public Minion(CardData data, bool isPlayerSide)
-		: base(data)
+		: this(data.Id, isPlayerSide, data.Attack, data.Health, data.UnitClass, data.ActionCost, data.Keywords.ToArray())
 	{
-		IsPlayerSide = isPlayerSide;
+		Data = data;
 		// 拉烟哥专属：首攻烟幕 OneShot 效果
 		HasSmokeGrantOnFirstAttack = data.Id == "minion_rayan_ge";
 		_firstAttackDone = false;
-		_focusModifier = new FocusSpellDamageModifier(GetFocusStacks);
 
 		// 从卡牌数据复制战斗属性
 		Attack = data.Attack;
@@ -534,7 +552,23 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
 		// 复制防御力
 		Defense = data.Defense;
-		Speed = SpeedRules.Clamp(data.Speed);
+		HasBattlecry = data.HasKeyword(Keyword.Battlecry) || data.BattlecryEffects?.Count > 0;
+		HasDeathrattle = data.HasKeyword(Keyword.Deathrattle) || data.DeathrattleEffects?.Count > 0;
+		if (data.BonusDamageToDefendedTargets != 0)
+			_damageModifiers.Add(new DefendedTargetDamageBonusModifier(data.BonusDamageToDefendedTargets));
+	}
+
+	/// <summary>纯 C# 运行时入口，无需实例化 Godot Resource。</summary>
+	public Minion(string id, bool isPlayerSide, int attack = 1, int health = 1,
+		UnitClass unitClass = UnitClass.Vanguard, int actionCost = 0, params Keyword[] keywords)
+		: base(id, CardType.Minion, actionCost)
+	{
+		IsPlayerSide = isPlayerSide;
+		UnitClass = unitClass;
+		Attack = attack;
+		MaxHealth = health;
+		CurrentHealth = health;
+		_focusModifier = new FocusSpellDamageModifier(GetFocusStacks);
 
 		// 注册防御力修改器到 DamageModifiers
 		_damageModifiers.Add(new OdysseyCards.Core.DefenseModifier(() => Defense));
@@ -545,22 +579,19 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		_damageModifiers.Add(_focusModifier);
 
 		// 注册护甲攻击加成修改器
-		_damageModifiers.Add(new ArmorAttackBonusModifier(this));
-
-		if (data.BonusDamageToDefendedTargets != 0)
-		{
-			_damageModifiers.Add(new DefendedTargetDamageBonusModifier(data.BonusDamageToDefendedTargets));
-		}
+		if (id == "minion_mech_lancer")
+			_damageModifiers.Add(new ArmorAttackBonusModifier(this));
 
 		// 解析关键词
-		HasCharge = data.HasKeyword(Keyword.Charge);
-		HasTaunt = data.HasKeyword(Keyword.Taunt);
-		HasBattlecry = data.HasKeyword(Keyword.Battlecry) || data.BattlecryEffects?.Count > 0;
-		HasDeathrattle = data.HasKeyword(Keyword.Deathrattle) || data.DeathrattleEffects?.Count > 0;
-		HasWindfury = data.HasKeyword(Keyword.Windfury);
-		HasAmbush = data.HasKeyword(Keyword.Ambush);
-		HasImpact = data.HasKeyword(Keyword.Impact);
-		HasRecycle = data.HasKeyword(Keyword.Recycle);
+		HasCharge = keywords.Contains(Keyword.Charge);
+		HasTaunt = keywords.Contains(Keyword.Taunt);
+		HasGuard = keywords.Contains(Keyword.Guard);
+		HasBattlecry = keywords.Contains(Keyword.Battlecry);
+		HasDeathrattle = keywords.Contains(Keyword.Deathrattle);
+		HasWindfury = keywords.Contains(Keyword.Windfury);
+		HasAmbush = keywords.Contains(Keyword.Ambush);
+		HasImpact = keywords.Contains(Keyword.Impact);
+		HasRecycle = keywords.Contains(Keyword.Recycle);
 	}
 
 	/// <summary>
@@ -584,7 +615,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	/// </summary>
 	public Card ToRuntimeCard()
 	{
-		var card = new Card(Data);
+		var card = Data is null ? new Card(Id, Type, ActionCost) : new Card(Data);
 		card.CopyRuntimeModifiersFrom(this);
 		return card;
 	}
@@ -629,6 +660,8 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
 			if (resolvedDamage <= 0)
 			{
+				if (kind == DamageKind.Attack && source != null)
+					OnAttacked?.Invoke(this, source, 0);
 				OnDamageTaken?.Invoke(new DamageEventInfo(0, armorAbsorbed, true), source);
 				return;
 			}
@@ -638,6 +671,8 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
 		// 伤害事件通知（ApplyDamage 之后触发，保证 HP 已减少）
 		OnDamageTaken?.Invoke(new DamageEventInfo(resolvedDamage, armorAbsorbed, false), source);
+		if (kind == DamageKind.Attack && source != null)
+			OnAttacked?.Invoke(this, source, resolvedDamage);
 	}
 
 	/// <summary>

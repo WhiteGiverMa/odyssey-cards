@@ -240,9 +240,8 @@ public class IonPulse : IWeaponActive
 		}
 		else
 		{
-			// 对敌方英雄：禁用武器
-			// 优先使用 combat 传入的具体目标，回退到首个存活敌人（向后兼容）
-			var enemy = (target as Hero) ?? combat.GetDefaultEnemyTargetUnit()?.Body;
+			// 对敌方英雄：禁用武器。目标以持械英雄的相对阵营为准。
+			var enemy = (target as Hero) ?? combat.GetOpponentHeroes(wielder.IsPlayerSide).FirstOrDefault();
 			if (enemy == null)
 				return;
 
@@ -359,7 +358,7 @@ public class SvdsM338Passive : IWeaponAttackPassive
 		int damage = wielder.Weapon.GetModifiedDamage(wielder.Weapon.Attack, wielder);
 		for (int i = 0; i < ExtraHitCount; i++)
 		{
-			var randomTarget = PickRandomEnemyTarget(combat);
+			var randomTarget = PickRandomEnemyTarget(wielder, combat);
 			if (randomTarget == null)
 				return;
 
@@ -394,11 +393,11 @@ public class SvdsM338Passive : IWeaponAttackPassive
 		}
 	}
 
-	private static IDamageTarget? PickRandomEnemyTarget(CombatManager combat)
+	private static IDamageTarget? PickRandomEnemyTarget(Hero wielder, CombatManager combat)
 	{
 		var targets = new List<IDamageTarget>();
-		targets.AddRange(combat.EnemyUnits.Where(unit => !unit.Body.IsDead).Select(unit => unit.Body));
-		targets.AddRange(combat.Board.GetEnemyMinions().Where(minion => !minion.IsDead));
+		targets.AddRange(combat.GetOpponentHeroes(wielder.IsPlayerSide));
+		targets.AddRange(wielder.IsPlayerSide ? combat.Board.GetEnemyMinions() : combat.Board.GetPlayerMinions());
 
 		if (targets.Count == 0)
 			return null;
@@ -441,8 +440,8 @@ public class SuppressiveBarrage : IWeaponActive, IWeaponChargeSkill
 
 		int damage = wielder.Weapon.GetModifiedDamage(wielder.Weapon.Attack, wielder);
 		var targets = new List<IDamageTarget>();
-		targets.AddRange(combat.EnemyUnits.Where(unit => !unit.Body.IsDead).Select(unit => unit.Body));
-		targets.AddRange(combat.Board.GetEnemyMinions().Where(minion => !minion.IsDead));
+		targets.AddRange(combat.GetOpponentHeroes(wielder.IsPlayerSide));
+		targets.AddRange(wielder.IsPlayerSide ? combat.Board.GetEnemyMinions() : combat.Board.GetPlayerMinions());
 
 		foreach (var target in targets)
 		{
@@ -488,6 +487,8 @@ public class SvdsM338 : Weapon
 			passive: new SvdsM338Passive(),
 			active: new SuppressiveBarrage())
 	{
+		Range = WeaponRange.Ranged;
+		IgnoreCounterAttack = true;
 	}
 
 	public override string NameKey => "weapon.svds_m338.name";
@@ -611,6 +612,7 @@ public class RayPistol : Weapon
 			active: new BlindShot())
 	{
 		_rememberPassive = passive;
+		Range = WeaponRange.Ranged;
 	}
 
 	public override string NameKey => "weapon.ray_pistol.name";
@@ -721,6 +723,7 @@ public class MagicWand : Weapon
 			passive: new MagicFilmPassive(),
 			active: new StarlightCleanse())
 	{
+		Range = WeaponRange.FriendlySupport;
 	}
 
 	public override string NameKey => "weapon.magic_wand.name";

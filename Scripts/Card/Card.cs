@@ -13,23 +13,30 @@ public class Card
 	/// <summary>
 	/// 关联的卡牌数据资源。
 	/// </summary>
-	public CardData Data { get; }
+	public CardData Data { get; protected set; }
+
+	private readonly string _id = "";
+	private readonly CardType _type;
+	private readonly int _actionCost;
+
+	/// <summary>情报公开状态随实例回手、洗回与显式运行时复制保留。</summary>
+	public bool IsRevealedByIntel { get; set; }
 
 	/// <summary>
 	/// 卡牌唯一标识。
 	/// </summary>
-	public string Id => Data.Id;
+	public string Id => Data?.Id ?? _id;
 
 	/// <summary>
 	/// 卡牌名称（原始数据，不作为 UI 渲染源）。
 	/// 渲染时使用 <see cref="GetLocalizedName"/> 以支持多语言切换。
 	/// </summary>
-	public string CardName => Data.CardName;
+	public string CardName => Data?.CardName ?? _id;
 
 	/// <summary>
 	/// 法力值消耗（部署费用）。
 	/// </summary>
-	public int Cost => Data.Cost;
+	public int Cost => Data?.Cost ?? 0;
 
 	/// <summary>
 	/// 运行时费用调整值（正数=增加费用，负数=减少费用）。
@@ -54,30 +61,31 @@ public class Card
 	}
 
 	/// <summary>
-	/// 行动花费——随从攻击时额外消耗的法力值。
+	/// 行动花费——随从每次推进或普通攻击分别消耗的法力值。
 	/// </summary>
-	public int ActionCost => Data.ActionCost;
+	public int ActionCost => System.Math.Max(0, Data?.ActionCost ?? _actionCost);
 
 	/// <summary>
 	/// 卡牌类型（随从或法术）。
 	/// </summary>
-	public CardType Type => Data.Type;
+	public CardType Type => Data?.Type ?? _type;
 
 	/// <summary>
 	/// 轮战：法术打出后/随从被击败后返回抽牌堆底部，不进入弃牌堆。
 	/// </summary>
-	public bool HasRecycle => Data.HasKeyword(Keyword.Recycle);
+	public bool HasRecycle => GrantedRecycle || (Data?.HasKeyword(Keyword.Recycle) ?? false);
+	internal bool GrantedRecycle { get; set; }
 
 	/// <summary>
 	/// 奇巧：被弃掉时自动打出。
 	/// 法术/领域直接打出（0费），随从召唤到最左空槽位。
 	/// </summary>
-	public bool HasQiqiao => Data.HasKeyword(Keyword.Qiqiao);
+	public bool HasQiqiao => Data?.HasKeyword(Keyword.Qiqiao) ?? false;
 
 	/// <summary>
 	/// 不可打出：无法从手牌中主动打出。
 	/// </summary>
-	public bool HasUnplayable => Data.HasKeyword(Keyword.Unplayable);
+	public bool HasUnplayable => Data?.HasKeyword(Keyword.Unplayable) ?? false;
 
 	/// <summary>
 	/// 创建卡牌运行时实例。
@@ -88,13 +96,23 @@ public class Card
 		Data = data;
 	}
 
+	/// <summary>不依赖资源加载的运行时入口，供规则模拟与纯 C# 测试使用。</summary>
+	public Card(string id, CardType type = CardType.Spell, int actionCost = 0)
+	{
+		_id = id;
+		_type = type;
+		_actionCost = actionCost;
+	}
+
 	/// <summary>
 	/// 从另一张运行时卡牌复制牌面修饰。
 	/// </summary>
 	public void CopyRuntimeModifiersFrom(Card other)
 	{
 		CostModifier = other.CostModifier;
+		GrantedRecycle = other.GrantedRecycle;
 		EndTurnDrawPileReturnsRemaining = other.EndTurnDrawPileReturnsRemaining;
+		IsRevealedByIntel = other.IsRevealedByIntel;
 	}
 
 	/// <summary>

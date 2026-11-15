@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Godot;
+using GD = OdysseyCards.Core.ModelLog;
 using OdysseyCards.Character;
 using OdysseyCards.Core;
 
@@ -14,6 +14,8 @@ namespace OdysseyCards.Card;
 /// </summary>
 public class Hero : IDamageTarget, IDamageSource
 {
+	/// <summary>英雄、回合状态与 UI 共用的唯一资源真源。</summary>
+	public CommanderCore Core => _core;
 	/// <summary>
 	/// 伤害修改器列表。动态列表，支持武器技能和状态效果注入修改器。
 	/// </summary>
@@ -139,11 +141,6 @@ public class Hero : IDamageTarget, IDamageSource
 	public bool IsPlayerSide { get; }
 
 	/// <summary>
-	/// 英雄当前速度。速度是基础战斗属性，不改变回合顺序。
-	/// </summary>
-	public int Speed { get; }
-
-	/// <summary>
 	/// 当前护甲值。护甲在生命值之前吸收伤害。
 	/// </summary>
 	public int CurrentArmor { get; private set; }
@@ -228,7 +225,7 @@ public class Hero : IDamageTarget, IDamageSource
 	/// <summary>
 	/// 英雄的基础攻击力（来自武器）。
 	/// </summary>
-	int IDamageSource.BaseAttack => Weapon?.Attack ?? 0;
+	public int BaseAttack => Weapon?.Attack ?? 0;
 
 	// ===== 事件 =====
 
@@ -316,11 +313,10 @@ public class Hero : IDamageTarget, IDamageSource
 	/// <param name="core">指挥官核心，不可为 null</param>
 	/// <param name="isPlayerSide">是否为玩家方英雄</param>
 	/// <exception cref="ArgumentNullException">当 core 为 null 时抛出</exception>
-	public Hero(CommanderCore core, bool isPlayerSide, int speed = SpeedRules.Default)
+	public Hero(CommanderCore core, bool isPlayerSide)
 	{
 		_core = core ?? throw new ArgumentNullException(nameof(core));
 		IsPlayerSide = isPlayerSide;
-		Speed = SpeedRules.Clamp(speed);
 		_focusModifier = new FocusSpellDamageModifier(GetFocusStacks);
 
 		// 注册防御力修改器
@@ -359,7 +355,10 @@ public class Hero : IDamageTarget, IDamageSource
 
 		// 不破（1）检查：仅对拥有此被动的角色生效，阻止本回合后续伤害
 		if (_hasTakenDamageThisTurn && HasUnbreakable)
+		{
+			ResolveAttackSideEffects(source, kind, 0);
 			return;
+		}
 
 		// Step 1: ALWAYS go through DamageResolver first (Defense modifier applies here)
 		int resolvedDamage = DamageResolver.ResolveDamage(baseDamage, source, this, kind);
@@ -387,7 +386,7 @@ public class Hero : IDamageTarget, IDamageSource
 		ApplyDamage(resolvedDamage, source);
 
 		// 不破（1）：生命伤害 > 0 时，标记本回合已受伤
-		_hasTakenDamageThisTurn = true;
+		_hasTakenDamageThisTurn |= resolvedDamage > 0;
 
 		// 伤害事件通知（ApplyDamage 之后触发，保证 HP 已减少）
 		OnDamageTaken?.Invoke(new DamageEventInfo(resolvedDamage, armorAbsorbed, false), source);
@@ -440,6 +439,8 @@ public class Hero : IDamageTarget, IDamageSource
 		if (SuppressWeaponCounter)
 			return;
 		if (IsIncapacitated)
+			return;
+		if (source is Minion { UnitClass: UnitClass.Support } || source is Hero { Weapon.IgnoreCounterAttack: true })
 			return;
 		if (Weapon == null || !Weapon.CanCounter)
 			return;
@@ -881,7 +882,7 @@ public class Hero : IDamageTarget, IDamageSource
 		GD.Print($"[Hero] 难逃之瑕响应「{removedId}」失去，转化为「{selected}」");
 	}
 
-	private List<string> BuildInescapableFlawCandidates(bool flawStillActive, bool removedFlawItself)
+	private static List<string> BuildInescapableFlawCandidates(bool flawStillActive, bool removedFlawItself)
 	{
 		var candidates = new List<string>
 		{

@@ -913,3 +913,18 @@ status:
   fatal_rift:
     name: "致命裂痕"
     desc: "生命值低于18%时，受友方伤害后消灭。boss免疫。"
+
+enemy:
+  commander:
+    ayame:
+      name: "宿敌·绮梦"
+      title: "守护续航指挥官"
+      passive: "开场展开「偶像的黄昏」：友方随从被攻击后获得+1/+1。"
+    rie:
+      name: "宿敌·理惠"
+      title: "直伤狙击指挥官"
+      passive: "开场展开「无限火力」：每回合结束将「打击」洗入抽牌堆。"
+    sokou:
+      name: "宿敌·溯光"
+      title: "轮战情报指挥官"
+      passive: "开场展开「接化发」：敌方回合内针对英雄或前线的攻击全被格挡时，回合末获得「受身」。"

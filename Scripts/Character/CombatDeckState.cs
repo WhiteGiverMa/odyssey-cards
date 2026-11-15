@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Godot;
+using GD = OdysseyCards.Core.ModelLog;
 
 namespace OdysseyCards.Character;
 
@@ -40,7 +40,7 @@ public class CombatDeckState
 
 	public IReadOnlyList<OdysseyCards.Card.Card> DrawCards(int count)
 	{
-		int cardsToDraw = Mathf.Min(count, MaxHandSize - Hand.Count);
+		int cardsToDraw = Math.Max(0, Math.Min(count, MaxHandSize - Hand.Count));
 		var drawn = new List<OdysseyCards.Card.Card>();
 
 		for (int i = 0; i < cardsToDraw; i++)
@@ -183,12 +183,9 @@ public class CombatDeckState
 
 	public void ShuffleDrawPile()
 	{
-		var random = new RandomNumberGenerator();
-		random.Randomize();
-
 		for (int i = DrawPile.Count - 1; i > 0; i--)
 		{
-			int j = random.RandiRange(0, i);
+			int j = Random.Shared.Next(i + 1);
 			(DrawPile[i], DrawPile[j]) = (DrawPile[j], DrawPile[i]);
 		}
 

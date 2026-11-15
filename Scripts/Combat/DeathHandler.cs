@@ -1,4 +1,5 @@
-using System.Collections.Generic;
+using System.Linq;
+using System;
 using Godot;
 using OdysseyCards.Card;
 
@@ -14,38 +15,33 @@ internal sealed class DeathHandler
 	private readonly Hero _playerHero;
 	private readonly CardEffectDispatcher _effectDispatcher;
 	private readonly AttackTracker _attackTracker;
+	private readonly Func<Minion, EffectActorContext> _actorFor;
 
-	public DeathHandler(Board board, Hero playerHero, CardEffectDispatcher effectDispatcher, AttackTracker attackTracker)
+	public DeathHandler(Board board, Hero playerHero, CardEffectDispatcher effectDispatcher, AttackTracker attackTracker,
+		Func<Minion, EffectActorContext> actorFor)
 	{
 		_board = board;
 		_playerHero = playerHero;
 		_effectDispatcher = effectDispatcher;
 		_attackTracker = attackTracker;
+		_actorFor = actorFor;
 
 		// 亡语驱动：随从死亡时自动触发亡语（替换不触发），无需在各处手动调用
 		_board.OnMinionDied += TriggerDeathrattle;
 
 		// 牌堆回收驱动：随从死亡时自动进入弃牌堆或返回抽牌堆（轮战），无需在各处手动调用
 		_board.OnMinionDied += HandleMinionDeathPile;
+		_board.OnMinionRemoved += _attackTracker.Remove;
 	}
 
 	/// <summary>
 	/// 遍历战场双方所有随从，移除已死亡随从并触发亡语效果。
-	/// 先收集再处理以避免迭代中修改集合。
-	/// 死亡随从从槽位直接收集（GetPlayerMinions 会过滤死亡随从，不能用）。
+	/// 逐个取出所有三线死亡单位；亡语连锁继续扫描，不能用过滤死亡单位的阵营存活查询。
 	/// </summary>
 	internal void CheckDeaths()
 	{
-		var deadMinions = new List<Minion>();
-		for (int i = 0; i < Board.MaxSlotsPerSide; i++)
-		{
-			if (_board.PlayerSlots[i] is Minion m && m.IsDead)
-				deadMinions.Add(m);
-			if (_board.EnemySlots[i] is Minion em && em.IsDead)
-				deadMinions.Add(em);
-		}
-
-		foreach (var minion in deadMinions)
+		// 亡语可能在其他阵线上继续击杀单位，直到死亡队列清空。
+		while (_board.GetAllMinions().FirstOrDefault(m => m.IsDead) is Minion minion)
 		{
 			GD.Print($"[CombatManager] ☠ {minion.CardName}（{minion.IsPlayerSide switch { true => "玩家方", false => "敌方" }}）死亡");
 
@@ -62,7 +58,7 @@ internal sealed class DeathHandler
 
 	/// <summary>
 	/// 触发随从的亡语效果。
-	/// 原型阶段仅输出日志；后续可扩展为完整效果解析。
+	/// 效果分发器统一执行亡语，保留死亡随从作为伤害来源与阵营上下文。
 	/// </summary>
 	/// <param name="minion">已死亡的随从</param>
 	private void TriggerDeathrattle(Minion minion)
@@ -74,7 +70,7 @@ internal sealed class DeathHandler
 		foreach (var effect in minion.DeathrattleEffects)
 		{
 			GD.Print($"[CombatManager]     亡语效果：{effect.GetDescription()}");
-			_effectDispatcher.ExecuteEffect(effect, minion, minion);
+			_effectDispatcher.ExecuteEffect(effect, minion, _actorFor(minion));
 		}
 	}
 
@@ -86,18 +82,19 @@ internal sealed class DeathHandler
 	/// <param name="minion">已从棋盘移除的随从</param>
 	private void HandleMinionDeathPile(Minion minion)
 	{
-		if (!minion.IsPlayerSide)
+		var owner = minion.OwnerHero ?? (minion.IsPlayerSide ? _playerHero : null);
+		if (owner == null)
 			return;
 
 		var cardFromMinion = minion.ToRuntimeCard();
 		if (minion.HasRecycle)
 		{
-			_playerHero.AddToDrawPileBottom(cardFromMinion);
+			owner.AddToDrawPileBottom(cardFromMinion);
 			GD.Print($"[CombatManager]   ♻ {minion.CardName}（轮战）返回抽牌堆底部");
 		}
 		else
 		{
-			_playerHero.AddToDiscardPile(cardFromMinion);
+			owner.AddToDiscardPile(cardFromMinion);
 			GD.Print($"[CombatManager]   🗑 {minion.CardName} 进入弃牌堆");
 		}
 	}

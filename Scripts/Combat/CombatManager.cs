@@ -87,7 +87,7 @@ public partial class CombatManager : Node
 	// ===== 公开属性 =====
 
 	/// <summary>
-	/// 战场管理器，管理双方各 5 个随从槽位。
+	/// 三线棋盘，双方支援线各 4 格、共享独占前线 5 格。
 	/// </summary>
 	public Board Board { get; private set; }
 
@@ -184,7 +184,7 @@ public partial class CombatManager : Node
 
 	public bool ExecuteEnemyHeroSmartAttack(Hero attacker, int baseDamage)
 	{
-		if (attacker.IsIncapacitated)
+		if (attacker.IsDead || attacker.IsIncapacitated || attacker.Weapon is { IsDisabled: true })
 			return false;
 
 		var target = SelectSmartEnemyAttackTarget(attacker, baseDamage);
@@ -196,35 +196,20 @@ public partial class CombatManager : Node
 		if (target is Minion minionTarget)
 		{
 			TriggerBaitTacticsOnAttacked(minionTarget, attacker);
-
-			bool ambush = !minionTarget.IsIncapacitated && minionTarget.HasAmbush && !minionTarget.AmbushUsedThisTurn;
-			if (ambush)
-				minionTarget.AmbushUsedThisTurn = true;
-
-			attacker.SuppressWeaponCounter = true;
-			attacker.TakeDamage(minionTarget.Attack, minionTarget);
-			attacker.SuppressWeaponCounter = false;
-
-			if (ambush && attacker.IsDead)
-				return false;
-
-			RequestDamageVfx(attacker, minionTarget, DamageKind.Attack, CombatDamageVfxKind.Attack);
-			minionTarget.TakeDamage(baseDamage, attacker, DamageKind.Attack);
-			if (minionTarget.IsDead)
-				Board.RemoveMinion(minionTarget);
-			CheckDeaths();
-			return true;
 		}
-
-		RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack);
-		target.TakeDamage(baseDamage, attacker, DamageKind.Attack);
+		bool hit = AttackCombatResolver.Resolve(attacker, target, baseDamage,
+			() => RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
+		if (hit)
+			attacker.Weapon?.PassiveSkill?.OnWeaponHit(target, attacker);
+		if (target is Minion defender)
+			TryTriggerIdolTwilight(defender);
 		CheckDeaths();
 		return true;
 	}
 
 	public bool ExecuteEnemyMinionSmartAttack(Minion attacker)
 	{
-		if (attacker.IsDead || attacker.IsIncapacitated || attacker.Attack <= 0)
+		if (State.IsGameOver || attacker.IsDead || attacker.IsIncapacitated || attacker.HasStatusEffect("attack_ban") || attacker.Attack <= 0)
 			return false;
 
 		var target = SelectSmartEnemyAttackTarget(attacker, attacker.Attack);
@@ -244,20 +229,8 @@ public partial class CombatManager : Node
 			return true;
 		}
 
-		bool impactActive = attacker.HasImpact;
-		Hero heroTarget = target as Hero;
-		if (impactActive && heroTarget != null)
-			heroTarget.SuppressWeaponCounter = true;
-
-		RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack);
-		target.TakeDamage(attacker.Attack, attacker, DamageKind.Attack);
-
-		if (impactActive)
-		{
-			if (heroTarget != null)
-				heroTarget.SuppressWeaponCounter = false;
-			attacker.HasImpact = false;
-		}
+		AttackCombatResolver.Resolve(attacker, target, attacker.Attack,
+			() => RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
 
 		if (attacker.IsDead)
 			Board.RemoveMinion(attacker);
@@ -275,7 +248,8 @@ public partial class CombatManager : Node
 		{
 			if (attacker.IsDead || attacker.IsIncapacitated || attacker.Attack <= 0 || !_attackTracker.CanAttack(attacker))
 				continue;
-			if (attacker.ActionCost <= remainingMana)
+			if (attacker.ActionCost <= remainingMana && SmartTargetingSystem.TrySelectPlayerAttackTarget(Board, EnemyUnits,
+				attacker, out _, target => CanMinionAttackTarget(attacker, target)))
 				return true;
 		}
 
@@ -295,7 +269,8 @@ public partial class CombatManager : Node
 			if (attacker.ActionCost > PlayerHero.CurrentMana)
 				continue;
 
-			if (!SmartTargetingSystem.TrySelectPlayerAttackTarget(Board, EnemyUnits, attacker, out var target))
+			if (!SmartTargetingSystem.TrySelectPlayerAttackTarget(Board, EnemyUnits, attacker, out var target,
+				candidate => CanMinionAttackTarget(attacker, candidate)))
 				continue;
 			if (target is Minion defender)
 			{
@@ -404,6 +379,29 @@ public partial class CombatManager : Node
 	/// 从 CombatManager 拆出为独立类，解除回合流转/攻击系统/死亡处理之间的数据耦合。
 	/// </summary>
 	private readonly AttackTracker _attackTracker = new();
+	private MinionActionService _playerActions = null!;
+	public IntelService Intel { get; } = new();
+	/// <summary>一步突击已推进落位，可由 UI 选择停稳开火或滑行开火演出。</summary>
+	public event Action<Minion>? OnAssaultAdvance;
+
+	/// <summary>供 UI 高亮、两步推进及一步突击动画使用的统一事务入口。</summary>
+	public bool CanMoveMinionToFrontline(Minion minion, int slot = -1) => State.IsPlayerTurn && !State.IsGameOver
+		&& !IsDiscovering && _playerActions.CanMove(minion, slot);
+	public bool MoveMinionToFrontline(Minion minion, int preferredFrontlineSlot = -1)
+	{
+		if (!CanMoveMinionToFrontline(minion, preferredFrontlineSlot))
+			return false;
+		bool moved = _playerActions.Move(minion, preferredFrontlineSlot);
+		NotifyCombatStateChanged();
+		return moved;
+	}
+
+	public bool CanMinionAttackTarget(Minion attacker, IDamageTarget target) => State.IsPlayerTurn && !State.IsGameOver
+		&& !IsDiscovering && _playerActions.CanAttack(attacker, target, out _);
+
+	public bool CanMinionAct(Minion minion) => State.IsPlayerTurn && !State.IsGameOver && !IsDiscovering
+		&& minion.IsPlayerSide && PlayerHero.CanSpendMana(minion.ActionCost)
+		&& (_attackTracker.CanAttack(minion) || _attackTracker.CanMove(minion));
 
 	/// <summary>
 	/// 本回合内可以攻击的敌方随从集合。
@@ -680,7 +678,7 @@ public partial class CombatManager : Node
 		_playerCore.SetMana(0, 0);
 		_playerCore.MaxHandSize = 10; // 统一手牌上限，覆盖 CombatDeckState 默认值 9
 		var heroProfile = GameManager.Instance?.SelectedHeroProfile ?? HeroProfile.Get(null);
-		PlayerHero = new Hero(_playerCore, true, heroProfile.BaseSpeed);
+		PlayerHero = new Hero(_playerCore, true);
 
 		// 从 Player 复制英雄技能设置（由 GameManager.CreateNewPlayer 注入）
 		PlayerHero.HeroPower = Player.HeroPower;
@@ -691,7 +689,7 @@ public partial class CombatManager : Node
 		_playerCore.CombatDeckState.OnBeforeDiscard = HandleQiqiaoDiscard;
 
 		Board = new Board();
-		State = new GameState();
+		State = new GameState(_playerCore);
 
 		// 创建胜负判定器
 		_victoryResolver = new VictoryDefeatResolver(Board, State, EnemyUnits, _playerCore);
@@ -726,9 +724,13 @@ public partial class CombatManager : Node
 				_victoryResolver.CheckVictoryOrDefeat();
 			};
 
-		// 状态变更事件：随从部署/移除时触发，驱动意图 UI 实时刷新
-		Board.OnMinionPlaced += (_, _) => NotifyCombatStateChanged();
-		Board.OnMinionRemoved += (_) => NotifyCombatStateChanged();
+		Board.OnMinionPlaced += (minion, _) =>
+		{
+			minion.OwnerHero ??= ResolveDeploymentOwner(minion.IsPlayerSide);
+			if (!minion.IsPlayerSide)
+				minion.IntentBrain ??= new DefaultAttackMinionBrain(minion);
+			_attackTracker.RegisterDeployment(minion);
+		};
 
 		// 机械蜈蚣-防空型自动拦截：敌方部署费用 ≤2 的随从时自动触发战斗
 		Board.OnMinionPlaced += OnMinionPlacedForCentipede;
@@ -740,7 +742,7 @@ public partial class CombatManager : Node
 		_heatSystem = new HeatSystem();
 
 		// 初始化藏品管理器（从 GameManager 获取，或创建空列表）
-		_relicManager = GameManager.Instance.Relics ?? new RelicManager();
+		_relicManager = GameManager.Instance?.Relics ?? new RelicManager();
 		// 藏品修改热力值（如冰袋）
 		_relicManager.ModifyHeatSystem(_heatSystem);
 		_selectionSystem = new SelectionSystem(
@@ -752,31 +754,22 @@ public partial class CombatManager : Node
 			CheckDeaths,
 			() => _victoryResolver.CheckVictoryOrDefeat());
 
-		_effectDispatcher = new CardEffectDispatcher(
-			_playerCore,
-			PlayerHero,
-			EnemyUnits,
-			Board,
-			State,
-				NotifyCombatStateChanged,
-				_selectionSystem.HandleDiscoverEffect,
-				_selectionSystem.BeginDiscardDiscoverSelection,
-_selectionSystem.BeginHandDiscardSelection,
-			BeginCopyHandFillSelection,
-			BeginChooseOne,
-			RequestDamageVfx);
-		_deathHandler = new DeathHandler(Board, PlayerHero, _effectDispatcher, _attackTracker);
+		_selectionSystem.OptionRequested = (request, chosen) => BeginChooseOne(request.TitleKey,
+			request.TitleFallback, request.Labels, request.Descriptions, chosen);
+		_effectDispatcher = new CardEffectDispatcher(PlayerHero, EnemyUnits, Board,
+			NotifyCombatStateChanged, RequestDamageVfx, Intel, LoadCombatCard,
+			() => GameManager.Instance?.GetAllCards() ?? Array.Empty<CardData>());
+		_deathHandler = new DeathHandler(Board, PlayerHero, _effectDispatcher, _attackTracker,
+			minion => CreateActorContext(minion.OwnerHero ?? GetOwnerHero(minion.IsPlayerSide), minion));
 		_weaponAttack = new WeaponAttackSystem(
 			Board,
 			PlayerHero,
 			EnemyUnits,
 			State,
-			_attackTracker,
 			_deathHandler,
 			NotifyCombatStateChanged,
 			() => IsDiscovering,
 			(m) => TriggerBaitTacticsOnAttacked(m, null),
-			(won) => OnGameOver?.Invoke(won),
 			this);
 		_domainTriggerManager = new DomainTriggerManager(
 			_playerCore,
@@ -784,9 +777,20 @@ _selectionSystem.BeginHandDiscardSelection,
 			Board,
 			State,
 			EnemyUnits,
-			NotifyCombatStateChanged);
+			NotifyCombatStateChanged, LoadCombatCard);
+		_playerActions = new MinionActionService(Board, _attackTracker, PlayerHero);
+		_playerActions.OnAssaultAdvance += minion => OnAssaultAdvance?.Invoke(minion);
+		Board.OnMinionPlaced += (minion, _) =>
+		{
+			_domainTriggerManager.OnMinionPlaced(minion);
+		};
+		// 规则订阅之后再广播，UI/意图预览必须看到已应用部署领域与闪击配额的状态。
+		Board.OnMinionPlaced += (_, _) => NotifyCombatStateChanged();
+		Board.OnMinionRemoved += (_) => NotifyCombatStateChanged();
+		Board.OnMinionMoved += (_, _, _) => NotifyCombatStateChanged();
 		PlayerHero.OnAttacked += HandlePlayerHeroAttacked;
-		PlayerHero.OnDamageTaken += HandlePlayerHeroDamageTaken;
+		foreach (var unit in EnemyUnits)
+			unit.Body.OnAttacked += HandlePlayerHeroAttacked;
 
 		// 机会~被动：订阅所有敌方单位的 OnDamageTaken
 		foreach (var unit in EnemyUnits)
@@ -804,6 +808,12 @@ _selectionSystem.BeginHandDiscardSelection,
 		foreach (var unit in EnemyUnits)
 		{
 			unit.Body.Weapon = unit.Brain.CreateWeapon();
+			if (unit.Controller is IDeckDrivenCommander commander)
+			{
+				var theme = GD.Load<ThemeProfile>($"res://Resources/Themes/ThemeProfile_{char.ToUpperInvariant(commander.HeroId[0])}{commander.HeroId[1..]}.tres");
+				commander.InitializeDeck(unit.Body, GameManager.Instance.GetAllCards(), theme, Random.Shared.Next());
+				unit.Body.Core.CombatDeckState.OnBeforeDiscard = card => HandleQiqiaoDiscard(unit.Body, card);
+			}
 			if (unit.Brain.StartingDefense != 0)
 				unit.Body.ModifyDefense(unit.Brain.StartingDefense);
 			GD.Print($"[CombatManager] {unit.Brain.Name} 武器：{unit.Body.Weapon.Name}" +
@@ -848,6 +858,11 @@ _selectionSystem.BeginHandDiscardSelection,
 		GD.Print($"[CombatManager] 抽牌堆已设置，共 {_playerCore.DrawPile.Count} 张牌");
 
 		State.StartGame();
+		foreach (var unit in EnemyUnits.Where(unit => unit.Controller is IDeckDrivenCommander))
+		{
+			unit.Body.SetMana(GameState.StartingMaxMana, GameState.StartingMaxMana);
+			unit.Body.DrawCards(5);
+		}
 
 		// 玩家始终先手，发 5 张起始手牌
 		PlayerHero.DrawCards(5);
@@ -875,7 +890,8 @@ _selectionSystem.BeginHandDiscardSelection,
 			? GameState.HardMaxManaCap
 			: GameState.MaxManaCrystals;
 		State.StartPlayerTurn(growthCap);
-		_playerCore.SetMana(State.PlayerMana, State.PlayerMaxMana);
+		// 在回合开始效果/藏品召唤之前快照：只有回合开始已在场的随从免整备冷却。
+		ResetAttackTracking();
 
 		// 状态效果 + 限时 mount 〜 在藏品之前触发：原 sutaraito_spirit 走领域通道时也位于此处，
 		// 已迁移到 StatusEffect(PlayerTurnStart) 通道，此处触发替代了原 OnPlayerTurnStart。
@@ -890,13 +906,9 @@ _selectionSystem.BeginHandDiscardSelection,
 
 		// 领域回合开始 + 先发制人重置
 		_domainTriggerManager.OnPlayerTurnStart();
-		_effectDispatcher.ResetPreemptiveStrike();
 
 		// 回合开始抽 1 张牌
 		PlayerHero.DrawCards(1);
-
-		// 重置随从攻击状态
-		ResetAttackTracking();
 
 		// 重置伏击状态（所有随从和英雄的伏击在新整轮重新可用）
 		foreach (var minion in Board.GetPlayerMinions())
@@ -959,102 +971,16 @@ _selectionSystem.BeginHandDiscardSelection,
 	/// 验证玩家回合、法力值、槽位可用性，处理战吼和闪击关键词。
 	/// </summary>
 	/// <param name="card">要打出的卡牌（手牌中的运行时实例）</param>
-	/// <param name="slotIndex">目标槽位索引（0-4）</param>
+	/// <param name="slotIndex">所属方支援线槽位索引（0-3）</param>
 	/// <returns>成功返回 true；验证失败返回 false</returns>
 	public bool PlayMinion(Card.Card card, int slotIndex)
 	{
-		if (IsDiscovering)
-		{
-			GD.PrintErr("[CombatManager] PlayMinion 失败 — 正在发现选牌阶段");
-			return false;
-		}
-
-		// 验证：玩家回合
-		if (!State.IsPlayerTurn)
-		{
-			GD.PrintErr("[CombatManager] PlayMinion 失败 — 不是玩家回合");
-			return false;
-		}
-
-		// 验证：卡牌有效性
-		if (card == null)
-		{
-			GD.PrintErr("[CombatManager] PlayMinion 失败 — 卡牌为 null");
-			return false;
-		}
-
-		// 验证：是随从牌
-		if (card.Type != CardType.Minion)
-		{
-			GD.PrintErr($"[CombatManager] PlayMinion 失败 — {card.CardName} 不是随从牌");
-			return false;
-		}
-
-		// 验证：法力值充足
-		int actualCost = ApplyRelicCostModifiers(card);
-		if (!PlayerHero.CanSpendMana(actualCost))
-		{
-			GD.PrintErr($"[CombatManager] PlayMinion 失败 — 法力值不足（需 {actualCost}，现有 {PlayerHero.CurrentMana}）");
-			return false;
-		}
-
-		// 验证：槽位可用
-		if (!Board.CanPlaceMinion(isPlayerSide: true))
-		{
-			GD.PrintErr("[CombatManager] PlayMinion 失败 — 玩家战场已满（最多 5 个随从）");
-			return false;
-		}
-
-		// 消耗法力值
-		PlayerHero.SpendMana(actualCost);
-		GD.Print($"[CombatManager] 消耗 {actualCost} 法力值（剩余 {PlayerHero.CurrentMana}）");
-
-		// 通知藏品和热力值系统
-		NotifyCardPlayed(card, actualCost);
-
-		// 创建随从运行时实例，并保留牌堆中已有的运行时修饰
-		var minion = new Minion(card, isPlayerSide: true);
-
-		// 处理战吼效果
-		if (minion.HasBattlecry)
-		{
-			GD.Print($"[CombatManager]   ◆ 触发战吼：{minion.CardName}");
-			foreach (var effect in minion.BattlecryEffects)
-			{
-				ResolveBattlecryEffect(effect, minion);
-			}
-		}
-
-		// 放置随从到战场
-		Board.PlaceMinion(minion, slotIndex);
-
-		// 我的刀盾：战吼复制到相邻槽位
-		if (minion.HasBattlecry && minion.BattlecryEffects.Any(e => e.CustomEffectName == "CopyToAdjacentSlot"))
-		{
-			CopyMinionToAdjacentSlot(minion, slotIndex);
-		}
-
-		// 闪击关键词：召唤的回合即可攻击
-		if (minion.HasCharge)
-		{
-			_attackTracker.AddCharged(minion);
-			GD.Print($"[CombatManager]   ⚡ {minion.CardName} 具有闪击，本回合可以攻击");
-		}
-
-		// 从手牌中移除
-		PlayerHero.RemoveFromHand(card);
-
-		GD.Print($"[CombatManager] 玩家召唤了 {minion.CardName}（{minion.Attack}/{minion.CurrentHealth}）到槽位 {slotIndex}");
-
-		// 触发领域效果 — 友方随从部署后
-		_domainTriggerManager.OnMinionPlaced(minion);
-
-		return true;
+		return PlayMinion(CreateActorContext(PlayerHero, PlayerHero, card), card, slotIndex);
 	}
 
 	/// <summary>
 	/// 处理战吼效果。
-	/// 原型阶段仅输出日志，后续可扩展为完整的效果解析。
+	/// 效果分发器统一执行战吼，保留随从作为伤害来源与阵营上下文。
 	/// </summary>
 	/// <param name="effect">战吼效果数据</param>
 	/// <param name="source">战吼来源随从</param>
@@ -1069,29 +995,19 @@ _selectionSystem.BeginHandDiscardSelection,
 	/// 优先尝试左侧（slot-1），再尝试右侧（slot+1），最后回退任意空位。
 	/// </summary>
 	/// <param name="sourceMinion">触发战吼的源随从</param>
-	/// <param name="sourceSlotIndex">源随从所在槽位</param>
-	private void CopyMinionToAdjacentSlot(Minion sourceMinion, int sourceSlotIndex)
+	private void CopyMinionToAdjacentSlot(Minion sourceMinion)
 	{
 		var tokenData = GD.Load<CardData>("res://Resources/Cards/Minion_WhatTheDogDoing.tres");
 		if (tokenData == null)
 		{ GD.PrintErr("[CombatManager] CopyToAdjacentSlot: 无法加载Token卡牌"); return; }
 
 		// 优先相邻槽位（先左后右）
-		int? targetSlot = null;
-		if (sourceSlotIndex > 0 && Board.PlayerSlots[sourceSlotIndex - 1] == null)
-			targetSlot = sourceSlotIndex - 1;
-		else if (sourceSlotIndex < 4 && Board.PlayerSlots[sourceSlotIndex + 1] == null)
-			targetSlot = sourceSlotIndex + 1;
-
-		// 回退：任意空位
-		if (!targetSlot.HasValue)
-			targetSlot = Board.GetEmptySlotIndex(isPlayerSide: true);
-
-		if (targetSlot.HasValue)
+		int targetSlot = Board.GetAdjacentSupportSlotIndex(sourceMinion);
+		if (targetSlot >= 0)
 		{
-			var copy = new Minion(tokenData, isPlayerSide: true);
-			Board.PlaceMinion(copy, targetSlot.Value);
-			GD.Print($"[CombatManager] 🐕 我的刀盾复制到槽位{targetSlot.Value}");
+			var copy = new Minion(tokenData, sourceMinion.IsPlayerSide) { OwnerHero = sourceMinion.OwnerHero };
+			Board.PlaceMinion(copy, targetSlot);
+			GD.Print($"[CombatManager] 🐕 我的刀盾复制到槽位{targetSlot}");
 		}
 		else
 			GD.Print("[CombatManager] 🐕 我的刀盾：棋盘已满，无法复制");
@@ -1109,102 +1025,7 @@ _selectionSystem.BeginHandDiscardSelection,
 	/// <returns>成功返回 true</returns>
 	public bool PlaySpell(Card.Card card, object target)
 	{
-		if (IsDiscovering)
-		{
-			GD.PrintErr("[CombatManager] PlaySpell 失败 — 正在发现选牌阶段");
-			return false;
-		}
-
-		// 验证：玩家回合
-		if (!State.IsPlayerTurn)
-		{
-			GD.PrintErr("[CombatManager] PlaySpell 失败 — 不是玩家回合");
-			return false;
-		}
-
-		// 验证：卡牌有效性
-		if (card == null)
-		{
-			GD.PrintErr("[CombatManager] PlaySpell 失败 — 卡牌为 null");
-			return false;
-		}
-
-		// 验证：是法术牌或状态牌
-		if (card.Type != CardType.Spell && card.Type != CardType.Status)
-		{
-			GD.PrintErr($"[CombatManager] PlaySpell 失败 — {card.CardName} 不是法术牌或状态牌");
-			return false;
-		}
-
-		// 验证：法力值充足
-		int actualCost = ApplyRelicCostModifiers(card);
-		if (!PlayerHero.CanSpendMana(actualCost))
-		{
-			GD.PrintErr($"[CombatManager] PlaySpell 失败 — 法力值不足（需 {actualCost}，现有 {PlayerHero.CurrentMana}）");
-			return false;
-		}
-
-		// 验证：目标合法性（tag 子集匹配）
-		if (!ValidateTarget(card, target))
-		{
-			GD.PrintErr($"[CombatManager] PlaySpell 失败 — 目标不合法（{card.CardName} 的目标过滤：{card.Data.TargetFilter}）");
-			return false;
-		}
-
-		// 消耗法力值
-		PlayerHero.SpendMana(actualCost);
-		GD.Print($"[CombatManager] 施放法术 {card.CardName}，消耗 {actualCost} 法力值");
-
-		// 通知藏品和热力值系统
-		NotifyCardPlayed(card, actualCost);
-
-		// 解析每个法术效果
-		bool selectionTriggered = false;
-		foreach (var effect in card.Data.Effects)
-		{
-			ResolveSpellEffect(effect, target, card);
-			if (IsDiscovering)
-			{
-				return false;
-			}
-			{
-				selectionTriggered = true;
-				_selectionSystem.SetPendingDiscoverSpellCard(card);
-			}
-		}
-
-		if (!selectionTriggered && card.Type == CardType.Spell && card.Data.HasMechanicTag(CardMechanicTag.DirectDamage))
-			TriggerDirectDamageSpellMinionEffects(card);
-
-		// 如果触发了选牌效果，延迟清理——确认选择后处理 RemoveFromHand/CheckDeaths
-		if (selectionTriggered)
-		{
-			GD.Print("[CombatManager]   选牌效果已触发，等待玩家选择...");
-			return true;
-		}
-
-		// 轮战法术：回到抽牌堆底部；普通法术：进入弃牌堆
-		if (card.HasRecycle)
-		{
-			PlayerHero.ReturnToDrawPile(card);
-			GD.Print($"[CombatManager]   ♻ {card.CardName}（轮战）回到抽牌堆底部");
-		}
-		// 「解释」：回到手牌（不进入弃牌堆）
-		else if (card.Id == "spell_explain")
-		{
-			HandleExplainReturnToHand(card);
-		}
-		else
-		{
-			PlayerHero.DiscardCard(card);
-			GD.Print($"[CombatManager]   🗑 {card.CardName} 进入弃牌堆");
-		}
-
-		// 法术可能造成随从死亡
-		CheckDeaths();
-
-		// 攻击完成
-		return true;
+		return PlaySpell(CreateActorContext(PlayerHero, PlayerHero, card), card, target);
 	}
 
 	// ===== 领域卡牌播放 =====
@@ -1219,69 +1040,7 @@ _selectionSystem.BeginHandDiscardSelection,
 	/// <returns>成功返回 true</returns>
 	public bool PlayDomain(Card.Card card)
 	{
-		if (IsDiscovering)
-		{
-			GD.PrintErr("[CombatManager] PlayDomain 失败 — 正在发现选牌阶段");
-			return false;
-		}
-
-		// 验证：玩家回合
-		if (!State.IsPlayerTurn)
-		{
-			GD.PrintErr("[CombatManager] PlayDomain 失败 — 不是玩家回合");
-			return false;
-		}
-
-		// 验证：卡牌有效性
-		if (card == null)
-		{
-			GD.PrintErr("[CombatManager] PlayDomain 失败 — 卡牌为 null");
-			return false;
-		}
-
-		// 验证：是领域牌
-		if (card.Type != CardType.Domain)
-		{
-			GD.PrintErr($"[CombatManager] PlayDomain 失败 — {card.CardName} 不是领域牌");
-			return false;
-		}
-
-		// 验证：法力值充足
-		int actualCost = ApplyRelicCostModifiers(card);
-		if (!PlayerHero.CanSpendMana(actualCost))
-		{
-			GD.PrintErr($"[CombatManager] PlayDomain 失败 — 法力值不足（需 {actualCost}，现有 {PlayerHero.CurrentMana}）");
-			return false;
-		}
-
-		// 消耗法力值
-		PlayerHero.SpendMana(actualCost);
-		GD.Print($"[CombatManager] 展开领域 {card.CardName}，消耗 {actualCost} 法力值");
-
-		// 通知藏品和热力值系统
-		NotifyCardPlayed(card, actualCost);
-
-		// 将领域效果附加到英雄
-		string domainId = card.Data.DomainId;
-		if (string.IsNullOrEmpty(domainId))
-		{
-			domainId = card.Data.Id; // fallback 用卡牌ID作为领域标识
-		}
-
-		foreach (var effect in card.Data.Effects)
-		{
-			// 先执行即时效果（如 RemoveNaturalManaCap），再存储为持久领域效果
-			ExecuteEffect(effect, null, visualSource: card);
-			PlayerHero.AddDomain(domainId, effect);
-		}
-
-		// 通知领域触发管理器：领域已展开，对现有棋盘随从施加持续效果
-		_domainTriggerManager.OnDomainDeployed(domainId);
-
-		// 从手牌中移除（领域不进入弃牌堆）
-		PlayerHero.RemoveFromHand(card);
-
-		return true;
+		return PlayDomain(CreateActorContext(PlayerHero, PlayerHero, card), card);
 	}
 
 	/// <summary>
@@ -1290,9 +1049,10 @@ _selectionSystem.BeginHandDiscardSelection,
 	/// </summary>
 	/// <param name="effect">效果数据</param>
 	/// <param name="target">效果目标对象（Minion 或 Hero，可为 null）</param>
-	private void ExecuteEffect(CardEffectData effect, object? target, IDamageSource? source = null, object? visualSource = null)
+	private void ExecuteEffect(CardEffectData effect, object? target, IDamageSource source, object? visualSource = null)
 	{
-		_effectDispatcher.ExecuteEffect(effect, target, source, visualSource);
+		var owner = source is Hero hero ? hero : ((Minion)source).OwnerHero ?? GetOwnerHero(source.IsPlayerSide);
+		_effectDispatcher.ExecuteEffect(effect, target, CreateActorContext(owner, source, visualSource as Card.Card));
 	}
 
 	/// <summary>
@@ -1304,11 +1064,6 @@ _selectionSystem.BeginHandDiscardSelection,
 	private void HandlePlayerHeroAttacked(Hero target, IDamageSource source, int finalDamage)
 	{
 		_domainTriggerManager.HandlePlayerHeroAttacked(target, source, finalDamage);
-	}
-
-	private void HandlePlayerHeroDamageTaken(DamageEventInfo info, IDamageSource? source)
-	{
-		_domainTriggerManager.HandlePlayerHeroDamageTaken(info, source);
 	}
 
 	/// <summary>
@@ -1380,16 +1135,6 @@ _selectionSystem.BeginHandDiscardSelection,
 		return false;
 	}
 
-	/// <summary>
-	/// 解析单个法术效果，委托给共享的 ExecuteEffect 执行。
-	/// </summary>
-	/// <param name="effect">效果数据</param>
-	/// <param name="target">法术目标对象</param>
-	private void ResolveSpellEffect(CardEffectData effect, object target, OdysseyCards.Card.Card card)
-	{
-		ExecuteEffect(effect, target, PlayerHero, card);
-	}
-
 	// ===== 随从攻击 =====
 
 	/// <summary>
@@ -1416,77 +1161,10 @@ _selectionSystem.BeginHandDiscardSelection,
 	internal bool ResolveMinionCombat(Minion attacker, Minion defender)
 	{
 		TriggerBaitTacticsOnAttacked(defender);
-
-		bool defenderCanCounter = !defender.IsIncapacitated;
-		bool ambushTriggers = defenderCanCounter && defender.HasAmbush && !defender.AmbushUsedThisTurn;
-		bool impactActive = attacker.HasImpact;
-
-		GD.Print($"[CombatManager] ⚔ {attacker.CardName}（{attacker.Attack}攻/{attacker.CurrentHealth}血）攻击 " +
-				  $"{defender.CardName}（{defender.Attack}攻/{defender.CurrentHealth}血）" +
-				  (ambushTriggers ? " [伏击触发！]" : "") +
-				  (impactActive ? " [冲击激活]" : ""));
-
-		// ===== Phase 1: 伏击先手（防御者先于攻击者造成伤害） =====
-		if (ambushTriggers)
-		{
-			defender.AmbushUsedThisTurn = true;
-
-			if (impactActive)
-			{
-				// KARDS 规则：冲击免疫伏击的先手伤害
-				GD.Print($"[CombatManager]   🛡 冲击免疫了 {defender.CardName} 的伏击伤害（{defender.Attack}）");
-			}
-			else
-			{
-				// 伏击先手：防御者先对攻击者造成伤害
-				GD.Print($"[CombatManager]   ⚡ {defender.CardName} 伏击先手，造成 {defender.Attack} 伤害");
-				attacker.TakeDamage(defender.Attack, defender);
-			}
-
-			// 伏击击杀攻击者 → 战斗结束，攻击被取消
-			if (attacker.IsDead)
-			{
-				GD.Print($"[CombatManager]   ☠ {attacker.CardName} 被伏击击杀，攻击被取消（不造成伤害）");
-				return false;
-			}
-		}
-
-		// ===== Phase 2: 攻击者造成伤害 =====
-		RequestDamageVfx(attacker, defender, DamageKind.Attack, CombatDamageVfxKind.Attack);
-		defender.TakeDamage(attacker.Attack, attacker);
-
-		// ===== Phase 3: 防御者反击（炉石规则：双方同时伤害，防御者被击杀仍能反击） =====
-		// 注意：即使防御者在 Phase 2 中被击杀，也要造成反击伤害（炉石同时伤害规则）
-		{
-			if (impactActive)
-			{
-				// 冲击免疫正常反击伤害
-				GD.Print($"[CombatManager]   🛡 冲击免疫了 {defender.CardName} 的反击伤害（{defender.Attack}）");
-			}
-			else if (!defenderCanCounter)
-			{
-				GD.Print($"[CombatManager]   🚫 {defender.CardName} 处于失能，无法反击");
-			}
-			else
-			{
-				attacker.TakeDamage(defender.Attack, defender);
-			}
-		}
-
-		// ===== Phase 4: 消耗冲击（一次性效果） =====
-		if (impactActive)
-		{
-			attacker.HasImpact = false;
-			GD.Print($"[CombatManager]   ✨ {attacker.CardName} 的冲击已被消耗");
-		}
-
-		// 偶像的黄昏：友方随从被攻击时查询英雄领域，持续生效（领域消失则自动停止）
+		bool result = AttackCombatResolver.Resolve(attacker, defender, attacker.Attack,
+			() => RequestDamageVfx(attacker, defender, DamageKind.Attack, CombatDamageVfxKind.Attack));
 		TryTriggerIdolTwilight(defender);
-
-		GD.Print($"[CombatManager]     交锋后 — {attacker.CardName}：{attacker.CurrentHealth}血，" +
-				  $"{defender.CardName}：{defender.CurrentHealth}血");
-
-		return true;
+		return result;
 	}
 
 	/// <summary>
@@ -1497,9 +1175,9 @@ _selectionSystem.BeginHandDiscardSelection,
 	/// <param name="defender">被攻击的随从（仅玩家方触发）</param>
 	private void TryTriggerIdolTwilight(Minion defender)
 	{
-		if (!defender.IsPlayerSide || defender.IsDead)
+		if (defender.IsDead)
 			return;
-		if (!PlayerHero.ActiveDomains.TryGetValue("idol_twilight", out var domain))
+		if (!(defender.OwnerHero ?? GetOwnerHero(defender.IsPlayerSide)).ActiveDomains.TryGetValue("idol_twilight", out var domain))
 			return;
 
 		int stacks = Math.Max(1, domain.EffectData?.Value ?? 1) * domain.StackCount;
@@ -1554,17 +1232,16 @@ _selectionSystem.BeginHandDiscardSelection,
 			return;
 
 		// 优先降低具体攻击方英雄的防御力；否则回退到首个存活敌人（如随从互殴场景）
-		if (attackerHero != null && !attackerHero.IsPlayerSide)
+		if (attackerHero != null && attackerHero.IsPlayerSide != target.IsPlayerSide)
 		{
 			attackerHero.ModifyDefense(-1);
 			GD.Print($"[CombatManager] ◆ 诱饵战术触发：{target.CardName} 受到敌方英雄攻击，该英雄防御力-1（当前 {attackerHero.Defense}）");
 		}
 		else
 		{
-			var enemyUnit = GetDefaultEnemyTargetUnit();
-			if (enemyUnit == null)
+			var enemyBody = GetOpponentHeroes(target.IsPlayerSide).FirstOrDefault();
+			if (enemyBody == null)
 				return;
-			var enemyBody = enemyUnit.Body;
 			enemyBody.ModifyDefense(-1);
 			GD.Print($"[CombatManager] ◆ 诱饵战术触发：{target.CardName} 受到攻击，敌方英雄防御力-1（当前 {enemyBody.Defense}）");
 		}
@@ -1580,213 +1257,45 @@ _selectionSystem.BeginHandDiscardSelection,
 	/// <returns>攻击成功返回 true</returns>
 	public bool MinionAttack(Minion attacker, Minion defender)
 	{
-		if (IsDiscovering)
-		{
-			GD.PrintErr("[CombatManager] MinionAttack 失败 — 正在发现选牌阶段");
-			return false;
-		}
-
-		// 验证：玩家回合
-		if (!State.IsPlayerTurn)
-		{
-			GD.PrintErr("[CombatManager] MinionAttack 失败 — 不是玩家回合");
-			return false;
-		}
-
-		// 验证：攻击方合法性
-		if (attacker == null)
-		{
-			GD.PrintErr("[CombatManager] 攻击验证失败 — 攻击者为 null");
-			return false;
-		}
-		if (!attacker.IsPlayerSide)
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 不是玩家随从");
-			return false;
-		}
-		if (attacker.IsDead)
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 已死亡");
-			return false;
-		}
-		if (!_attackTracker.CanAttack(attacker))
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 本回合无法攻击");
-			return false;
-		}
-		if (attacker.ActionCost > 0 && PlayerHero.CurrentMana < attacker.ActionCost)
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 行动花费 {attacker.ActionCost}，当前法力不足（{PlayerHero.CurrentMana}）");
-			return false;
-
-			// RayanGe one-shot: first attack grants friendly hero 1 smokescreen
-			if (attacker.HasSmokeGrantOnFirstAttack && !attacker._firstAttackDone)
-			{
-				attacker._firstAttackDone = true;
-				PlayerHero.AddStatusEffect(new OdysseyCards.Card.StatusEffect(
-					OdysseyCards.Card.StatusEffect.SmokescreenId, 1,
-					OdysseyCards.Card.TickTiming.PlayerTurnEnd));
-			}
-		}
-
-		// 验证：防御方有效性
-		if (defender == null || defender.IsDead)
-		{
-			GD.PrintErr("[CombatManager] MinionAttack 失败 — 目标随从未知或已死亡");
-			return false;
-		}
-
-		if (defender.IsPlayerSide)
-		{
-			GD.PrintErr("[CombatManager] MinionAttack 失败 — 不能攻击己方随从");
-			return false;
-		}
-
-		// 统一攻击目标合法性：速度先判定，符合条件的嘲讽再拦截。
-		if (!AttackTargetRules.CanAttackTarget(attacker, defender, Board.GetTaunts(ofEnemy: true)))
-		{
-			GD.PrintErr($"[CombatManager] MinionAttack 失败 — {attacker.CardName} 无法攻击目标 {defender.CardName}（速度或嘲讽拦截）");
-			return false;
-		}
-
-		// 消耗行动花费法力
-		if (attacker.ActionCost > 0)
-		{
-			PlayerHero.SpendMana(attacker.ActionCost);
-			GD.Print($"[CombatManager]   {attacker.CardName} 行动花费 {attacker.ActionCost} 法力，剩余法力：{PlayerHero.CurrentMana}");
-		}
-
-		// 通过统一战斗序列执行随从间战斗（自动处理伏击、冲击）
-		bool combatContinues = ResolveMinionCombat(attacker, defender);
-
-		// 记录攻击次数（即使被伏击击杀也算消耗）
-		_attackTracker.RecordAttack(attacker);
-
-		// 检查防御方死亡
-		if (defender.IsDead)
-		{
-			GD.Print($"[CombatManager]   ☠ {defender.CardName} 被击杀");
-			Board.RemoveMinion(defender);
-		}
-
-		// 检查攻击方死亡
-		if (attacker.IsDead)
-		{
-			GD.Print($"[CombatManager]   ☠ {attacker.CardName} 在攻击中阵亡");
-			Board.RemoveMinion(attacker);
-			_attackTracker.Remove(attacker);
-		}
-
-		// 全局死亡检查
-		CheckDeaths();
-		// 胜负判定由 Hero.OnDeath 事件驱动，不再手动调用
-		return true;
+		return ExecutePlayerMinionAttack(attacker, defender);
 	}
 
 	/// <summary>
 	/// 玩家随从攻击敌方英雄。
-	/// 需要敌方无嘲讽随从阻挡。原型阶段仅支持玩家攻击敌方英雄（敌方 AI 攻击在 Phase 4 实现）。
+	/// 通过三线目标规则与行动事务校验，突击可自动推进后攻击。
 	/// </summary>
 	/// <param name="attacker">攻击方（必须是玩家随从）</param>
 	/// <param name="hero">目标英雄</param>
 	/// <returns>攻击成功返回 true</returns>
 	public bool MinionAttackHero(Minion attacker, Hero hero)
 	{
-		if (IsDiscovering)
-		{
-			GD.PrintErr("[CombatManager] MinionAttackHero 失败 — 正在发现选牌阶段");
+		return EnemyUnits.Any(unit => ReferenceEquals(unit.Body, hero)) && ExecutePlayerMinionAttack(attacker, hero);
+	}
+
+	private bool ExecutePlayerMinionAttack(Minion attacker, IDamageTarget target)
+	{
+		if (attacker == null || target == null || !CanMinionAttackTarget(attacker, target))
 			return false;
-		}
-
-		// 验证：玩家回合
-		if (!State.IsPlayerTurn)
+		bool success = _playerActions.Attack(attacker, target, () =>
 		{
-			GD.PrintErr("[CombatManager] MinionAttackHero 失败 — 不是玩家回合");
-			return false;
-		}
+			if (target is Minion defender)
+				ResolveMinionCombat(attacker, defender);
+			else
+				AttackCombatResolver.Resolve(attacker, target, attacker.Attack,
+					() => RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
+		}, () => TriggerFirstAttackPassive(attacker, PlayerHero));
+		CheckDeaths();
+		NotifyCombatStateChanged();
+		return success;
+	}
 
-		// 验证：攻击方合法性
-		if (attacker == null)
-		{
-			GD.PrintErr("[CombatManager] 攻击验证失败 — 攻击者为 null");
-			return false;
-		}
-		if (!attacker.IsPlayerSide)
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 不是玩家随从");
-			return false;
-		}
-		if (attacker.IsDead)
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 已死亡");
-			return false;
-		}
-		if (!_attackTracker.CanAttack(attacker))
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 本回合无法攻击");
-			return false;
-		}
-		if (attacker.ActionCost > 0 && PlayerHero.CurrentMana < attacker.ActionCost)
-		{
-			GD.PrintErr($"[CombatManager] 攻击验证失败 — {attacker.CardName} 行动花费 {attacker.ActionCost}，当前法力不足（{PlayerHero.CurrentMana}）");
-			return false;
-		}
-
-
-		// RayanGe one-shot: first attack grants friendly hero 1 smokescreen
-		if (attacker.HasSmokeGrantOnFirstAttack && !attacker._firstAttackDone)
-		{
-			attacker._firstAttackDone = true;
-			PlayerHero.AddStatusEffect(new OdysseyCards.Card.StatusEffect(
-				OdysseyCards.Card.StatusEffect.SmokescreenId, 1,
-				OdysseyCards.Card.TickTiming.PlayerTurnEnd));
-		}
-		// 统一攻击目标合法性：英雄也参与速度比较，嘲讽仅在能拦截时生效。
-		if (!AttackTargetRules.CanAttackTarget(attacker, hero, Board.GetTaunts(ofEnemy: true)))
-		{
-			GD.PrintErr($"[CombatManager] MinionAttackHero 失败 — {attacker.CardName} 无法攻击敌方英雄（速度或嘲讽拦截）");
-			return false;
-		}
-
-		// 消耗行动花费法力
-		if (attacker.ActionCost > 0)
-		{
-			PlayerHero.SpendMana(attacker.ActionCost);
-			GD.Print($"[CombatManager]   {attacker.CardName} 行动花费 {attacker.ActionCost} 法力，剩余法力：{PlayerHero.CurrentMana}");
-		}
-
-		GD.Print($"[CombatManager] ⚔ {attacker.CardName} 攻击敌方英雄，造成 {attacker.Attack} 点伤害" +
-				  (attacker.HasImpact ? " [冲击]" : ""));
-
-		// 冲击：攻击时免疫反击伤害（抑制敌方英雄武器反击）
-		bool impactActive = attacker.HasImpact;
-		if (impactActive)
-			hero.SuppressWeaponCounter = true;
-
-		RequestDamageVfx(attacker, hero, DamageKind.Attack, CombatDamageVfxKind.Attack);
-		hero.TakeDamage(attacker.Attack, attacker);
-
-		if (impactActive)
-		{
-			hero.SuppressWeaponCounter = false;
-			attacker.HasImpact = false;
-			GD.Print($"[CombatManager]   🛡 冲击免疫了反击伤害，冲击已消耗");
-		}
-
-		// 记录攻击次数
-		_attackTracker.RecordAttack(attacker);
-
-		GD.Print($"[CombatManager]   敌方英雄剩余生命值：{hero.CurrentHealth}（护甲：{hero.CurrentArmor}）");
-
-		// 检查攻击方是否因敌方武器反击而死亡
-		if (attacker.IsDead)
-		{
-			GD.Print($"[CombatManager]   ☠ {attacker.CardName} 在攻击英雄时被反击击杀");
-			Board.RemoveMinion(attacker);
-			_attackTracker.Remove(attacker);
-		}
-
-		return true;
+	private static void TriggerFirstAttackPassive(Minion attacker, Hero owner)
+	{
+		if (!attacker.HasSmokeGrantOnFirstAttack || attacker._firstAttackDone)
+			return;
+		attacker._firstAttackDone = true;
+		owner.AddStatusEffect(new StatusEffect(StatusEffect.SmokescreenId, 1,
+			owner.IsPlayerSide ? TickTiming.PlayerTurnEnd : TickTiming.EnemyTurnEnd, StatusEffectPolarity.NonNegative));
 	}
 
 	// ===== 武器攻击 =====
@@ -1909,6 +1418,9 @@ _selectionSystem.BeginHandDiscardSelection,
 			minion.TickStatusEffects(TickTiming.PlayerTurnEnd);
 		foreach (var minion in Board.GetEnemyMinions())
 			minion.TickStatusEffects(TickTiming.PlayerTurnEnd);
+		CheckDeaths();
+		if (_victoryResolver.CheckVictoryOrDefeat())
+			return;
 
 		// 切换到敌方回合
 		State.EndPlayerTurn();
@@ -1918,6 +1430,8 @@ _selectionSystem.BeginHandDiscardSelection,
 		ExecuteEnemyTurn();
 
 		// 敌方回合结束，切换回玩家回合
+		if (State.IsGameOver)
+			return;
 		State.EndEnemyTurn();
 
 		// 开始玩家新回合
@@ -1927,28 +1441,51 @@ _selectionSystem.BeginHandDiscardSelection,
 		_victoryResolver.CheckVictoryOrDefeat();
 	}
 
-	private void TriggerPlayerTurnEndMinionEffects()
+	private void TriggerPlayerTurnEndMinionEffects(bool isPlayerSide = true)
 	{
-		foreach (var minion in Board.GetPlayerMinions().ToList())
+		foreach (var minion in Board.GetAllMinions().Where(m => m.IsPlayerSide == isPlayerSide).ToList())
 		{
 			if (minion.IsDead)
 				continue;
 
 			if (minion.Id == "minion_centurion")
-				TriggerCenturionTurnEndBlock();
+				TriggerCenturionTurnEndBlock(minion.OwnerHero ?? GetOwnerHero(isPlayerSide));
 
 			if (minion.Id == "minion_lianshu_transport")
 				HandleLianshuTransportTurnEnd(minion);
 		}
+		TriggerRoachCopies(isPlayerSide);
 	}
 
-	private void TriggerCenturionTurnEndBlock()
+	private void TriggerRoachCopies(bool isPlayerSide)
+	{
+		foreach (var minion in Board.GetAllMinions().Where(m => m.IsPlayerSide == isPlayerSide && !m.IsDead && m.Id == "minion_roach").ToList())
+		{
+			int slot = Board.GetEmptySlotIndex(isPlayerSide);
+			if (slot < 0)
+				break;
+			var clone = new Minion(minion.Data, isPlayerSide) { OwnerHero = minion.OwnerHero };
+			if (!isPlayerSide && clone.OwnerHero == null)
+				clone.IntentBrain = new MechanicalRoachBrain(clone);
+			Board.PlaceMinion(clone, slot);
+		}
+	}
+
+	/// <summary>指挥官随从由评分贪心控制器行动，不能再走意图脑造成二次行动。</summary>
+	private bool IsCommanderMinion(Minion minion)
+	{
+		var owner = minion.OwnerHero;
+		return owner != null && EnemyUnits.Any(unit =>
+			ReferenceEquals(unit.Body, owner) && unit.Controller is IDeckDrivenCommander);
+	}
+
+	private void TriggerCenturionTurnEndBlock(Hero owner)
 	{
 		const int turnEndBlock = 1;
 		const int heroMultiplier = 2;
-		foreach (var ally in Board.GetPlayerMinions())
+		foreach (var ally in Board.GetAllMinions().Where(m => !m.IsDead && m.IsPlayerSide == owner.IsPlayerSide))
 			ally.GainArmor(turnEndBlock);
-		PlayerHero.GainArmor(turnEndBlock * heroMultiplier);
+		owner.GainArmor(turnEndBlock * heroMultiplier);
 		GD.Print($"[CombatManager] 百机长回合结束：友方随从获得 {turnEndBlock} 点格挡，英雄获得 {turnEndBlock * heroMultiplier} 点格挡");
 	}
 
@@ -1961,7 +1498,7 @@ _selectionSystem.BeginHandDiscardSelection,
 			if (Board.RecallMinion(minion))
 			{
 				_attackTracker.Remove(minion);
-				PlayerHero.AddToDrawPileBottom(card);
+				(minion.OwnerHero ?? GetOwnerHero(minion.IsPlayerSide)).AddToDrawPileBottom(card);
 				GD.Print($"[CombatManager] 联树机器犬运输型回合结束：返回抽牌堆，剩余返回次数 {card.EndTurnDrawPileReturnsRemaining}");
 			}
 			return;
@@ -1970,19 +1507,20 @@ _selectionSystem.BeginHandDiscardSelection,
 		if (Board.RecallMinion(minion))
 		{
 			_attackTracker.Remove(minion);
-			PlayerHero.AddToDiscardPile(card);
+			(minion.OwnerHero ?? GetOwnerHero(minion.IsPlayerSide)).AddToDiscardPile(card);
 			GD.Print("[CombatManager] 联树机器犬运输型回合结束：返回次数耗尽，进入弃牌堆");
 		}
 	}
 
-	private void TriggerDirectDamageSpellMinionEffects(Card.Card spell)
+	private void TriggerDirectDamageSpellMinionEffects(Card.Card spell, Hero owner)
 	{
-		foreach (var minion in Board.GetPlayerMinions().ToList())
+		foreach (var minion in Board.GetAllMinions().Where(m => m.IsPlayerSide == owner.IsPlayerSide).ToList())
 		{
 			if (minion.Id != "minion_mingshan_walking_support" || minion.IsDead)
 				continue;
 
-			var target = SelectRandomEnemyTarget();
+			var targets = GetOpponentTargets(owner.IsPlayerSide);
+			var target = targets.Count == 0 ? null : targets[Random.Shared.Next(targets.Count)];
 			if (target == null)
 				return;
 
@@ -2016,43 +1554,7 @@ _selectionSystem.BeginHandDiscardSelection,
 	/// <returns>成功使用时返回 true</returns>
 	public bool TryUseHeroPower()
 	{
-		if (!State.IsPlayerTurn)
-		{
-			GD.Print("[CombatManager] TryUseHeroPower 失败 — 非玩家回合");
-			return false;
-		}
-
-		if (_heroPowerUsedThisTurn)
-		{
-			GD.Print("[CombatManager] TryUseHeroPower 失败 — 本回合已使用过英雄技能");
-			return false;
-		}
-
-		if (IsDiscovering)
-		{
-			GD.Print("[CombatManager] TryUseHeroPower 失败 — 正在发现选牌阶段");
-			return false;
-		}
-
-		var heroPower = PlayerHero.HeroPower;
-		if (heroPower == null)
-		{
-			GD.Print("[CombatManager] TryUseHeroPower 失败 — 没有英雄技能");
-			return false;
-		}
-
-		if (!heroPower.CanUse(PlayerHero))
-		{
-			GD.Print($"[CombatManager] TryUseHeroPower 失败 — 英雄技能无法使用（法力 {PlayerHero.CurrentMana}，需要 {heroPower.Cost}）");
-			return false;
-		}
-
-		heroPower.Execute(PlayerHero, this);
-		_heroPowerUsedThisTurn = true;
-
-		GD.Print($"[CombatManager] 英雄技能「{heroPower.Name}」使用成功");
-		NotifyCombatStateChanged();
-		return true;
+		return TryUseHeroPower(PlayerHero);
 	}
 
 	/// <summary>
@@ -2101,6 +1603,9 @@ _selectionSystem.BeginHandDiscardSelection,
 		// 接化发领域：重置本回合敌方英雄攻击追踪
 		_domainTriggerManager.OnEnemyTurnStart();
 		_chansuTriggeredThisEnemyTurn = false;
+		_enemyMinionsCanAttack.Clear();
+		foreach (var minion in Board.GetEnemyMinions())
+			_enemyMinionsCanAttack.Add(minion);
 
 		// 状态效果 — 敌方回合开始时（持续伤害先造成伤害，再减少层数）
 		TickTurnStartStatusEffects(TickTiming.EnemyTurnStart);
@@ -2111,14 +1616,6 @@ _selectionSystem.BeginHandDiscardSelection,
 			return;
 		}
 
-		// 0. 快照本回合开始时已存在的敌方随从——只有它们可以攻击
-		_enemyMinionsCanAttack.Clear();
-		foreach (var m in Board.GetEnemyMinions())
-		{
-			if (!m.IsDead)
-				_enemyMinionsCanAttack.Add(m);
-		}
-
 		// 1. 依次执行每个敌人的当前意图（攻击/防御/召唤等）——使用动态目标选择
 		foreach (var unit in EnemyUnits)
 		{
@@ -2126,13 +1623,19 @@ _selectionSystem.BeginHandDiscardSelection,
 			if (unit.Body.IsDead)
 				continue;
 
-			// 同步敌方攻击力到意图系统（考虑武器禁用/失能等状态）
-			unit.Brain.Attack = !unit.Body.IsIncapacitated && unit.Body.Weapon is { IsDisabled: false } ? unit.Body.Weapon.Attack : 0;
-			unit.Brain.ExecuteIntent(this, unit.Body);
-
-			// 2. 推进到下一意图——优先使用 MoveState 系统
-			unit.Brain.AdvanceMove();
-			GD.Print($"[CombatManager] {unit.Brain.Name} 下回合意图：{unit.Brain.GetCurrentIntent(this, unit.Body).Description}");
+			if (unit.Controller is IDeckDrivenCommander commander)
+			{
+				PrepareCommanderTurn(unit.Body);
+				commander.ExecuteTurn(this, unit);
+				GD.Print($"[CombatManager] {unit.Brain.Name} 指挥官回合结束（法力 {unit.Body.CurrentMana}/{unit.Body.MaxMana}，手牌 {unit.Body.Hand.Count}）");
+			}
+			else
+			{
+				// 同步敌方攻击力到意图系统（考虑武器禁用/失能等状态）
+				unit.Brain.Attack = !unit.Body.IsIncapacitated && unit.Body.Weapon is { IsDisabled: false } ? unit.Body.Weapon.Attack : 0;
+				unit.Controller.ExecuteTurn(this, unit);
+				GD.Print($"[CombatManager] {unit.Brain.Name} 下回合意图：{unit.Brain.GetCurrentIntent(this, unit.Body).Description}");
+			}
 
 			// 每次执行后检查死亡（攻击意图可能杀死敌人自身或玩家）
 			CheckDeaths();
@@ -2150,7 +1653,11 @@ _selectionSystem.BeginHandDiscardSelection,
 		CheckDeaths();
 
 		// 5. 胜负判定
-		_victoryResolver.CheckVictoryOrDefeat();
+		if (_victoryResolver.CheckVictoryOrDefeat())
+		{
+			_isEnemyTurnAnimating = false;
+			return;
+		}
 
 		// 6. 解冻——允许 UI 重新响应状态变更
 		_isEnemyTurnAnimating = false;
@@ -2167,6 +1674,7 @@ _selectionSystem.BeginHandDiscardSelection,
 			minion.TickStatusEffects(TickTiming.EnemyTurnEnd);
 
 		// 7.5 热力值自然增长 + 藏品敌方回合结束触发
+		TriggerPlayerTurnEndMinionEffects(isPlayerSide: false);
 		_heatSystem.OnEnemyTurnEnd();
 		_relicManager.TriggerEnemyTurnEnd(this);
 		_domainTriggerManager.OnEnemyTurnEnd();
@@ -2224,13 +1732,20 @@ _selectionSystem.BeginHandDiscardSelection,
 		// 回合开始时已存在的随从可以攻击，有闪击的新召唤随从也可以
 		var enemies = Board.GetEnemyMinions()
 			.Where(m => !m.IsDead && !m.IsIncapacitated && (_enemyMinionsCanAttack.Contains(m) || m.HasCharge))
+			.Where(m => !IsCommanderMinion(m))
 			.ToList();
 		if (enemies.Count == 0)
 			return;
 
 		foreach (var attacker in enemies)
 		{
-			if (attacker.IsDead)
+			if (State.IsGameOver)
+				break;
+			if (attacker.IsDead || attacker.IsIncapacitated)
+				continue;
+			// 近战召唤物优先争夺前线；先锋推进消耗整次行动，突击仍能开火。
+			if (attacker.UnitClass is UnitClass.Vanguard or UnitClass.Assault
+				&& Board.MoveMinionToFrontline(attacker) && attacker.UnitClass != UnitClass.Assault)
 				continue;
 
 			// 确保所有敌方随从有意图大脑（供 UI 意图显示使用）
@@ -2251,6 +1766,8 @@ _selectionSystem.BeginHandDiscardSelection,
 					attacker.IntentBrain.ExecuteIntent(this);
 				}
 				attacker.IntentBrain.AdvanceMove();
+				if (attacker.UnitClass == UnitClass.Assault && attacker.HasWindfury && !attacker.IsDead && !State.IsGameOver)
+					ExecuteEnemyMinionSmartAttack(attacker);
 				continue;
 			}
 
@@ -2328,40 +1845,23 @@ _selectionSystem.BeginHandDiscardSelection,
 		_selectionSystem.BeginCustomHandDiscardSelection(handOptions, count, count, mode, canCancel: false, onConfirmed);
 	}
 
-	private void BeginCopyHandFillSelection(Card.Card sourceSpell)
+	/// <summary>按英雄阵营分派强制弃牌：玩家走异步 UI，指挥官走同步 AI 决策。</summary>
+	internal void BeginForcedHandDiscardSelection(
+		Hero owner,
+		List<Card.Card> handOptions,
+		int count,
+		PendingSelectionMode mode,
+		Action<IReadOnlyList<Card.Card>> onConfirmed)
 	{
-		var handOptions = PlayerHero.Hand
-			.Where(card => !ReferenceEquals(card, sourceSpell))
-			.ToList();
-		if (handOptions.Count == 0)
+		if (owner.IsPlayerSide)
 		{
-			GD.Print("[CombatManager] 十万条吸血狗：没有可复制的其他手牌");
+			_selectionSystem.BeginCustomHandDiscardSelection(handOptions, count, count, mode, canCancel: false, onConfirmed);
 			return;
 		}
-
-		_selectionSystem.BeginCustomHandDiscardSelection(
-			handOptions,
-			1,
-			1,
-			PendingSelectionMode.CopyHandFill,
-			canCancel: false,
-			selectedCards => FillHandWithCopies(sourceSpell, selectedCards));
-	}
-
-	private void FillHandWithCopies(Card.Card sourceSpell, IReadOnlyList<Card.Card> selectedCards)
-	{
-		if (selectedCards.Count == 0)
-			return;
-
-		PlayerHero.DiscardCard(sourceSpell);
-		var selectedData = selectedCards[0].Data;
-		int added = 0;
-		while (PlayerHero.Hand.Count < _playerCore.MaxHandSize)
-		{
-			_playerCore.AddToHand(new Card.Card(selectedData));
-			added++;
-		}
-		GD.Print($"[CombatManager] 十万条吸血狗：用「{selectedData.GetLocalizedName()}」的复制填满手牌（加入 {added} 张）");
+		var kind = mode == PendingSelectionMode.RestructureDiscard
+			? CardDecisionKind.RestructureDiscard : CardDecisionKind.Discard;
+		ResolveDecisionProvider(owner).ChooseCards(
+			new CardDecisionRequest(owner, kind, handOptions, count, count), onConfirmed);
 	}
 
 	/// <summary>
@@ -2392,27 +1892,14 @@ _selectionSystem.BeginHandDiscardSelection,
 	/// </summary>
 	/// <param name="placedMinion">刚被部署的随从</param>
 	/// <param name="slotIndex">部署槽位</param>
-	private void OnMinionPlacedForCentipede(Minion placedMinion, int slotIndex)
+	private void OnMinionPlacedForCentipede(Minion placedMinion, BoardPosition position)
 	{
-		// 仅敌方部署时触发
-		if (placedMinion.IsPlayerSide)
-			return;
-
 		// 仅拦截费用 ≤2 的随从；这是卡牌专属阈值，不跟随全局低费分档。
 		if (placedMinion.Cost > 2)
 			return;
 
 		// 收集玩家方所有存活的机械蜈蚣-防空型（战斗前快照，防止迭代中修改集合）
-		var centipedes = new List<Minion>();
-		for (int i = 0; i < Board.MaxSlotsPerSide; i++)
-		{
-			if (Board.PlayerSlots[i] is Minion m
-				&& !m.IsDead
-				&& m.Id == "minion_centipede_aa")
-			{
-				centipedes.Add(m);
-			}
-		}
+		var centipedes = Board.GetAllMinions().Where(m => !m.IsDead && m.IsPlayerSide != placedMinion.IsPlayerSide && m.Id == "minion_centipede_aa").ToList();
 
 		if (centipedes.Count == 0)
 			return;
@@ -2432,12 +1919,7 @@ _selectionSystem.BeginHandDiscardSelection,
 		if (placedMinion.IsDead)
 			Board.RemoveMinion(placedMinion);
 
-		var deadPlayerMinions = new List<Minion>();
-		for (int i = 0; i < Board.MaxSlotsPerSide; i++)
-		{
-			if (Board.PlayerSlots[i] is Minion m && m.IsDead)
-				deadPlayerMinions.Add(m);
-		}
+		var deadPlayerMinions = Board.GetAllMinions().Where(m => m.IsDead).ToList();
 		foreach (var m in deadPlayerMinions)
 			Board.RemoveMinion(m);
 
@@ -2454,30 +1936,9 @@ _selectionSystem.BeginHandDiscardSelection,
 	/// <param name="card">要打出的卡牌</param>
 	/// <param name="target">目标实体（Minion 或 Hero）</param>
 	/// <returns>目标合法返回 true</returns>
-	private static bool ValidateTarget(OdysseyCards.Card.Card card, object target)
+	public bool ValidateTarget(OdysseyCards.Card.Card card, object target)
 	{
-		var require = card.Data.TargetFilter;
-		var exclude = card.Data.ExcludeFilter;
-
-		if (require == TargetTags.None && exclude == TargetTags.None)
-			return true;
-
-		// 已死亡的随从不可选为目标
-		if (target is Minion minion && minion.IsDead)
-			return false;
-
-		TargetTags entityTags = target switch
-		{
-			Hero hero => hero.GetTargetTags(),
-			Minion m => m.GetTargetTags(),
-			_ => TargetTags.None
-		};
-
-		// 如果目标类型无法识别（entityTags 为 None），仅当无过滤条件时才放行
-		if (entityTags == TargetTags.None)
-			return require == TargetTags.None && exclude == TargetTags.None;
-
-		return TargetTagsHelper.IsValidTarget(entityTags, require, exclude);
+		return ValidateTarget(CreateActorContext(PlayerHero, PlayerHero, card), card, target);
 	}
 
 	/// <summary>
@@ -2485,129 +1946,365 @@ _selectionSystem.BeginHandDiscardSelection,
 	/// 参考 STS2 的 Sly 机制：CardCmd 收集 Sly 卡牌 → AutoPlay(SlyDiscard)。
 	/// 返回 true 表示卡牌已处理（不进入弃牌堆），false 表示正常弃牌。
 	/// </summary>
+	/// <summary>
+	/// 奇巧关键词回调——卡牌被弃掉时自动打出。由牌堆所属指挥官决定阵营与资源。
+	/// </summary>
 	private bool HandleQiqiaoDiscard(OdysseyCards.Card.Card card)
+	{
+		return HandleQiqiaoDiscard(PlayerHero, card);
+	}
+
+	private bool HandleQiqiaoDiscard(Hero owner, OdysseyCards.Card.Card card)
 	{
 		if (!card.HasQiqiao)
 			return false;
 
-		GD.Print($"[CombatManager] ◆ 奇巧触发：自动打出「{card.GetLocalizedName()}」");
-
-		// 从手牌移除（自动打出消耗卡牌）
-		PlayerHero.RemoveFromHand(card);
-
+		GD.Print($"[CombatManager] ◆ 奇巧触发：{(owner.IsPlayerSide ? "玩家" : "敌方")} 自动打出「{card.GetLocalizedName()}」");
+		owner.RemoveFromHand(card);
 		switch (card.Type)
 		{
 			case CardType.Minion:
-				AutoSummonQiqiaoMinion(card);
+				AutoSummonQiqiaoMinion(owner, card);
 				break;
 			case CardType.Domain:
-				AutoPlayQiqiaoDomain(card);
+				AutoPlayQiqiaoDomain(owner, card);
 				break;
-			case CardType.Spell:
 			default:
-				AutoPlayQiqiaoSpell(card);
+				AutoPlayQiqiaoSpell(owner, card);
 				break;
 		}
-
-		return true; // 已通过 RemoveFromHand 消耗，不进入弃牌堆
+		return true;
 	}
 
-	/// <summary>
-	/// 奇巧自动召唤随从——放置到友方最左侧空余槽位。
-	/// 若无空余槽位则消失。
-	/// </summary>
-	private void AutoSummonQiqiaoMinion(OdysseyCards.Card.Card card)
+	private void AutoSummonQiqiaoMinion(Hero owner, OdysseyCards.Card.Card card)
 	{
-		if (!Board.CanPlaceMinion(isPlayerSide: true))
+		if (!Board.CanPlaceMinion(owner.IsPlayerSide))
 		{
-			GD.Print($"[CombatManager] 奇巧召唤失败——友方战场已满，「{card.CardName}」消失");
+			GD.Print($"[CombatManager] 奇巧召唤失败——{(owner.IsPlayerSide ? "玩家" : "敌方")}支援线已满，「{card.CardName}」消失");
 			return;
 		}
-
-		var minion = new Minion(card, isPlayerSide: true);
-		int slot = Board.GetEmptySlotIndex(isPlayerSide: true);
-		Board.PlaceMinion(minion, slot);
-		GD.Print($"[CombatManager] 奇巧召唤「{minion.CardName}」到槽位 {slot}");
+		var minion = new Minion(card, owner.IsPlayerSide) { OwnerHero = owner };
+		Board.PlaceMinion(minion, Board.GetEmptySlotIndex(owner.IsPlayerSide));
 	}
 
-	/// <summary>
-	/// 奇巧自动打出领域——展开领域效果（0费）。
-	/// </summary>
-	private void AutoPlayQiqiaoDomain(OdysseyCards.Card.Card card)
+	private void AutoPlayQiqiaoDomain(Hero owner, OdysseyCards.Card.Card card)
 	{
-		GD.Print($"[CombatManager] 奇巧展开领域「{card.CardName}」");
-		// 遍历效果数据执行
+		var actor = CreateActorContext(owner, owner, card);
+		string domainId = string.IsNullOrEmpty(card.Data.DomainId) ? card.Data.Id : card.Data.DomainId;
 		foreach (var effect in card.Data.Effects)
 		{
-			// Custom 效果走 Custom handler
-			if (effect.EffectType == CardEffectType.Custom)
-			{
-				_effectDispatcher.ExecuteEffect(effect, PlayerHero, PlayerHero);
-				continue;
-			}
-			_effectDispatcher.ExecuteEffect(effect, PlayerHero, PlayerHero);
+			_effectDispatcher.ExecuteEffect(effect, null, actor);
+			owner.AddDomain(domainId, effect);
 		}
+		_domainTriggerManager.OnDomainDeployed(owner, domainId);
+	}
+
+	private void AutoPlayQiqiaoSpell(Hero owner, OdysseyCards.Card.Card card)
+	{
+		var actor = CreateActorContext(owner, owner, card);
+		object? target = GetOpponentTargets(owner.IsPlayerSide).FirstOrDefault();
+		foreach (var effect in card.Data.Effects)
+			_effectDispatcher.ExecuteEffect(effect, target, actor);
+		CheckDeaths();
+	}
+
+	private void HandleExplainReturnToHand(Hero owner, OdysseyCards.Card.Card card)
+	{
+		owner.RemoveFromHand(card);
+		if (owner.Hand.Count >= owner.DeckState.MaxHandSize)
+		{
+			owner.DiscardCard(card);
+			return;
+		}
+		owner.DeckState.AddToHand(card);
+	}
+
+	// ===== M3 施法者相对核心 =====
+
+	internal Hero GetOwnerHero(bool isPlayerSide)
+	{
+		if (isPlayerSide)
+			return PlayerHero;
+		return EnemyUnits.FirstOrDefault(unit => !unit.Body.IsDead)?.Body ?? EnemyUnits[0].Body;
+	}
+
+	/// <summary>部署归属：玩家随从归玩家；只有主题卡组指挥官才把敌方随从纳入自身牌堆流转。</summary>
+	private Hero? ResolveDeploymentOwner(bool isPlayerSide)
+	{
+		if (isPlayerSide)
+			return PlayerHero;
+		return EnemyUnits.FirstOrDefault(unit => !unit.Body.IsDead && unit.Controller is IDeckDrivenCommander)?.Body;
+	}
+
+	internal List<Hero> GetOpponentHeroes(bool fromPlayerSide)
+	{
+		if (fromPlayerSide)
+			return EnemyUnits.Where(unit => !unit.Body.IsDead).Select(unit => unit.Body).ToList();
+		return PlayerHero.IsDead ? new List<Hero>() : new List<Hero> { PlayerHero };
+	}
+
+	internal List<IDamageTarget> GetOpponentTargets(bool fromPlayerSide)
+		=> GetOpponentHeroes(fromPlayerSide).Cast<IDamageTarget>()
+			.Concat(fromPlayerSide ? Board.GetEnemyMinions() : Board.GetPlayerMinions())
+			.ToList();
+
+	internal List<IDamageTarget> GetFriendlyTargets(bool fromPlayerSide)
+		=> (fromPlayerSide ? new List<Hero> { PlayerHero } : EnemyUnits.Where(u => !u.Body.IsDead).Select(u => u.Body).ToList())
+			.Cast<IDamageTarget>()
+			.Concat(fromPlayerSide ? Board.GetPlayerMinions() : Board.GetEnemyMinions())
+			.Where(target => target is not Hero hero || !hero.IsDead)
+			.ToList();
+
+	private IDecisionProvider ResolveDecisionProvider(Hero caster)
+	{
+		if (caster.IsPlayerSide)
+			return _selectionSystem;
+		var commander = EnemyUnits.FirstOrDefault(unit => ReferenceEquals(unit.Body, caster))?.Controller as IDeckDrivenCommander;
+		return commander?.DecisionProvider ?? new AiDecisionProvider();
+	}
+
+	internal EffectActorContext CreateActorContext(Hero caster, IDamageSource source, Card.Card? card = null, bool applyPreemptive = false)
+	{
+		var actor = new EffectActorContext(caster, source, card, ResolveDecisionProvider(caster));
+		if (applyPreemptive && card?.Type == CardType.Spell
+			&& card.Data?.HasMechanicTag(CardMechanicTag.DirectDamage) == true)
+			actor.SpellDamageMultiplier = _domainTriggerManager.ConsumePreemptiveStrikeMultiplier(caster);
+		return actor;
+	}
+
+	internal CardData? LoadCombatCard(string idOrPath)
+	{
+		if (string.IsNullOrWhiteSpace(idOrPath))
+			return null;
+		if (idOrPath.StartsWith("res://", StringComparison.Ordinal))
+			return GD.Load<CardData>(idOrPath);
+		return GameManager.Instance?.GetCardById(idOrPath);
+	}
+
+	private int GetPlayCost(EffectActorContext actor, Card.Card card)
+		=> actor.IsPlayerSide ? ApplyRelicCostModifiers(card) : card.GetEffectiveCost();
+
+	private bool IsActorTurn(EffectActorContext actor)
+		=> actor.IsPlayerSide ? State.IsPlayerTurn : State.IsEnemyTurn;
+
+	internal bool PlayMinion(EffectActorContext actor, Card.Card card, int slotIndex)
+	{
+		if (IsDiscovering || !IsActorTurn(actor) || card == null || card.Type != CardType.Minion)
+			return false;
+		if (!actor.OwnerCore.Hand.Contains(card) || card.HasUnplayable)
+			return false;
+		int cost = GetPlayCost(actor, card);
+		if (!actor.CasterHero.CanSpendMana(cost))
+			return false;
+		bool side = actor.IsPlayerSide;
+		if (slotIndex < 0 || slotIndex >= Board.SupportCapacity || Board.GetMinionAt(slotIndex, side) != null || !Board.CanPlaceMinion(side))
+			return false;
+		if (!actor.OwnerCore.TrySpendMana(cost))
+			return false;
+		if (side)
+			NotifyCardPlayed(card, cost);
+
+		var minion = new Minion(card, side) { OwnerHero = actor.CasterHero };
+		Board.PlaceMinion(minion, slotIndex);
+		if (minion.HasBattlecry)
+			foreach (var effect in minion.BattlecryEffects)
+				ResolveBattlecryEffect(effect, minion);
+		if (minion.HasBattlecry && minion.BattlecryEffects.Any(effect => effect.CustomEffectName == "CopyToAdjacentSlot"))
+			CopyMinionToAdjacentSlot(minion);
+		if (minion.HasCharge)
+			_attackTracker.AddCharged(minion);
+		actor.CasterHero.RemoveFromHand(card);
+		NotifyCombatStateChanged();
+		return true;
+	}
+
+	internal bool PlaySpell(EffectActorContext actor, Card.Card card, object? target)
+	{
+		if (IsDiscovering || !IsActorTurn(actor) || card == null || card.Type is not (CardType.Spell or CardType.Status))
+			return false;
+		if (!actor.OwnerCore.Hand.Contains(card) || card.HasUnplayable)
+			return false;
+		int cost = GetPlayCost(actor, card);
+		if (!actor.CasterHero.CanSpendMana(cost) || !ValidateTarget(actor, card, target))
+			return false;
+		if (!actor.OwnerCore.TrySpendMana(cost))
+			return false;
+		// 先发制人按施法者阵营消费：同一张直伤法术只放大其首个施法者当回合的第一张。
+		actor = CreateActorContext(actor.CasterHero, actor.ActualDamageSource, card, applyPreemptive: true);
+		if (actor.IsPlayerSide)
+			NotifyCardPlayed(card, cost);
+		ResolveSpellEffects(actor, card, target, 0);
+		return true;
+	}
+
+	private void ResolveSpellEffects(EffectActorContext actor, Card.Card card, object? target, int index)
+	{
+		if (index >= card.Data.Effects.Count)
+		{
+			FinishSpell(actor, card);
+			return;
+		}
+		_effectDispatcher.ExecuteEffect(card.Data.Effects[index], target, actor,
+			() => ResolveSpellEffects(actor, card, target, index + 1));
+	}
+
+	private void FinishSpell(EffectActorContext actor, Card.Card card)
+	{
+		var owner = actor.CasterHero;
+		if (card.HasRecycle)
+			owner.ReturnToDrawPile(card);
+		else if (card.Id == "status_explain")
+			HandleExplainReturnToHand(owner, card);
+		else
+			owner.DiscardCard(card);
+
+		if (card.Type == CardType.Spell && card.Data.HasMechanicTag(CardMechanicTag.DirectDamage))
+			TriggerDirectDamageSpellMinionEffects(card, owner);
+		CheckDeaths();
 		NotifyCombatStateChanged();
 	}
 
-	/// <summary>
-	/// 奇巧自动打出法术——执行法术效果（0费，目标为敌方英雄）。
-	/// </summary>
-	private void AutoPlayQiqiaoSpell(OdysseyCards.Card.Card card)
+	internal bool PlayDomain(EffectActorContext actor, Card.Card card)
 	{
-		GD.Print($"[CombatManager] 奇巧施放法术「{card.CardName}」");
-		// 默认目标：敌方英雄
-		var enemyUnit = GetDefaultEnemyTargetUnit();
-		Hero? target = enemyUnit?.Body;
-		if (target == null)
-		{
-			GD.Print($"[CombatManager] 奇巧法术无有效目标");
-			return;
-		}
+		if (IsDiscovering || !IsActorTurn(actor) || card == null || card.Type != CardType.Domain)
+			return false;
+		if (!actor.OwnerCore.Hand.Contains(card) || card.HasUnplayable)
+			return false;
+		int cost = GetPlayCost(actor, card);
+		if (!actor.CasterHero.CanSpendMana(cost) || !actor.OwnerCore.TrySpendMana(cost))
+			return false;
+		if (actor.IsPlayerSide)
+			NotifyCardPlayed(card, cost);
 
+		string domainId = string.IsNullOrEmpty(card.Data.DomainId) ? card.Data.Id : card.Data.DomainId;
 		foreach (var effect in card.Data.Effects)
 		{
-			if (effect.EffectType == CardEffectType.Custom)
-			{
-				target = DetermineTargetForEffect(effect, target);
-				_effectDispatcher.ExecuteEffect(effect, target, PlayerHero);
-				continue;
-			}
-			_effectDispatcher.ExecuteEffect(effect, target, PlayerHero);
+			_effectDispatcher.ExecuteEffect(effect, null, actor);
+			actor.CasterHero.AddDomain(domainId, effect);
 		}
+		_domainTriggerManager.OnDomainDeployed(actor.CasterHero, domainId);
+		actor.CasterHero.RemoveFromHand(card);
 		NotifyCombatStateChanged();
+		return true;
 	}
 
-	/// <summary>
-	/// 根据效果类型确定合适的目标。
-	/// </summary>
-	private Hero DetermineTargetForEffect(CardEffectData effect, Hero defaultTarget)
+	internal bool ValidateTarget(EffectActorContext actor, Card.Card card, object? target)
 	{
-		return effect.EffectType switch
-		{
-			CardEffectType.DealDamageToFriendlyHero => PlayerHero,
-			CardEffectType.Heal or CardEffectType.RestoreHealth => PlayerHero,
-			_ => defaultTarget
-		};
+		if (card.Data.FrontlineOnlySpell && (target is not IDamageTarget frontlineTarget
+			|| !AttackTargetRules.CanTargetFrontlineSpell(Board, actor.IsPlayerSide, frontlineTarget)))
+			return false;
+		var require = card.Data.TargetFilter;
+		var exclude = card.Data.ExcludeFilter;
+		if (require == TargetTags.None && exclude == TargetTags.None)
+			return true;
+		if (target is Minion { IsDead: true })
+			return false;
+		if (target is not IDamageTarget damageTarget)
+			return false;
+		return TargetTagsHelper.IsValidTarget(actor.GetRelativeTags(damageTarget), require, exclude);
 	}
 
-	/// <summary>
-	/// 「解释」打出后回到手牌。
-	/// </summary>
-	private void HandleExplainReturnToHand(OdysseyCards.Card.Card card)
+	// ===== 指挥官操作入口（AI 与 UI 共用同一规则层） =====
+
+	internal bool CanCommanderPlay(EffectActorContext actor, Card.Card card)
+		=> card != null && actor.OwnerCore.Hand.Contains(card) && !card.HasUnplayable
+			&& actor.CasterHero.CanSpendMana(GetPlayCost(actor, card));
+
+	internal bool CommanderMove(Hero owner, Minion minion, int slot = -1)
 	{
-		// 从手牌移除，再重新加入（实现"回到手牌"）
-		PlayerHero.RemoveFromHand(card);
-
-		// 直接加入手牌（绕过 RemoveFromHand 的限制）
-		if (PlayerHero.Hand.Count >= PlayerHero.DeckState.MaxHandSize)
-		{
-			GD.Print("[CombatManager] 手牌已满，「解释」被弃掉");
-			PlayerHero.DiscardCard(card);
-			return;
-		}
-
-		PlayerHero.DeckState.AddToHand(card);
-		GD.Print("[CombatManager] 「解释」回到手牌");
+		if (State.IsGameOver || IsDiscovering || !IsOwnerTurn(owner) || minion.IsDead)
+			return false;
+		var actions = new MinionActionService(Board, _attackTracker, owner);
+		if (!actions.Move(minion, slot))
+			return false;
+		NotifyCombatStateChanged();
+		return true;
 	}
+
+	internal bool CanCommanderMove(Hero owner, Minion minion, int slot = -1)
+	{
+		if (State.IsGameOver || IsDiscovering || !IsOwnerTurn(owner) || minion.IsDead)
+			return false;
+		return new MinionActionService(Board, _attackTracker, owner).CanMove(minion, slot);
+	}
+
+	private bool IsOwnerTurn(Hero owner) => owner.IsPlayerSide ? State.IsPlayerTurn : State.IsEnemyTurn;
+
+	internal List<IDamageTarget> GetCommanderWeaponTargets(Hero owner)
+		=> _weaponAttack.GetLegalTargets(owner);
+
+	internal bool CanCommanderAttack(Hero owner, Minion minion, IDamageTarget target)
+	{
+		if (State.IsGameOver || IsDiscovering || !IsOwnerTurn(owner) || minion.IsDead)
+			return false;
+		var actions = new MinionActionService(Board, _attackTracker, owner);
+		return actions.CanAttack(minion, target, out _);
+	}
+
+	internal List<IDamageTarget> GetCommanderAttackTargets(Hero owner, Minion minion)
+		=> GetOpponentTargets(owner.IsPlayerSide).Where(target => CanCommanderAttack(owner, minion, target)).ToList();
+
+	internal bool CommanderAttack(Hero owner, Minion attacker, IDamageTarget target)
+	{
+		if (!CanCommanderAttack(owner, attacker, target))
+			return false;
+		var actions = new MinionActionService(Board, _attackTracker, owner);
+		bool success = actions.Attack(attacker, target, () =>
+		{
+			if (target is Minion defender)
+				ResolveMinionCombat(attacker, defender);
+			else
+				AttackCombatResolver.Resolve(attacker, target, attacker.Attack,
+					() => RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
+		}, () => TriggerFirstAttackPassive(attacker, owner));
+		CheckDeaths();
+		NotifyCombatStateChanged();
+		return success;
+	}
+
+	internal bool CommanderWeaponAttack(Hero owner, IDamageTarget target)
+		=> _weaponAttack.Attack(owner, target);
+
+	internal bool CommanderWeaponActive(Hero owner, IDamageTarget? target)
+		=> _weaponAttack.UseWeaponActiveSkill(owner, target);
+
+	internal bool CommanderUseHeroPower(Hero owner)
+		=> TryUseHeroPower(owner);
+
+	private bool TryUseHeroPower(Hero owner)
+	{
+		if (State.IsGameOver || IsDiscovering)
+			return false;
+		if (owner.IsPlayerSide ? !State.IsPlayerTurn || _heroPowerUsedThisTurn : !State.IsEnemyTurn)
+			return false;
+		var power = owner.HeroPower;
+		if (power == null || !power.CanUse(owner))
+			return false;
+		power.Execute(owner, this);
+		if (owner.IsPlayerSide)
+			_heroPowerUsedThisTurn = true;
+		NotifyCombatStateChanged();
+		return true;
+	}
+
+	/// <summary>指挥官回合开始：与玩家对等的自然法力增长、抽牌、武器与技能冷却。</summary>
+	internal void PrepareCommanderTurn(Hero owner)
+	{
+		int growthCap = owner.ActiveDomains.ContainsKey("unlimited_potential")
+			? GameState.HardMaxManaCap : GameState.MaxManaCrystals;
+		owner.Core.StartTurn(growthCap);
+		owner.ResetWeaponAttacks();
+		owner.TickWeaponCooldown();
+		if (owner.HeroPower is IChargeCooldownSkill charged)
+			charged.TickChargeCooldown();
+		owner.DrawCards(1);
+		owner.ResetAmbush();
+		owner.ResetDamageTakenThisTurn();
+		foreach (var minion in Board.GetAllMinions().Where(m => !m.IsDead && m.IsPlayerSide == owner.IsPlayerSide))
+			_attackTracker.AddCharged(minion);
+	}
+
+	/// <summary>供 UI/QA 读取指挥官实时手牌与法力（不新增 UI 依赖）。</summary>
+	public IReadOnlyList<Card.Card> GetEnemyHand(int enemyIndex = 0)
+		=> EnemyUnits.Count > enemyIndex ? EnemyUnits[enemyIndex].Body.Hand : Array.Empty<Card.Card>();
 }

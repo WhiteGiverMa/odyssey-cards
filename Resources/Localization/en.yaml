@@ -908,3 +908,18 @@ domain_preemptive_strike:
 minion_rayan_ge:
   name: "Smoke Bro"
   description: "Charge. On first attack, give your hero 1 Smokescreen."
+
+enemy:
+  commander:
+    ayame:
+      name: "Rival Ayame"
+      title: "Guardian Sustain Commander"
+      passive: "Opens with Idol Twilight: friendly minions gain +1/+1 after being attacked."
+    rie:
+      name: "Rival Rie"
+      title: "Direct Damage Sniper Commander"
+      passive: "Opens with Infinite Fire: shuffles Strikes into her draw pile at each turn end."
+    sokou:
+      name: "Rival Sokou"
+      title: "Recycle Intel Commander"
+      passive: "Opens with Jiehuafa: if all enemy attacks on her hero or frontline are blocked, she gains Ukemi at turn end."

@@ -19,6 +19,7 @@ public class EnemyUnit : IIntentActor
 	/// 敌方 AI 大脑（意图模式、目标选择、意图执行）。
 	/// </summary>
 	public EnemyEncounter Brain { get; }
+	public IEnemyController Controller { get; }
 
 	Hero? IIntentActor.OwnerHero => Body;
 
@@ -33,6 +34,7 @@ public class EnemyUnit : IIntentActor
 	{
 		Body = body ?? throw new System.ArgumentNullException(nameof(body));
 		Brain = brain ?? throw new System.ArgumentNullException(nameof(brain));
+		Controller = brain is IDeckDrivenCommander commander ? commander : new IntentDrivenEnemy(this);
 	}
 
 	public EnemyIntent GetCurrentIntent(CombatManager combat)

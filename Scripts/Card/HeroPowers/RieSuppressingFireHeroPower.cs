@@ -1,3 +1,4 @@
+using System.Linq;
 using Godot;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
@@ -47,7 +48,7 @@ public class RieSuppressingFireHeroPower : IHeroPower, IChargeCooldownSkill
 
 			var drawnCard = drawn[0];
 			drawnCount++;
-			var enemy = combat.GetDefaultEnemyTargetUnit()?.Body;
+			var enemy = combat.GetOpponentHeroes(hero.IsPlayerSide).FirstOrDefault();
 			if (enemy != null)
 			{
 				combat.RequestDamageVfx(hero, enemy, DamageKind.Effect, CombatDamageVfxKind.Spell);

@@ -1,4 +1,5 @@
 using System;
+using OdysseyCards.Character;
 
 namespace OdysseyCards.Combat;
 
@@ -37,6 +38,8 @@ public enum CombatPhase
 /// </summary>
 public class GameState
 {
+	private readonly CommanderCore _playerCore;
+	public GameState(CommanderCore? playerCore = null) => _playerCore = playerCore ?? new CommanderCore();
 	// ===== 常量 =====
 
 	/// <summary>
@@ -70,12 +73,12 @@ public class GameState
 	/// <summary>
 	/// 玩家当前可用法力水晶。
 	/// </summary>
-	public int PlayerMana { get; private set; }
+	public int PlayerMana => _playerCore.CurrentMana;
 
 	/// <summary>
 	/// 玩家最大法力水晶。
 	/// </summary>
-	public int PlayerMaxMana { get; private set; }
+	public int PlayerMaxMana => _playerCore.MaxMana;
 
 	/// <summary>
 	/// 当前是否为玩家回合（含发现选牌阶段，玩家仍可交互）。
@@ -103,8 +106,7 @@ public class GameState
 	{
 		Phase = CombatPhase.Mulligan;
 		TurnCount = 0;
-		PlayerMaxMana = StartingMaxMana;
-		PlayerMana = StartingMaxMana;
+		_playerCore.SetMana(StartingMaxMana, StartingMaxMana);
 	}
 
 	/// <summary>
@@ -121,9 +123,7 @@ public class GameState
 		TurnCount++;
 
 		// 法力水晶增长：不超过自然增长上限和硬上限
-		if (PlayerMaxMana < naturalGrowthCap && PlayerMaxMana < HardMaxManaCap)
-			PlayerMaxMana++;
-		PlayerMana = PlayerMaxMana;
+		_playerCore.StartTurn(naturalGrowthCap);
 	}
 
 	/// <summary>
@@ -153,10 +153,7 @@ public class GameState
 	/// <returns>成功消耗返回 true；法力不足返回 false</returns>
 	public bool SpendPlayerMana(int amount)
 	{
-		if (PlayerMana < amount)
-			return false;
-		PlayerMana -= amount;
-		return true;
+		return _playerCore.TrySpendMana(amount);
 	}
 
 	/// <summary>
@@ -167,7 +164,7 @@ public class GameState
 	/// <param name="amount">增加的槽数</param>
 	public void GainManaSlot(int amount)
 	{
-		PlayerMaxMana = Math.Min(PlayerMaxMana + amount, HardMaxManaCap);
+		_playerCore.GainManaSlots(amount);
 		// 只增加上限，不增加当前法力（本回合无法使用新槽）
 	}
 

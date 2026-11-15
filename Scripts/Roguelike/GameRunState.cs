@@ -247,18 +247,23 @@ public class GameRunState
 	}
 
 	/// <summary>
-	/// 创建精英怪物遭遇列表——张郎 & 珊胡双敌人战。
+	/// 创建精英怪物遭遇——宿敌少女指挥官或原有张郎 &amp; 珊胡双敌人战。
+	/// 指挥官会自动排除玩家当前英雄。
 	/// </summary>
-	private static IReadOnlyList<EnemyEncounter> CreateEliteEncounters()
+	private IReadOnlyList<EnemyEncounter> CreateEliteEncounters()
 	{
+		if (Random.Shared.Next(2) == 0)
+			return new[] { EnemyRegistry.CreateRivalCommander(boss: false, GameManager.Instance?.SelectedHeroId) };
 		return new EnemyEncounter[] { new ZhangLang(), new ShanHu() };
 	}
 
 	/// <summary>
-	/// 创建 Boss 遭遇。
+	/// 创建 Boss 遭遇——宿敌少女指挥官（Boss 生命补正）或原有守护者。
 	/// </summary>
-	private static EnemyEncounter CreateBossEncounter()
+	private EnemyEncounter CreateBossEncounter()
 	{
+		if (Random.Shared.Next(2) == 0)
+			return EnemyRegistry.CreateRivalCommander(boss: true, GameManager.Instance?.SelectedHeroId);
 		return new GuardianBoss();
 	}
 

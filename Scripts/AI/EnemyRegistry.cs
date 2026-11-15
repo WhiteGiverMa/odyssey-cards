@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using OdysseyCards.Core;
 
 namespace OdysseyCards.AI;
 
@@ -20,7 +22,27 @@ public static class EnemyRegistry
 		["apprentice"] = () => new EnemyEncounter[] { new ApprenticeMechanic() },
 		["cosmonaut"] = () => new EnemyEncounter[] { new Cosmonaut() },
 		["goutansha"] = () => new EnemyEncounter[] { new Goutansha() },
+		["commander_ayame"] = () => new EnemyEncounter[] { DeckDrivenCommander.CreateElite("ayame") },
+		["commander_rie"] = () => new EnemyEncounter[] { DeckDrivenCommander.CreateElite("rie") },
+		["commander_sokou"] = () => new EnemyEncounter[] { DeckDrivenCommander.CreateElite("sokou") },
 	};
+
+	/// <summary>可选宿敌指挥官英雄 ID（排除玩家当前所选）。</summary>
+	public static IReadOnlyList<string> GetRivalCommanderIds(string? playerHeroId)
+	{
+		var excluded = HeroProfile.Get(playerHeroId).Id;
+		return DeckDrivenCommander.CommanderHeroIds
+			.Where(id => !string.Equals(id, excluded, StringComparison.OrdinalIgnoreCase))
+			.ToList();
+	}
+
+	/// <summary>为精英/Boss 房间创建一位宿敌指挥官，自动避开玩家自身英雄。</summary>
+	public static EnemyEncounter CreateRivalCommander(bool boss, string? playerHeroId, Random? rng = null)
+	{
+		var rivals = GetRivalCommanderIds(playerHeroId);
+		string heroId = rivals[(rng ?? Random.Shared).Next(rivals.Count)];
+		return boss ? DeckDrivenCommander.CreateBoss(heroId) : DeckDrivenCommander.CreateElite(heroId);
+	}
 
 	/// <summary>
 	/// 根据 ID 创建敌人遭遇列表。支持 "/fight zhangshan" 等命令。
