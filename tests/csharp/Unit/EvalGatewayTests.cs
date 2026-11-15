@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 using OdysseyCards.Infrastructure;
@@ -267,6 +268,98 @@ public class EvalGatewayTests
 		Assert.Contains("TestTarget", strResult);
 	}
 
+	// ===== EvalGateway 2.0 纯逻辑 =====
+
+	[Theory]
+	[InlineData(null, "[]")]
+	[InlineData("", "[]")]
+	[InlineData("   ", "[]")]
+	[InlineData("null", "[]")]
+	[InlineData(" [1,2] ", "[1,2]")]
+	public void NormalizeArgsJson_BlankOrNull_ReturnsEmptyArray(string? input, string expected)
+	{
+		Assert.Equal(expected, EvalGateway.NormalizeArgsJson(input));
+	}
+
+	[Fact]
+	public void FindBestMethod_NoArgs_PrefersExactParameterCount()
+	{
+		var method = EvalGateway.FindBestMethod(typeof(TestTarget), "Zero", System.Array.Empty<Variant>());
+
+		Assert.NotNull(method);
+		Assert.Empty(method!.GetParameters());
+	}
+
+	[Fact]
+	public void FindBestMethod_StaticMethod_IsSelectable()
+	{
+		var method = EvalGateway.FindBestMethod(typeof(TestTarget), "StaticName", System.Array.Empty<Variant>());
+
+		Assert.NotNull(method);
+		Assert.True(method!.IsStatic);
+	}
+
+	[Fact]
+	public void FindBestMethod_MissingName_ReturnsNull()
+	{
+		var method = EvalGateway.FindBestMethod(typeof(TestTarget), "DoesNotExist", System.Array.Empty<Variant>());
+
+		Assert.Null(method);
+	}
+
+	[Fact]
+	public void BuildEventHandler_ActionWithArgs_CapturesBoxedArguments()
+	{
+		object?[]? captured = null;
+		Delegate handler = EvalGateway.BuildEventHandler(typeof(Action<int, string>), values => captured = values);
+
+		((Action<int, string>)handler)(42, "hit");
+
+		Assert.NotNull(captured);
+		Assert.Equal(2, captured!.Length);
+		Assert.Equal(42, captured[0]);
+		Assert.Equal("hit", captured[1]);
+	}
+
+	[Fact]
+	public void BuildEventHandler_NonDelegate_Throws()
+	{
+		Assert.Throws<System.ArgumentException>(() =>
+			EvalGateway.BuildEventHandler(typeof(string), _ => { }));
+	}
+
+	[Fact]
+	public void ProbeBuffer_OverCapacity_DropsOldestAndCounts()
+	{
+		var buffer = new EvalGateway.ProbeBuffer<int>(2);
+
+		buffer.Add(1);
+		buffer.Add(2);
+		buffer.Add(3);
+
+		Assert.Equal(new[] { 2, 3 }, buffer.Snapshot());
+		Assert.Equal(1, buffer.Dropped);
+	}
+
+	[Fact]
+	public void ProbeBuffer_Clear_EmptiesButKeepsDroppedCount()
+	{
+		var buffer = new EvalGateway.ProbeBuffer<int>(1);
+		buffer.Add(1);
+		buffer.Add(2);
+
+		buffer.Clear();
+
+		Assert.Empty(buffer.Snapshot());
+		Assert.Equal(1, buffer.Dropped);
+	}
+
+	[Fact]
+	public void GetEffectiveMousePosition_NullCallerWithoutVirtualPointer_ReturnsZero()
+	{
+		Assert.Equal(Vector2.Zero, EvalGateway.GetEffectiveMousePosition(null));
+	}
+
 	// ===== 测试辅助类型 =====
 
 	private enum TestEnum
@@ -284,5 +377,9 @@ public class EvalGatewayTests
 #pragma warning disable CA1051 // 不要将可见实例字段更改为属性
 		public int _privateField = 99;
 #pragma warning restore CA1051
+
+		public int Zero() => 0;
+		public int One(int value) => value;
+		public static string StaticName() => "test";
 	}
 }

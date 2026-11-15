@@ -46,11 +46,8 @@ public sealed class InteractionFsm
 {
 	// ===== 常量 =====
 
-	/// <summary>桌面端拖拽阈值（像素），超过此距离视为拖拽而非点击。</summary>
-	private const float DragThresholdDesktop = 10f;
-
-	/// <summary>移动端拖拽阈值（像素），超过此距离视为拖拽而非点击。</summary>
-	private const float DragThresholdMobile = 20f;
+	/// <summary>桌面与移动端共用拖拽阈值，超过此距离视为拖拽而非点击。</summary>
+	public const float PointerDragThreshold = 10f;
 
 	/// <summary>出牌区域基准比例——视口高度乘以此值得到基准 Y 阈值。</summary>
 	private const float PlayZoneBaseRatio = 0.60f;
@@ -102,7 +99,7 @@ public sealed class InteractionFsm
 	/// <summary>
 	/// 根据当前输入模式获取对应的拖拽阈值。
 	/// </summary>
-	public float DragThreshold => _isMobile ? DragThresholdMobile : DragThresholdDesktop;
+	public float DragThreshold { get; } = PointerDragThreshold;
 
 	// ===== 私有字段 =====
 

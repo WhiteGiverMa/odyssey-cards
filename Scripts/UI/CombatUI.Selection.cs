@@ -47,6 +47,9 @@ public partial class CombatUI
 	/// </summary>
 	private int _activeEnemyTargetIndex = -1;
 
+	/// <summary>选择流程统一指针采样：虚拟指针激活时优先，确保自动化拖拽与桌面路径一致。</summary>
+	private Vector2 GetSelectionPointerPosition() => EvalGateway.GetEffectiveMousePosition(this);
+
 	// ===== 事件处理——棋盘点击 =====
 
 	/// <summary>
@@ -58,10 +61,11 @@ public partial class CombatUI
 	/// <item>普通模式 → 选中己方随从进入攻击目标模式</item>
 	/// </list>
 	/// </summary>
-	/// <param name="slotIndex">被点击的槽位索引（0-4）</param>
-	/// <param name="isPlayerSide">点击的槽位是否属于玩家方</param>
-	private void OnBoardSlotClicked(int slotIndex, bool isPlayerSide)
+	/// <param name="position">三线绝对位置，前线阵营由当前驻扎单位确定。</param>
+	private void OnBoardSlotClicked(BoardPosition position)
 	{
+		int slotIndex = position.SlotIndex;
+		bool isPlayerSide = _boardUI.IsPlayerPosition(position);
 		if (_combat.State.IsGameOver)
 			return;
 		if (_attackDragFsm.HasDragged && IsPointerTargetSelectionMode())
@@ -72,32 +76,32 @@ public partial class CombatUI
 		switch (_selectionMode)
 		{
 			case SelectionMode.PlacingMinion:
-				HandleMinionPlacement(slotIndex, isPlayerSide);
+				HandleMinionPlacement(position);
 				break;
 
 			case SelectionMode.TargetingSpell:
-				HandleSpellTarget(slotIndex, isPlayerSide);
+				HandleSpellTarget(position);
 				break;
 
 			case SelectionMode.SelectingAttackTarget:
-				HandleAttackTarget(slotIndex, isPlayerSide);
+				HandleAttackTarget(position);
 				break;
 
 			case SelectionMode.SelectingWeaponTarget:
-				HandleWeaponAttackTarget(slotIndex, isPlayerSide);
+				HandleWeaponAttackTarget(position);
 				break;
 
 			case SelectionMode.SelectingActiveSkillTarget:
-				HandleActiveSkillTarget(slotIndex, isPlayerSide);
+				HandleActiveSkillTarget(position);
 				break;
 
 			case SelectionMode.Normal:
-				HandleNormalSlotClick(slotIndex, isPlayerSide);
+				HandleNormalSlotClick(position);
 				break;
 
 			case SelectionMode.DevDamageTargeting:
 				GD.Print($"[CombatUI] OnBoardSlotClicked → DevDamageTargeting, slot={slotIndex}, side={(isPlayerSide ? "P" : "E")}");
-				HandleDevDamageSlot(slotIndex, isPlayerSide);
+				HandleDevDamageSlot(position);
 				break;
 		}
 	}
@@ -106,7 +110,7 @@ public partial class CombatUI
 	/// 槽位右键点击回调——在目标选择模式下取消当前选择（等效 ESC）。
 	/// 处理所有需要目标选择的模式：攻击、武器、法术、放置等。
 	/// </summary>
-	private void OnBoardSlotRightClicked(int slotIndex, bool isPlayerSide)
+	private void OnBoardSlotRightClicked(BoardPosition position)
 	{
 		if (_combat.State.IsGameOver)
 			return;
@@ -138,13 +142,13 @@ public partial class CombatUI
 	/// <summary>
 	/// 普通模式下点击己方有随从的槽位 → 将该随从设为攻击方，进入攻击目标选择模式。
 	/// </summary>
-	private void HandleNormalSlotClick(int slotIndex, bool isPlayerSide)
+	private void HandleNormalSlotClick(BoardPosition position)
 	{
-		if (!isPlayerSide)
+		if (!_boardUI.IsPlayerPosition(position))
 			return; // 普通模式下只响应己方槽位
 
-		var minion = _combat.Board.GetMinionAt(slotIndex, isPlayerSide: true);
-		if (minion == null || minion.IsDead)
+		var minion = _combat.Board.GetMinionAt(position);
+		if (minion == null || !_combat.CanMinionAct(minion))
 			return;
 
 		// 行动花费检查：法力不足时拒绝进入攻击模式
@@ -159,7 +163,7 @@ public partial class CombatUI
 		_selectionMode = SelectionMode.SelectingAttackTarget;
 
 		// 启动攻击拖拽追踪（委托给 InteractionFsm）
-		_attackDragFsm.PickUpCard(GetInputPosition(), isClickSelect: true, isMobile: MobileInputRouter.IsMobile);
+		_attackDragFsm.PickUpCard(GetSelectionPointerPosition(), isClickSelect: true, isMobile: MobileInputRouter.IsMobile);
 
 		GD.Print($"[CombatUI] 选中己方随从 {minion.CardName} 准备攻击");
 
@@ -167,7 +171,7 @@ public partial class CombatUI
 		HighlightValidAttackTargets();
 
 		// 启用键盘目标选择（仅敌方槽位）
-		_boardUI.EnableKeyboardTargeting(includePlayerSlots: false, includeEnemySlots: true);
+		_boardUI.EnableKeyboardTargeting(includePlayerSlots: true, includeEnemySlots: true);
 	}
 
 	// ----- 随从放置 -----
@@ -175,9 +179,10 @@ public partial class CombatUI
 	/// <summary>
 	/// 随从放置模式下点击玩家槽位 → 召唤随从。
 	/// </summary>
-	private void HandleMinionPlacement(int slotIndex, bool isPlayerSide)
+	private void HandleMinionPlacement(BoardPosition position)
 	{
-		if (!isPlayerSide)
+		int slotIndex = position.SlotIndex;
+		if (position.Row != BoardRow.PlayerSupport)
 		{
 			GD.Print("[CombatUI] 随从只能放置在己方槽位");
 			return;
@@ -215,7 +220,7 @@ public partial class CombatUI
 	/// <summary>
 	/// 法术目标选择模式下点击槽位 → 对槽位上的随从施放法术。
 	/// </summary>
-	private void HandleSpellTarget(int slotIndex, bool isPlayerSide)
+	private void HandleSpellTarget(BoardPosition position)
 	{
 		if (_selectedCard == null)
 		{
@@ -223,7 +228,7 @@ public partial class CombatUI
 			return;
 		}
 
-		var target = _combat.Board.GetMinionAt(slotIndex, isPlayerSide);
+		var target = _combat.Board.GetMinionAt(position);
 		if (target == null || target.IsDead)
 		{
 			GD.Print("[CombatUI] 法术目标无效（空槽位或已死亡）");
@@ -249,7 +254,7 @@ public partial class CombatUI
 	/// <summary>
 	/// 攻击目标模式下点击敌方槽位 → 发动随从攻击。
 	/// </summary>
-	private void HandleAttackTarget(int slotIndex, bool isPlayerSide)
+	private void HandleAttackTarget(BoardPosition position)
 	{
 		if (_selectedAttacker == null)
 		{
@@ -257,13 +262,19 @@ public partial class CombatUI
 			return;
 		}
 
-		if (isPlayerSide)
+		if (position.Row == BoardRow.Frontline && _combat.Board.GetMinionAt(position) == null)
+		{
+			_combat.MoveMinionToFrontline(_selectedAttacker, position.SlotIndex);
+			RefreshAll();
+			return;
+		}
+		if (_boardUI.IsPlayerPosition(position))
 		{
 			GD.Print("[CombatUI] 不能攻击己方随从");
 			return;
 		}
 
-		var defender = _combat.Board.GetMinionAt(slotIndex, isPlayerSide: false);
+		var defender = _combat.Board.GetMinionAt(position);
 		if (defender == null || defender.IsDead)
 		{
 			GD.Print("[CombatUI] 攻击目标无效");
@@ -271,15 +282,24 @@ public partial class CombatUI
 		}
 
 		GD.Print($"[CombatUI] {_selectedAttacker.CardName} 攻击 {defender.CardName}");
-		_combat.MinionAttack(_selectedAttacker, defender);
+		_pendingAssaultShotTarget = defender;
+		try
+		{
+			_combat.MinionAttack(_selectedAttacker, defender);
+		}
+		finally
+		{
+			_pendingAssaultShotTarget = null;
+		}
 		RefreshAll();
 	}
 
 	/// <summary>
 	/// 武器攻击目标模式下点击敌方槽位 → 发动武器攻击随从。
 	/// </summary>
-	private void HandleWeaponAttackTarget(int slotIndex, bool isPlayerSide)
+	private void HandleWeaponAttackTarget(BoardPosition position)
 	{
+		bool isPlayerSide = _boardUI.IsPlayerPosition(position);
 		bool canTargetFriendly = _combat.PlayerHero.Weapon?.PassiveSkill is IFriendlyMinionWeaponAttackPassive;
 		if (isPlayerSide && !canTargetFriendly)
 		{
@@ -287,7 +307,7 @@ public partial class CombatUI
 			return;
 		}
 
-		var target = _combat.Board.GetMinionAt(slotIndex, isPlayerSide);
+		var target = _combat.Board.GetMinionAt(position);
 		if (target == null || target.IsDead)
 		{
 			GD.Print("[CombatUI] 武器攻击目标无效");
@@ -306,8 +326,9 @@ public partial class CombatUI
 	/// 武器主动技能目标模式下点击敌方槽位 → 对目标随从释放主动技能。
 	/// 无视嘲讽限制。
 	/// </summary>
-	private void HandleActiveSkillTarget(int slotIndex, bool isPlayerSide)
+	private void HandleActiveSkillTarget(BoardPosition position)
 	{
+		bool isPlayerSide = _boardUI.IsPlayerPosition(position);
 		bool canTargetAnyUnit = _combat.PlayerHero.Weapon?.ActiveSkill is IAnyUnitWeaponActive;
 		if (isPlayerSide && !canTargetAnyUnit)
 		{
@@ -315,7 +336,7 @@ public partial class CombatUI
 			return;
 		}
 
-		var target = _combat.Board.GetMinionAt(slotIndex, isPlayerSide);
+		var target = _combat.Board.GetMinionAt(position);
 		if (target == null || target.IsDead)
 		{
 			GD.Print("[CombatUI] 主动技能目标无效");
@@ -393,7 +414,7 @@ public partial class CombatUI
 				cardUI.GlobalPosition = savedGlobalPos;
 			}
 
-			startedWithPointerDown = !isKeyboardSel && !MobileInputRouter.IsMobile && Input.IsMouseButtonPressed(MouseButton.Left);
+			startedWithPointerDown = !isKeyboardSel && Input.IsMouseButtonPressed(MouseButton.Left);
 
 			_dragCardUI = cardUI;
 
@@ -471,7 +492,7 @@ public partial class CombatUI
 				// 快速点击→保持选中→点击目标打出；按住拖动>阈值→拖拽松手打出。
 				_dragCardUI.BeginPointerFollowFrom(
 					_dragCardUI.LastClickGlobalPosition,
-					startAsClickFollow: true);
+					startAsClickFollow: !MobileInputRouter.IsMobile);
 			}
 			else
 			{
@@ -512,7 +533,7 @@ public partial class CombatUI
 				: _dragCardUI.LastClickGlobalPosition;
 			// 无目标卡牌始终以 click-select 模式开始，让用户看到播放区域后再决定打出/取消。
 			// 按住拖动超过阈值时 CardUI._Process 会自动升级为拖拽松手模式。
-			_dragCardUI.BeginPointerFollowFrom(anchor, startAsClickFollow: true);
+			_dragCardUI.BeginPointerFollowFrom(anchor, startAsClickFollow: !MobileInputRouter.IsMobile);
 
 			// 记录拖拽起始 Y（用于动态 PlayZone 阈值）
 			_playZoneDragStartY = anchor.Y;
@@ -581,15 +602,15 @@ public partial class CombatUI
 	{
 		GD.Print($"[CombatUI] 拖拽松手 — 坐标 ({screenPos.X:F0}, {screenPos.Y:F0})");
 		var hit = _boardUI.GetSlotAtPosition(screenPos);
-		if (hit != null && hit.Value.isPlayerSide)
+		if (hit != null && hit.Value.Row == BoardRow.PlayerSupport)
 		{
-			GD.Print($"[CombatUI] 命中己方槽位 {hit.Value.slotIndex}，执行放置");
-			HandleMinionPlacement(hit.Value.slotIndex, hit.Value.isPlayerSide);
+			GD.Print($"[CombatUI] 命中己方槽位 {hit.Value.SlotIndex}，执行放置");
+			HandleMinionPlacement(hit.Value);
 		}
 		else
 		{
 			GD.Print(hit != null
-				? $"[CombatUI] 命中敌方槽位 {hit.Value.slotIndex}，但随从只能放在己方 — 取消"
+				? $"[CombatUI] 命中非部署线 {hit.Value}，取消"
 				: "[CombatUI] 未命中任何槽位 — 取消");
 			OnCardDragCancelled();
 		}
@@ -621,10 +642,10 @@ public partial class CombatUI
 		var hit = _boardUI.GetSlotAtPosition(screenPos);
 		if (hit != null)
 		{
-			var target = _combat.Board.GetMinionAt(hit.Value.slotIndex, hit.Value.isPlayerSide);
+			var target = _combat.Board.GetMinionAt(hit.Value);
 			if (target != null && !target.IsDead)
 			{
-				HandleSpellTarget(hit.Value.slotIndex, hit.Value.isPlayerSide);
+				HandleSpellTarget(hit.Value);
 			}
 			else
 			{
@@ -675,14 +696,12 @@ public partial class CombatUI
 	{
 		GD.Print($"[CombatUI] HandleAttackDrop mode={_selectionMode}, pos=({screenPos.X:F0},{screenPos.Y:F0})");
 		var hit = _boardUI.GetSlotAtPosition(screenPos);
-		if (hit != null && (!hit.Value.isPlayerSide
-				|| (_selectionMode == SelectionMode.SelectingWeaponTarget
-					&& _combat.PlayerHero.Weapon?.PassiveSkill is IFriendlyMinionWeaponAttackPassive)))
+		if (hit != null)
 		{
 			if (_selectionMode == SelectionMode.SelectingWeaponTarget)
-				HandleWeaponAttackTarget(hit.Value.slotIndex, hit.Value.isPlayerSide);
+				HandleWeaponAttackTarget(hit.Value);
 			else
-				HandleAttackTarget(hit.Value.slotIndex, hit.Value.isPlayerSide);
+				HandleAttackTarget(hit.Value);
 		}
 		else
 		{
@@ -734,10 +753,10 @@ public partial class CombatUI
 		if (hit != null)
 		{
 			bool canTargetAnyUnit = _combat.PlayerHero.Weapon?.ActiveSkill is IAnyUnitWeaponActive;
-			var target = _combat.Board.GetMinionAt(hit.Value.slotIndex, hit.Value.isPlayerSide);
-			if (target != null && !target.IsDead && (!hit.Value.isPlayerSide || canTargetAnyUnit))
+			var target = _combat.Board.GetMinionAt(hit.Value);
+			if (target != null && !target.IsDead && (!target.IsPlayerSide || canTargetAnyUnit))
 			{
-				HandleActiveSkillTarget(hit.Value.slotIndex, hit.Value.isPlayerSide);
+				HandleActiveSkillTarget(hit.Value);
 				return;
 			}
 		}
@@ -830,7 +849,7 @@ public partial class CombatUI
 
 		// 收集玩家方空槽位
 		var validSlots = new List<int>();
-		for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+		for (int i = 0; i < Board.SupportCapacity; i++)
 		{
 			if (_combat.Board.GetMinionAt(i, isPlayerSide: true) == null)
 			{
@@ -866,42 +885,36 @@ public partial class CombatUI
 
 		// 高亮敌方随从 —— 仅高亮通过 TargetFilter 的目标
 		var enemyTargets = new List<int>();
-		for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+		foreach (var m in _combat.Board.GetEnemyMinions())
 		{
-			var m = _combat.Board.GetMinionAt(i, isPlayerSide: false);
-			if (m != null && !m.IsDead && TargetTagsHelper.IsValidTarget(m.GetTargetTags(), require, exclude))
+			if (_combat.ValidateTarget(card, m))
 			{
-				enemyTargets.Add(i);
+				enemyTargets.Add(m.BoardSlotIndex);
+				_boardUI.HighlightMinions(new[] { m });
 			}
 		}
-		_boardUI.HighlightSlots(enemyTargets, isPlayerSide: false, highlight: true);
 
 		// 高亮己方随从 —— 仅高亮通过 TargetFilter 的目标
 		var friendlyTargets = new List<int>();
-		for (int i = 0; i < Board.MaxSlotsPerSide; i++)
+		foreach (var m in _combat.Board.GetPlayerMinions())
 		{
-			var m = _combat.Board.GetMinionAt(i, isPlayerSide: true);
-			if (m != null && !m.IsDead && TargetTagsHelper.IsValidTarget(m.GetTargetTags(), require, exclude))
+			if (_combat.ValidateTarget(card, m))
 			{
-				friendlyTargets.Add(i);
+				friendlyTargets.Add(m.BoardSlotIndex);
+				_boardUI.HighlightMinions(new[] { m });
 			}
-		}
-		if (friendlyTargets.Count > 0)
-		{
-			_boardUI.HighlightSlots(friendlyTargets, isPlayerSide: true, highlight: true);
 		}
 
 		// 高亮默认存活敌方英雄作为法术目标
 		var enemyHero = GetDefaultEnemyHeroTarget();
-		bool enemyHeroValid = enemyHero != null && TargetTagsHelper.IsValidTarget(enemyHero.GetTargetTags(), require, exclude);
+		bool enemyHeroValid = enemyHero != null && _combat.ValidateTarget(card, enemyHero);
 		SetEnemyHeroSpellTargetsVisible(enemyHeroValid, Loc.T("ui.combat.cast_on_enemy_hero", "对敌方英雄施放"));
 		// 法术模式下覆盖层点击路由到法术目标选择
 		if (enemyHeroValid)
 			_enemyHeroCardAction = OnEnemyHeroSpellTargetViaOverlay;
 
 		// 高亮己方英雄作为法术目标
-		_playerHeroSpellButton.Visible = TargetTagsHelper.IsValidTarget(
-			_combat.PlayerHero.GetTargetTags(), require, exclude);
+		_playerHeroSpellButton.Visible = _combat.ValidateTarget(card, _combat.PlayerHero);
 
 		GD.Print($"[CombatUI] 法术目标模式——{_selectedCard.CardName}（require={require} exclude={exclude}，" +
 				  $"敌方随从 {enemyTargets.Count} + 己方随从 {friendlyTargets.Count} + " +
@@ -949,18 +962,16 @@ public partial class CombatUI
 		}
 
 		var legalTargets = GetLegalEnemyAttackTargets(_selectedAttacker);
-		var legalMinionIndices = legalTargets
-			.OfType<Minion>()
-			.Where(m => m.BoardSlotIndex >= 0)
-			.Select(m => m.BoardSlotIndex)
-			.ToList();
-		if (legalMinionIndices.Count > 0)
-			_boardUI.HighlightSlots(legalMinionIndices, isPlayerSide: false, highlight: true);
+		var legalMinions = legalTargets.OfType<Minion>().ToList();
+		_boardUI.HighlightMinions(legalMinions);
+		for (int slot = 0; slot < Board.FrontlineCapacity; slot++)
+			if (_combat.CanMoveMinionToFrontline(_selectedAttacker, slot))
+				_boardUI.HighlightPositions(new[] { new BoardPosition(BoardRow.Frontline, slot) });
 
 		var legalHeroes = legalTargets.OfType<Hero>().ToList();
 		SetEnemyHeroAttackTargetsVisible(legalHeroes.Count > 0, legalHeroes);
 
-		GD.Print($"[CombatUI] 攻击目标模式——合法随从 {legalMinionIndices.Count} 个，合法英雄 {legalHeroes.Count} 个");
+		GD.Print($"[CombatUI] 攻击目标模式——合法随从 {legalMinions.Count} 个，合法英雄 {legalHeroes.Count} 个");
 	}
 
 	private List<IDamageTarget> GetLegalEnemyAttackTargets(IDamageSource attacker)
@@ -973,10 +984,32 @@ public partial class CombatUI
 				candidates.Add(unit.Body);
 		}
 
-		return AttackTargetRules.GetLegalAttackTargets(
-			attacker,
-			candidates,
-			_combat.Board.GetTaunts(ofEnemy: true));
+		return attacker is Minion minion
+			? candidates.Where(target => _combat.CanMinionAttackTarget(minion, target)).ToList()
+			: AttackTargetRules.GetLegalAttackTargets(_combat.Board, attacker, candidates);
+	}
+
+	/// <summary>判断当前指针是否悬停在合法敌方随从/英雄上，用于箭头橙/灰反馈。</summary>
+	private bool IsLegalAttackHover(BoardPosition? hit, Vector2 pointer)
+	{
+		if (_selectedAttacker == null)
+			return false;
+		if (hit is BoardPosition position)
+		{
+			if (_boardUI.IsPlayerPosition(position))
+				return false;
+			var minion = _combat.Board.GetMinionAt(position);
+			return minion != null && !minion.IsDead && _combat.CanMinionAttackTarget(_selectedAttacker, minion);
+		}
+
+		foreach (var card in _enemyCards)
+		{
+			if (!GodotObject.IsInstanceValid(card) || !card.GetGlobalRect().HasPoint(pointer))
+				continue;
+			var hero = _combat.EnemyUnits[card.EnemyIndex].Body;
+			return !hero.IsDead && _combat.CanMinionAttackTarget(_selectedAttacker, hero);
+		}
+		return false;
 	}
 
 	private void OnEnemyHeroCardActionPressed(int enemyIndex)
@@ -1066,7 +1099,15 @@ public partial class CombatUI
 			return;
 
 		GD.Print($"[CombatUI] {_selectedAttacker.CardName} 攻击敌方英雄[{_activeEnemyTargetIndex}]");
-		_combat.MinionAttackHero(_selectedAttacker, target);
+		_pendingAssaultShotTarget = target;
+		try
+		{
+			_combat.MinionAttackHero(_selectedAttacker, target);
+		}
+		finally
+		{
+			_pendingAssaultShotTarget = null;
+		}
 		RefreshAll();
 	}
 
@@ -1197,7 +1238,7 @@ public partial class CombatUI
 		if (!_combat.PlayerHero.CanSpendMana(weapon.AttackCost))
 			return;
 
-		EnterWeaponAttackTargetMode(GetInputPosition());
+		EnterWeaponAttackTargetMode(GetSelectionPointerPosition());
 	}
 
 	private void EnterWeaponAttackTargetMode(Vector2 startPos)
@@ -1259,7 +1300,7 @@ public partial class CombatUI
 			return;
 		}
 
-		EnterWeaponActiveSkillTargetMode(GetInputPosition());
+		EnterWeaponActiveSkillTargetMode(GetSelectionPointerPosition());
 	}
 
 	private void EnterWeaponActiveSkillTargetMode(Vector2 startPos)
@@ -1294,33 +1335,11 @@ public partial class CombatUI
 		bool canTargetAnyUnit = _combat.PlayerHero.Weapon?.ActiveSkill is IAnyUnitWeaponActive;
 
 		// 高亮所有敌方随从（无视嘲讽）
-		var allEnemyIndices = new List<int>();
-		for (int i = 0; i < Board.MaxSlotsPerSide; i++)
-		{
-			var m = _combat.Board.GetMinionAt(i, isPlayerSide: false);
-			if (m != null && !m.IsDead)
-			{
-				allEnemyIndices.Add(i);
-			}
-		}
-
-		if (allEnemyIndices.Count > 0)
-		{
-			_boardUI.HighlightSlots(allEnemyIndices, isPlayerSide: false, highlight: true);
-		}
+		_boardUI.HighlightMinions(_combat.Board.GetEnemyMinions());
 
 		if (canTargetAnyUnit)
 		{
-			var allPlayerIndices = new List<int>();
-			for (int i = 0; i < Board.MaxSlotsPerSide; i++)
-			{
-				var m = _combat.Board.GetMinionAt(i, isPlayerSide: true);
-				if (m != null && !m.IsDead)
-					allPlayerIndices.Add(i);
-			}
-
-			if (allPlayerIndices.Count > 0)
-				_boardUI.HighlightSlots(allPlayerIndices, isPlayerSide: true, highlight: true);
+			_boardUI.HighlightMinions(_combat.Board.GetPlayerMinions());
 
 			_playerHeroSpellButton.Text = Loc.T("ui.combat.weapon_skill_on_player_hero", "✦ 对己方英雄释放");
 			_playerHeroSpellButton.Visible = true;
@@ -1370,26 +1389,12 @@ public partial class CombatUI
 		bool canTargetFriendly = _combat.PlayerHero.Weapon?.PassiveSkill is IFriendlyMinionWeaponAttackPassive;
 		if (canTargetFriendly)
 		{
-			var allPlayerIndices = new List<int>();
-			for (int i = 0; i < Board.MaxSlotsPerSide; i++)
-			{
-				var m = _combat.Board.GetMinionAt(i, isPlayerSide: true);
-				if (m != null && !m.IsDead)
-					allPlayerIndices.Add(i);
-			}
-
-			if (allPlayerIndices.Count > 0)
-				_boardUI.HighlightSlots(allPlayerIndices, isPlayerSide: true, highlight: true);
+			_boardUI.HighlightMinions(_combat.Board.GetPlayerMinions());
 		}
 
 		var legalTargets = GetLegalEnemyAttackTargets(_combat.PlayerHero);
-		var legalMinionIndices = legalTargets
-			.OfType<Minion>()
-			.Where(m => m.BoardSlotIndex >= 0)
-			.Select(m => m.BoardSlotIndex)
-			.ToList();
-		if (legalMinionIndices.Count > 0)
-			_boardUI.HighlightSlots(legalMinionIndices, isPlayerSide: false, highlight: true);
+		var legalMinions = legalTargets.OfType<Minion>().ToList();
+		_boardUI.HighlightMinions(legalMinions);
 
 		_enemyHeroCardAction = OnWeaponAttackHeroPressed;
 		foreach (var card in _enemyCards)
@@ -1397,7 +1402,7 @@ public partial class CombatUI
 		var legalHeroes = legalTargets.OfType<Hero>().ToList();
 		SetEnemyHeroAttackTargetsVisible(legalHeroes.Count > 0, legalHeroes);
 
-		GD.Print($"[CombatUI] 武器攻击模式——合法随从 {legalMinionIndices.Count} 个，合法英雄 {legalHeroes.Count} 个");
+		GD.Print($"[CombatUI] 武器攻击模式——合法随从 {legalMinions.Count} 个，合法英雄 {legalHeroes.Count} 个");
 	}
 
 	/// <summary>
@@ -1437,19 +1442,7 @@ public partial class CombatUI
 
 		// 高亮所有存活随从 + 显示敌方英雄按钮
 		_boardUI.ClearHighlights();
-		var playerSlots = new List<int>();
-		var enemySlots = new List<int>();
-		for (int i = 0; i < Board.MaxSlotsPerSide; i++)
-		{
-			var pm = _combat.Board.GetMinionAt(i, isPlayerSide: true);
-			if (pm != null && !pm.IsDead)
-				playerSlots.Add(i);
-			var em = _combat.Board.GetMinionAt(i, isPlayerSide: false);
-			if (em != null && !em.IsDead)
-				enemySlots.Add(i);
-		}
-		_boardUI.HighlightSlots(playerSlots, isPlayerSide: true, highlight: true);
-		_boardUI.HighlightSlots(enemySlots, isPlayerSide: false, highlight: true);
+		_boardUI.HighlightMinions(_combat.Board.GetAllMinions().Where(m => !m.IsDead));
 
 		// 敌方英雄按钮
 		SetEnemyHeroSpellTargetsVisible(true, $"⚡ 对敌方英雄造成 {damageAmount} 点伤害");
@@ -1479,17 +1472,16 @@ public partial class CombatUI
 	/// <summary>
 	/// 开发者模式：对指定位置的随从造成伤害。
 	/// </summary>
-	private void HandleDevDamageSlot(int slotIndex, bool isPlayerSide)
+	private void HandleDevDamageSlot(BoardPosition position)
 	{
-		GD.Print($"[CombatUI] DevDamageSlot: slot={slotIndex}, side={(isPlayerSide ? "player" : "enemy")}");
-		var target = _combat.Board.GetMinionAt(slotIndex, isPlayerSide);
+		var target = _combat.Board.GetMinionAt(position);
 		if (target == null || target.IsDead)
 		{
 			GD.Print($"[CombatUI] DevDamageSlot: no valid target");
 			return;
 		}
 
-		GD.Print($"[CombatUI] DevDamage: {_devDamageAmount} dmg → {(isPlayerSide ? "己方" : "敌方")} {target.CardName}");
+		GD.Print($"[CombatUI] DevDamage: {_devDamageAmount} dmg → {target.CardName}");
 		target.ApplyDevDamage(_devDamageAmount);
 		_combat.CheckDeaths();
 		_combat.CheckVictoryOrDefeat();
@@ -1505,10 +1497,9 @@ public partial class CombatUI
 	/// <returns>槽位屏幕中心坐标；随从无有效槽位时返回 Vector2.Zero</returns>
 	private Vector2 GetMinionScreenCenter(Minion minion)
 	{
-		int slotIndex = minion.BoardSlotIndex;
-		if (slotIndex < 0 || slotIndex >= Board.MaxSlotsPerSide)
+		if (minion.BoardRow == null)
 			return Vector2.Zero;
-		return _boardUI.GetSlotScreenCenter(slotIndex, minion.IsPlayerSide);
+		return _boardUI.GetSlotScreenCenter(new BoardPosition(minion.BoardRow.Value, minion.BoardSlotIndex));
 	}
 
 	/// <summary>
@@ -1570,9 +1561,7 @@ public partial class CombatUI
 	{
 		return target switch
 		{
-			Minion m => m.BoardSlotIndex >= 0
-				? _boardUI.GetSlotScreenCenter(m.BoardSlotIndex, m.IsPlayerSide)
-				: Vector2.Zero,
+			Minion m => GetMinionScreenCenter(m),
 			Hero h => h.IsPlayerSide ? GetPlayerHeroScreenCenter() :
 					  GetEnemyHeroIndex(h) is var idx && idx >= 0 ? GetEnemyIdentityCardCenter(idx) : Vector2.Zero,
 			_ => Vector2.Zero
@@ -1602,6 +1591,7 @@ public partial class CombatUI
 		_boardUI.DisableKeyboardTargeting();
 
 		_arrowRenderer?.RemoveArrow("attack_select");
+		_arrowRenderer?.RemoveArrow("move_select");
 		_arrowRenderer?.RemoveArrow(CardTargetArrowKey);
 		_selectionMode = SelectionMode.Normal;
 		_selectedCard = null;
@@ -1903,10 +1893,9 @@ public partial class CombatUI
 	/// </summary>
 	private void OnHandCardSelectionToggled(Card.Card card, bool toggled)
 	{
-		if (_selectedHandCards.Contains(card))
+		if (_selectedHandCards.Remove(card))
 		{
 			// 取消选中
-			_selectedHandCards.Remove(card);
 			var cardUI = _handUI.GetCardUIFor(card);
 			if (cardUI != null)
 			{

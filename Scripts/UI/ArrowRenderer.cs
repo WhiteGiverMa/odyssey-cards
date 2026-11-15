@@ -16,6 +16,9 @@ public partial class ArrowRenderer : Control
 	/// <summary>攻击选择箭头——亮橙色</summary>
 	public static readonly Color AttackSelectColor = new(1f, 0.55f, 0f);
 
+	/// <summary>推进选择箭头——青绿色</summary>
+	public static readonly Color MoveSelectColor = new(0.498f, 1f, 0.769f);
+
 	/// <summary>敌方攻击意图箭头——红色</summary>
 	public static readonly Color EnemyAttackColor = new(1f, 0.15f, 0.15f);
 

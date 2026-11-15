@@ -27,7 +27,7 @@ public partial class PlayerIdentityCard : Control
 
 	public PlayerIdentityCard()
 	{
-		CustomMinimumSize = new Vector2(160, 100);
+		CustomMinimumSize = new Vector2(160, 76);
 		SizeFlagsHorizontal = SizeFlags.ExpandFill;
 
 		// 面板 StyleBox（蓝色系，区分红色敌方卡）
@@ -60,6 +60,7 @@ public partial class PlayerIdentityCard : Control
 		};
 		_panel.AddChild(content);
 		content.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		content.AddThemeConstantOverride("separation", 1);
 
 		// Row 1: 底座光环 + Name + HeroSpellButton
 		var nameRow = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
@@ -77,7 +78,7 @@ public partial class PlayerIdentityCard : Control
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 		};
 		_nameLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.7f, 1f));
-		_nameLabel.AddThemeFontSizeOverride("font_size", 14);
+		_nameLabel.AddThemeFontSizeOverride("font_size", 13);
 		nameRow.AddChild(_nameLabel);
 
 		HeroSpellButton = new Button
@@ -95,7 +96,7 @@ public partial class PlayerIdentityCard : Control
 		// Row 2: HealthBar
 		HealthBar = new HealthBar
 		{
-			CustomMinimumSize = new Vector2(60, 20),
+			CustomMinimumSize = new Vector2(60, 16),
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 		};
 		content.AddChild(HealthBar);

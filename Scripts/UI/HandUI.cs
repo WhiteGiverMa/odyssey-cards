@@ -177,7 +177,7 @@ public partial class HandUI : Control
 		if (_cardSlots.Exists(s => s.CardUI?.IsDragging == true))
 			return;
 
-		var mousePos = GetGlobalMousePosition();
+		var mousePos = EvalGateway.GetEffectiveMousePosition(this);
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
 		float buffer = HOVER_BUFFER * s;
 		float exitBuffer = buffer * EXIT_HYSTERESIS;
@@ -449,6 +449,18 @@ public partial class HandUI : Control
 				return slot.CardUI;
 		}
 		return null;
+	}
+
+	/// <summary>返回当前手牌卡牌视图快照，供 EvalGateway ui_targets 坐标目录与自动化 QA 使用。</summary>
+	public IReadOnlyList<CardUI> GetHandCardViews()
+	{
+		var views = new List<CardUI>(_cardSlots.Count);
+		foreach (var slot in _cardSlots)
+		{
+			if (slot.CardUI != null && GodotObject.IsInstanceValid(slot.CardUI))
+				views.Add(slot.CardUI);
+		}
+		return views;
 	}
 
 	/// <summary>

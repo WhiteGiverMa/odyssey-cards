@@ -38,6 +38,9 @@ public partial class CombatUI : Control
 	/// </summary>
 	private HandUI _handUI = null!;
 
+	/// <summary>顶部敌方指挥官手牌栏；仅拥有手牌/法力/牌库体系的敌人显示。</summary>
+	private EnemyHandBar _enemyHandBar = null!;
+
 	/// <summary>
 	/// 手牌区域容器——高度由 COLLAPSED_VISIBLE * UIScaler.Scale 决定，
 	/// 确保各分辨率下卡牌折叠态露出比例一致。
@@ -240,6 +243,21 @@ public partial class CombatUI : Control
 	/// </summary>
 	private Player _player = null!;
 
+	/// <summary>当前绑定到顶部手牌栏的敌方英雄；null 表示普通意图战。</summary>
+	private Hero? _enemyHandSource;
+	private readonly List<Card.Card> _enemyHandCache = new();
+	private readonly List<bool> _enemyHandRevealCache = new();
+	private int _enemyHandManaCache = -1;
+	private int _enemyHandMaxManaCache = -1;
+	private int _enemyHandDeckCache = -1;
+
+	/// <summary>一步突击推进前所在支援槽，供“停稳/行进间射击”动画还原起点。</summary>
+	private readonly Dictionary<Minion, BoardPosition> _assaultOrigins = new();
+	/// <summary>正在播放的突击演出；同时用于抑制同一击的普通攻击弹道。</summary>
+	private readonly Dictionary<Minion, AssaultAdvanceVfx> _assaultVfx = new();
+	/// <summary>直接点选攻击时的真实目标，仅在一次攻击调用栈内有效。</summary>
+	private IDamageTarget? _pendingAssaultShotTarget;
+
 	/// <summary>
 	/// 发现选牌覆盖层（全屏半透明遮罩 + N 张卡牌选择）。
 	/// </summary>
@@ -313,9 +331,9 @@ public partial class CombatUI : Control
 	/// </summary>
 	private Vector2 GetInputPosition()
 	{
-		if (MobileInputRouter.IsMobile)
-			return MobileInputRouter.Instance.TouchPosition;
-		return GetGlobalMousePosition();
+		// 战斗表面采用 Godot 主指针（触控模拟鼠标），不能依赖未注册 zone 的 Router 状态。
+		// 自动化 QA 时 EvalGateway 的虚拟指针优先，确保合成拖拽与 _Process 轮询一致。
+		return EvalGateway.GetEffectiveMousePosition(this);
 	}
 
 	private bool IsPointerTargetSelectionMode()
@@ -568,13 +586,20 @@ public partial class CombatUI : Control
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
 		GD.Print($"[CombatUI] 分辨率变化 — 缩放因子 {s:F2}");
 
-		// 更新手牌区域高度以保持折叠态露出比例一致
+		// 五段式布局高度在分辨率变化时保持一致比例。
 		if (_handArea != null)
-		{
-			_handArea.CustomMinimumSize = new Vector2(0, HandUI.COLLAPSED_VISIBLE * s);
-		}
+			_handArea.CustomMinimumSize = new Vector2(0, 110f * s);
+		if (_enemyHandBar != null)
+			_enemyHandBar.CustomMinimumSize = new Vector2(0, 70f * s);
+		Control? enemyArea = GetNodeOrNull<Control>("CombatRoot/EnemyArea");
+		if (enemyArea != null)
+			enemyArea.CustomMinimumSize = new Vector2(0, 120f * s);
+		Control? playerArea = GetNodeOrNull<Control>("CombatRoot/PlayerArea");
+		if (playerArea != null)
+			playerArea.CustomMinimumSize = new Vector2(0, 80f * s);
 
 		RefreshAll();
+		SceneLifecycleGuard.CallDeferredSafe(this, nameof(RefreshIntentArrowsAfterLayout));
 	}
 
 	/// <summary>
@@ -588,19 +613,28 @@ public partial class CombatUI : Control
 		if (SceneLifecycleGuard.ShouldSkip(this))
 			return;
 
-		// --- 攻击选择箭头 ---
+		// --- 攻击选择箭头：空前线槽显示青绿推进箭头，合法敌方目标显示橙色攻击箭头 ---
 		if (IsPointerTargetSelectionMode())
 		{
 			if (_arrowRenderer != null)
 			{
 				var sourcePos = GetPointerTargetSourcePos();
 				var inputPos = GetInputPosition();
-				_arrowRenderer.AddArrow("attack_select", sourcePos, inputPos, ArrowRenderer.AttackSelectColor);
+				var hit = _boardUI.GetSlotAtPosition(inputPos);
+				bool moving = _selectedAttacker != null && hit is BoardPosition { Row: BoardRow.Frontline } position
+					&& _combat.CanMoveMinionToFrontline(_selectedAttacker, position.SlotIndex);
+				bool legalAttack = !moving && IsLegalAttackHover(hit, inputPos);
+				_arrowRenderer.RemoveArrow(moving ? "attack_select" : "move_select");
+				_arrowRenderer.AddArrow(moving ? "move_select" : "attack_select", sourcePos, inputPos,
+					moving ? ArrowRenderer.MoveSelectColor
+						: legalAttack ? ArrowRenderer.AttackSelectColor
+						: new Color(ArrowRenderer.AttackSelectColor, 0.42f));
 			}
 		}
-		else if (_arrowRenderer != null && _arrowRenderer.HasArrow("attack_select"))
+		else if (_arrowRenderer != null)
 		{
 			_arrowRenderer.RemoveArrow("attack_select");
+			_arrowRenderer.RemoveArrow("move_select");
 		}
 
 		// --- 卡牌目标选择箭头（随从放置 / 单目标法术） ---
@@ -628,6 +662,9 @@ public partial class CombatUI : Control
 
 		// --- 移动端取消按钮可见性 ---
 		UpdateMobileCancelButton();
+
+		// --- 敌方指挥官手牌栏：轻量变更检测，避免每帧重建手牌视觉 ---
+		UpdateEnemyHandBar();
 	}
 
 	// ===== 攻击拖拽 FSM 事件处理 =====
@@ -745,8 +782,9 @@ public partial class CombatUI : Control
 			SubscribeHeroDamageEvents(_combat.EnemyUnits[i].Body, i);
 		}
 
-		// 首次刷新
+		// 首次刷新；布局完成后再刷新一次意图箭头，避免用零尺寸身份卡计算错误起点。
 		RefreshAll();
+		SceneLifecycleGuard.CallDeferredSafe(this, nameof(RefreshIntentArrowsAfterLayout));
 
 		// 订阅语言变更事件
 		GameManager.Instance.LanguageChanged += OnLanguageChanged;
@@ -790,6 +828,7 @@ public partial class CombatUI : Control
 			HidePlayZonePanel();
 
 		_arrowRenderer?.RemoveArrow("attack_select");
+		_arrowRenderer?.RemoveArrow("move_select");
 		_arrowRenderer?.RemoveArrow(CardTargetArrowKey);
 		_attackDragFsm?.ForceReset();
 		_boardUI?.DisableKeyboardTargeting();
@@ -808,6 +847,8 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void OnLanguageChanged(string lang)
 	{
+		if (!IsInsideTree() || IsQueuedForDeletion())
+			return;
 		RefreshAll();
 	}
 
@@ -974,6 +1015,12 @@ public partial class CombatUI : Control
 		_board.OnMinionPreRemove += OnBoardMinionPreRemove;
 		_unsubscribeActions.Add(() => _board.OnMinionPreRemove -= OnBoardMinionPreRemove);
 
+		// 一步突击演出：OnMinionMoved 记录起点，OnAssaultAdvance 触发停稳/行进间射击。
+		_board.OnMinionMoved += OnBoardMinionMoved;
+		_unsubscribeActions.Add(() => _board.OnMinionMoved -= OnBoardMinionMoved);
+		_combat.OnAssaultAdvance += OnAssaultAdvance;
+		_unsubscribeActions.Add(() => _combat.OnAssaultAdvance -= OnAssaultAdvance);
+
 
 		// 战斗消息/表情 — 空闲超时或信息发送界面触发
 		_combat.OnCombatEmote += OnCombatEmote;
@@ -1096,6 +1143,7 @@ public partial class CombatUI : Control
 
 	private void OnCombatStateChangedRefresh()
 	{
+		_boardUI.RefreshBoard();
 		RefreshIntentDisplay();
 		RefreshIntentArrows();
 		UpdateSmartAttackButton();
@@ -1110,6 +1158,14 @@ public partial class CombatUI : Control
 		Vector2 to = ResolveTargetScreenPos(target);
 		if (from == Vector2.Zero || to == Vector2.Zero)
 			return;
+
+		// 突击演出已自带停稳/滑行炮口与曳光弹道；用真实伤害目标校正落点并跳过重复普通弹道。
+		if (visualSource is Minion assaultSource
+			&& _assaultVfx.TryGetValue(assaultSource, out AssaultAdvanceVfx? assaultVfx))
+		{
+			assaultVfx.SetShotTarget(to);
+			return;
+		}
 
 		AttackProjectileVfx.Play(from, to, vfxKind, _attackVfxLayer);
 	}
@@ -1185,7 +1241,7 @@ public partial class CombatUI : Control
 		FloatingEmote.Show(message.Text, pos, _damageNumberContainer, message.IsOfficialCollection);
 	}
 
-	private void OnBoardMinionPlacedSubscribeDamage(Minion minion, int slotIndex)
+	private void OnBoardMinionPlacedSubscribeDamage(Minion minion, BoardPosition position)
 	{
 		SubscribeMinionDamageEvents(minion);
 	}
@@ -1195,7 +1251,7 @@ public partial class CombatUI : Control
 	/// 玩家侧：动画由 HandleMinionPlacement 在 RefreshAll 前显式调用，使用拖拽卡牌位置作为起点。
 	/// 敌方侧：由 Board.OnMinionPlaced 事件触发，从屏幕上方飞入。
 	/// </summary>
-	private void OnBoardMinionPlacedForDeployAnimation(Minion minion, int slotIndex)
+	private void OnBoardMinionPlacedForDeployAnimation(Minion minion, BoardPosition position)
 	{
 		// 玩家侧：由 HandleMinionPlacement 显式调用，不在此处重复触发
 		if (minion.IsPlayerSide)
@@ -1205,7 +1261,7 @@ public partial class CombatUI : Control
 		var card = minion.ToRuntimeCard();
 		var viewportSize = GetViewportRect().Size;
 		Vector2 fromPos = new(viewportSize.X * 0.5f, -CardUI.DESIGN_HEIGHT * 0.5f);
-		PlayMinionDeployAnimation(card, fromPos, slotIndex, isPlayerSide: false);
+		PlayMinionDeployAnimation(card, fromPos, position.SlotIndex, isPlayerSide: false);
 	}
 
 	/// <summary>
@@ -1232,15 +1288,16 @@ public partial class CombatUI : Control
 
 	private void OnBoardMinionRemovedUnsubscribeDamage(Minion minion)
 	{
+		_assaultOrigins.Remove(minion);
 		UnsubscribeMinionDamageEvents(minion);
 	}
 
-	private void OnBoardMinionPreRemove(Minion minion, int slotIndex, bool isPlayerSide)
+	private void OnBoardMinionPreRemove(Minion minion, BoardPosition position)
 	{
-		if (!isPlayerSide)
+		if (!minion.IsPlayerSide)
 			return;
 
-		var cardPos = _boardUI.GetSlotScreenCenter(slotIndex, isPlayerSide);
+		var cardPos = _boardUI.GetSlotScreenCenter(position);
 		if (cardPos == Vector2.Zero)
 			return;
 
@@ -1251,6 +1308,71 @@ public partial class CombatUI : Control
 		bool toDrawPile = minion.HasRecycle;
 		Vector2 targetPos = toDrawPile ? GetDrawPileCenter() : GetDiscardPileCenter();
 		CardFlyVfx.PlayToDiscard(cardUI, targetPos, _cardFlyLayer);
+	}
+
+	/// <summary>记录突击单位推进前所在支援槽；非突击移动立即清除旧记录。</summary>
+	private void OnBoardMinionMoved(Minion minion, BoardPosition from, BoardPosition to)
+	{
+		if (minion.UnitClass == UnitClass.Assault
+			&& from.Row == BoardRow.PlayerSupport
+			&& to.Row == BoardRow.Frontline)
+		{
+			_assaultOrigins[minion] = from;
+		}
+		else
+		{
+			_assaultOrigins.Remove(minion);
+		}
+	}
+
+	/// <summary>
+	/// 一步突击演出：50% 停稳射击、50% 行进间射击。
+	/// 演出只读棋盘坐标，不改变战斗结算；所有 Tween 回调检查实例有效性。
+	/// </summary>
+	private void OnAssaultAdvance(Minion minion)
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this)
+			|| _deployVfxLayer == null || !GodotObject.IsInstanceValid(_deployVfxLayer))
+			return;
+		BoardPosition origin = _assaultOrigins.TryGetValue(minion, out BoardPosition recorded)
+			? recorded
+			: new BoardPosition(BoardRow.PlayerSupport, Mathf.Clamp(minion.BoardSlotIndex, 0, Board.SupportCapacity - 1));
+		_assaultOrigins.Remove(minion);
+		var originRect = _boardUI.GetSlotScreenRect(origin);
+		var targetRect = _boardUI.GetSlotScreenRect(new BoardPosition(BoardRow.Frontline, minion.BoardSlotIndex));
+		if (originRect.Size == Vector2.Zero || targetRect.Size == Vector2.Zero)
+			return;
+
+		Vector2 shotTarget = ResolveAssaultShotTarget(minion, targetRect);
+		bool fireOnMove = AssaultAdvanceVfx.IsFireOnMove(Random.Shared.Next(100));
+		AssaultAdvanceVfx? vfx = AssaultAdvanceVfx.Play(
+			minion.ToRuntimeCard(), originRect, targetRect, shotTarget, fireOnMove, _deployVfxLayer,
+			() =>
+			{
+				_assaultVfx.Remove(minion);
+				_assaultOrigins.Remove(minion);
+			});
+		if (vfx != null)
+			_assaultVfx[minion] = vfx;
+	}
+
+	/// <summary>优先使用玩家本次点选目标；智能攻击由后续伤害事件校正真实弹着点。</summary>
+	private Vector2 ResolveAssaultShotTarget(Minion attacker, Rect2 fallbackRect)
+	{
+		if (_pendingAssaultShotTarget is Minion minionTarget)
+			return GetMinionScreenCenter(minionTarget);
+		if (_pendingAssaultShotTarget is Hero heroTarget)
+		{
+			return heroTarget.IsPlayerSide ? GetPlayerHeroScreenCenter() : GetEnemyIdentityCardCenter(GetEnemyHeroIndex(heroTarget));
+		}
+
+		foreach (var target in GetLegalEnemyAttackTargets(attacker))
+		{
+			Vector2 position = ResolveTargetScreenPos(target);
+			if (position != Vector2.Zero)
+				return position;
+		}
+		return fallbackRect.Position + fallbackRect.Size * 0.5f + Vector2.Down * 70f;
 	}
 
 	/// <summary>

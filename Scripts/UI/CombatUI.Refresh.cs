@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Linq;
 using Godot;
 using OdysseyCards.AI;
@@ -39,6 +40,7 @@ public partial class CombatUI
 			UpdateStatusEffectDisplay();
 			UpdateHeatDisplay();
 			UpdateRelicDisplay();
+			UpdateEnemyHandBar();
 
 			// 手牌选择模式下，额外更新卡牌高亮状态
 			if (_isHandSelecting)
@@ -80,6 +82,7 @@ public partial class CombatUI
 		RefreshIntentArrows();
 		UpdateHeatDisplay();
 		UpdateRelicDisplay();
+		UpdateEnemyHandBar();
 
 		// 游戏结束时禁用操作
 		if (_combat.State.IsGameOver)
@@ -121,6 +124,14 @@ public partial class CombatUI
 			_enemyIntentLabel.Text = _combat.GetCurrentEnemyIntent().GetDisplayDescription(_combat);
 	}
 
+	/// <summary>布局稳定后的意图箭头补刷，避免首次初始化时身份卡/血条仍为零尺寸。</summary>
+	private void RefreshIntentArrowsAfterLayout()
+	{
+		if (!IsInsideTree() || IsQueuedForDeletion())
+			return;
+		RefreshIntentArrows();
+	}
+
 	/// <summary>
 	/// 刷新敌方意图箭头——根据当前战场状态绘制红色攻击箭头和蓝色增益箭头。
 	/// 每次 OnCombatStateChanged 触发时调用。
@@ -138,8 +149,9 @@ public partial class CombatUI
 		_arrowRenderer.ClearArrows();
 
 		// 清除敌方槽位的旧意图文字（由下面的循环重新设置）
-		for (int i = 0; i < Board.MaxSlotsPerSide; i++)
-			_boardUI.SetSlotIntentText(i, isPlayerSide: false, null);
+		foreach (var row in Enum.GetValues<BoardRow>())
+			for (int i = 0; i < Board.GetRowCapacity(row); i++)
+				_boardUI.SetSlotIntentText(new BoardPosition(row, i), null);
 
 		for (int i = 0; i < _combat.EnemyUnits.Count; i++)
 		{
@@ -167,8 +179,8 @@ public partial class CombatUI
 					}
 					else
 					{
-						// 未能解析目标，默认指向玩家英雄
-						targetPos = GetPlayerHeroScreenCenter();
+						// 无合法普攻目标（烟幕/射程）时不画穿线误导箭头。
+						targetPos = Vector2.Zero;
 					}
 
 					if (targetPos != Vector2.Zero)
@@ -185,9 +197,8 @@ public partial class CombatUI
 				{
 					// 增益意图：指向敌方战场上的首个友方随从
 					Vector2? buffTarget = null;
-					for (int slot = 0; slot < Board.MaxSlotsPerSide; slot++)
+					foreach (var friendly in _combat.Board.GetEnemyMinions())
 					{
-						var friendly = _combat.Board.GetMinionAt(slot, isPlayerSide: false);
 						if (friendly != null && !friendly.IsDead)
 						{
 							buffTarget = GetMinionScreenCenter(friendly);
@@ -216,7 +227,7 @@ public partial class CombatUI
 			if (slotIndex < 0)
 				continue;
 
-			Vector2 sourcePos = _boardUI.GetSlotScreenCenter(slotIndex, isPlayerSide: false);
+			Vector2 sourcePos = GetMinionScreenCenter(minion);
 
 			// 获取意图：优先使用 MoveState（新系统），否则回退 EnemyIntent（旧系统）
 			EnemyIntent intent;
@@ -232,14 +243,9 @@ public partial class CombatUI
 			}
 			else
 			{
-				var playerTaunts = _combat.Board.GetTaunts(ofEnemy: false);
-				IDamageTarget? target;
-				if (playerTaunts.Count > 0)
-					target = playerTaunts[0];
-				else
-					target = _combat.PlayerHero;
+				IDamageTarget? target = _combat.SelectSmartEnemyAttackTarget(minion, minion.Attack);
 
-				int dmg = DamageResolver.ResolvePreviewDamage(minion.Attack, minion, target);
+				int dmg = target == null ? 0 : DamageResolver.ResolvePreviewDamage(minion.Attack, minion, target);
 				intent = new EnemyIntent(AIIntents.IntentType.Attack, dmg, Loc.T("intent.attack_format", "对{target}造成 {damage} 点伤害").Replace("{target}", "英雄").Replace("{damage}", dmg.ToString()));
 				intent.TargetSelector = _ => target;
 			}
@@ -250,7 +256,8 @@ public partial class CombatUI
 			{
 				var target = intent.TargetSelector?.Invoke(_combat);
 				Vector2 targetPos = ResolveTargetScreenPos(target);
-				_arrowRenderer.AddArrow(key, sourcePos, targetPos, ArrowRenderer.EnemyAttackColor);
+				if (targetPos != Vector2.Zero)
+					_arrowRenderer.AddArrow(key, sourcePos, targetPos, ArrowRenderer.EnemyAttackColor);
 			}
 			else if (intent.Type == AIIntents.IntentType.Buff)
 			{
@@ -258,14 +265,14 @@ public partial class CombatUI
 				var friendlies = _combat.Board.GetEnemyMinions()
 					.Where(m => !m.IsDead && m != minion).ToList();
 				Vector2 targetPos = friendlies.Count > 0
-					? _boardUI.GetSlotScreenCenter(friendlies[0].BoardSlotIndex, isPlayerSide: false)
+					? GetMinionScreenCenter(friendlies[0])
 					: sourcePos;
 				_arrowRenderer.AddArrow(key, sourcePos, targetPos, ArrowRenderer.BuffColor);
 			}
 
 			// 设置槽位意图文字
 			string desc = intent.GetDisplayDescription(_combat);
-			_boardUI.SetSlotIntentText(slotIndex, isPlayerSide: false, desc);
+			_boardUI.SetSlotIntentText(new BoardPosition(minion.BoardRow!.Value, slotIndex), desc);
 		}
 	}
 
@@ -289,11 +296,7 @@ public partial class CombatUI
 					atk.GetTotalDamage(combat),
 					primary.GetIntentDescription(combat))
 				{
-					TargetSelector = _ =>
-					{
-						var taunts = combat.Board.GetTaunts(ofEnemy: false);
-						return taunts.Count > 0 ? taunts[0] : combat.PlayerHero;
-					}
+					TargetSelector = _ => combat.SelectSmartEnemyAttackTarget(minion, minion.Attack)
 				},
 			AIIntents.AttackIntent atk when primary.Type == AIIntents.IntentType.SpellCast
 				=> new EnemyIntent(AIIntents.IntentType.SpellCast,
@@ -595,6 +598,77 @@ public partial class CombatUI
 		}
 
 		_heroPowerButton.Text = text;
+	}
+
+	/// <summary>
+	/// 敌方指挥官手牌栏同步：仅当存活敌方 Body 启用指挥官牌组时显示 70px 顶栏。
+	/// 普通意图小怪战隐藏整个栏位，让纵向空间完整让给三线棋盘。
+	/// </summary>
+	private void UpdateEnemyHandBar()
+	{
+		if (_enemyHandBar == null || _combat == null)
+			return;
+
+		Hero? source = null;
+		foreach (var unit in _combat.EnemyUnits)
+		{
+			if (unit.Body.IsDead || !HasCommanderHand(unit.Body))
+				continue;
+			source = unit.Body;
+			break;
+		}
+
+		if (source == null)
+		{
+			if (_enemyHandBar.Visible)
+				_enemyHandBar.Visible = false;
+			_enemyHandSource = null;
+			_enemyHandCache.Clear();
+			_enemyHandRevealCache.Clear();
+			return;
+		}
+
+		bool changed = !ReferenceEquals(source, _enemyHandSource)
+			|| source.CurrentMana != _enemyHandManaCache
+			|| source.MaxMana != _enemyHandMaxManaCache
+			|| source.DeckState.DrawPile.Count != _enemyHandDeckCache
+			|| source.Hand.Count != _enemyHandCache.Count;
+		if (!changed)
+		{
+			for (int i = 0; i < source.Hand.Count; i++)
+			{
+				if (!ReferenceEquals(source.Hand[i], _enemyHandCache[i])
+					|| source.Hand[i].IsRevealedByIntel != _enemyHandRevealCache[i])
+				{
+					changed = true;
+					break;
+				}
+			}
+		}
+
+		if (!_enemyHandBar.Visible)
+			_enemyHandBar.Visible = true;
+		if (!changed)
+			return;
+
+		_enemyHandSource = source;
+		_enemyHandManaCache = source.CurrentMana;
+		_enemyHandMaxManaCache = source.MaxMana;
+		_enemyHandDeckCache = source.DeckState.DrawPile.Count;
+		_enemyHandCache.Clear();
+		_enemyHandRevealCache.Clear();
+		foreach (var card in source.Hand)
+		{
+			_enemyHandCache.Add(card);
+			_enemyHandRevealCache.Add(card.IsRevealedByIntel);
+		}
+		_enemyHandBar.SetHand(source.Hand, card => card.IsRevealedByIntel);
+		_enemyHandBar.SetResources(source.CurrentMana, source.MaxMana, source.DeckState.DrawPile.Count);
+	}
+
+	private static bool HasCommanderHand(Hero body)
+	{
+		return body.MaxMana > 0 || body.Hand.Count > 0 || body.DeckState.DrawPile.Count > 0;
 	}
 
 	/// <summary>

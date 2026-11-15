@@ -45,6 +45,7 @@ public partial class CombatUI
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsVertical = SizeFlags.ExpandFill,
 		};
+		root.AddThemeConstantOverride("separation", 4);
 
 		// 移动端安全区域边距（补偿刘海屏和手势导航栏）
 		if (MobileInputRouter.IsMobile)
@@ -57,19 +58,23 @@ public partial class CombatUI
 
 		AddChild(root);
 
-		// 敌方区域（顶部）
+		// 第一段：敌方指挥官手牌栏（70px，普通意图战自动隐藏）
+		var enemyHandBar = CreateEnemyHandBar();
+		root.AddChild(enemyHandBar);
+
+		// 第二段：敌方英雄区（约 120px）
 		var enemyArea = CreateEnemyArea();
 		root.AddChild(enemyArea);
 
-		// 棋盘区域（中央）
+		// 第三段：三线棋盘（弹性剩余空间）
 		var boardArea = CreateBoardArea();
 		root.AddChild(boardArea);
 
-		// 玩家区域（底部偏上）
+		// 第四段：玩家英雄区（约 80px）
 		var playerArea = CreatePlayerArea();
 		root.AddChild(playerArea);
 
-		// 手牌区域（最底部）
+		// 第五段：手牌区（约 110px）
 		var handArea = CreateHandArea();
 		root.AddChild(handArea);
 
@@ -99,18 +104,33 @@ public partial class CombatUI
 		_dragLayer.AddChild(_arrowRenderer);
 	}
 
+	/// <summary>创建顶部敌方手牌栏；初始隐藏，由 Refresh 根据敌方牌组能力决定显隐。</summary>
+	private EnemyHandBar CreateEnemyHandBar()
+	{
+		float scale = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+		_enemyHandBar = new EnemyHandBar
+		{
+			Name = "EnemyHandBar",
+			Visible = false,
+			CustomMinimumSize = new Vector2(0, 70f * scale),
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+		};
+		return _enemyHandBar;
+	}
+
 	/// <summary>
 	/// 创建敌方区域——敌方生命值条、护甲和英雄标签。
 	/// 敌人使用尖塔式意图系统，不依赖法力水晶。
 	/// </summary>
 	private HBoxContainer CreateEnemyArea()
 	{
+		float scale = UIScaler.Instance?.GetScaleFactor() ?? 1f;
 		var container = new HBoxContainer
 		{
 			Name = "EnemyArea",
 			Alignment = BoxContainer.AlignmentMode.Center,
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-			CustomMinimumSize = new Vector2(0, 170),
+			CustomMinimumSize = new Vector2(0, 120f * scale),
 		};
 
 		// 暂停按钮（右上角）
@@ -158,7 +178,7 @@ public partial class CombatUI
 
 		_boardUI = new BoardUI
 		{
-			CustomMinimumSize = new Vector2(560, 300),
+			CustomMinimumSize = new Vector2(600, 500),
 			SizeFlagsVertical = SizeFlags.Expand,
 		};
 		container.AddChild(_boardUI);
@@ -169,14 +189,15 @@ public partial class CombatUI
 	/// <summary>
 	/// 创建玩家区域——生命值条（左侧）、法力值（中央）、回合结束按钮（右侧）。
 	/// </summary>
-	private HBoxContainer CreatePlayerArea()
+	private static HBoxContainer CreatePlayerArea()
 	{
+		float scale = UIScaler.Instance?.GetScaleFactor() ?? 1f;
 		var container = new HBoxContainer
 		{
 			Name = "PlayerArea",
 			Alignment = BoxContainer.AlignmentMode.Center,
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-			CustomMinimumSize = new Vector2(0, 70),
+			CustomMinimumSize = new Vector2(0, 80f * scale),
 		};
 
 		// 生命值区域占位（垂直堆叠生命条 + 护甲标签）
@@ -241,7 +262,8 @@ public partial class CombatUI
 	private Control CreateHandArea()
 	{
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
-		float handHeight = HandUI.COLLAPSED_VISIBLE * s;
+		// 110 设计像素：完整容纳折叠手牌 + 悬停上浮，同时不侵占三线棋盘。
+		float handHeight = 110f * s;
 
 		_handArea = new Control
 		{
@@ -529,7 +551,7 @@ public partial class CombatUI
 	/// 创建玩家英雄交互面板——已被 CreatePlayerIdentityCard 替代。
 	/// 保留空壳以避免删除调用点带来的连锁修改。
 	/// </summary>
-	private void CreatePlayerHeroPanel()
+	private static void CreatePlayerHeroPanel()
 	{
 		// 不再单独创建面板；玩家身份卡已包含英雄标签和施法按钮。
 		// _playerHeroSpellButton 由 CreatePlayerIdentityCard 赋值。

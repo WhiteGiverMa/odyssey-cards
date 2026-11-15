@@ -59,7 +59,7 @@ public partial class EnemyIdentityCard : Panel
 		var unit = combat.EnemyUnits[enemyIndex];
 
 		// Panel setup——紧凑信息条（不 ExpandFill，EnemyArea HBox 居中排列，多敌人时自然并拢）
-		CustomMinimumSize = new Vector2(210, 162);
+		CustomMinimumSize = new Vector2(200, 112);
 
 		// --- Style: border via StyleBoxFlat ---
 		_normalBorderStyle = new StyleBoxFlat
@@ -103,12 +103,14 @@ public partial class EnemyIdentityCard : Panel
 		};
 		AddChild(content);
 		content.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		content.AddThemeConstantOverride("separation", 1);
 
 		// Row 1: 底座光环 + Name + HP
 		var row1 = new HBoxContainer();
 		var aura = new HeroAuraRing
 		{
 			RingColor = new Color("#ff6b7a"), // 敌方绯红
+			CustomMinimumSize = new Vector2(24, 24),
 			SizeFlagsVertical = SizeFlags.ShrinkCenter,
 		};
 		row1.AddChild(aura);
@@ -119,12 +121,12 @@ public partial class EnemyIdentityCard : Panel
 			CustomMinimumSize = new Vector2(50, 0),
 		};
 		_nameLabel.AddThemeColorOverride("font_color", _nameColor);
-		_nameLabel.AddThemeFontSizeOverride("font_size", 13);
+		_nameLabel.AddThemeFontSizeOverride("font_size", 12);
 		row1.AddChild(_nameLabel);
 
 		_healthBar = new HealthBar
 		{
-			CustomMinimumSize = new Vector2(60, 10),
+			CustomMinimumSize = new Vector2(60, 8),
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 		};
 		_healthBar.UpdateHealth(unit.Body.CurrentHealth, unit.Body.MaxHealth);
@@ -159,6 +161,7 @@ public partial class EnemyIdentityCard : Panel
 		_statusContainer = new HBoxContainer
 		{
 			CustomMinimumSize = new Vector2(0, 16), // 固定高度——避免 Refresh 时 QueueFree+AddChild 导致 VBox 布局抖动
+			Visible = false, // 统一效果栏已覆盖状态展示，隐藏旧文本徽章以压缩到 120px 英雄区。
 		};
 		content.AddChild(_statusContainer);
 		_effectBar = new EffectBar();
@@ -362,11 +365,16 @@ public partial class EnemyIdentityCard : Panel
 			_weaponLabel.TooltipText = "";
 		}
 
-		// Intent display - new or old system
-		var move = brain.GetCurrentMove(combat, body);
-		if (brain.HasMoveStates)
+		// Intent display - commander uses top EnemyHandBar instead of static intent icon
+		if (brain is IDeckDrivenCommander)
+		{
+			_intentIconContainer.Visible = false;
+			_intentLabel.Visible = false;
+		}
+		else if (brain.HasMoveStates)
 		{
 			// New system: show intent icons
+			var move = brain.GetCurrentMove(combat, body);
 			_intentLabel.Visible = false;
 			_intentIconContainer.Visible = true;
 			UpdateIntentIcons(move.Intents, combat);

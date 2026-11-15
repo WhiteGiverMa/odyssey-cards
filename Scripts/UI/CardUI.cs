@@ -148,6 +148,7 @@ public partial class CardUI : Control
 	private Label _actionCostLabel = null!;
 	private Label _nameLabel = null!;
 	private CardArtworkView _artworkView = null!;
+	private TacticalBadgeOverlay _tacticalBadge = null!;
 
 	// 随从属性（攻击力 / 生命值）
 	private ColorRect _attackBg = null!;
@@ -180,9 +181,7 @@ public partial class CardUI : Control
 	private bool _hasDragged;
 	/// <summary>点击选中模式：用户快速点击（松手无拖拽位移）后进入，卡片跟随鼠标但不响应松手掉落。</summary>
 	private bool _clickSelectMode;
-	private const float DragThresholdDesktop = 10f;
-	private const float DragThresholdMobile = 20f;
-	private float DragThreshold => MobileInputRouter.IsMobile ? DragThresholdMobile : DragThresholdDesktop;
+	private static float DragThreshold => InteractionFsm.PointerDragThreshold;
 
 	/// <summary>
 	/// 上一帧移动端主触控是否仍处于按下状态。
@@ -233,6 +232,7 @@ public partial class CardUI : Control
 		BuildSpellTypeLabel(s, cardSize);
 		BuildDescriptionArea(s, cardSize);
 		BuildRarityIndicator(s, cardSize);
+		BuildTacticalBadge(s, cardSize);
 
 		if (!DisplayOnly)
 		{
@@ -576,6 +576,19 @@ public partial class CardUI : Control
 		AddChild(_rarityLabel);
 	}
 
+	/// <summary>构建卡面右上角的战术兵种/嘲讽/守护矢量微标覆盖层。</summary>
+	private void BuildTacticalBadge(float s, Vector2 size)
+	{
+		_tacticalBadge = new TacticalBadgeOverlay(s)
+		{
+			Name = "TacticalBadge",
+			MouseFilter = MouseFilterEnum.Ignore,
+			Size = size,
+			Position = Vector2.Zero,
+		};
+		AddChild(_tacticalBadge);
+	}
+
 	// ============================================================
 	// 公共方法
 	// ============================================================
@@ -608,6 +621,7 @@ public partial class CardUI : Control
 
 		// 卡图区域：程序化生成（真实 Artwork 存在时优先）
 		_artworkView.Setup(card.Data);
+		_tacticalBadge.Bind(card);
 
 		// 根据类型切换显示模式
 		if (card.Type == CardType.Minion)
@@ -619,13 +633,11 @@ public partial class CardUI : Control
 			ShowSpellLayout(card, s);
 		}
 
-		// 描述文字（本地化）；随从补充速度，避免出牌前无法判断目标范围。
+		// 描述文字（本地化）；随从展示兵种，帮助出牌前判断行动与射程。
 		string description = card.GetLocalizedDescription();
 		if (card.Type == CardType.Minion)
 		{
-			string speedText = Loc.T("stat.speed_format", "速度 {speed}")
-				.Replace("{speed}", card.Data.Speed.ToString());
-			description = $"{speedText}\n{description}";
+			description = $"{BoardUI.GetUnitClassName(card.Data.UnitClass)}\n{description}";
 		}
 		_descLabel.Text = description;
 
@@ -720,13 +732,20 @@ public partial class CardUI : Control
 			// 后续是进入无目标跟随、还是进入目标展示态，由 CombatUI 统一决定。
 			// 这里不能再无条件 StartDragState，否则会把目标牌重新打回“跟随鼠标”的拖拽态。
 			OnCardClicked?.Invoke(this);
+			if (MobileInputRouter.IsMobile)
+			{
+				// HandUI 首次触摸只展开预览；必须在本控件先跟踪主指针，
+				// 超过阈值后才通知 HandUI→CombatUI，不能等待 Router zone 才能开始拖拽。
+				StartDragState();
+				_wasMobileTouchActive = true;
+			}
 			AcceptEvent();
 		}
 	}
 
 	/// <summary>
 	/// 进入基础拖拽状态：计算偏移量、设为鼠标穿透、清除旧偏移。
-	/// 仅保留给未来显式调用；当前战斗手牌路径统一由 CombatUI 决定是否进入拖拽/展示态。
+	/// 移动端预览阶段先由本控件追踪；跨过阈值后再交给 CombatUI 出牌流程。
 	/// </summary>
 	private void StartDragState()
 	{
@@ -846,9 +865,9 @@ public partial class CardUI : Control
 	///   按住并移动超过阈值 → 卡片跟随鼠标 → 松手打出/取消（drag-drop）
 	///   右键取消 ≡ 拖拽中松开在无效区域
 	///
-	/// 移动端（MobileInputHelper.IsMobile）：
+	/// 移动端（MobileInputRouter.IsMobile）：
 	///   仅拖拽模式，无 clickSelectMode
-	///   手指移动超过阈值（20f）→ 卡片跟随手指 → 松手打出/取消
+	///   手指移动超过统一阈值（InteractionFsm.PointerDragThreshold = 10px）→ 卡片跟随手指 → 松手打出/取消
 	///   无右键取消（拖到无效区域 = 取消）
 	/// </summary>
 	public override void _Process(double delta)
@@ -857,7 +876,6 @@ public partial class CardUI : Control
 			return;
 		if (DisplayOnly || !_isDragging)
 			return;
-
 		if (MobileInputRouter.IsMobile)
 		{
 			MobileDragProcess();
@@ -867,7 +885,7 @@ public partial class CardUI : Control
 		// ==================== FSM 委托路径 ====================
 		if (_interactionFsm != null && _interactionFsm.CurrentPhase != InteractionPhase.Idle)
 		{
-			Vector2 fsmMousePos = GetGlobalMousePosition();
+			Vector2 fsmMousePos = EvalGateway.GetEffectiveMousePosition(this);
 			bool fsmLeftDown = Input.IsMouseButtonPressed(MouseButton.Left);
 			float viewportH = GetViewportRect().Size.Y;
 			_interactionFsm.Tick(fsmMousePos, fsmLeftDown, Input.IsMouseButtonPressed(MouseButton.Right), viewportH, _dragStartScreenPos.Y);
@@ -893,16 +911,20 @@ public partial class CardUI : Control
 		}
 		_wasRightDownLastFrame = rightDown;
 
-		Vector2 mousePosition = GetGlobalMousePosition();
+		Vector2 mousePosition = EvalGateway.GetEffectiveMousePosition(this);
+
+		// 桌面端与移动端共用 10px 阈值：按下移动超过阈值才升级为真正拖拽。
+		if (leftDown && !_hasDragged && mousePosition.DistanceTo(_dragStartScreenPos) > DragThreshold)
+		{
+			_hasDragged = true;
+			_hasMovedFromOrigin = true;
+			_clickSelectMode = false;
+		}
 
 		// 卡牌跟随鼠标 + 移动追踪
 		if (_clickSelectMode || _hasDragged)
 		{
 			Vector2 newPos = mousePosition - _dragOffset;
-			if (!_hasMovedFromOrigin && newPos.DistanceSquaredTo(_pointerFollowStartPos) > 25f) // 5px² 阈值
-			{
-				_hasMovedFromOrigin = true;
-			}
 			GlobalPosition = newPos;
 			OnDragMove?.Invoke(this, mousePosition);
 		}
@@ -943,19 +965,19 @@ public partial class CardUI : Control
 			if (_interactionFsm.CurrentPhase == InteractionPhase.Idle)
 				return;
 
-			var fsmRouter = MobileInputRouter.Instance;
-			Vector2 touchPos = fsmRouter.TouchPosition;
-			bool isTouchActive = fsmRouter.IsTouchActive;
+			Vector2 touchPos = EvalGateway.GetEffectiveMousePosition(this);
+			bool isTouchActive = Input.IsMouseButtonPressed(MouseButton.Left);
 			float viewportH = GetViewportRect().Size.Y;
 			_interactionFsm.Tick(touchPos, isTouchActive, isRightDown: false, viewportH, _dragStartScreenPos.Y);
 			return;
 		}
 
 		// ==================== 回退路径（无 FSM） ====================
-		var routerFallback = MobileInputRouter.Instance;
-		if (routerFallback.IsTouchActive)
+		bool touchActive = Input.IsMouseButtonPressed(MouseButton.Left);
+		Vector2 pointerPosition = EvalGateway.GetEffectiveMousePosition(this);
+		if (touchActive)
 		{
-			Vector2 touchPos = routerFallback.TouchPosition;
+			Vector2 touchPos = pointerPosition;
 
 			// 跟踪拖拽距离
 			if (!_hasDragged)
@@ -977,9 +999,9 @@ public partial class CardUI : Control
 		}
 
 		// 手指松开处理
-		if (_wasMobileTouchActive && !routerFallback.IsTouchActive)
+		if (_wasMobileTouchActive && !touchActive)
 		{
-			Vector2 dropScreenPos = routerFallback.TouchReleasePosition;
+			Vector2 dropScreenPos = pointerPosition;
 			bool wasDragging = _hasDragged;
 			_isDragging = false;
 			_hasDragged = false;
@@ -1001,7 +1023,7 @@ public partial class CardUI : Control
 			}
 		}
 
-		_wasMobileTouchActive = routerFallback.IsTouchActive;
+		_wasMobileTouchActive = touchActive;
 	}
 
 	/// <summary>
@@ -1248,7 +1270,7 @@ public partial class CardUI : Control
 	/// <summary>
 	/// 稀有度标识区当前高度。始终占固定高度。
 	/// </summary>
-	private float GetRarityAreaHeight(float s)
+	private static float GetRarityAreaHeight(float s)
 	{
 		return RARITY_H * s;
 	}
@@ -1468,6 +1490,67 @@ public partial class CardUI : Control
 		if (_hoverTween != null && _hoverTween.IsValid())
 		{
 			_hoverTween.Kill();
+		}
+	}
+
+	/// <summary>卡面战术徽章覆盖层：位于所有牌面控件之上，只绘制矢量图标，不拦截输入。</summary>
+	private partial class TacticalBadgeOverlay : Control
+	{
+		private readonly float _scale;
+		private bool _isMinion;
+		private UnitClass _unitClass;
+		private bool _hasTaunt;
+		private bool _hasGuard;
+		private bool _isPlayerSide;
+
+		public TacticalBadgeOverlay(float scale)
+		{
+			_scale = scale <= 0f ? 1f : scale;
+			MouseFilter = MouseFilterEnum.Ignore;
+		}
+
+		public void Bind(OdysseyCards.Card.Card? card)
+		{
+			_isMinion = card is OdysseyCards.Card.Minion minion;
+			if (card?.Data != null)
+				_unitClass = card.Data.UnitClass;
+			if (card is OdysseyCards.Card.Minion runtimeMinion)
+			{
+				_hasTaunt = runtimeMinion.HasTaunt;
+				_hasGuard = runtimeMinion.HasGuard;
+				_isPlayerSide = runtimeMinion.IsPlayerSide;
+			}
+			else
+			{
+				_hasTaunt = false;
+				_hasGuard = false;
+				_isPlayerSide = true;
+			}
+			Visible = _isMinion;
+			QueueRedraw();
+		}
+
+		public override void _Draw()
+		{
+			if (!_isMinion || Size.X < 24f || Size.Y < 24f)
+				return;
+			Color primary = _isPlayerSide ? UIThemeFactory.CyanGold : UIThemeFactory.Crimson;
+			Color outline = new(0.04f, 0.05f, 0.09f, 0.95f);
+			var center = new Vector2(Size.X - 17f * _scale, (HEADER_H + 17f) * _scale);
+			TacticalIconDrawer.DrawUnitClass(this, BoardUI.GetTacticalUnitIcon(_unitClass),
+				center, 24f * _scale, primary, outline);
+			float badgeY = center.Y + 21f * _scale;
+			if (_hasTaunt)
+			{
+				TacticalIconDrawer.DrawTaunt(this, new Vector2(center.X, badgeY), 17f * _scale,
+					UIThemeFactory.WarmGold, outline);
+				badgeY += 20f * _scale;
+			}
+			if (_hasGuard)
+			{
+				TacticalIconDrawer.DrawGuard(this, new Vector2(center.X, badgeY), 17f * _scale,
+					UIThemeFactory.CyanGold.Lerp(UIThemeFactory.WarmGold, 0.35f), outline);
+			}
 		}
 	}
 }

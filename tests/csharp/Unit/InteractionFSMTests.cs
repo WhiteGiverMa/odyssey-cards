@@ -8,8 +8,7 @@ namespace OdysseyCards.Tests.Unit;
 /// 单元测试 — InteractionFsm 交互状态机。
 /// 覆盖全部状态转换、拖拽阈值、PlayZone/CancelZone 区域判定、
 /// 并发交互防护与边界情况。
-/// 当前 InteractionFsm.cs 骨架为桩实现（Tick 无逻辑、事件永不触发），
-/// 所有测试应显示 FAIL（RED 阶段确认）。
+/// FSM 已实现；桌面与移动端共用 10px 拖拽阈值。
 /// </summary>
 public class InteractionFsmTests
 {
@@ -159,30 +158,29 @@ public class InteractionFsmTests
 	}
 
 	[Fact]
-	public void MobileDrag_19px_DoesNotTrigger()
+	public void MobileDrag_9px_DoesNotTrigger()
 	{
 		var fsm = new InteractionFsm();
 		int dragMoveCount = 0;
 		fsm.OnDragMove += (pos, inPlay, inCancel) => dragMoveCount++;
 		fsm.PickUpCard(new Vector2(100, 500), isClickSelect: false, isMobile: true);
 
-		// 移动 19px（X 方向）→ DistanceSquared = 361 < 400（移动端阈值 20px²）
-		fsm.Tick(new Vector2(119, 500), isPointerDown: true, isRightDown: false, 1080f, 500f);
+		// PRD 三线交互：桌面与移动端统一 10px 阈值。
+		fsm.Tick(new Vector2(109, 500), isPointerDown: true, isRightDown: false, 1080f, 500f);
 
-		Assert.False(fsm.HasDragged, "移动 19px 未超过移动端阈值 20px，不应触发拖拽");
+		Assert.False(fsm.HasDragged, "移动 9px 未超过统一阈值 10px，不应触发拖拽");
 		Assert.True(dragMoveCount > 0, "任何指针移动都应触发 OnDragMove");
 	}
 
 	[Fact]
-	public void MobileDrag_21px_TriggersDragged()
+	public void MobileDrag_11px_TriggersDragged()
 	{
 		var fsm = new InteractionFsm();
 		fsm.PickUpCard(new Vector2(100, 500), isClickSelect: false, isMobile: true);
 
-		// 移动 21px（X 方向）→ DistanceSquared = 441 > 400（移动端阈值 20px²）
-		fsm.Tick(new Vector2(121, 500), isPointerDown: true, isRightDown: false, 1080f, 500f);
+		fsm.Tick(new Vector2(111, 500), isPointerDown: true, isRightDown: false, 1080f, 500f);
 
-		Assert.True(fsm.HasDragged, "移动 21px 超过移动端阈值 20px，应触发 HasDragged");
+		Assert.True(fsm.HasDragged, "移动 11px 超过统一阈值 10px，应触发 HasDragged");
 	}
 
 	// ===== 拖拽完成测试 =====
@@ -416,7 +414,7 @@ public class InteractionFsmTests
 		// 第一次拿起（移动端模式）
 		fsm.PickUpCard(new Vector2(100, 500), isClickSelect: true, isMobile: true);
 		Assert.Equal(InteractionPhase.CardPickedUp, fsm.CurrentPhase);
-		Assert.Equal(20f, fsm.DragThreshold);
+		Assert.Equal(InteractionFsm.PointerDragThreshold, fsm.DragThreshold);
 
 		// 在已拿起状态下再次拿起（桌面端模式）→ 应先 ForceReset 再进入新状态
 		fsm.PickUpCard(new Vector2(200, 600), isClickSelect: false, isMobile: false);
