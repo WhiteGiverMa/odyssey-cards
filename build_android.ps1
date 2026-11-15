@@ -9,7 +9,8 @@
 param([switch]$SkipBuild, [switch]$ExportOnly, [switch]$Release)
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
-$godot = "G:\dev\Godot_v4.7\godot.exe"
+# Godot 可执行文件：优先环境变量 GODOT_BIN，未设置时回退到本地 Godot 4.7.2
+$godot = if ($env:GODOT_BIN) { $env:GODOT_BIN } else { "G:\dev\Godot_v4.7.2\godot.exe" }
 $preset = "Android"
 $apk   = "$root\export\android\OdysseyCards.apk"
 $proj  = "$root\project.godot"

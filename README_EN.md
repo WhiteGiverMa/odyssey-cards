@@ -2,7 +2,7 @@
 
 # Odyssey Cards<br><small>Shoujo Odyssey Cards</small>
 
-A Hearthstone-like turn-based card battle Roguelite — Godot 4.7 + C#.
+A Hearthstone-like turn-based card battle Roguelite — Godot 4.7.2 + C#.
 
 > **Branch:** `dev` | **Status:** playable MVP, expanding<br>
 > 175 `Scripts/*.cs` files, ~37,000 lines of game code. Core combat loop runs with collection, map routes, saves, localization, dev console, and runtime QA. Term glossary (Domain = STS2 Power, Unit = Hero+Minion, etc.) lives in the root `AGENTS.md` Architecture Rules section.
@@ -51,8 +51,8 @@ CollectionUI handles browsing and deck editing. Localization is YAML-based (`zh.
 
 ## Tech Stack
 
-- **Engine**: Godot 4.7
-- **Language**: C# (.NET 8.0, Godot.NET.Sdk/4.7.0)
+- **Engine**: Godot 4.7.2
+- **Language**: C# (.NET 8.0, Godot.NET.Sdk/4.7.2)
 - **Tests**: xUnit (10 Unit + 1 Integration; Integration skipped because Godot Resource runtime is required)
 - **Platforms**: Windows; Android export script exists
 
@@ -88,13 +88,13 @@ Scenes/                  # Main, Combat, Collection, Map + Card/Board/CombatPrev
 
 ## First Run After Cloning
 
-> **Prerequisites**: [Godot 4.7 Mono](https://godotengine.org/download/) and [.NET 8.0 SDK](https://dotnet.microsoft.com/download).
+> **Prerequisites**: [Godot 4.7.2 Mono](https://godotengine.org/download/) and [.NET 8.0 SDK](https://dotnet.microsoft.com/download).
 
 ```bash
 git clone <repo-url>
 cd OdysseyCards
 dotnet build                          # Compile C# assemblies (required)
-# Open the project once with Godot_v4.7-stable_mono_win64.exe → the editor auto-rebuilds .godot cache
+# Open the project once with Godot_v4.7.2-stable_mono_win64.exe → the editor auto-rebuilds .godot cache
 # Then press F5 to run
 ```
 
