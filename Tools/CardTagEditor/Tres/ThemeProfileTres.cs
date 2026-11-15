@@ -32,7 +32,10 @@ public class ThemeProfileTres
 		set
 		{
 			var mf = _doc.GetMultiField("KeywordWeights");
-			mf?.SetIntDict(value);
+			if (mf != null)
+				mf.SetIntDict(value);
+			else if (value.Count > 0)
+				TresWriter.SetIntDictField(_doc, "KeywordWeights", value, insertAfterKey: "TagWeights");
 		}
 	}
 

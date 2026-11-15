@@ -13,7 +13,7 @@ namespace OdysseyCards.Tools.CardTagEditor.Web;
 ///   GET  /                  → 静态 SPA 页面
 ///   GET  /api/cards         → 所有卡牌摘要
 ///   GET  /api/card/:id      → 单卡完整数据
-///   POST /api/card/:id      → 保存单卡 { MechanicTags:int, Keywords:int[] }
+///   POST /api/card/:id      → 保存单卡 { MechanicTags:int, Keywords:int[], UnitClass:int? }
 ///   GET  /api/themes        → 所有主题摘要
 ///   GET  /api/theme/:hero   → 单主题完整数据
 ///   POST /api/theme/:hero   → 保存主题 { TagWeights, KeywordWeights, CoreCardIds }
@@ -136,6 +136,13 @@ public class WebServer : IDisposable
 			Id = card.Id,
 			CardName = card.CardName,
 			Type = card.Type,
+			UnitClass = card.MinionUnitClass,
+			UnitClassName = card.MinionUnitClass is int unitClass
+				? UnitClassValues.GetName(unitClass)
+				: null,
+			UnitClassDisplayName = card.MinionUnitClass is int displayUnitClass
+				? UnitClassValues.GetDisplayName(displayUnitClass)
+				: null,
 			MechanicTags = card.MechanicTags,
 			MechanicTagNames = card.GetMechanicTagNames(),
 			Keywords = card.Keywords,
@@ -173,10 +180,28 @@ public class WebServer : IDisposable
 		return new
 		{
 			MechanicTags = CardMechanicTagValues.AllBits
-				.Select(b => new { Bit = b, Name = CardMechanicTagValues.BitToName[b] })
+				.Select(b => new
+				{
+					Bit = b,
+					Name = CardMechanicTagValues.BitToName[b],
+					DisplayName = CardMechanicTagValues.GetDisplayName(b),
+				})
 				.ToList(),
 			Keywords = KeywordValues.AllValues
-				.Select(v => new { Value = v, Name = KeywordValues.ValueToName[v] })
+				.Select(v => new
+				{
+					Value = v,
+					Name = KeywordValues.ValueToName[v],
+					DisplayName = KeywordValues.GetDisplayName(v),
+				})
+				.ToList(),
+			UnitClasses = UnitClassValues.AllValues
+				.Select(v => new
+				{
+					Value = v,
+					Name = UnitClassValues.ValueToName[v],
+					DisplayName = UnitClassValues.ValueToDisplayName[v],
+				})
 				.ToList(),
 		};
 	}
@@ -188,7 +213,7 @@ public class WebServer : IDisposable
 		// ReadJsonAsync 对空 body 返回 null——保存端点必须有 body
 		var body = await ReadJsonAsync<SaveCardBody>(req)
 			?? throw new ArgumentException("请求体不能为空");
-		_svc.SaveCard(id, body.MechanicTags, body.Keywords ?? Array.Empty<int>());
+		_svc.SaveCard(id, body.MechanicTags, body.Keywords ?? Array.Empty<int>(), body.UnitClass);
 		await SendJson(res, new { ok = true, id });
 	}
 
@@ -270,6 +295,7 @@ public class WebServer : IDisposable
 	{
 		public int MechanicTags { get; set; }
 		public int[]? Keywords { get; set; }
+		public int? UnitClass { get; set; }
 	}
 
 	private sealed class SaveThemeBody

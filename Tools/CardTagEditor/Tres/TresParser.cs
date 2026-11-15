@@ -13,7 +13,7 @@ public static class TresParser
 		"Id", "CardName", "Type",
 		"MechanicTags", "Tags", "Keywords",
 		"Cost", "Rarity", "Attack", "Health", "Defense",
-		"ActionCost", "DomainId", "Description",
+		"ActionCost", "UnitClass", "Speed", "DomainId", "Description",
 		"RequiresTarget", "TargetFilter", "ExcludeFilter",
 		"Artwork", "BonusDamageToDefendedTargets",
 	};

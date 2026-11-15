@@ -21,6 +21,7 @@ public class ValidateTests
 	{
 		Assert.True(CardMechanicTagValues.IsValidMask(1));
 		Assert.True(CardMechanicTagValues.IsValidMask(65536));
+		Assert.True(CardMechanicTagValues.IsValidMask(CardMechanicTagValues.Intel));
 		Assert.True(CardMechanicTagValues.IsValidMask(1 | 4 | 65536)); // DirectDamage + Heal + Mechanics
 	}
 
@@ -29,7 +30,7 @@ public class ValidateTests
 	{
 		Assert.False(KeywordValues.IsValid(99));
 		Assert.False(KeywordValues.IsValid(-1));
-		Assert.False(KeywordValues.IsValid(12)); // Qiqiao=11 是最后一个
+		Assert.False(KeywordValues.IsValid(13)); // Guard=12 是最后一个
 	}
 
 	[Fact]
@@ -38,6 +39,7 @@ public class ValidateTests
 		Assert.True(KeywordValues.IsValid(1));  // Charge
 		Assert.True(KeywordValues.IsValid(4));  // Deathrattle
 		Assert.True(KeywordValues.IsValid(11)); // Qiqiao
+		Assert.True(KeywordValues.IsValid(12)); // Guard
 	}
 
 	[Fact]
@@ -58,14 +60,14 @@ public class ValidateTests
 	{
 		int all = CardMechanicTagValues.AllBits.Aggregate(0, (a, b) => a | b);
 		Assert.Equal(CardMechanicTagValues.AllValidBits, all);
-		Assert.Equal(18, CardMechanicTagValues.AllBits.Length); // 18 个有效位（含 SuperBody）
+		Assert.Equal(19, CardMechanicTagValues.AllBits.Length); // 19 个有效位（含 Intel）
 	}
 
 	[Fact]
 	public void KeywordValues_AllValues_CountIsCorrect()
 	{
-		Assert.Equal(11, KeywordValues.AllValues.Length);
-		Assert.Equal(11, KeywordValues.ValueToName.Count);
+		Assert.Equal(12, KeywordValues.AllValues.Length);
+		Assert.Equal(12, KeywordValues.ValueToName.Count);
 	}
 
 	[Fact]

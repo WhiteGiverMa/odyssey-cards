@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using OdysseyCards.Tools.CardTagEditor.Schema;
 using OdysseyCards.Tools.CardTagEditor.Services;
 using OdysseyCards.Tools.CardTagEditor.Web;
 
@@ -90,6 +91,8 @@ public static class Program
 				? string.Join(", ", c.KeywordNames)
 				: "（无）";
 			Console.WriteLine($"  {c.Id} — {c.CardName} [{typeName}]");
+			if (c.UnitClass is int unitClass)
+				Console.WriteLine($"    兵种:     {UnitClassValues.GetDisplayName(unitClass)} ({UnitClassValues.GetName(unitClass)})");
 			Console.WriteLine($"    机制标签: {tagNames}");
 			Console.WriteLine($"    关键词:   {kwNames}");
 		}
@@ -175,6 +178,11 @@ public static class Program
 				Id = card.Id,
 				CardName = card.CardName,
 				Type = card.Type,
+				UnitClass = card.MinionUnitClass,
+				UnitClassName = card.MinionUnitClass is int unitClass
+					? UnitClassValues.GetName(unitClass)
+					: null,
+				LegacySpeed = card.LegacySpeed,
 				MechanicTags = card.MechanicTags,
 				MechanicTagNames = card.GetMechanicTagNames(),
 				Keywords = card.Keywords,

@@ -19,6 +19,64 @@ public static class TresWriter
 		return doc.ToString();
 	}
 
+	/// <summary>写入或更新整数字段；字段不存在时插入到指定锚点之后。</summary>
+	public static void SetIntField(TresDocument doc, string key, int value, string? insertAfterKey = null)
+	{
+		var field = doc.GetField(key);
+		if (field != null)
+		{
+			field.SetInt(value);
+			return;
+		}
+
+		var newField = new OwnedField
+		{
+			Key = key,
+			OriginalText = $"{key} = {value}",
+		};
+		InsertField(doc, newField, insertAfterKey);
+	}
+
+	/// <summary>写入或更新整数字典字段；字段不存在时插入到指定锚点之后。</summary>
+	public static void SetIntDictField(TresDocument doc, string key, Dictionary<int, int> value,
+		string? insertAfterKey = null)
+	{
+		var field = doc.GetMultiField(key);
+		if (field == null)
+		{
+			field = new OwnedMultiLineField { Key = key };
+			field.SetIntDict(value);
+			InsertField(doc, field, insertAfterKey);
+			return;
+		}
+
+		field.SetIntDict(value);
+	}
+
+	private static void InsertField(TresDocument doc, TresLine field, string? insertAfterKey)
+	{
+		int insertIndex = doc.Lines.Count;
+		if (insertAfterKey != null)
+		{
+			for (int i = 0; i < doc.Lines.Count; i++)
+			{
+				var key = doc.Lines[i] switch
+				{
+					OwnedField single => single.Key,
+					OwnedMultiLineField multi => multi.Key,
+					_ => null,
+				};
+				if (string.Equals(key, insertAfterKey, StringComparison.OrdinalIgnoreCase))
+				{
+					insertIndex = i + 1;
+					break;
+				}
+			}
+		}
+
+		doc.Lines.Insert(insertIndex, field);
+	}
+
 	/// <summary>
 	/// 验证 round-trip：解析原始文本 → 不修改直接回写 → 与原始文本逐行比较。
 	/// 返回差异行索引列表（空 = 完全一致）。

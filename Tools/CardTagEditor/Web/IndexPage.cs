@@ -31,6 +31,15 @@ header nav button:hover:not(.active) { border-color:var(--accent); }
 main { display:grid; grid-template-columns: 380px 1fr; height:calc(100vh - 50px); }
 aside { background:var(--panel); border-right:1px solid #444; overflow-y:auto; padding:8px; }
 aside input[type=search] { width:100%; padding:8px; background:#222; border:1px solid #555; color:var(--fg); border-radius:4px; }
+.unit-pills { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 18px; }
+.unit-pills.compact { gap:5px; margin:8px 0 10px; }
+button.unit-pill { background:#222; color:var(--fg); border:1px solid #555; border-radius:999px; padding:6px 13px; cursor:pointer; transition:background .15s,border-color .15s,color .15s; }
+button.unit-pill:hover { border-color:var(--accent); color:#fff; }
+button.unit-pill.active { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 0 0 2px #4a9eff22; }
+.unit-pills.compact button.unit-pill { padding:4px 9px; font-size:12px; }
+.unit-pill .english { margin-left:5px; opacity:.7; font-size:11px; }
+.unit-badge { display:inline-block; margin-left:6px; padding:1px 7px; border:1px solid #666; border-radius:999px; color:#b9d8f5; font-size:10px; font-weight:400; vertical-align:1px; }
+aside .card.active .unit-badge { border-color:#ffffff88; color:#fff; }
 aside .card { padding:8px 10px; border-radius:4px; cursor:pointer; margin:4px 0; }
 aside .card:hover { background:#333; }
 aside .card.active { background:var(--accent); color:#fff; }
@@ -73,10 +82,17 @@ button.reset { background:transparent; color:var(--fg); border:1px solid #444; p
 <main>
 	<aside>
 		<input type="search" placeholder="搜索卡牌..." x-model="cardSearch" @input="filterCards()">
+		<div class="unit-pills compact" aria-label="按兵种筛选">
+			<button type="button" class="unit-pill" :class="{active: unitClassFilter==='all'}" @click="setUnitClassFilter('all')">全部</button>
+			<template x-for="unit in schema.unitClasses" :key="unit.value">
+				<button type="button" class="unit-pill" :class="{active: unitClassFilter===unit.value}"
+					@click="setUnitClassFilter(unit.value)" x-text="unit.displayName"></button>
+			</template>
+		</div>
 		<template x-for="c in filteredCards" :key="c.id">
 			<div class="card" :class="{active: selectedCardId===c.id}" @click="loadCard(c.id)">
 				<div class="id" x-text="c.id"></div>
-				<div class="name" x-text="c.cardName + ' [' + typeLabel(c.type) + ']'"></div>
+				<div class="name"><span x-text="c.cardName + ' [' + typeLabel(c.type) + ']'"></span><span class="unit-badge" x-show="c.type===0" x-text="unitClassLabel(c.unitClass)"></span></div>
 			</div>
 		</template>
 	</aside>
@@ -87,12 +103,26 @@ button.reset { background:transparent; color:var(--fg); border:1px solid #444; p
 				<h2 x-text="currentCard.cardName"></h2>
 				<p class="subtitle" x-text="currentCard.id + ' · ' + typeLabel(currentCard.type)"></p>
 
+				<template x-if="currentCard.type===0">
+					<div>
+						<h3>兵种</h3>
+						<div class="unit-pills" aria-label="随从兵种">
+							<template x-for="unit in schema.unitClasses" :key="unit.value">
+								<button type="button" class="unit-pill" :class="{active: cardEdit.unitClass===unit.value}"
+									:aria-pressed="cardEdit.unitClass===unit.value" @click="setCardUnitClass(unit.value)">
+									<span x-text="unit.displayName"></span><span class="english" x-text="unit.name"></span>
+								</button>
+							</template>
+						</div>
+					</div>
+				</template>
+
 				<h3>机制标签</h3>
 				<div class="tags-grid">
 					<!-- x-model 装字符串名数组；value 用 name 才能匹配勾选 -->
 					<template x-for="tag in schema.mechanicTags" :key="tag.bit">
 						<label><input type="checkbox" :value="tag.name" x-model="cardEdit.mechanicTagsBitNames" @change="markCardDirty()">
-							<span x-text="tag.name"></span></label>
+							<span x-text="tag.displayName || tag.name"></span></label>
 					</template>
 				</div>
 
@@ -100,7 +130,7 @@ button.reset { background:transparent; color:var(--fg); border:1px solid #444; p
 				<div class="tags-grid">
 					<template x-for="kw in schema.keywords" :key="kw.value">
 						<label><input type="checkbox" :value="kw.value" x-model="cardEdit.keywordValues" @change="markCardDirty()">
-							<span x-text="kw.name"></span></label>
+							<span x-text="kw.displayName || kw.name"></span></label>
 					</template>
 				</div>
 
@@ -139,7 +169,7 @@ button.reset { background:transparent; color:var(--fg); border:1px solid #444; p
 					<tbody>
 						<template x-for="tag in schema.mechanicTags" :key="tag.bit">
 							<tr>
-								<td x-text="tag.name"></td>
+								<td x-text="tag.displayName || tag.name"></td>
 								<td x-text="tag.bit"></td>
 								<td><input type="number" :data-bit="tag.bit" x-model.number="themeEdit.tagWeights[tag.bit]" @input="markThemeDirty()"></td>
 							</tr>
@@ -153,7 +183,7 @@ button.reset { background:transparent; color:var(--fg); border:1px solid #444; p
 					<tbody>
 						<template x-for="kw in schema.keywords" :key="kw.value">
 							<tr>
-								<td x-text="kw.name"></td>
+								<td x-text="kw.displayName || kw.name"></td>
 								<td x-text="kw.value"></td>
 								<td><input type="number" :data-kw="kw.value" x-model.number="themeEdit.keywordWeights[kw.value]" @input="markThemeDirty()"></td>
 							</tr>
@@ -186,10 +216,11 @@ function editor() {
 		cards: [],
 		filteredCards: [],
 		cardSearch: '',
+		unitClassFilter: 'all',
 		selectedCardId: null,
 		currentCard: null,
 		cardDirty: false,
-		cardEdit: { mechanicTagsBitNames: [], keywordValues: [] },
+		cardEdit: { mechanicTagsBitNames: [], keywordValues: [], unitClass: 0 },
 
 		themes: [],
 		selectedThemeId: null,
@@ -197,7 +228,7 @@ function editor() {
 		themeDirty: false,
 		themeEdit: { tagWeights: {}, keywordWeights: {}, coreCardIdsText: '' },
 
-		schema: { mechanicTags: [], keywords: [] },
+		schema: { mechanicTags: [], keywords: [], unitClasses: [] },
 
 		toast: { show: false, msg: '', isError: false },
 
@@ -221,8 +252,17 @@ function editor() {
 
 		filterCards() {
 			const q = this.cardSearch.toLowerCase();
-			this.filteredCards = q === '' ? this.cards : this.cards.filter(c =>
-				c.id.toLowerCase().includes(q) || (c.cardName||'').toLowerCase().includes(q));
+			this.filteredCards = this.cards.filter(c => {
+				const matchesSearch = q === '' || c.id.toLowerCase().includes(q) || (c.cardName||'').toLowerCase().includes(q);
+				const matchesUnitClass = this.unitClassFilter === 'all'
+					|| (c.type === 0 && Number(c.unitClass ?? 0) === Number(this.unitClassFilter));
+				return matchesSearch && matchesUnitClass;
+			});
+		},
+
+		setUnitClassFilter(value) {
+			this.unitClassFilter = value;
+			this.filterCards();
 		},
 
 		async loadCard(id) {
@@ -234,13 +274,21 @@ function editor() {
 				// MechanicTags 位掩码 → 位名列表
 				this.cardEdit.mechanicTagsBitNames = this.schema.mechanicTags
 					.filter(t => (c.mechanicTags & t.bit) !== 0).map(t => t.name);
-				// Keywords int[] → int values
+				// Keywords int[] → int values；旧随从缺省为先锋（0）
 				this.cardEdit.keywordValues = (c.keywords || []).map(k => k);
+				this.cardEdit.unitClass = c.type === 0 ? Number(c.unitClass ?? 0) : null;
 				this.cardDirty = false;
 			} catch (e) { this.showToast('加载卡牌失败: ' + e.message, true); }
 		},
 
 		markCardDirty() { this.cardDirty = true; },
+
+		setCardUnitClass(value) {
+			const next = Number(value);
+			if (this.cardEdit.unitClass === next) return;
+			this.cardEdit.unitClass = next;
+			this.markCardDirty();
+		},
 
 		async saveCard() {
 			if (!this.currentCard) return;
@@ -251,6 +299,7 @@ function editor() {
 				if (t) mask |= t.bit;
 			}
 			const body = { mechanicTags: mask, keywords: this.cardEdit.keywordValues };
+			if (this.currentCard.type === 0) body.unitClass = this.cardEdit.unitClass ?? 0;
 			try {
 				await fetch('/api/card/' + encodeURIComponent(this.currentCard.id), {
 					method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body),
@@ -258,9 +307,15 @@ function editor() {
 				this.cardDirty = false;
 				this.currentCard.mechanicTags = mask;
 				this.currentCard.keywords = this.cardEdit.keywordValues;
-				// 同步左侧列表
+				if (this.currentCard.type === 0) this.currentCard.unitClass = body.unitClass;
+				// 同步左侧列表与兵种筛选
 				const c = this.cards.find(c => c.id === this.currentCard.id);
-				if (c) { c.mechanicTags = mask; c.keywords = this.cardEdit.keywordValues; }
+				if (c) {
+					c.mechanicTags = mask;
+					c.keywords = this.cardEdit.keywordValues;
+					if (c.type === 0) c.unitClass = body.unitClass;
+				}
+				this.filterCards();
 				this.showToast('已保存：' + this.currentCard.cardName);
 			} catch (e) { this.showToast('保存失败: ' + e.message, true); }
 		},
@@ -308,6 +363,11 @@ function editor() {
 		},
 
 		typeLabel(t) { return ({0:'随从',1:'法术',2:'领域'})[t] || ('Type'+t); },
+
+		unitClassLabel(value) {
+			const unit = this.schema.unitClasses.find(u => u.value === Number(value ?? 0));
+			return unit ? unit.displayName : '先锋';
+		},
 
 		showToast(msg, isError=false) {
 			this.toast = { show: true, msg, isError };

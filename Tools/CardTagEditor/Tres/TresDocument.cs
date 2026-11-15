@@ -277,7 +277,7 @@ public class OwnedMultiLineField : TresLine
 	public Dictionary<int, int> AsIntDict()
 	{
 		var result = new Dictionary<int, int>();
-		foreach (var line in OriginalLines)
+		foreach (var line in GetLines())
 		{
 			// 跳过首行 "Key = {" 和末行 "}"
 			var trimmed = line.Trim();

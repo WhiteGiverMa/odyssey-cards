@@ -25,12 +25,13 @@ public static class CardMechanicTagValues
 	public const int Token = 32768;
 	public const int Mechanics = 65536;
 	public const int SuperBody = 131072;
+	public const int Intel = 262144;
 
 	/// <summary>所有有效位值，按声明顺序。</summary>
 	public static readonly int[] AllBits = new[]
 	{
 		DirectDamage, DamageOverTime, Heal, Armor, Draw, Discover, Summon, Buff,
-		Silence, Discard, Domain, WeaponSynergy, ManaRamp, StatusApply, Shuffle, Token, Mechanics, SuperBody
+		Silence, Discard, Domain, WeaponSynergy, ManaRamp, StatusApply, Shuffle, Token, Mechanics, SuperBody, Intel
 	};
 
 	/// <summary>位值→英文名 映射。</summary>
@@ -54,7 +55,22 @@ public static class CardMechanicTagValues
 		[Token] = "Token",
 		[Mechanics] = "Mechanics",
 		[SuperBody] = "SuperBody",
+		[Intel] = "Intel",
 	};
+
+	private static readonly Dictionary<int, string> BitToChineseName = new()
+	{
+		[Intel] = "情报",
+	};
+
+	/// <summary>获取供 Web UI 展示的名称，新机制标签附中文名。</summary>
+	public static string GetDisplayName(int bit)
+	{
+		var name = BitToName.TryGetValue(bit, out var knownName) ? knownName : $"Unknown({bit})";
+		return BitToChineseName.TryGetValue(bit, out var chineseName)
+			? $"{name} · {chineseName}"
+			: name;
+	}
 
 	/// <summary>英文名→位值 映射。</summary>
 	public static readonly Dictionary<string, int> NameToBit = BitToName

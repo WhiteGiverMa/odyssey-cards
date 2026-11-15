@@ -46,7 +46,7 @@ public class CardTagService
 
 	/// <summary>卡牌摘要记录。</summary>
 	public record CardSummary(string Id, string CardName, int Type, int MechanicTags,
-		List<string> MechanicTagNames, int[] Keywords, List<string> KeywordNames);
+		List<string> MechanicTagNames, int[] Keywords, List<string> KeywordNames, int? UnitClass);
 
 	/// <summary>列出所有卡牌摘要。</summary>
 	public List<CardSummary> ListCards()
@@ -58,7 +58,7 @@ public class CardTagService
 			var card = new CardDataTres(doc);
 			result.Add(new CardSummary(
 				card.Id, card.CardName, card.Type, card.MechanicTags,
-				card.GetMechanicTagNames(), card.Keywords, card.GetKeywordNames()));
+				card.GetMechanicTagNames(), card.Keywords, card.GetKeywordNames(), card.MinionUnitClass));
 		}
 		return result;
 	}
@@ -150,6 +150,10 @@ public class CardTagService
 					report.Errors.Add($"{fileName}: Keywords 含越界值 {kw}");
 			}
 
+			// 校验随从兵种（缺省视为先锋）
+			if (card.MinionUnitClass is int unitClass && !UnitClassValues.IsValid(unitClass))
+				report.Errors.Add($"{fileName}: UnitClass 含越界值 {unitClass}");
+
 			// 校验空 Id
 			if (string.IsNullOrEmpty(card.Id))
 				report.Warnings.Add($"{fileName}: Id 为空");
@@ -217,8 +221,11 @@ public class CardTagService
 
 	// ===== 保存 =====
 
-	/// <summary>保存单卡（只写 MechanicTags + Keywords）。</summary>
-	public void SaveCard(string id, int mechanicTags, int[] keywords)
+	/// <summary>
+	/// 保存单卡（MechanicTags + Keywords + 可选随从兵种），同时清理旧 Speed 行。
+	/// 旧客户端未传 unitClass 时保留原兵种/缺省状态。
+	/// </summary>
+	public void SaveCard(string id, int mechanicTags, int[] keywords, int? unitClass = null)
 	{
 		var filePath = FindCardFile(id);
 		if (filePath == null)
@@ -228,6 +235,9 @@ public class CardTagService
 		var card = new CardDataTres(doc);
 		card.MechanicTags = mechanicTags;
 		card.Keywords = keywords;
+		if (card.Type == 0 && unitClass.HasValue)
+			card.UnitClass = unitClass.Value;
+		card.DeleteLegacySpeed();
 		TresWriter.WriteToFile(doc, filePath);
 	}
 
@@ -243,7 +253,7 @@ public class CardTagService
 		var doc = TresParser.Parse(filePath);
 		var theme = new ThemeProfileTres(doc);
 		theme.TagWeights = tagWeights;
-		if (keywordWeights != null && theme.HasKeywordWeights)
+		if (keywordWeights != null)
 			theme.KeywordWeights = keywordWeights;
 		theme.CoreCardIds = coreCardIds;
 		// CardWeightOverrides 暂不修改

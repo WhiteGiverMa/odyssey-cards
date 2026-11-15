@@ -17,12 +17,13 @@ public static class KeywordValues
 	public const int Unplayable = 9;
 	public const int Ethereal = 10;
 	public const int Qiqiao = 11;
+	public const int Guard = 12;
 
 	/// <summary>所有有效值（不含 None）。</summary>
 	public static readonly int[] AllValues = new[]
 	{
 		Charge, Taunt, Battlecry, Deathrattle, Windfury, Ambush, Impact,
-		Recycle, Unplayable, Ethereal, Qiqiao
+		Recycle, Unplayable, Ethereal, Qiqiao, Guard
 	};
 
 	/// <summary>值→英文名 映射。</summary>
@@ -39,7 +40,22 @@ public static class KeywordValues
 		[Unplayable] = "Unplayable",
 		[Ethereal] = "Ethereal",
 		[Qiqiao] = "Qiqiao",
+		[Guard] = "Guard",
 	};
+
+	private static readonly Dictionary<int, string> ValueToChineseName = new()
+	{
+		[Guard] = "守护",
+	};
+
+	/// <summary>获取供 Web UI 展示的名称，新词条附中文名。</summary>
+	public static string GetDisplayName(int value)
+	{
+		var name = ValueToName.TryGetValue(value, out var knownName) ? knownName : $"Unknown({value})";
+		return ValueToChineseName.TryGetValue(value, out var chineseName)
+			? $"{name} · {chineseName}"
+			: name;
+	}
 
 	/// <summary>英文名→值 映射。</summary>
 	public static readonly Dictionary<string, int> NameToValue = ValueToName

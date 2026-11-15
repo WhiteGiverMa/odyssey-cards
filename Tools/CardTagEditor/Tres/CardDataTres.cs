@@ -8,6 +8,8 @@ namespace OdysseyCards.Tools.CardTagEditor.Tres;
 /// </summary>
 public class CardDataTres
 {
+	private const int MinionType = 0;
+
 	private readonly TresDocument _doc;
 
 	public CardDataTres(TresDocument doc)
@@ -23,6 +25,53 @@ public class CardDataTres
 
 	/// <summary>卡牌类型：0=Minion, 1=Spell, 2=Domain。</summary>
 	public int Type => _doc.GetField("Type")?.AsInt() ?? 0;
+
+	/// <summary>
+	/// 随从兵种。旧随从资源未显式写出时默认 Vanguard（先锋，0）。
+	/// 非零兵种会写回或更新 UnitClass 行；缺省先锋不新增冗余行。
+	/// </summary>
+	public int UnitClass
+	{
+		get => _doc.GetField("UnitClass")?.AsInt() ?? UnitClassValues.Vanguard;
+		set
+		{
+			if (Type != MinionType)
+				return;
+			if (!UnitClassValues.IsValid(value))
+				throw new ArgumentOutOfRangeException(nameof(value), value, "未知随从兵种。");
+
+			var field = _doc.GetField("UnitClass");
+			if (value == UnitClassValues.Vanguard && field == null)
+				return;
+
+			TresWriter.SetIntField(_doc, "UnitClass", value, insertAfterKey: "Type");
+		}
+	}
+
+	/// <summary>随从返回兵种，非随从返回 null。</summary>
+	public int? MinionUnitClass => Type == MinionType ? UnitClass : null;
+
+	/// <summary>资源是否显式包含 UnitClass 行。</summary>
+	public bool HasExplicitUnitClass => _doc.GetField("UnitClass") != null;
+
+	/// <summary>旧 Speed 值；已清理或从未存在时返回 null。</summary>
+	public int? LegacySpeed
+	{
+		get
+		{
+			var field = _doc.GetField("Speed");
+			return field != null ? field.AsInt() : null;
+		}
+	}
+
+	/// <summary>资源是否仍含旧 Speed 行。</summary>
+	public bool HasLegacySpeed => _doc.GetField("Speed") != null;
+
+	/// <summary>清理旧 Speed 行，不影响相邻属性。</summary>
+	public void DeleteLegacySpeed()
+	{
+		_doc.GetField("Speed")?.Delete();
+	}
 
 	/// <summary>机制标签（位掩码）。</summary>
 	public int MechanicTags
