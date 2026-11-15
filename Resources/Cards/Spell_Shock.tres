@@ -17,6 +17,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_shock"
+FrontlineOnlySpell = false
 MechanicTags = 8208
 CardName = "震慑"
 Description = "轮战。使一个单位失能2回合，抽1张牌。"

@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_40b_main_battle_tank"
+UnitClass = 1
 MechanicTags = 65536
 CardName = "40B主战坦克"
 Description = "闪击。"

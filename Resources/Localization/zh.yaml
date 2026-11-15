@@ -1,4 +1,9 @@
-﻿ui:
+ui:
+  choose_one:
+    recycle_option: "获得轮战"
+    draw_option: "多抽1张牌"
+    recycle_desc: "在本次获得轮战效果"
+    draw_desc: "额外多抽1张牌"
   menu:
     title: "少女星途卡牌"
     start_game: "开始游戏"
@@ -184,7 +189,7 @@
     keyword_deathrattle: "亡"
     keyword_ambush: "伏"
     keyword_impact: "击"
-    speed_prefix: "速"
+    unit_class_prefix: "兵种"
     defense_prefix: "防"
   card_grid:
     filter_all: "全部"
@@ -385,7 +390,7 @@ cards:
     description: "轮战。抽2张牌。"
   spell_retrieve:
     name: "检索"
-    description: "抽3张牌。"
+    description: "抽3张牌。情报2。"
   spell_response:
     name: "响应"
     description: "有n个友方随从时，抽（n+1）张牌。"
@@ -403,10 +408,10 @@ cards:
     description: "对随机敌人造成3点伤害5次。伤害高的敌人更可能被击中。"
   spell_elbow_strike:
     name: "肘击"
-    description: "造成等同于你英雄格挡值的伤害。"
+    description: "造成等同于你英雄格挡值的伤害。敌方占领前线时只能指定敌方前线目标。"
   minion_18th_regiment:
     name: "第 18 团"
-    description: "嘲讽，轮战"
+    description: "守护，轮战。"
   minion_40a_main_battle_tank:
     name: "40A主战坦克"
     description: "嘲讽。"
@@ -421,10 +426,10 @@ cards:
     description: "嘲讽。战吼：所有友方随从获得3点格挡，友方英雄获得双倍格挡。友方回合结束时，所有友方随从获得1点格挡，友方英雄获得双倍格挡。"
   minion_detective_squad:
     name: "武侦小组"
-    description: "闪击"
+    description: "闪击。战吼：情报1。"
   minion_lianshu_scout:
     name: "联树机器犬 侦察型"
-    description: "冲锋，轮战\n亡语：抽 1 张牌"
+    description: "闪击，轮战。亡语：情报1。"
   minion_mingshan_walking_support:
     name: "「岷山」步行支援机"
     description: "闪击，冲击。在友方英雄释放直伤法术时，对随机敌人造成等同于攻击力的伤害。"
@@ -439,7 +444,7 @@ cards:
     description: "对一个敌人造成5点伤害；其生命值低于18％时，再受到来自友方单位的伤害后将其消灭。无法斩杀boss。"
   spell_smoke_dodge:
     name: "烟遁"
-    description: "使所有友方单位获得1层烟幕，抽1张牌。"
+    description: "使所有不具有嘲讽或守护的友方单位获得1层烟幕，抽1张牌。"
   spell_nadao_fangyu:
     name: "拿刀防卫"
     description: "友方英雄获得+3攻击力直到下个敌方回合结束，抽1张牌；抉择：*在本次获得轮战*或*多抽1张牌*。"
@@ -461,7 +466,7 @@ cards:
     description: "闪击"
   minion_roach:
     name: "机械小蠊"
-    description: "部署回合沉睡。攻击随机敌方目标。友方有空槽位时复制自身。"
+    description: "友方回合结束时，若支援线有空槽，复制自身到支援线。"
   minion_knight_type1:
     name: "骑士I型"
     description: "闪击，冲击"
@@ -488,19 +493,19 @@ cards:
     description: "解除自然增长的水晶槽上限"
   spell_discover:
     name: "发现"
-    description: "从3张随机卡牌中选取一张加入手牌"
+    description: "情报1。从3张随机卡牌中选取一张加入手牌。"
   domain_flying_away:
     name: "飞远"
     description: "领域：获得5点格挡。下一次被敌方随从或英雄攻击时，抽2张牌，将一张「受身」加入手牌。"
   domain_jiehuafa:
     name: "接化发"
-    description: "领域：敌方回合结束时，若敌方英雄本回合的所有攻击均被完全格挡（无HP穿透），将1张「受身」加入手牌。"
+    description: "领域：敌方回合结束时，若我方英雄或前线随从至少被攻击一次且这些攻击均未造成生命伤害，将1张「受身」加入手牌。"
   spell_ukemi:
     name: "受身"
     description: "获得3点格挡，抽1张牌"
   spell_expose:
     name: "暴露"
-    description: "使一个目标失去所有格挡。友方英雄获得 8 点格挡。"
+    description: "使一个目标失去所有格挡。友方英雄获得8点格挡。情报1。"
   spell_bait_tactics:
     name: "诱饵战术"
     description: "使一个随从获得伏击和冲击。它受到攻击时，玩家敌方的英雄防御力-1。"
@@ -536,11 +541,11 @@ cards:
     description: "获得2个空法力水晶槽；对所有敌人造成2点伤害；抽2张牌；下回合开始时额外抽2张牌、获得2点法力。"
   minion_what_the_dog_doing:
     name: "我的刀盾"
-    description: "嘲讽\n战吼：将一张复制加入相邻棋盘槽处。"
+    description: "守护。战吼：在所属支援线相邻空槽召唤一个复制；相邻槽已满时改为其他支援线空槽。"
 
   spell_blade_crisis:
     name: "刀盾危机"
-    description: "选择并弃掉不大于5张牌，将等量个「我的刀盾」添加到友方棋盘槽处，并抽取等量张牌。"
+    description: "选择并弃掉不大于5张牌，在友方支援线空槽召唤等量个「我的刀盾」（满格溢出），并抽取等量张牌。"
 
   spell_what_the_dog_doing:
     name: "我的刀盾"
@@ -560,6 +565,21 @@ cards:
   minion_smart_stinky_egg:
     name: "智能臭鸡蛋"
     description: "亡语：对敌方全体造成4点法术伤害"
+
+board_row:
+  enemysupport: "敌方支援线"
+  frontline: "中央前线"
+  playersupport: "我方支援线"
+
+unit_class:
+  vanguard: "先锋"
+  assault: "突击"
+  support: "支援"
+  skirmisher: "游击"
+  vanguard_desc: "近战，每回合移动或攻击一次。"
+  assault_desc: "近战，每回合移动一次并攻击一次；风怒可攻击两次。"
+  support_desc: "全图射程，主动攻击不触发伏击且免受反击；每回合移动或攻击一次。"
+  skirmisher_desc: "全图射程；支援线免受近战主动普攻，同线护航优先。每回合移动或攻击一次。"
 
 card_type:
   minion: "随从"
@@ -701,7 +721,7 @@ domain:
   idol_twilight: "偶像的黄昏"
   idol_twilight_desc: "被攻击后获得+1/+1。"
   jiehuafa: "接化发"
-  jiehuafa_desc: "敌全攻击被格挡后获「受身」。"
+  jiehuafa_desc: "敌方回合，我方英雄或前线随从至少被攻击一次且这些攻击均未造成生命伤害时，获得「受身」。"
   focus: "聚焦"
   focus_desc: "每层使造成的法术伤害+1。"
   scheme: "蓄谋"
@@ -714,7 +734,7 @@ domain:
   sutaraito_spirit_desc: "下回合开始时额外抽2张牌并获得2点法力。"
 
 stat:
-  speed_format: "速度 {speed}"
+  unit_class_format: "兵种：{class}"
   attack_up: "攻击力+{value}"
   attack_down: "攻击力{value}"
   defense_up: "防御力+{value}"
@@ -730,7 +750,15 @@ keyword_source:
 
 keyword:
   taunt: "嘲讽"
-  taunt_desc: "敌方随从必须优先攻击此随从。"
+  taunt_desc: "普通攻击同阵线随从或我方英雄时，必须优先攻击射程可达的嘲讽。不能与烟幕共存。"
+  guard: "守护"
+  guard_desc: "掩护同阵线左右紧邻的非嘲讽、非守护随从，不保护英雄。不能与烟幕共存。"
+  charge: "闪击"
+  recycle: "轮战"
+  intel: "情报"
+  intel_desc: "从左到右揭露敌方未公开手牌；未用完的点数转为溢出情报。"
+  intel_overflow: "溢出情报"
+  intel_overflow_desc: "每点回复施法方英雄1点生命；该点结算时已满血则改为获得1点格挡。"
   ambush: "伏击"
   ambush_desc: "每回合首次被攻击时，先于攻击者造成反击伤害。"
   impact: "冲击"

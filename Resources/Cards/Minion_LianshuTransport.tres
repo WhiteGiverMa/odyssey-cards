@@ -16,6 +16,7 @@ Value = 2
 [resource]
 script = ExtResource("1_data")
 Id = "minion_lianshu_transport"
+UnitClass = 0
 MechanicTags = 20
 CardName = "联树机器犬 运输型"
 Description = "闪击。战吼：抽2张牌，友方英雄回复2点生命。回合结束时若在场上，回到抽牌堆。如此2次后，回合结束时进入弃牌堆。"

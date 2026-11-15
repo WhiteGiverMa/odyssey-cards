@@ -11,6 +11,7 @@ Value = 4
 [resource]
 script = ExtResource("1_data")
 Id = "minion_smart_stinky_egg"
+UnitClass = 2
 MechanicTags = 1
 CardName = "智能臭鸡蛋"
 Description = "亡语：对敌方全体造成4点法术伤害"

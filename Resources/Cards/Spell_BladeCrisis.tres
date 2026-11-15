@@ -12,9 +12,10 @@ Value = 5
 [resource]
 script = ExtResource("1_data")
 Id = "spell_blade_crisis"
+FrontlineOnlySpell = false
 MechanicTags = 592
 CardName = "刀盾危机"
-Description = "选择并弃掉不大于5张牌，将等量个「我的刀盾」添加到友方棋盘槽处，并抽取等量张牌。"
+Description = "选择并弃掉不大于5张牌，在友方支援线空槽召唤等量个「我的刀盾」（满格溢出），并抽取等量张牌。"
 Rarity = 3
 Cost = 2
 Type = 1

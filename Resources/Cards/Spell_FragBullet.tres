@@ -13,6 +13,7 @@ CustomEffectName = "FragBullet"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_frag_bullet"
+FrontlineOnlySpell = false
 MechanicTags = 131073
 CardName = "碎片子弹"
 Description = "对一个敌人造成5点伤害；其生命值低于18%时，获得「致命裂痕」，再受到来自友方单位的伤害后将其消灭。无法斩杀boss。"

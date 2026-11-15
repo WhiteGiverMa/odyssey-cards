@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_rayan_ge"
+UnitClass = 3
 MechanicTags = 131136
 CardName = "拉烟哥"
 Description = "闪击。首次攻击时使友方英雄获得1层烟幕。"

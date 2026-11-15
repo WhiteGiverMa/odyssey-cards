@@ -11,6 +11,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_response"
+FrontlineOnlySpell = false
 MechanicTags = 16
 CardName = "响应"
 Description = "有n个友方随从时，抽（n+1）张牌。"

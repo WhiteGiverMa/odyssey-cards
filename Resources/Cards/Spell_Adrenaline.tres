@@ -16,6 +16,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_adrenaline"
+FrontlineOnlySpell = false
 MechanicTags = 4112
 CardName = "肾上腺素"
 Description = "抽2张牌，获得1个法力槽，获得1点法力。"

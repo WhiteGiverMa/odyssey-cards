@@ -12,9 +12,10 @@ CustomEffectName = "ElbowStrike"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_elbow_strike"
+FrontlineOnlySpell = true
 MechanicTags = 9
 CardName = "肘击"
-Description = "造成等同于你英雄格挡值的伤害。"
+Description = "造成等同于你英雄格挡值的伤害。敌方占领前线时只能指定敌方前线目标。"
 Rarity = 4
 Cost = 2
 Type = 1

@@ -11,6 +11,7 @@ CustomEffectName = "BloodDogsHandFill"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_blood_dogs_hand_fill"
+FrontlineOnlySpell = false
 MechanicTags = 32768
 CardName = "十万条吸血狗"
 Description = "选择1张手牌，用这张牌的复制填满你的手牌。"

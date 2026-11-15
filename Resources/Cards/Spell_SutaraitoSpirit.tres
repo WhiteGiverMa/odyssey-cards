@@ -28,6 +28,7 @@ CustomEffectName = "SutaraitoSpiritNextTurn"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_sutaraito_spirit"
+FrontlineOnlySpell = false
 MechanicTags = 4113
 CardName = "星途精神"
 Description = "获得2个空法力水晶槽；对所有敌人造成2点伤害；抽2张牌。下回合开始时，额外抽2张牌并获得2点法力。"

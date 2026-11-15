@@ -11,6 +11,7 @@ Value = 0
 [resource]
 script = ExtResource("1_data")
 Id = "domain_unlimited_potential"
+FrontlineOnlySpell = false
 MechanicTags = 5120
 DomainId = "unlimited_potential"
 CardName = "无限潜能"

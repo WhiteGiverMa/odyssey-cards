@@ -6,9 +6,13 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_slime"
+UnitClass = 0
+ActionCost = 0
+Attack = 1
+Health = 1
 MechanicTags = 0
 CardName = "软泥怪"
-Description = "冲锋"
+Description = "闪击。"
 Rarity = 0
 Cost = 0
 Keywords = Array[int]([1])

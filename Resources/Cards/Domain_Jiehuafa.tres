@@ -13,10 +13,11 @@ CustomEffectName = "Jiehuafa"
 [resource]
 script = ExtResource("1_data")
 Id = "domain_jiehuafa"
+FrontlineOnlySpell = false
 MechanicTags = 33792
 DomainId = "jiehuafa"
 CardName = "接化发"
-Description = "领域：敌方回合结束时，若敌方英雄本回合的所有攻击均被完全格挡（无HP穿透），将1张「受身」加入手牌。"
+Description = "领域：敌方回合结束时，若我方英雄或前线随从至少被攻击一次且这些攻击均未造成生命伤害，将1张「受身」加入手牌。"
 Rarity = 2
 Cost = 2
 Type = 2

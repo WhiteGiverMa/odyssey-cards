@@ -12,6 +12,7 @@ CustomEffectName = "SmokeRestore"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_smoke_restore"
+FrontlineOnlySpell = false
 MechanicTags = 131076
 CardName = "烟雾恢复"
 Description = "使所有有「烟幕」的友方单位+4生命值。"

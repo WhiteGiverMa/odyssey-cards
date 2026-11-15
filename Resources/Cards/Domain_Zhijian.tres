@@ -12,6 +12,7 @@ TargetType = "blade_sharp"
 [resource]
 script = ExtResource("1_data")
 Id = "domain_zhijian"
+FrontlineOnlySpell = false
 MechanicTags = 1152
 DomainId = "zhijian"
 CardName = "执锐"

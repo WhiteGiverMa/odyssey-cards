@@ -3,12 +3,22 @@
 [ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
 [ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="1_yubka"]
 
+[sub_resource type="Resource" id="Intel_1"]
+script = ExtResource("1_yubka")
+EffectType = 35
+Value = 1
+
 [resource]
 script = ExtResource("1_data")
 Id = "minion_detective_squad"
-MechanicTags = 0
+UnitClass = 3
+Cost = 1
+ActionCost = 0
+Health = 1
+MechanicTags = 262144
 CardName = "武侦小组"
-Description = "冲锋"
+Description = "闪击。战吼：情报1。"
 Rarity = 0
 Attack = 3
-Keywords = Array[int]([1])
+Keywords = Array[int]([1, 3])
+BattlecryEffects = [SubResource("Intel_1")]

@@ -13,6 +13,7 @@ CustomEffectName = "MambaMissile"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_mamba_missile"
+FrontlineOnlySpell = false
 MechanicTags = 1
 CardName = "曼巴导弹"
 Description = "对随机敌人造成3点伤害5次。伤害高的敌人更可能被击中。"

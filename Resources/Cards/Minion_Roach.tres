@@ -6,9 +6,10 @@
 [resource]
 script = ExtResource("1")
 Id = "minion_roach"
+UnitClass = 0
 MechanicTags = 64
 CardName = "机械小蠊"
-Description = "部署回合沉睡。攻击随机敌方目标。友方有空槽位时复制自身。"
+Description = "友方回合结束时，若支援线有空槽，复制自身到支援线。"
 Type = 0
 Rarity = 0
 Cost = 0

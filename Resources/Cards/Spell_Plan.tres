@@ -11,6 +11,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_plan"
+FrontlineOnlySpell = false
 MechanicTags = 4096
 CardName = "计划"
 Description = "获得1个额外的法力水晶槽"

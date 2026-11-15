@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CardData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="CardData" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
 [ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
@@ -13,15 +13,21 @@ script = ExtResource("2_effect")
 EffectType = 12
 Value = 8
 
+[sub_resource type="Resource" id="Intel_1"]
+script = ExtResource("2_effect")
+EffectType = 35
+Value = 1
+
 [resource]
 script = ExtResource("1_data")
 Id = "spell_expose"
-MechanicTags = 264
+FrontlineOnlySpell = false
+MechanicTags = 262408
 CardName = "暴露"
-Description = "使一个目标失去所有格挡。友方英雄获得8点格挡。"
+Description = "使一个目标失去所有格挡。友方英雄获得8点格挡。情报1。"
 Rarity = 0
 Cost = 2
 Type = 1
 RequiresTarget = true
 TargetFilter = 0
-Effects = [SubResource("SubResource_1"), SubResource("SubResource_2")]
+Effects = [SubResource("SubResource_1"), SubResource("SubResource_2"), SubResource("Intel_1")]

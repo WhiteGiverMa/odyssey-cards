@@ -5,14 +5,14 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_18th_regiment"
+UnitClass = 0
 MechanicTags = 0
 CardName = "第18团"
-Description = "嘲讽"
+Description = "守护，轮战。"
 Rarity = 0
 Cost = 1
 ActionCost = 1
 Type = 0
 Attack = 1
 Health = 4
-Speed = 3
-Keywords = Array[int]([2, 8])
+Keywords = Array[int]([12, 8])

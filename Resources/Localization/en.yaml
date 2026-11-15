@@ -1,4 +1,9 @@
-﻿ui:
+ui:
+  choose_one:
+    recycle_option: "Gain Recycle"
+    draw_option: "Draw 1 more"
+    recycle_desc: "Gain Recycle for this play"
+    draw_desc: "Draw 1 additional card"
   menu:
     title: "Odyssey Cards"
     start_game: "Start Game"
@@ -184,7 +189,7 @@
     keyword_deathrattle: "D"
     keyword_ambush: "A"
     keyword_impact: "I"
-    speed_prefix: "Spd"
+    unit_class_prefix: "Class"
     defense_prefix: "Def"
   card_grid:
     filter_all: "All"
@@ -385,7 +390,7 @@ cards:
     description: "Recycle. Draw 2 cards."
   spell_retrieve:
     name: "Retrieve"
-    description: "Draw 3 cards."
+    description: "Draw 3 cards. Intel 2."
   spell_response:
     name: "Response"
     description: "If you have n friendly minions, draw n+1 cards."
@@ -403,10 +408,10 @@ cards:
     description: "Deal 3 damage to random enemies 5 times. Enemies with higher damage output are more likely to be hit."
   spell_elbow_strike:
     name: "Elbow Strike"
-    description: "Deal damage equal to your hero's Block."
+    description: "Deal damage equal to your hero's Block. While the enemy holds the frontline, only enemy frontline units can be targeted."
   minion_18th_regiment:
     name: "18th Regiment"
-    description: "Taunt, Recycle"
+    description: "Guard, Recycle."
   minion_40a_main_battle_tank:
     name: "Type 40A Main Battle Tank"
     description: "Taunt."
@@ -421,16 +426,34 @@ cards:
     description: "Taunt. Battlecry: all friendly minions gain 3 Block, and your hero gains double that Block. At end of your turn, all friendly minions gain 1 Block, and your hero gains double that Block."
   minion_detective_squad:
     name: "Detective Squad"
-    description: "Charge"
+    description: "Charge. Battlecry: Intel 1."
   minion_lianshu_scout:
     name: "Lianshu Mech Hound Scout"
-    description: "Charge, Recycle\nLast Words: Draw 1 card"
+    description: "Charge, Recycle. Last Words: Intel 1."
   minion_mingshan_walking_support:
     name: "Mingshan Walking Support Machine"
     description: "Charge, Impact. When your hero casts a direct-damage spell, deal damage equal to this minion's Attack to a random enemy."
   minion_lianshu_transport:
     name: "Lianshu Mech Hound Transport"
     description: "Charge. Battlecry: Draw 2 cards and restore 2 Health to your hero. At end of turn, if this is in play, return it to the draw pile. After this happens twice, put it into the discard pile instead."
+  domain_preemptive_strike:
+    name: "Preemptive Strike"
+    description: "Domain: The first direct-damage card each turn deals 10% more damage for every card in your hand."
+  minion_rayan_ge:
+    name: "Smoke Runner"
+    description: "Charge. On its first attack, your hero gains 1 Smokescreen."
+  spell_smoke_restore:
+    name: "Smoke Recovery"
+    description: "Give all friendly units with Smokescreen +4 Health."
+  spell_frag_bullet:
+    name: "Fragmentation Bullet"
+    description: "Deal 5 damage to an enemy. If it has less than 18% Health, mark it with Fatal Rift: the next friendly hit destroys it while below that threshold. Bosses cannot be executed."
+  spell_smoke_dodge:
+    name: "Smoke Dodge"
+    description: "Give all friendly units without Taunt or Guard 1 Smokescreen. Draw 1 card."
+  spell_nadao_fangyu:
+    name: "Blade Defense"
+    description: "Your hero gains +3 Attack until the end of the next enemy turn. Draw 1 card. Choose one: gain Recycle this time, or draw 1 more card."
   domain_zhijian:
     name: "Blade Sharp"
     description: "Domain: Friendly minions gain +1 Attack when deployed"
@@ -442,7 +465,7 @@ cards:
     description: "Charge"
   minion_roach:
     name: "Mechanical Roach"
-    description: "Sleeps on deploy. Attacks random enemy. Copies itself if friendly slot available."
+    description: "At the end of your turn, summon a copy in your support line if a slot is available."
   spell_plan:
     name: "Plan"
     description: "Gain an additional Mana Crystal slot"
@@ -457,7 +480,7 @@ cards:
     description: "Remove the natural growth cap of Mana Crystals."
   spell_discover:
     name: "Discover"
-    description: "Choose 1 of 3 random cards to add to your hand"
+    description: "Intel 1. Choose 1 of 3 random cards to add to your hand."
   minion_knight_type1:
     name: "Knight Type-I"
     description: "Charge, Impact"
@@ -475,13 +498,13 @@ cards:
     description: "Domain: Gain 5 Block. The next time an enemy minion or hero attacks you, draw 2 cards and add a Body Roll to your hand."
   domain_jiehuafa:
     name: "Jie Hua Fa"
-    description: "Domain: At end of enemy turn, if all enemy hero attacks this turn were fully blocked (no HP damage taken), add a Body Roll to your hand."
+    description: "Domain: At the end of the enemy turn, if your hero or frontline minions were attacked at least once and none of those attacks dealt Health damage, add a Body Roll to your hand."
   spell_ukemi:
     name: "Body Roll"
     description: "Gain 3 Block. Draw 1 card."
   spell_expose:
     name: "Expose"
-    description: "Remove all Block from a target. Friendly Hero gains 8 Block."
+    description: "Remove all Block from a target. Your hero gains 8 Block. Intel 1."
   spell_bait_tactics:
     name: "Bait Tactics"
     description: "Give a minion Ambush and Impact. When it is attacked, the player's enemy hero loses 1 Defense."
@@ -517,11 +540,11 @@ cards:
     description: "Gain 2 empty Mana Crystal slots; deal 2 damage to all enemies; draw 2 cards. At the start of your next turn, draw 2 extra cards and gain 2 Mana."
   minion_what_the_dog_doing:
     name: "What The Dog Doing"
-    description: "Taunt\nBattlecry: Add a copy to an adjacent board slot."
+    description: "Guard. Battlecry: Summon a copy in an adjacent support slot, or another empty support slot if both adjacent slots are occupied."
 
   spell_blade_crisis:
     name: "Blade Crisis"
-    description: "Choose and discard up to 5 cards, add that many What The Dog Doing to friendly board slots, and draw that many cards."
+    description: "Discard up to 5 cards. Summon that many What The Dog Doing in empty friendly support slots (excess summons are lost), then draw that many cards."
 
   spell_boundless_darkness:
     name: "Boundless Darkness"
@@ -538,6 +561,21 @@ cards:
   minion_smart_stinky_egg:
     name: "Smart Rotten Egg"
     description: "Deathrattle: Deal 4 spell damage to all enemies."
+
+board_row:
+  enemysupport: "Enemy Support"
+  frontline: "Frontline"
+  playersupport: "Friendly Support"
+
+unit_class:
+  vanguard: "Vanguard"
+  assault: "Assault"
+  support: "Support"
+  skirmisher: "Skirmisher"
+  vanguard_desc: "Melee. Move or attack once each turn."
+  assault_desc: "Melee. Move once and attack once each turn, or twice with Windfury."
+  support_desc: "Full-board range. Ignores Ambush and counterattacks when attacking. Move or attack once each turn."
+  skirmisher_desc: "Full-board range. Immune to active melee attacks in support; escorts its line. Move or attack once each turn."
 
 card_type:
   minion: "Minion"
@@ -679,7 +717,7 @@ domain:
   idol_twilight: "Idol's Twilight"
   idol_twilight_desc: "After being attacked, gain +1/+1."
   jiehuafa: "Jie Hua Fa"
-  jiehuafa_desc: "When all attacks blocked, gain Ukemi."
+  jiehuafa_desc: "If your hero or frontline minions were attacked at least once during the enemy turn and none of those attacks dealt Health damage, gain Ukemi."
   focus: "Focus"
   focus_desc: "Each stack increases spell damage dealt by 1."
   scheme: "Scheme"
@@ -692,7 +730,7 @@ domain:
   sutaraito_spirit_desc: "At the start of your next turn, draw 2 extra cards and gain 2 Mana."
 
 stat:
-  speed_format: "Speed {speed}"
+  unit_class_format: "Class: {class}"
   attack_up: "Attack +{value}"
   attack_down: "Attack {value}"
   defense_up: "Defense +{value}"
@@ -708,7 +746,15 @@ keyword_source:
 
 keyword:
   taunt: "Taunt"
-  taunt_desc: "Enemy minions must attack this minion first."
+  taunt_desc: "Reachable Taunt minions intercept normal attacks against their line and their HQ. Cannot coexist with Smokescreen."
+  guard: "Guard"
+  guard_desc: "Protects adjacent non-Guard, non-Taunt minions in the same line, but not the HQ. Cannot coexist with Smokescreen."
+  charge: "Charge"
+  recycle: "Recycle"
+  intel: "Intel"
+  intel_desc: "Reveal hidden enemy cards from left to right. Unspent points become Excess Intel."
+  intel_overflow: "Excess Intel"
+  intel_overflow_desc: "Each point restores 1 Health to your hero, or grants 1 Block if already at full Health."
   ambush: "Ambush"
   ambush_desc: "First time attacked each turn, counter-attack before the attacker."
   impact: "Impact"

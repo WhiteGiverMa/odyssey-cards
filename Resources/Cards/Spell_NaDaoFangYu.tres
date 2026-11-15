@@ -12,6 +12,7 @@ CustomEffectName = "NaDaoFangYu"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_nadao_fangyu"
+FrontlineOnlySpell = false
 MechanicTags = 2072
 CardName = "拿刀防卫"
 Description = "友方英雄获得+3攻击力直到下个敌方回合结束，抽1张牌；抉择：*在本次获得轮战*或*多抽1张牌*。"
