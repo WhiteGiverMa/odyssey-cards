@@ -6,20 +6,20 @@ Godot Control 层。UI 负责显示、输入、动画与异步选择；规则落
 
 ## Map
 
-| 区域 | 文件 | 注意 |
-|------|------|------|
-| 战斗 UI 编排 | `CombatUI.cs` | 生命周期、事件连线、字段 |
-| 战斗布局 | `CombatUI.Layout.cs` | BuildLayout + Create*，程序化控件 |
-| 战斗刷新 | `CombatUI.Refresh.cs` | Pull 刷新，不轮询规则 |
-| 战斗选择 | `CombatUI.Selection.cs` | 手牌/目标/攻击/发现状态机 |
-| 手牌 | `HandUI.cs`, `CardUI.cs` | 手动布局；CardUI 支持 `[Tool]` 预览 |
-| 棋盘 | `BoardUI.cs` | `[Tool]` 预览，槽位原地刷新 |
-| 敌方身份卡 | `EnemyIdentityCard.cs` | 意图、英雄攻击绿框、旧意图桥接 |
-| 异步选牌 | `DiscoverUI.cs`, `RewardUI.cs`, `CardSelectionScreen.cs` | `TaskCompletionSource` 一次性屏幕 |
-| Roguelike UI | `EventUI.cs`, `ShopUI.cs`, `RestSiteUI.cs` | 存在但流程未完全接线 |
-| 弹窗/导航 | `MobileDialogHost.cs`, `SubmenuStack.cs`, `PauseMenu.cs` | 模态栈 + 设置页 |
-| 视觉反馈 | `ArrowRenderer.cs`, `EffectBar.cs`, `CardAnimation.cs`, `CardFlyVfx.cs` | 动画/箭头/浮字 |
-| 编辑器预览 | `Scenes/CardPreview.tscn`, `BoardPreview.tscn`, `CombatPreview.tscn` | `#if TOOLS` 零发布开销 |
+| 区域         | 文件                                                                    | 注意                                                          |
+| ------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 战斗 UI 编排 | `CombatUI.cs`                                                           | 生命周期、事件连线、字段                                      |
+| 战斗布局     | `CombatUI.Layout.cs`                                                    | BuildLayout + Create*，程序化控件                             |
+| 战斗刷新     | `CombatUI.Refresh.cs`                                                   | Pull 刷新，不轮询规则                                         |
+| 战斗选择     | `CombatUI.Selection.cs`                                                 | 手牌/目标/攻击/发现状态机                                     |
+| 手牌         | `HandUI.cs`, `CardUI.cs`                                                | 手动布局；CardUI 支持 `[Tool]` 预览                           |
+| 棋盘         | `BoardUI.cs`                                                            | `[Tool]` 三线 4/5/4，BoardPosition 寻址，GetSlotView 视觉挂载 |
+| 敌方身份卡   | `EnemyIdentityCard.cs`                                                  | 意图、英雄攻击绿框、旧意图桥接                                |
+| 异步选牌     | `DiscoverUI.cs`, `RewardUI.cs`, `CardSelectionScreen.cs`                | `TaskCompletionSource` 一次性屏幕                             |
+| Roguelike UI | `EventUI.cs`, `ShopUI.cs`, `RestSiteUI.cs`                              | 存在但流程未完全接线                                          |
+| 弹窗/导航    | `MobileDialogHost.cs`, `SubmenuStack.cs`, `PauseMenu.cs`                | 模态栈 + 设置页                                               |
+| 视觉反馈     | `ArrowRenderer.cs`, `EffectBar.cs`, `CardAnimation.cs`, `CardFlyVfx.cs` | 动画/箭头/浮字                                                |
+| 编辑器预览   | `Scenes/CardPreview.tscn`, `BoardPreview.tscn`, `CombatPreview.tscn`    | `#if TOOLS` 零发布开销                                        |
 
 ## Conventions
 
@@ -41,6 +41,9 @@ Godot Control 层。UI 负责显示、输入、动画与异步选择；规则落
 - 同一栈帧不要 `QueueFree` 旧节点后立刻 `AddChild` 新节点；deferred 批处理。
 - `[Tool]` 会实例化嵌套 Control；嵌套类要无参构造，值类型字段用 `default`。
 - 嵌套 partial class 的 `signal +=` 不可靠；用 `Connect` 或 C# event。
+- 三线槽位事件/命中测试使用 BoardPosition，不以 bool 阵营猜测前线位置；阵营从驻扎单位/FrontlineOwner 读取。
+- 移动与一步突击高亮必须查询 CombatManager；不在 UI 扣油费。兵种显示使用 unit_class.* 本地化，不再显示战斗速度。
+- 战斗指针使用 Godot 主指针（含触控模拟鼠标），不依赖未注册 zone 的 Router.IsTouchActive。CardUI 移动端预览先追踪，超过统一 10px 阈值后再进入 CombatUI 出牌流程；须真机验证。
 
 ## Anti-Patterns
 

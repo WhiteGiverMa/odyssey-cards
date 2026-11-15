@@ -1,7 +1,7 @@
-# OdysseyCards（少女星途卡牌） — Godot 4.7 C# · 类炉石 Roguelite 卡牌
+# OdysseyCards（少女星途卡牌） — Godot 4.7.2 C# · PVE 混搭 KARDS 三线战术卡牌
 
-**Updated:** 2026-06-25
-**Scale:** 192 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~37,000 行 · 52 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景（4 正式 + 3 预览）
+**Updated:** 2026-11-15
+**Scale:** 225 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~46,000 非空行 · 61 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景 + `Tools/CardCollectionWeb` 全栈收藏集/Wiki
 
 ## 项目文化标签
 
@@ -19,36 +19,36 @@
 
 ```
 Scripts/
-├── Core/ (42)      # CardData, GameManager(Autoload), DamageResolver, HeroProfile, RarityColorScheme, SaveDataManager, VersionInfo…
-├── UI/ (41)        # CombatUI partials, BoardUI, HandUI, CardUI, CollectionUI, MapUI, InfoScreen, Shop/Rest/Event UI…
+├── Core/ (43)      # CardData, UnitClass, GameManager(Autoload), DamageResolver, HeroProfile, SaveDataManager, VersionInfo…
+├── UI/ (52)        # CombatUI partials, BoardUI, HandUI, CardUI, CollectionUI, MapUI, InfoScreen, Shop/Rest/Event UI…
 ├── Card/ (15)      # Card, Minion, Hero, Weapon, StatusEffect, ActiveDomain, HeroPowers/*（纯 C#）
 ├── Character/ (5)  # Player(Node), CommanderCore, Deck, CombatDeckState
-├── Combat/ (14)    # CombatManager + AttackTracker/SelectionSystem/DeathHandler/WeaponAttackSystem/DomainTriggerManager 等拆分模块
+├── Combat/ (22)    # 三线 Board、AttackTargetRules、AttackTracker、MinionActionService、IntelService 与战斗编排
 ├── AI/ (30)        # EnemyEncounter, EnemyRegistry, 多敌人 Brain + Intents/(20) MoveState/Intent 类型体系
 ├── Heat/ (2)       # HeatSystem + HeatDamageModifier，全局热力伤害倍率
-├── Relic/ (7)      # AbstractRelic, RelicManager, 5 个具体藏品
-├── Roguelike/ (5)  # EventSelector, RoomData, GameRunState, EventData, BlessingData
+├── Relic/ (10)     # AbstractRelic, RelicManager 与具体藏品
+├── Roguelike/ (6)  # EventSelector, RoomData, GameRunState, EventData, BlessingData、ThemedDeckGenerator
 ├── Localization/ (5)# YAML 多语言 (LocalStr, ConcatLocalStr, ILocalizable, YamlParser)
 └── Infrastructure/ (23, Commands/9) # ChatScreen, InputManager, HotkeyManager, MobileInputRouter, SceneLifecycleGuard…
-Resources/Cards/    # 52 .tres：领域6 + 随从18 + 法术27 + 状态1
+Resources/Cards/    # 61 .tres；19 张随从已显式配置 UnitClass，非随从显式配置 FrontlineOnlySpell
 Resources/Localization/ # zh.yaml / en.yaml
 Resources/Enemies/ Resources/Relics/ # 结构桩，当前为空
 Scenes/             # Main, Combat, Collection, Map + Card/Board/CombatPreview
-Tests/              # tests/csharp：xUnit 12 Unit + 1 Integration(跳过)
+Tests/              # tests/csharp：xUnit 24 Unit + 1 Integration(跳过)
 ```
 
 ## Autoload
 
-| 名称                | 路径                                          | 用途                                                                |
-| ------------------- | --------------------------------------------- | ------------------------------------------------------------------- |
-| `GameManager`       | `Scripts/Core/GameManager.cs`                 | 全局状态、卡牌注册表、语言切换、跨战斗持久化                        |
-| `UIScaler`          | `Scripts/UI/UIScaler.cs`                      | UI 缩放，当前基准 1152×648（TODO 统一 1600×900）                    |
-| `ChatScreen`        | `Scripts/Infrastructure/ChatScreen.cs`        | 开发者控制台，`` ` `` 呼出                                          |
-| `MobileInputHelper` | `Scripts/Infrastructure/MobileInputHelper.cs` | 旧触控辅助；非战斗 UI 仍有使用，战斗表面新代码用 Router             |
-| `MobileInputRouter` | `Scripts/Infrastructure/MobileInputRouter.cs` | 移动端触控路由（手势所有权 + 模态栈），桌面端透传                   |
-| `InputManager`      | `Scripts/Infrastructure/InputManager.cs`      | 键盘键位映射（物理键→逻辑动作），多套配置持久化                     |
-| `HotkeyManager`     | `Scripts/Infrastructure/HotkeyManager.cs`     | 键盘动作→回调分发（栈式绑定），AddBlockingScreen 输入拦截           |
-| `EvalGateway`       | `Scripts/Infrastructure/EvalGateway.cs`       | C# 反射求值网关（DEBUG only），为 godot-mcp 提供 C# 路径求值 + 快照 |
+| 名称                | 路径                                          | 用途                                                                                                    |
+| ------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `GameManager`       | `Scripts/Core/GameManager.cs`                 | 全局状态、卡牌注册表、语言切换、跨战斗持久化                                                            |
+| `UIScaler`          | `Scripts/UI/UIScaler.cs`                      | UI 缩放，设计基准已统一为 1600×900                                                                      |
+| `ChatScreen`        | `Scripts/Infrastructure/ChatScreen.cs`        | 开发者控制台，`` ` `` 呼出                                                                              |
+| `MobileInputHelper` | `Scripts/Infrastructure/MobileInputHelper.cs` | 旧触控辅助；非战斗 UI 仍有使用，战斗表面新代码用 Router                                                 |
+| `MobileInputRouter` | `Scripts/Infrastructure/MobileInputRouter.cs` | 移动端触控路由（手势所有权 + 模态栈），桌面端透传                                                       |
+| `InputManager`      | `Scripts/Infrastructure/InputManager.cs`      | 键盘键位映射（物理键→逻辑动作），多套配置持久化                                                         |
+| `HotkeyManager`     | `Scripts/Infrastructure/HotkeyManager.cs`     | 键盘动作→回调分发（栈式绑定），AddBlockingScreen 输入拦截                                               |
+| `EvalGateway`       | `Scripts/Infrastructure/EvalGateway.cs`       | C# 反射求值网关 2.0（DEBUG only）：路径求值、方法调用、事件/异常探针、合作式虚拟指针、`ui_targets` 快照 |
 
 ## WHERE TO LOOK
 
@@ -59,10 +59,12 @@ Tests/              # tests/csharp：xUnit 12 Unit + 1 Integration(跳过)
 | 卡牌运行时    | `Card/Card.cs` → `Minion.cs`                                                                                                                                                                | **纯 C#，不继承 Node**；`Spell.cs` 是死代码                                                                       |
 | 英雄/护甲     | `Card/Hero.cs`                                                                                                                                                                              | 包装 CommanderCore；护甲吸收在 DamageResolver 后                                                                  |
 | 英雄技能      | `Card/IHeroPower.cs`, `Card/HeroPowers/`                                                                                                                                                    | 当前有 IronWill、绮梦「星光补给」、理惠「火力筛选」、溯光「重整」；带冷却/存储层数的技能看 `IChargeCooldownSkill` |
-| 武器          | `Card/Weapon.cs`, `WeaponSkill.cs`                                                                                                                                                          | 当前有离子手枪、SVDS-M338、棍木；`RailPistolPassive.cs` 仍孤立                                                    |
+| 武器          | `Card/Weapon.cs`, `WeaponSkill.cs`, `RailPistolPassive.cs`                                                                                                                                  | WeaponRange 区分近战/远程/友方支援；宇宙员正式装备 RailPistol                                                     |
 | 战斗主循环    | `Combat/CombatManager.cs`                                                                                                                                                                   | 仍是中介；详见 `Scripts/Combat/AGENTS.md`                                                                         |
 | 战斗拆分模块  | `Combat/AttackTracker.cs`, `SelectionSystem.cs`, `DeathHandler.cs`, `WeaponAttackSystem.cs`…                                                                                                | 纯 C# + 构造注入 + Action 回调                                                                                    |
-| 棋盘          | `Combat/Board.cs`                                                                                                                                                                           | 2×5 槽位，嘲讽检测，C# event                                                                                      |
+| 棋盘          | `Combat/Board.cs`, `BoardPosition.cs`                                                                                                                                                       | 4/5/4 三线；支援线唯一部署入口、前线阵营独占；移动独立事件                                                        |
+| 行动/目标规则 | `Combat/AttackTracker.cs`, `MinionActionService.cs`, `AttackTargetRules.cs`, `AttackCombatResolver.cs`                                                                                      | 整备冷却、四兵种配额、双段油费与一步突击；嘲讽 > 守护 > 游击护航；统一反击结算                                    |
+| 情报          | `Combat/IntelService.cs`, `Card/Card.cs`                                                                                                                                                    | 左起揭露实例；溢出逐点回血、满血转格挡，OnIntelOverflow 可扩展                                                    |
 | 回合/法力     | `Combat/GameState.cs`                                                                                                                                                                       | 纯 C#，法力自然上限/硬上限见测试                                                                                  |
 | 敌方单位      | `Combat/EnemyUnit.cs`                                                                                                                                                                       | Hero 身体 + EnemyEncounter 大脑                                                                                   |
 | 伤害计算      | `Core/DamageResolver.cs`, `Core/*DamageModifier.cs`                                                                                                                                         | 四阶段管线；Heat 独立在 `Scripts/Heat/`                                                                           |
@@ -76,7 +78,7 @@ Tests/              # tests/csharp：xUnit 12 Unit + 1 Integration(跳过)
 | 卡牌交互      | `UI/CardUI.cs`                                                                                                                                                                              | `[Tool]` 预览 + 点击/拖拽状态机；卡图区由 CardArtworkView 程序化生成                                              |
 | 星途视觉系统  | `Core/CardArtworkGenerator.cs`, `UI/CardArtworkView.cs`, `UI/StarfieldBackground.cs`, `UI/UIThemeFactory.cs`, `UI/ManaCrystalBar.cs`, `UI/MapPathView.cs`, `UI/MicroFX.cs`, `UI/HeatBar.cs` | 0 美术资产程序化视觉：卡图、星云星空、全局主题、路线节点、微交互、热力/生命 HUD                                   |
 | 交互状态机    | `UI/InteractionFSM.cs`                                                                                                                                                                      | 纯 C#；统一 Idle/CardPickedUp/Targeting/BoardDrag 阶段转换                                                        |
-| 棋盘 UI       | `UI/BoardUI.cs`                                                                                                                                                                             | `[Tool]` 预览，2×5 BoardSlot                                                                                      |
+| 棋盘 UI       | `UI/BoardUI.cs`                                                                                                                                                                             | `[Tool]` 三行 BoardSlot，统一 BoardPosition；GetSlotView 为后续视觉挂载点                                         |
 | 收藏          | `UI/CollectionUI.cs`, `CardGrid.cs`                                                                                                                                                         | 浏览/编辑/分页/过滤                                                                                               |
 | 地图/事件     | `UI/MapUI.cs`, `UI/MapPathView.cs`, `EventUI.cs`, `ShopUI.cs`, `RestSiteUI.cs`                                                                                                              | MapPathView 绘制层间路线与房间节点；后三者存在但未完整接入流程                                                    |
 | 发现/奖励     | `UI/DiscoverUI.cs`, `RewardUI.cs`                                                                                                                                                           | TaskCompletionSource 异步，一次性屏幕                                                                             |
@@ -126,6 +128,17 @@ Tests/              # tests/csharp：xUnit 12 Unit + 1 Integration(跳过)
 - 护甲吸收在 DamageResolver **之后**。Hero 和 Minion 统一此顺序。
 - Heat 阶段由 `Scripts/Heat/HeatDamageModifier.cs` 接入。
 - 注意：`FragileArmorModifier` 是护甲增益修改器，不是标准 `IDamageModifier` 模式。
+
+### 三线空间与普通攻击
+
+- `EnemySupport(4) / Frontline(5) / PlayerSupport(4)`；英雄 HQ 不占槽位，在空间规则中视作自家支援线。
+- 所有部署/复制/批量召唤只进入所属支援线；满格失败，不替换、不溢入前线。数组公开面为只读。
+- `MoveMinionToFrontline` 只触发 `OnMinionMoved`/控制权事件，不触发部署、移除或死亡；最后一名驻军移除/召回后立即释放前线。
+- `UnitClass`：先锋/支援/游击每回合移动或攻击一次；突击移动一次加攻击一次（风怒两次）。无闪击新部署有整备冷却，失能不能移动或攻击。
+- 玩家行动经 `MinionActionService` 校验后逐段扣 `ActionCost`；一步突击必须预先付得起两段费用。`OnAssaultAdvance` 提供演出挂载点。
+- 普攻必须走 `AttackTargetRules`：基础射程/烟幕/后排游击免摸 → 同线嘲讽（所有可达嘲讽保护 HQ）→ 邻格守护 → 游击护航。护航游击的相邻地面守护可被优先拆除，禁止循环锁。
+- 支援与 `IgnoreCounterAttack` 武器免反击且不消耗目标伏击；伏击替代普通反击，失能防御方不伏击、不反击。法术、主动技能与强制互殴不经过普攻目标过滤。
+- 已删除战斗速度系统。新增卡牌不要重新加入 `Speed`/`BaseSpeed`。
 
 ### 意图系统
 
@@ -294,7 +307,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - 运行时 QA：启动 Godot → ChatScreen 执行 `/qa_*` → `game_get_logs` 读结果。
 - godot-mcp 可验证：`/damage`、`/draw`、`/mana`、`/end`、`/armor` + logs/UI。
 - godot-mcp C# 求值：`game_eval_csharp(path="CombatManager.PlayerHero.CurrentHealth")`、`game_eval_csharp_snapshot(kind="combat")`。通过 `/root/EvalGateway` Autoload 反射 C# 成员，解决 `game_eval`（GDScript）无法访问 C# 静态成员/纯 C# 类/List<T>/enum 的痛点。
-- godot-mcp **无法可靠验证拖拽**：`game_click` 合成事件 vs OS 真实鼠标不一致。
+- godot-mcp 虚拟指针拖拽：`EvalGateway` 2.0 提供合作式虚拟指针（`SetVirtualMousePosition`/`GetEffectiveMousePosition`）与 `GetSnapshot("ui_targets")`，配合 `godot-mcp` 的 `game_virtual_drag` 可端到端自动化验证手牌拖拽部署、推进前线与一步突击。
 - 需人类肉眼：UI 位置/大小、拖拽交互、动画、字体。
 - 路径硬编码：`G:\dev\godot-mcp\build\scripts\`（分家后真源在 `WhiteGiverMa/godot-mcp`）。
 - mcp无法验证移动端特有行为，需请求真机测试
@@ -334,6 +347,12 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 
 ## State
 
+- ✅ Godot 4.7.2 全仓对齐：`nuget.config` 指向本地 `G:\dev\Godot_v4.7.2\GodotSharp\Tools\nupkgs` 离线源，SDK 升级至 `Godot.NET.Sdk/4.7.2`，构建脚本默认 `G:\dev\Godot_v4.7.2\godot.exe`。
+- ✅ 三线前线 M1/M2：四兵种（先锋/突击/支援/游击）与守护、独占前线/支援线 4 格部署铁律、行动油费/一步突击、`嘲讽 > 守护 > 游击护航（挡刀守护暴露破锁）`（1,296 种组合无死锁门禁）、对称烟幕、统一伏击反击、Intel 左起揭露与满血转甲溢出情报；61 张 `.tres` 与双语翻译全量迁移，`Tools/CardTagEditor` 同步支持。
+- ✅ 双轨敌方架构 M3：引入 `EffectActorContext` 与 `IDecisionProvider` 完成全仓施法者相对阵营化与 `CommanderCore` 单一法力真源；道中走 `IIntentDrivenEnemy`，精英/Boss 新增 `DeckDrivenCommander`（`commander_ayame`/`commander_rie`/`commander_sokou` 20 张主题卡组实时评分贪心 AI，交互牌同步秒选，手牌直接联动情报揭露）。
+- ✅ 1600×900 战斗视觉总装 M4 & `EvalGateway` 2.0：`UIScaler` 统一 1600×900，升级双层程序化卡图，实装顶部 `EnemyHandBar` 明暗手牌栏、`FrontlineArenaBackdrop` 三线呼吸力场、`TacticalIconDrawer` 兵种/防线徽章、`AssaultAdvanceVfx` 一步突击随机「停稳射击 vs 行进间射击」动画，以及合作式虚拟指针拖拽测试支持。
+- ✅ KARDS 风格全栈收藏集与战术 Wiki（`Tools/CardCollectionWeb`）：Node/TS 实时 `.tres`/YAML 解析 API + React/TS 前端 + 高精度确定性 HTML5 Canvas 卡图引擎 + 主题卡组生成 + 交互式 4/5/4 防线规则沙盘。
+- ✅ `EvalGateway.RunFrontlineQa()`（DEBUG，改变测试战局）覆盖三线部署/行动/情报/领域运行时集成；纯 C# 测试 243 项通过。
 - ✅ 全面键盘支持：InputManager→HotkeyManager→各场景，对齐 STS2 键位。
 - ✅ 主菜单英雄选择：当前可选红裤衩 / 绮梦 / 理惠 / 溯光，旧 qimeng 存档映射到新绮梦，选择结果持久化到存档。
 - ✅ 新英雄理惠：25HP，SVDS-M338，持续伤害状态，英雄技能「火力筛选」。
@@ -361,7 +380,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - ✅ 星途视觉系统 v1/P2（PRD: issue #2）：程序化卡图生成器（61 张卡全有独特卡面，ID 哈希种子可复现，主题风格分派 ayame=Rune/rie/sokou=Mecha）、全局主题工厂 + 星途色板、星云星空背景（主菜单/战斗/地图三档密度）、六边形法力水晶、棋盘阵营色边框、地图节点路径、按钮/场景微交互、敌我英雄底座光环、热力火焰条与生命渐变底座；STS 遗物 PlaceholderAssetGenerator 已删，Assets 死图 212→24（仅保留 _backup 引用的 Demo jpg）。
 - ✅ 术语对照表已建立（Architecture Rules → 术语对照段），涵盖领域/限时挂载/状态/目标单位/直伤卡/触发时机。
 - ⚠️ `Spell.cs` 从未实例化（死代码）。
-- ⚠️ `RailPistolPassive.cs`、`SafeAreaContainer.cs` 当前孤立。
+- ⚠️ `SafeAreaContainer.cs` 当前孤立；`RailPistolPassive.cs` 已接入宇宙员。
 - ⚠️ `EventSelector` 奖励逻辑完整但战斗奖励流仍未统一接线；`ApplyReward` 已 Obsolete。
 - ⚠️ `ShopUI` / `RestSiteUI` / `EventUI` / `MobileDialogHost` 存在但未完整接入 MapUI 流程。
 - ⚠️ 英雄技能四个实现均存在；战斗 UI/输入仍需按英雄逐项运行时验证。
