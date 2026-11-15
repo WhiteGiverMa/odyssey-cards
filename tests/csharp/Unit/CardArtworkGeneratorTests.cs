@@ -12,9 +12,9 @@ public class CardArtworkGeneratorTests
 	[Fact]
 	public void ResolveSpec_SameInput_ProducesIdenticalSpec()
 	{
-		var a = CardArtworkGenerator.ResolveSpec("minion_slime", CardType.Minion,
+		CardArtworkSpec a = CardArtworkGenerator.ResolveSpec("minion_slime", CardType.Minion,
 			CardRarity.Common, CardMechanicTag.None, "", null);
-		var b = CardArtworkGenerator.ResolveSpec("minion_slime", CardType.Minion,
+		CardArtworkSpec b = CardArtworkGenerator.ResolveSpec("minion_slime", CardType.Minion,
 			CardRarity.Common, CardMechanicTag.None, "", null);
 
 		Assert.Equal(a.Seed, b.Seed);
@@ -22,14 +22,19 @@ public class CardArtworkGeneratorTests
 		Assert.Equal(a.StarCount, b.StarCount);
 		Assert.Equal(a.BaseColor, b.BaseColor);
 		Assert.Equal(a.SymbolRotation, b.SymbolRotation);
+		Assert.Equal(a.SecondaryGeometryIndex, b.SecondaryGeometryIndex);
+		Assert.Equal(a.OrbitTickCount, b.OrbitTickCount);
+		Assert.Equal(a.CoreGlowStrength, b.CoreGlowStrength);
+		Assert.Equal(a.CornerOrnamentIndex, b.CornerOrnamentIndex);
+		Assert.Equal(a.NebulaOffset, b.NebulaOffset);
 	}
 
 	[Fact]
 	public void ResolveSpec_DifferentIds_ProduceDifferentSeeds()
 	{
-		var a = CardArtworkGenerator.ResolveSpec("minion_slime", CardType.Minion,
+		CardArtworkSpec a = CardArtworkGenerator.ResolveSpec("minion_slime", CardType.Minion,
 			CardRarity.Common, CardMechanicTag.None, "", null);
-		var b = CardArtworkGenerator.ResolveSpec("minion_roach", CardType.Minion,
+		CardArtworkSpec b = CardArtworkGenerator.ResolveSpec("minion_roach", CardType.Minion,
 			CardRarity.Common, CardMechanicTag.None, "", null);
 
 		Assert.NotEqual(a.Seed, b.Seed);
@@ -42,9 +47,9 @@ public class CardArtworkGeneratorTests
 		var seen = new System.Collections.Generic.HashSet<int>();
 		for (int i = 0; i < 100; i++)
 		{
-			var spec = CardArtworkGenerator.ResolveSpec($"card_{i}", CardType.Spell,
+			CardArtworkSpec spec = CardArtworkGenerator.ResolveSpec($"card_{i}", CardType.Spell,
 				CardRarity.Common, CardMechanicTag.None, "", null);
-			seen.Add(spec.SymbolIndex);
+			_ = seen.Add(spec.SymbolIndex);
 		}
 
 		Assert.True(seen.Count >= 6, $"符号多样性不足：100 张卡只用了 {seen.Count} 种符号");
@@ -53,7 +58,7 @@ public class CardArtworkGeneratorTests
 	[Fact]
 	public void ResolveSpec_Minion_UsesWarmGoldPalette()
 	{
-		var spec = CardArtworkGenerator.ResolveSpec("minion_tank", CardType.Minion,
+		CardArtworkSpec spec = CardArtworkGenerator.ResolveSpec("minion_tank", CardType.Minion,
 			CardRarity.Common, CardMechanicTag.None, "", null);
 
 		// 暖金：R 通道显著高于 B 通道
@@ -64,7 +69,7 @@ public class CardArtworkGeneratorTests
 	[Fact]
 	public void ResolveSpec_Spell_UsesCyanBluePalette()
 	{
-		var spec = CardArtworkGenerator.ResolveSpec("spell_strike", CardType.Spell,
+		CardArtworkSpec spec = CardArtworkGenerator.ResolveSpec("spell_strike", CardType.Spell,
 			CardRarity.Common, CardMechanicTag.None, "", null);
 
 		// 青蓝：B 通道高于 R 通道
@@ -75,7 +80,7 @@ public class CardArtworkGeneratorTests
 	[Fact]
 	public void ResolveSpec_DomainByMechanicTag_UsesVioletPalette()
 	{
-		var spec = CardArtworkGenerator.ResolveSpec("domain_infinite_fire", CardType.Spell,
+		CardArtworkSpec spec = CardArtworkGenerator.ResolveSpec("domain_infinite_fire", CardType.Spell,
 			CardRarity.Common, CardMechanicTag.Domain, "", null);
 
 		// 紫罗兰：R 与 B 均高，G 明显低
@@ -86,7 +91,7 @@ public class CardArtworkGeneratorTests
 	[Fact]
 	public void ResolveSpec_DomainByDomainId_UsesVioletPalette()
 	{
-		var spec = CardArtworkGenerator.ResolveSpec("domain_flying_away", CardType.Spell,
+		CardArtworkSpec spec = CardArtworkGenerator.ResolveSpec("domain_flying_away", CardType.Spell,
 			CardRarity.Common, CardMechanicTag.None, "flying_away", null);
 
 		Assert.True(spec.AccentColor.R > 0.6f && spec.AccentColor.B > 0.9f && spec.AccentColor.G < 0.75f,
@@ -96,7 +101,7 @@ public class CardArtworkGeneratorTests
 	[Fact]
 	public void ResolveSpec_MasterRarity_HasGoldGlow()
 	{
-		var spec = CardArtworkGenerator.ResolveSpec("spell_plan", CardType.Spell,
+		CardArtworkSpec spec = CardArtworkGenerator.ResolveSpec("spell_plan", CardType.Spell,
 			CardRarity.Master, CardMechanicTag.None, "", null);
 
 		Assert.True(spec.GlowColor.A > 0.5f, "大师级应有光晕");
@@ -106,7 +111,7 @@ public class CardArtworkGeneratorTests
 	[Fact]
 	public void ResolveSpec_CommonRarity_HasNoGlow()
 	{
-		var spec = CardArtworkGenerator.ResolveSpec("spell_strike", CardType.Spell,
+		CardArtworkSpec spec = CardArtworkGenerator.ResolveSpec("spell_strike", CardType.Spell,
 			CardRarity.Common, CardMechanicTag.None, "", null);
 
 		Assert.True(spec.GlowColor.A < 0.01f, "一般级不应有光晕");
@@ -120,7 +125,7 @@ public class CardArtworkGeneratorTests
 	[InlineData(null, ArtworkSymbolStyle.Abstract)]
 	public void ResolveSpec_HeroTheme_MapsToSymbolStyle(string? heroTheme, ArtworkSymbolStyle expected)
 	{
-		var spec = CardArtworkGenerator.ResolveSpec("any_card", CardType.Spell,
+		CardArtworkSpec spec = CardArtworkGenerator.ResolveSpec("any_card", CardType.Spell,
 			CardRarity.Common, CardMechanicTag.None, "", heroTheme);
 
 		Assert.Equal(expected, spec.Style);
@@ -148,9 +153,62 @@ public class CardArtworkGeneratorTests
 	{
 		for (int i = 0; i < 30; i++)
 		{
-			var spec = CardArtworkGenerator.ResolveSpec($"card_{i}", CardType.Minion,
+			CardArtworkSpec spec = CardArtworkGenerator.ResolveSpec($"card_{i}", CardType.Minion,
 				CardRarity.Common, CardMechanicTag.None, "", null);
 			Assert.InRange(spec.StarCount, 18, 32);
 		}
+	}
+
+	[Fact]
+	public void ResolveSpec_DetailParameters_AreBoundedAndDiverse()
+	{
+		var details = new System.Collections.Generic.HashSet<int>();
+		var ornaments = new System.Collections.Generic.HashSet<int>();
+		for (int i = 0; i < 256; i++)
+		{
+			CardArtworkSpec spec = CardArtworkGenerator.ResolveSpec($"detail_{i}", CardType.Spell,
+				CardRarity.Master, CardMechanicTag.None, "", "ayame");
+			Assert.InRange(spec.SecondaryGeometryIndex, 0, 5);
+			Assert.InRange(spec.OrbitTickCount, 24, 64);
+			Assert.Equal(0, spec.OrbitTickCount % 8);
+			Assert.InRange(spec.CoreGlowStrength, 0.65f, 1f);
+			Assert.InRange(spec.NebulaOffset, 0f, 1f);
+			Assert.InRange(spec.CornerOrnamentIndex, 0, 3);
+			_ = details.Add(spec.SecondaryGeometryIndex);
+			_ = ornaments.Add(spec.CornerOrnamentIndex);
+		}
+		Assert.Equal(6, details.Count);
+		Assert.Equal(4, ornaments.Count);
+	}
+
+	[Fact]
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA5394:Do not use insecure randomness",
+		Justification = "验证固定种子的卡图历史契约，不用于安全随机性。")]
+	public void ResolveSpec_AdditionalDetails_DoNotChangeLegacyRandomSequence()
+	{
+		for (int i = 0; i < 64; i++)
+		{
+			string id = $"legacy_{i}";
+			CardArtworkSpec spec = CardArtworkGenerator.ResolveSpec(id, CardType.Minion,
+				CardRarity.Common, CardMechanicTag.None, "", null);
+			var random = new System.Random(CardArtworkGenerator.StableHash(id));
+			Assert.Equal(random.Next(CardArtworkGenerator.SymbolCount), spec.SymbolIndex);
+			Assert.Equal(18 + random.Next(15), spec.StarCount);
+			Assert.Equal((float)(random.NextDouble() - 0.5) * 0.35f, spec.SymbolRotation);
+		}
+	}
+
+	[Fact]
+	public void CardArtworkSpec_LegacyConstructor_DerivesSameDetails()
+	{
+		CardArtworkSpec spec = CardArtworkGenerator.ResolveSpec("legacy_constructor", CardType.Spell,
+			CardRarity.Master, CardMechanicTag.None, "", "rie");
+		var reconstructed = new CardArtworkSpec(spec.Seed, spec.SymbolIndex, spec.Style,
+			spec.BaseColor, spec.AccentColor, spec.GlowColor, spec.StarCount, spec.SymbolRotation);
+		Assert.Equal(spec.SecondaryGeometryIndex, reconstructed.SecondaryGeometryIndex);
+		Assert.Equal(spec.OrbitTickCount, reconstructed.OrbitTickCount);
+		Assert.Equal(spec.CoreGlowStrength, reconstructed.CoreGlowStrength);
+		Assert.Equal(spec.NebulaOffset, reconstructed.NebulaOffset);
+		Assert.Equal(spec.CornerOrnamentIndex, reconstructed.CornerOrnamentIndex);
 	}
 }

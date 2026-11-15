@@ -50,6 +50,21 @@ public readonly struct CardArtworkSpec
 	/// <summary>符号旋转角（弧度，小角度抖动）。</summary>
 	public readonly float SymbolRotation;
 
+	/// <summary>副层几何索引（0..5），决定星盘、装甲与棱镜的细分拓扑。</summary>
+	public readonly int SecondaryGeometryIndex;
+
+	/// <summary>轨道精密刻度数量（24..64，8 的倍数）。</summary>
+	public readonly int OrbitTickCount;
+
+	/// <summary>中心能量核辉光强度（0.65..1.0）。</summary>
+	public readonly float CoreGlowStrength;
+
+	/// <summary>稀有度切角纹饰样式（0..3）。</summary>
+	public readonly int CornerOrnamentIndex;
+
+	/// <summary>双焦点星云的偏移系数（0..1）。</summary>
+	public readonly float NebulaOffset;
+
 	public CardArtworkSpec(int seed, int symbolIndex, ArtworkSymbolStyle style,
 		Color baseColor, Color accentColor, Color glowColor, int starCount, float symbolRotation)
 	{
@@ -61,6 +76,16 @@ public readonly struct CardArtworkSpec
 		GlowColor = glowColor;
 		StarCount = starCount;
 		SymbolRotation = symbolRotation;
+
+		// 独立混合种子，不推进 ResolveSpec 原有随机序列，保持历史公开契约。
+		uint detail = unchecked((uint)seed * 747796405u + 2891336453u);
+		detail = (detail ^ (detail >> 16)) * 2246822519u;
+		detail ^= detail >> 13;
+		SecondaryGeometryIndex = (int)(detail % 6);
+		OrbitTickCount = 24 + (int)((detail >> 4) % 6) * 8;
+		CoreGlowStrength = 0.65f + ((detail >> 9) & 255) / 255f * 0.35f;
+		CornerOrnamentIndex = (int)((detail >> 17) & 3);
+		NebulaOffset = ((detail >> 20) & 1023) / 1023f;
 	}
 }
 
@@ -75,19 +100,19 @@ public static class CardArtworkGenerator
 
 	// ===== 星途色板 · 类型基调 =====
 
-	private static readonly Color MinionBase = new("#3d2f1a");
-	private static readonly Color MinionAccent = new("#ffd98e");
-	private static readonly Color SpellBase = new("#16283d");
-	private static readonly Color SpellAccent = new("#7fd8ff");
-	private static readonly Color DomainBase = new("#2a1a3d");
-	private static readonly Color DomainAccent = new("#c9a0ff");
+	private static readonly Color _minionBase = new("#3d2f1a");
+	private static readonly Color _minionAccent = new("#ffd98e");
+	private static readonly Color _spellBase = new("#16283d");
+	private static readonly Color _spellAccent = new("#7fd8ff");
+	private static readonly Color _domainBase = new("#2a1a3d");
+	private static readonly Color _domainAccent = new("#c9a0ff");
 
 	// ===== 稀有度光晕 =====
 
-	private static readonly Color GlowMaster = new(1.0f, 0.84f, 0.0f, 0.9f);   // 大师 金
-	private static readonly Color GlowExcellent = new(0.75f, 0.78f, 0.85f, 0.75f); // 极佳 银
-	private static readonly Color GlowGood = new(0.8f, 0.5f, 0.2f, 0.6f);      // 良好 铜
-	private static readonly Color GlowSpecial = new(1.0f, 0.55f, 0.0f, 0.8f);  // 专属 橙
+	private static readonly Color _glowMaster = new(1.0f, 0.84f, 0.0f, 0.9f);   // 大师 金
+	private static readonly Color _glowExcellent = new(0.75f, 0.78f, 0.85f, 0.75f); // 极佳 银
+	private static readonly Color _glowGood = new(0.8f, 0.5f, 0.2f, 0.6f);      // 良好 铜
+	private static readonly Color _glowSpecial = new(1.0f, 0.55f, 0.0f, 0.8f);  // 专属 橙
 
 	/// <summary>主题映射缓存：cardId → heroId（懒加载 ThemeProfile）。</summary>
 	private static Dictionary<string, string>? _cardThemeMap;
@@ -111,21 +136,21 @@ public static class CardArtworkGenerator
 		Color baseColor, accentColor;
 		if (isDomain)
 		{
-			baseColor = DomainBase;
-			accentColor = DomainAccent;
+			baseColor = _domainBase;
+			accentColor = _domainAccent;
 		}
 		else if (type == CardType.Minion)
 		{
-			baseColor = MinionBase;
-			accentColor = MinionAccent;
+			baseColor = _minionBase;
+			accentColor = _minionAccent;
 		}
 		else
 		{
-			baseColor = SpellBase;
-			accentColor = SpellAccent;
+			baseColor = _spellBase;
+			accentColor = _spellAccent;
 		}
 
-		var style = heroTheme switch
+		ArtworkSymbolStyle style = heroTheme switch
 		{
 			"ayame" => ArtworkSymbolStyle.Rune,
 			"rie" => ArtworkSymbolStyle.Mecha,
@@ -135,10 +160,11 @@ public static class CardArtworkGenerator
 
 		Color glow = rarity switch
 		{
-			CardRarity.Master => GlowMaster,
-			CardRarity.Excellent => GlowExcellent,
-			CardRarity.Good => GlowGood,
-			CardRarity.Special => GlowSpecial,
+			CardRarity.Master => _glowMaster,
+			CardRarity.Excellent => _glowExcellent,
+			CardRarity.Good => _glowGood,
+			CardRarity.Special => _glowSpecial,
+			CardRarity.Derivative or CardRarity.Common or CardRarity.StatusToken => new Color(0, 0, 0, 0),
 			_ => new Color(0, 0, 0, 0),
 		};
 
@@ -156,7 +182,9 @@ public static class CardArtworkGenerator
 	public static string? ResolveHeroTheme(string cardId)
 	{
 		if (string.IsNullOrEmpty(cardId))
+		{
 			return null;
+		}
 
 		_cardThemeMap ??= BuildThemeMap();
 		return _cardThemeMap.TryGetValue(cardId, out string? heroId) ? heroId : null;
@@ -194,15 +222,19 @@ public static class CardArtworkGenerator
 		foreach (string path in themePaths)
 		{
 			if (!ResourceLoader.Exists(path))
+			{
 				continue;
+			}
 
-			var profile = GD.Load<ThemeProfile>(path);
+			ThemeProfile profile = GD.Load<ThemeProfile>(path);
 			if (profile == null || string.IsNullOrEmpty(profile.HeroId))
+			{
 				continue;
+			}
 
 			foreach (string cardId in profile.CoreCardIds)
 			{
-				map.TryAdd(cardId, profile.HeroId);
+				_ = map.TryAdd(cardId, profile.HeroId);
 			}
 		}
 

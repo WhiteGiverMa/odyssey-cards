@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using Godot;
 
 namespace OdysseyCards.UI;
@@ -33,7 +34,9 @@ public partial class HeroAuraRing : Control
 			return;
 		}
 
-		_angle += (float)delta * SpinSpeed;
+		if (!IsVisibleInTree())
+		{ return; }
+		_angle = Mathf.PosMod(_angle + (float)delta * SpinSpeed, Mathf.Tau);
 		QueueRedraw();
 	}
 
@@ -50,29 +53,51 @@ public partial class HeroAuraRing : Control
 
 		// 底盘（深空半透明圆底，让光环从身份卡背景中浮出）
 		DrawCircle(center, r, new Color(0.05f, 0.05f, 0.1f, 0.55f));
+		for (int i = 3; i >= 1; i--)
+		{
+			DrawArc(center, r * (0.91f - i * 0.035f), 0, Mathf.Tau, 64,
+				new Color(RingColor, 0.035f), i * 1.4f, true);
+		}
 
 		// 外环
 		DrawArc(center, r, 0, Mathf.Tau, 48, new Color(RingColor, 0.9f), 2f, true);
 
 		// 内环细线
 		DrawArc(center, r * 0.68f, 0, Mathf.Tau, 40, new Color(RingColor, 0.35f), 1f, true);
+		for (int i = 0; i < 24; i++)
+		{
+			var axis = Vector2.FromAngle(Mathf.Tau * i / 24f);
+			DrawLine(center + axis * r * 0.94f, center + axis * r * (i % 3 == 0 ? 0.79f : 0.87f),
+				new Color(RingColor, i % 3 == 0 ? 0.75f : 0.35f), 0.7f, true);
+		}
 
 		// 旋转弧 ×2（对称两段，缓慢旋转营造「能量环绕」感）
 		for (int i = 0; i < 2; i++)
 		{
 			float start = _angle + i * Mathf.Pi;
 			DrawArc(center, r * 0.84f, start, start + 1.5f, 20, new Color(RingColor, 0.75f), 2.5f, true);
+			DrawArc(center, r * 0.84f, start + 1.2f, start + 1.5f, 8,
+				new Color(RingColor.Lerp(Colors.White, 0.7f), 0.9f), 1f, true);
+			Vector2 cursor = center + Vector2.FromAngle(start + 1.5f) * r * 0.84f;
+			DrawCircle(cursor, Mathf.Max(0.8f, r * 0.045f), new Color(Colors.White, 0.85f));
 		}
 
 		// 中心菱形徽记（英雄身份标记）
 		float d = r * 0.3f;
-		var diamond = new Vector2[]
+		ReadOnlySpan<Vector2> diamond = stackalloc Vector2[]
 		{
 			center + new Vector2(0, -d),
 			center + new Vector2(d, 0),
 			center + new Vector2(0, d),
 			center + new Vector2(-d, 0),
 		};
-		DrawColoredPolygon(diamond, new Color(RingColor, 0.9f));
+		DrawColoredPolygon(diamond, new Color(RingColor, 0.9f), ReadOnlySpan<Vector2>.Empty, null);
+		ReadOnlySpan<Vector2> facet = stackalloc Vector2[]
+		{
+			center + new Vector2(0, -d), center + new Vector2(d, 0), center,
+		};
+		DrawColoredPolygon(facet, new Color(RingColor.Lerp(Colors.White, 0.7f), 0.85f), ReadOnlySpan<Vector2>.Empty, null);
+		DrawLine(center + new Vector2(0, -d), center + new Vector2(-d, 0),
+			new Color(Colors.White, 0.8f), 0.8f, true);
 	}
 }

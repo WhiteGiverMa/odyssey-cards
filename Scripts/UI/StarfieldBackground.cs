@@ -1,6 +1,5 @@
 #nullable enable
 using System;
-using System.Collections.Generic;
 using Godot;
 
 namespace OdysseyCards.UI;
@@ -35,21 +34,31 @@ public partial class StarfieldBackground : Control
 		public int Layer; // 0远 1中 2近
 	}
 
-	private sealed class Meteor
+	private struct Meteor
 	{
 		public Vector2 From, To;
 		public float T, Duration;
+		public bool Active;
 	}
 
 	private Star[] _stars = Array.Empty<Star>();
-	private readonly List<Meteor> _meteors = new();
+	private readonly Meteor[] _meteors = new Meteor[4];
 	private readonly Random _meteorRng = new();
 	private float _time;
 	private float _nextMeteorAt = 2.5f;
+	private float _redrawElapsed;
 
-	private static readonly Color SkyTop = new("#1c1930");
-	private static readonly Color SkyBottom = new("#12101f");
+	private static readonly Color _skyTop = new("#1c1930");
+	private static readonly Color _skyBottom = new("#12101f");
 	private static ImageTexture? _bgTexture;
+	private static ImageTexture? _glowTexture;
+
+	/// <summary>无参构造保证编辑器中也能正确穿透输入。</summary>
+	public StarfieldBackground()
+	{
+		MouseFilter = MouseFilterEnum.Ignore;
+		ClipContents = true;
+	}
 
 	public override void _Ready()
 	{
@@ -73,11 +82,21 @@ public partial class StarfieldBackground : Control
 		QueueRedraw();
 	}
 
+	public override void _Notification(int what)
+	{
+		if (what == NotificationResized)
+		{
+			QueueRedraw();
+		}
+	}
+
 	public override void _Process(double delta)
 	{
 		// 编辑器预览保持静态星空，不启动动画与流星
-		if (Engine.IsEditorHint())
+		if (Engine.IsEditorHint() || !IsVisibleInTree())
+		{
 			return;
+		}
 
 		_time += (float)delta;
 
@@ -87,28 +106,44 @@ public partial class StarfieldBackground : Control
 			_nextMeteorAt = _time + 4f + (float)_meteorRng.NextDouble() * 7f;
 		}
 
-		for (int i = _meteors.Count - 1; i >= 0; i--)
+		for (int i = 0; i < _meteors.Length; i++)
 		{
+			if (!_meteors[i].Active)
+			{
+				continue;
+			}
 			_meteors[i].T += (float)delta / _meteors[i].Duration;
 			if (_meteors[i].T >= 1f)
-				_meteors.RemoveAt(i);
+			{
+				_meteors[i].Active = false;
+			}
 		}
 
-		QueueRedraw();
+		_redrawElapsed += (float)delta;
+		if (_redrawElapsed >= 1f / 30f)
+		{
+			_redrawElapsed = 0;
+			QueueRedraw();
+		}
 	}
 
 	public override void _Draw()
 	{
-		var size = Size;
+		Vector2 size = Size;
 		if (size.X < 1f || size.Y < 1f)
+		{
 			return;
+		}
 
 		DrawTextureRect(GetBgTexture(), new Rect2(Vector2.Zero, size), false);
 
 		if (CenterGlow)
+		{
 			DrawCenterGlow(size);
+		}
 
 		DrawStars(size);
+		DrawConstellations(size);
 		DrawMeteors();
 	}
 
@@ -116,7 +151,7 @@ public partial class StarfieldBackground : Control
 
 	private void DrawStars(Vector2 size)
 	{
-		foreach (var star in _stars)
+		foreach (Star star in _stars)
 		{
 			// 视差漂移：近层快、远层慢，水平向右循环
 			float drift = _time * (1.5f + star.Layer * 2.5f);
@@ -125,21 +160,56 @@ public partial class StarfieldBackground : Control
 			float alpha = 0.3f + 0.5f * (0.5f + 0.5f * Mathf.Sin(_time * star.BlinkSpeed + star.Phase));
 
 			// 85% 白星，15% 星粉点缀
-			var c = star.Layer == 2 && star.Phase > Mathf.Pi
+			Color c = star.Layer == 2 && star.Phase > Mathf.Pi
 				? new Color(1f, 0.62f, 0.82f, alpha)
 				: new Color(1f, 1f, 1f, alpha);
 			DrawCircle(new Vector2(x, y), star.Size, c);
+			if (star.Layer == 2 && star.Phase < 1.2f)
+			{
+				Vector2 position = new(x, y);
+				DrawCircle(position, star.Size * 2.5f, new Color(c, alpha * 0.05f));
+				DrawLine(position - new Vector2(star.Size * 2.5f, 0), position + new Vector2(star.Size * 2.5f, 0),
+					new Color(c, alpha * 0.45f), 0.65f, true);
+				DrawLine(position - new Vector2(0, star.Size * 3.5f), position + new Vector2(0, star.Size * 3.5f),
+					new Color(c, alpha * 0.45f), 0.65f, true);
+				DrawCircle(position, star.Size * 0.4f, new Color(Colors.White, alpha));
+			}
+		}
+	}
+
+	private void DrawConstellations(Vector2 size)
+	{
+		for (int i = 0; i + 1 < _stars.Length; i += 11)
+		{
+			Star a = _stars[i];
+			Star b = _stars[i + 1];
+			if (a.Layer != b.Layer)
+			{
+				continue;
+			}
+			float drift = _time * (1.5f + a.Layer * 2.5f);
+			Vector2 from = new(Mathf.PosMod(a.X * size.X + drift, size.X), a.Y * size.Y);
+			Vector2 to = new(Mathf.PosMod(b.X * size.X + drift, size.X), b.Y * size.Y);
+			if (from.DistanceSquaredTo(to) < size.LengthSquared() * 0.02f)
+			{
+				DrawLine(from, to, new Color(0.5f, 0.75f, 1f, 0.065f), 0.65f, true);
+			}
 		}
 	}
 
 	private void DrawMeteors()
 	{
-		foreach (var meteor in _meteors)
+		foreach (Meteor meteor in _meteors)
 		{
-			var head = meteor.From.Lerp(meteor.To, meteor.T);
-			var tail = meteor.From.Lerp(meteor.To, Mathf.Max(0f, meteor.T - 0.12f));
+			if (!meteor.Active)
+			{
+				continue;
+			}
+			Vector2 head = meteor.From.Lerp(meteor.To, meteor.T);
+			Vector2 tail = meteor.From.Lerp(meteor.To, Mathf.Max(0f, meteor.T - 0.12f));
 			float fade = 1f - meteor.T * meteor.T; // 尾段渐隐
 			DrawLine(tail, head, new Color(1f, 1f, 1f, 0.85f * fade), 2f, true);
+			DrawLine(tail, head, new Color(0.5f, 0.85f, 1f, 0.08f * fade), 6f, true);
 			DrawCircle(head, 2.2f, new Color(1f, 1f, 1f, 0.9f * fade));
 		}
 	}
@@ -147,61 +217,94 @@ public partial class StarfieldBackground : Control
 	private void DrawCenterGlow(Vector2 size)
 	{
 		var center = new Vector2(size.X * 0.5f, size.Y * 0.52f);
-		float maxR = Mathf.Min(size.X, size.Y) * 0.55f;
-		// 同心圆递减 alpha 模拟径向渐变
-		for (int i = 10; i >= 1; i--)
-		{
-			float t = i / 10f;
-			DrawCircle(center, maxR * t, new Color(GlowColor, 0.016f * (1f - t) + 0.004f));
-		}
+		Vector2 extent = size * new Vector2(0.95f, 1.15f);
+		DrawTextureRect(GetGlowTexture(), new Rect2(center - extent * 0.5f, extent), false, new Color(GlowColor, 0.13f));
+		Vector2 second = size * new Vector2(0.72f, 0.32f);
+		DrawTextureRect(GetGlowTexture(), new Rect2(second - extent * 0.3f, extent * 0.6f), false,
+			new Color(UIThemeFactory.StarPink, 0.055f));
 	}
 
 	private void SpawnMeteor()
 	{
-		var size = Size;
+		Vector2 size = Size;
 		if (size.X < 1f || size.Y < 1f)
+		{
 			return;
+		}
 
 		float startX = (float)_meteorRng.NextDouble() * size.X * 0.7f;
 		float startY = (float)_meteorRng.NextDouble() * size.Y * 0.3f;
 		float length = size.X * (0.25f + (float)_meteorRng.NextDouble() * 0.3f);
 		// 斜向右下划过
-		_meteors.Add(new Meteor
+		int index = Array.FindIndex(_meteors, static meteor => !meteor.Active);
+		if (index < 0)
+		{
+			return;
+		}
+		_meteors[index] = new Meteor
 		{
 			From = new Vector2(startX, startY),
 			To = new Vector2(startX + length, startY + length * 0.45f),
 			T = 0f,
 			Duration = 0.9f + (float)_meteorRng.NextDouble() * 0.5f,
-		});
+			Active = true,
+		};
 	}
 
 	private static ImageTexture GetBgTexture()
 	{
 		if (_bgTexture != null)
+		{
 			return _bgTexture;
+		}
 
 		// 星云底纹：低频单噪声调制垂直渐变——既根除 8bit 色阶断层（噪声天然
 		// 打散量化边界），又让深空有星云状的明暗流动，而非死板渐变。
-		var noise = new FastNoiseLite
+		using var noise = new FastNoiseLite
 		{
 			NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth,
 			Frequency = 0.012f,
 			FractalOctaves = 3,
 			Seed = 7,
 		};
-		var img = Image.CreateEmpty(256, 256, false, Image.Format.Rgba8);
+		using var img = Image.CreateEmpty(384, 256, false, Image.Format.Rgba8);
 		for (int y = 0; y < 256; y++)
 		{
 			float vertical = y / 255f;
-			for (int x = 0; x < 256; x++)
+			for (int x = 0; x < 384; x++)
 			{
 				float n = noise.GetNoise2D(x, y) * 0.5f + 0.5f; // 0..1
+				float fine = noise.GetNoise2D(x * 3.5f + 130f, y * 3.5f - 60f) * 0.5f + 0.5f;
 				float mix = Mathf.Clamp(vertical * 0.62f + n * 0.38f, 0f, 1f);
-				var c = SkyTop.Lerp(SkyBottom, Mathf.SmoothStep(0f, 1f, mix));
+				Color c = _skyTop.Lerp(_skyBottom, Mathf.SmoothStep(0f, 1f, mix));
+				float ribbon = Mathf.Exp(-Mathf.Pow((y - 160f + x * 0.17f + (n - 0.5f) * 65f) / 58f, 2f));
+				c = c.Lerp(new Color("#57406f"), ribbon * n * 0.24f);
+				c = c.Lerp(new Color("#315e72"), fine * n * 0.09f);
+				float vignette = new Vector2((x - 192f) / 240f, (y - 128f) / 165f).LengthSquared();
+				c = c.Darkened(Mathf.Clamp(vignette * 0.14f, 0, 0.3f));
 				img.SetPixel(x, y, c);
 			}
 		}
 		_bgTexture = ImageTexture.CreateFromImage(img);
 		return _bgTexture;
+	}
+
+	private static ImageTexture GetGlowTexture()
+	{
+		if (_glowTexture != null)
+		{
+			return _glowTexture;
+		}
+		using var image = Image.CreateEmpty(96, 96, false, Image.Format.Rgba8);
+		for (int y = 0; y < 96; y++)
+		{
+			for (int x = 0; x < 96; x++)
+			{
+				float radius = new Vector2((x - 47.5f) / 47.5f, (y - 47.5f) / 47.5f).Length();
+				image.SetPixel(x, y, new Color(1, 1, 1, Mathf.Pow(Mathf.Max(0, 1f - radius), 2.5f)));
+			}
+		}
+		_glowTexture = ImageTexture.CreateFromImage(image);
+		return _glowTexture;
 	}
 }
