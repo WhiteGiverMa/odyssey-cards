@@ -11,6 +11,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "minion_lianshu_scout"
+PackId = "unmanned_victory"
 UnitClass = 0
 ActionCost = 0
 Attack = 1

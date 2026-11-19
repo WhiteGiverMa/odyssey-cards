@@ -12,6 +12,7 @@ CustomEffectName = "SmokeRestore"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_smoke_restore"
+PackId = "super_body_project"
 FrontlineOnlySpell = false
 MechanicTags = 131076
 CardName = "烟雾恢复"

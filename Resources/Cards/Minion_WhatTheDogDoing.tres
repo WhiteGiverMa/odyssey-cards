@@ -11,6 +11,7 @@ CustomEffectName = "CopyToAdjacentSlot"
 [resource]
 script = ExtResource("1_data")
 Id = "minion_what_the_dog_doing"
+PackId = "unmanned_victory"
 UnitClass = 0
 MechanicTags = 64
 CardName = "我的刀盾"

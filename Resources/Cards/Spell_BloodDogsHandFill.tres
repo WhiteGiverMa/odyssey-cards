@@ -11,6 +11,7 @@ CustomEffectName = "BloodDogsHandFill"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_blood_dogs_hand_fill"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 32768
 CardName = "十万条吸血狗"

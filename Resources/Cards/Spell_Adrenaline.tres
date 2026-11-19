@@ -16,6 +16,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_adrenaline"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 4112
 CardName = "肾上腺素"

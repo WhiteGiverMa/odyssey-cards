@@ -13,6 +13,7 @@ CustomEffectName = "FragBullet"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_frag_bullet"
+PackId = "super_body_project"
 FrontlineOnlySpell = false
 MechanicTags = 131073
 CardName = "碎片子弹"

@@ -13,6 +13,7 @@ CustomEffectName = "MambaMissile"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_mamba_missile"
+PackId = "unmanned_victory"
 FrontlineOnlySpell = false
 MechanicTags = 1
 CardName = "曼巴导弹"

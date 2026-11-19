@@ -240,6 +240,14 @@ public partial class GameManager : Node
 		"res://Resources/Cards/Spell_NaDaoFangYu.tres",
 		"res://Resources/Cards/Domain_PreemptiveStrike.tres",
 		"res://Resources/Cards/Minion_RayanGe.tres",
+		// 0.2.2 断流 / 能量币
+		"res://Resources/Cards/Spell_EnergyCoin.tres",
+		"res://Resources/Cards/Spell_093B_SSN.tres",
+		"res://Resources/Cards/Spell_USS_Indiana.tres",
+		"res://Resources/Cards/Spell_BeneathBlackWater.tres",
+		"res://Resources/Cards/Spell_Ultimatum.tres",
+		"res://Resources/Cards/Counter_OhioSSBN.tres",
+		"res://Resources/Cards/Counter_Borei.tres",
 	};
 
 	/// <summary>
@@ -470,13 +478,57 @@ public partial class GameManager : Node
 
 	/// <summary>
 	/// 获取所有已解锁且可出现在奖励中的卡牌。
+	/// 同时过滤被玩家禁用的卡包——禁用包不会出现在任何随机奖励/商店池。
 	/// </summary>
 	public List<CardData> GetRewardEligibleCards()
 	{
 		return _allCardRegistry.Values
-			.Where(c => OwnedCardIds.Contains(c.Id) && c.Rarity.CanAppearInReward())
+			.Where(c => OwnedCardIds.Contains(c.Id) && c.Rarity.CanAppearInReward() && IsPackEnabled(c.PackId))
 			.ToList();
 	}
+
+	// ===== 卡包（系列）启用管理 =====
+
+	/// <summary>
+	/// 战斗中禁用的卡包 ID 集合。用禁用列表表达，使新增卡包/DIY 包默认自动启用。
+	/// </summary>
+	public HashSet<string> DisabledPackIds { get; private set; }
+		= new(CardPackCatalog.DefaultDisabledPackIds, StringComparer.OrdinalIgnoreCase);
+
+	/// <summary>
+	/// 卡包是否在战斗中启用。核心包恒为 true（保底防卡池为空）。
+	/// </summary>
+	public bool IsPackEnabled(string packId)
+		=> CardPackCatalog.IsPackEnabled(packId, DisabledPackIds);
+
+	/// <summary>
+	/// 设置卡包启用状态；核心包不可禁用。变更时立即持久化并广播收藏变化。
+	/// </summary>
+	/// <returns>是否发生了实际变更。</returns>
+	public bool SetPackEnabled(string packId, bool enabled)
+	{
+		var id = CardPackCatalog.Normalize(packId);
+		if (!enabled && string.Equals(id, CardPackCatalog.PackCore, StringComparison.OrdinalIgnoreCase))
+		{
+			GD.PushWarning("[GameManager] 核心卡包不可禁用");
+			return false;
+		}
+
+		if (!CardPackCatalog.SetPackEnabled(DisabledPackIds, id, enabled))
+			return false;
+
+		SaveToDisk();
+		OnCollectionChanged?.Invoke();
+		GD.Print($"[GameManager] 卡包「{id}」已{(enabled ? "启用" : "禁用")}");
+		return true;
+	}
+
+	/// <summary>
+	/// 所有在当前启用卡包中的卡牌。过滤后为空时保底返回核心包卡牌。
+	/// 战斗/构筑随机池统一走此方法，确保玩家禁用的系列不会出现。
+	/// </summary>
+	public List<CardData> GetEnabledCards()
+		=> CardPackCatalog.FilterEnabledCards(GetAllCards(), c => c.PackId, DisabledPackIds);
 
 	// ===== 收藏管理 =====
 
@@ -872,6 +924,7 @@ public partial class GameManager : Node
 			Version = 2,
 			Language = _currentLanguage,
 			OwnedCardIds = OwnedCardIds.ToList(),
+			DisabledPackIds = DisabledPackIds.ToList(),
 			Decks = Decks.Select(d => DeckSaveData.FromDeck(d)).ToList(),
 			ActiveDeckIndex = ActiveDeckIndex,
 			EmoteIdleTimeSeconds = EmoteIdleTimeSeconds,
@@ -982,6 +1035,7 @@ public partial class GameManager : Node
 			Version = 1,
 			Language = _currentLanguage,
 			OwnedCardIds = OwnedCardIds.ToList(),
+			DisabledPackIds = DisabledPackIds.ToList(),
 			Decks = Decks.Select(d => DeckSaveData.FromDeck(d)).ToList(),
 			ActiveDeckIndex = ActiveDeckIndex,
 			EmoteIdleTimeSeconds = EmoteIdleTimeSeconds,
@@ -1018,6 +1072,11 @@ public partial class GameManager : Node
 
 		// 恢复收藏
 		OwnedCardIds = new HashSet<string>(data.OwnedCardIds);
+
+		// 恢复卡包启用状态。旧档缺字段时由 GameSaveData 默认值兜底为「仅禁用预备」。
+		var savedDisabled = data.DisabledPackIds ?? new List<string>(CardPackCatalog.DefaultDisabledPackIds);
+		DisabledPackIds = new HashSet<string>(savedDisabled, StringComparer.OrdinalIgnoreCase);
+		DisabledPackIds.Remove(CardPackCatalog.PackCore); // 核心包保底启用，忽略脏存档
 
 		// 恢复牌组
 		Decks.Clear();

@@ -28,6 +28,7 @@ CustomEffectName = "SutaraitoSpiritNextTurn"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_sutaraito_spirit"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 4113
 CardName = "星途精神"

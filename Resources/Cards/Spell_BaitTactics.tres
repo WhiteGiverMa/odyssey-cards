@@ -11,6 +11,7 @@ CustomEffectName = "BaitTactics"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_bait_tactics"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 128
 CardName = "诱饵战术"

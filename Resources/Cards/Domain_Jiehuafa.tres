@@ -13,6 +13,7 @@ CustomEffectName = "Jiehuafa"
 [resource]
 script = ExtResource("1_data")
 Id = "domain_jiehuafa"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 33792
 DomainId = "jiehuafa"

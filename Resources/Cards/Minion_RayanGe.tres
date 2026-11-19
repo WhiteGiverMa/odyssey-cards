@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_rayan_ge"
+PackId = "core"
 UnitClass = 3
 MechanicTags = 131136
 CardName = "拉烟哥"

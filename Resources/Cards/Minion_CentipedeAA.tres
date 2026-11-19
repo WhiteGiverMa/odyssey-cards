@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_centipede_aa"
+PackId = "future_hunt"
 UnitClass = 2
 CardName = "机械蜈蚣-防空型"
 Description = "敌方英雄部署花费不大于2的随从时，与本随从战斗。"

@@ -12,6 +12,7 @@ Value = 5
 [resource]
 script = ExtResource("1_data")
 Id = "spell_blade_crisis"
+PackId = "unmanned_victory"
 FrontlineOnlySpell = false
 MechanicTags = 592
 CardName = "刀盾危机"

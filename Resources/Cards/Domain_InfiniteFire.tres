@@ -12,6 +12,7 @@ TargetType = "infinite_fire"
 [resource]
 script = ExtResource("1_data")
 Id = "domain_infinite_fire"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 17408
 DomainId = "infinite_fire"

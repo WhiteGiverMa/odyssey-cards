@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_centipede_siege"
+PackId = "future_hunt"
 UnitClass = 2
 CardName = "机械蜈蚣-攻城型"
 Description = "伏击"

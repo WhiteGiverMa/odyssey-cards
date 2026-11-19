@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_mingshan_walking_support"
+PackId = "unmanned_victory"
 UnitClass = 2
 MechanicTags = 65537
 CardName = "「岷山」步行支援机"

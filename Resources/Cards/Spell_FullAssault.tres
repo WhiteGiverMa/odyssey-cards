@@ -21,6 +21,7 @@ Value = 3
 [resource]
 script = ExtResource("1_data")
 Id = "spell_full_assault"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 513
 CardName = "全力攻击"

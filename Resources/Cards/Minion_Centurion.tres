@@ -12,6 +12,7 @@ SecondaryValue = 2
 [resource]
 script = ExtResource("1_data")
 Id = "minion_centurion"
+PackId = "future_hunt"
 UnitClass = 0
 MechanicTags = 8
 CardName = "百机长"

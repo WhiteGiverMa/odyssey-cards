@@ -16,6 +16,7 @@ Value = 2
 [resource]
 script = ExtResource("1_data")
 Id = "minion_lianshu_transport"
+PackId = "unmanned_victory"
 UnitClass = 0
 MechanicTags = 20
 CardName = "联树机器犬 运输型"

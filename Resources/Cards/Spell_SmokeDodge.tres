@@ -13,6 +13,7 @@ CustomEffectName = "SmokeDodge"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_smoke_dodge"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 8208
 CardName = "烟遁"

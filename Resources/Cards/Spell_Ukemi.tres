@@ -16,6 +16,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_ukemi"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 24
 CardName = "受身"

@@ -20,6 +20,14 @@ public class GameSaveData
 	[JsonPropertyName("owned_card_ids")]
 	public List<string> OwnedCardIds { get; set; } = new();
 
+	/// <summary>
+	/// 战斗中禁用的卡包 ID 列表。用「禁用列表」而非「启用列表」是为了让未来新增卡包
+	/// （含玩家 DIY 卡包）默认自动启用；旧存档缺字段时默认值只禁用「预备」包。
+	/// 核心包永远启用，即使被写入此列表也会被 GameManager 忽略。
+	/// </summary>
+	[JsonPropertyName("disabled_pack_ids")]
+	public List<string> DisabledPackIds { get; set; } = new(CardPackCatalog.DefaultDisabledPackIds);
+
 	[JsonPropertyName("decks")]
 	public List<DeckSaveData> Decks { get; set; } = new();
 

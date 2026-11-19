@@ -11,6 +11,7 @@ Value = 2
 [resource]
 script = ExtResource("1_data")
 Id = "spell_engine"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 16
 CardName = "引擎"

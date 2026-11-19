@@ -39,6 +39,7 @@ public partial class CollectionUI : Control
 	private Button _saveButton = null!;
 	private Button _exportButton = null!;
 	private Button _importButton = null!;
+	private Button _packManagerButton = null!;
 	private VBoxContainer _deckCardList = null!;
 	private Label _emptyDeckLabel = null!;
 	private CardGrid _cardGrid = null!;
@@ -282,6 +283,10 @@ public partial class CollectionUI : Control
 		_zoneTokens.Add(router.RegisterTapZone(_importButton,
 			_importButton.GetGlobalRect(),
 			priority: 400, onTap: () => OnImportPressed()));
+
+		_zoneTokens.Add(router.RegisterTapZone(_packManagerButton,
+			_packManagerButton.GetGlobalRect(),
+			priority: 400, onTap: () => OnPackManagerPressed()));
 	}
 
 	// ===== 键盘导航 — HotkeyManager 注册/注销 =====
@@ -500,7 +505,7 @@ public partial class CollectionUI : Control
 	}
 
 	/// <summary>
-	/// 数字键切换过滤标签：1=全部, 2=随从, 3=法术, 4=领域。
+	/// 数字键切换过滤标签：1=全部, 2=随从, 3=法术, 4=领域, 5=反制。
 	/// </summary>
 	private void SetFilterByNumber(int n)
 	{
@@ -519,6 +524,9 @@ public partial class CollectionUI : Control
 				break;
 			case 4:
 				_cardGrid.SetTypeFilter(CardType.Domain);
+				break;
+			case 5:
+				_cardGrid.SetTypeFilter(CardType.Countermeasure);
 				break;
 		}
 		_focusedCardIndex = 0;
@@ -678,6 +686,17 @@ public partial class CollectionUI : Control
 		_deleteDeckButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(14 * s));
 		_deleteDeckButton.Pressed += OnDeleteDeckPressed;
 		topBar.AddChild(_deleteDeckButton);
+
+		// 卡包管理（战斗启用/禁用开关）
+		_packManagerButton = new Button
+		{
+			Text = Loc.T("ui.collection.pack_manager", "卡包管理"),
+			TooltipText = Loc.T("ui.collection.pack_manager_tooltip", "设置战斗中启用哪些卡包（系列）"),
+			CustomMinimumSize = new Vector2(96 * s, 30 * s),
+		};
+		_packManagerButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
+		_packManagerButton.Pressed += OnPackManagerPressed;
+		topBar.AddChild(_packManagerButton);
 
 		mainVBox.AddChild(topBar);
 
@@ -1753,6 +1772,94 @@ public partial class CollectionUI : Control
 		dialog.PopupCentered();
 	}
 
+	// ===== 卡包管理 =====
+
+	/// <summary>
+	/// 打开卡包管理弹窗：逐包勾选是否在战斗中启用。核心包恒定启用，预备包默认禁用。
+	/// 切换立即通过 GameManager.SetPackEnabled 持久化；收藏网格的卡包筛选下拉会同步刷新。
+	/// </summary>
+	private void OnPackManagerPressed()
+	{
+		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+
+		var dialog = new AcceptDialog
+		{
+			Title = Loc.T("ui.collection.pack_manager_title", "卡包管理 — 战斗启用"),
+			OkButtonText = Loc.T("ui.common.ok", "确定"),
+			Exclusive = true,
+		};
+
+		var hint = new Label
+		{
+			Text = Loc.T("ui.collection.pack_manager_hint", "勾选的卡包会出现在战斗与随机卡池中；核心包始终启用。"),
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AutowrapMode = TextServer.AutowrapMode.Word,
+			CustomMinimumSize = new Vector2(360 * s, 0),
+		};
+		hint.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(12 * s));
+		hint.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.82f, 1));
+		dialog.AddChild(hint);
+
+		var scroll = new ScrollContainer
+		{
+			CustomMinimumSize = new Vector2(360 * s, 300 * s),
+			SizeFlagsVertical = SizeFlags.ExpandFill,
+		};
+		var list = new VBoxContainer
+		{
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+		};
+		list.AddThemeConstantOverride("separation", Mathf.RoundToInt(8 * s));
+		scroll.AddChild(list);
+		dialog.AddChild(scroll);
+
+		// 统计每包卡牌数（用全量注册表而非已解锁卡，便于管理尚未获得的系列）
+		var allCards = GameManager.Instance.GetAllCards();
+		var counts = allCards
+			.GroupBy(c => CardPackCatalog.Normalize(c.PackId), StringComparer.OrdinalIgnoreCase)
+			.ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+
+		foreach (var packId in CardPackCatalog.GetAllPackIds(allCards.Select(c => c.PackId)))
+		{
+			bool isCore = string.Equals(packId, CardPackCatalog.PackCore, StringComparison.OrdinalIgnoreCase);
+			var check = new CheckButton
+			{
+				Text = Loc.T(CardPackCatalog.GetDisplayNameKey(packId), CardPackCatalog.GetDefaultDisplayName(packId)),
+				ButtonPressed = GameManager.Instance.IsPackEnabled(packId),
+				Disabled = isCore,
+				TooltipText = isCore
+					? Loc.T("ui.collection.pack_core_always", "核心包保底启用，不可禁用")
+					: Loc.T("ui.collection.pack_toggle_tooltip", "切换后立即保存，并影响战斗/奖励/构筑随机卡池"),
+			};
+			check.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(14 * s));
+			check.Pressed += () => GameManager.Instance.SetPackEnabled(packId, check.ButtonPressed);
+
+			var row = new HBoxContainer
+			{
+				SizeFlagsHorizontal = SizeFlags.ExpandFill,
+			};
+			row.AddThemeConstantOverride("separation", Mathf.RoundToInt(8 * s));
+			row.AddChild(check);
+
+			var countLabel = new Label
+			{
+				Text = Loc.T("ui.collection.pack_card_count", "{count} 张").Replace("{count}", (counts.TryGetValue(packId, out int n) ? n : 0).ToString()),
+				SizeFlagsHorizontal = SizeFlags.ExpandFill,
+				HorizontalAlignment = HorizontalAlignment.Right,
+				VerticalAlignment = VerticalAlignment.Center,
+			};
+			countLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(12 * s));
+			countLabel.AddThemeColorOverride("font_color", new Color(0.65f, 0.65f, 0.72f, 1));
+			row.AddChild(countLabel);
+
+			list.AddChild(row);
+		}
+
+		dialog.Confirmed += () => dialog.QueueFree();
+		AddChild(dialog);
+		dialog.PopupCentered();
+	}
+
 	private void OnSavePressed()
 	{
 		if (TrySaveDeck())
@@ -1900,6 +2007,8 @@ public partial class CollectionUI : Control
 		_clearDeckButton.Text = Loc.T("ui.collection.clear_deck", "一键清空卡组");
 		_undoButton.Text = Loc.T("ui.collection.undo", "撤销");
 		_saveButton.Text = Loc.T("ui.collection.save_changes", "保存");
+		_packManagerButton.Text = Loc.T("ui.collection.pack_manager", "卡包管理");
+		_packManagerButton.TooltipText = Loc.T("ui.collection.pack_manager_tooltip", "设置战斗中启用哪些卡包（系列）");
 
 		// 刷新 CardGrid（CardGrid 自身有 Refresh 方法处理语言切换）
 		_cardGrid.Refresh();

@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_slime"
+PackId = "core"
 UnitClass = 0
 ActionCost = 0
 Attack = 1

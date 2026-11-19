@@ -21,6 +21,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_chansu"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 28
 CardName = "机会~"

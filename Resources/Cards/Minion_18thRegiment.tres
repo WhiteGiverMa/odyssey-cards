@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_18th_regiment"
+PackId = "core"
 UnitClass = 0
 MechanicTags = 0
 CardName = "第18团"

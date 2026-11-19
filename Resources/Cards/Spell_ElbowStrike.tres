@@ -12,6 +12,7 @@ CustomEffectName = "ElbowStrike"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_elbow_strike"
+PackId = "core"
 FrontlineOnlySpell = true
 MechanicTags = 9
 CardName = "肘击"

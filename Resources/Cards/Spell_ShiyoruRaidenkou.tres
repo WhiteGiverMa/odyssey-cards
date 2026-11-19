@@ -13,6 +13,7 @@ CustomEffectName = "ShiyoruRaidenkou"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_shiyoru_raidenkou"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 3
 CardName = "四夜雷电光"

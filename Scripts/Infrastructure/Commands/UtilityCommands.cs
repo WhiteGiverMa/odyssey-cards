@@ -82,7 +82,8 @@ public class TagsCommand : ChatScreenCommand
 		{
 			if (tag == Core.CardMechanicTag.None)
 				continue;
-			var cards = cardCache.Values.Where(c => c.MechanicTags.HasFlag(tag)).OrderBy(c => c.CardName).ToList();
+			// 走 HasMechanicTag 而非直接 HasFlag，使「系列标签」也按 PackId 自动参与统计。
+			var cards = cardCache.Values.Where(c => c.HasMechanicTag(tag)).OrderBy(c => c.CardName).ToList();
 			lines.Add($"  {tag} ({cards.Count} 张):");
 			foreach (var c in cards)
 				lines.Add($"    {c.Id} — {c.CardName}（{c.Cost}费 {c.Type}）");

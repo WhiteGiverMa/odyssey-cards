@@ -21,6 +21,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_expose"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 262408
 CardName = "暴露"

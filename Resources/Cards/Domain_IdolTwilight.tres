@@ -11,6 +11,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "domain_idol_twilight"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 1152
 DomainId = "idol_twilight"

@@ -23,6 +23,7 @@ TargetType = "incapacitated"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_heavy_strike"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 8193
 CardName = "沉重打击"

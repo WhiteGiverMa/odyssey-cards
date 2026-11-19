@@ -11,6 +11,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_response"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 16
 CardName = "响应"

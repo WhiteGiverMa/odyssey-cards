@@ -17,6 +17,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_shock"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 8208
 CardName = "震慑"

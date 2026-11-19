@@ -11,6 +11,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "status_tiredness"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 1
 CardName = "疲倦"

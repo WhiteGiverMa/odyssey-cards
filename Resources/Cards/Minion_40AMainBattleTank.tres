@@ -5,8 +5,9 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_40a_main_battle_tank"
+PackId = "unmanned_victory"
 UnitClass = 1
-MechanicTags = 65536
+MechanicTags = 0
 CardName = "40A主战坦克"
 Description = "嘲讽。"
 Rarity = 4

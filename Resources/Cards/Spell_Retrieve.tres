@@ -16,6 +16,7 @@ Value = 2
 [resource]
 script = ExtResource("1_data")
 Id = "spell_retrieve"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 262160
 CardName = "检索"

@@ -16,6 +16,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_nano_corpse_art"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 272
 CardName = "纳米散尸术"

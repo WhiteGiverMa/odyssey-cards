@@ -35,7 +35,18 @@ namespace OdysseyCards.Core;
 ///   Shuffle(16384)        — 洗牌：将某牌洗入抽牌堆（干洗/衍生洗入）
 ///   Token(32768)          — 衍生牌：将某指定牌加入手牌（Token 生成）
 ///   Mechanics(65536)      — 机械族：原种族标签维度并入后的位；供种族洗牌效果、主题偏好使用
+///   SuperBody(131072)     — 超体：neta 和平精英「超体对抗」
 ///   Intel(262144)         — 情报：揭露暗牌与溢出生命/格挡收益
+///   PackCore(524288)      — 系列「核心」（1&lt;&lt;19，卡包系列标签位起点）
+///   PackUnmanned(1048576) — 系列「无人智胜」
+///   PackFutureHunt(2097152)    — 系列「未来追杀」
+///   PackSuperBody(4194304)     — 系列「超体计划」
+///   PackReserve(8388608)       — 系列「预备」
+///   PackVanguard(16777216)     — 系列「先锋」
+///   PackCutoffCurrent(33554432) — 系列「断流」（潜艇战主题）
+///
+/// 系列标签位由 <see cref="CardPackCatalog"/> 维护：查询时按 <c>CardData.PackId</c> 自动匹配，
+/// 无需在 .tres 的 MechanicTags 里重复打位。DIY 自定义 PackId 无预置位，需用字符串字段表达。
 /// </summary>
 [Flags]
 public enum CardMechanicTag
@@ -107,4 +118,25 @@ public enum CardMechanicTag
 
 	/// <summary>情报：揭露敌方暗牌，剩余点数回复生命或转为格挡。</summary>
 	Intel = 262144,
+
+	/// <summary>系列「核心」（卡包机制标签位起点 1&lt;&lt;19）。由 PackId 自动授予。</summary>
+	PackCore = 524288,
+
+	/// <summary>系列「无人智胜」。由 PackId 自动授予。</summary>
+	PackUnmanned = 1048576,
+
+	/// <summary>系列「未来追杀」（neta 环世界）。由 PackId 自动授予。</summary>
+	PackFutureHunt = 2097152,
+
+	/// <summary>系列「超体计划」（neta 和平精英超体对抗）。由 PackId 自动授予。</summary>
+	PackSuperBody = 4194304,
+
+	/// <summary>系列「预备」——默认禁用。由 PackId 自动授予。</summary>
+	PackReserve = 8388608,
+
+	/// <summary>系列「先锋」——新卡默认归属。由 PackId 自动授予。</summary>
+	PackVanguard = 16777216,
+
+	/// <summary>系列「断流」（潜艇战主题，0.2.2）。由 PackId 自动授予。</summary>
+	PackCutoffCurrent = 33554432,
 }

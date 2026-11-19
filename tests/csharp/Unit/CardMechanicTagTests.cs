@@ -23,7 +23,7 @@ public class CardMechanicTagTests
 	public void Mechanics_Equals65536()
 	{
 		// 原 CardTag.Mechanics=1 并入 CardMechanicTag 后的新位值。
-		// 工具层（Tools/CardTagEditor）镜像此常量，改动会破坏迁移映射，必须锁定。
+		// 工具层（Tools/CardCollectionWeb）镜像此常量，改动会破坏资源编辑与校验映射，必须锁定。
 		Assert.Equal(65536, (int)CardMechanicTag.Mechanics);
 	}
 
@@ -70,5 +70,30 @@ public class CardMechanicTagTests
 		Assert.True(combined.HasFlag(CardMechanicTag.DirectDamage));
 		Assert.True(combined.HasFlag(CardMechanicTag.Heal));
 		Assert.False(combined.HasFlag(CardMechanicTag.Armor));
+	}
+
+	[Fact]
+	public void PackBits_StartAtOneShiftNineteen_AndStayDistinct()
+	{
+		// 系列标签位从 1<<19 起，紧接 Intel(1<<18)，不与旧位重叠。
+		Assert.Equal(1 << 19, (int)CardMechanicTag.PackCore);
+		Assert.Equal(1 << 20, (int)CardMechanicTag.PackUnmanned);
+		Assert.Equal(1 << 21, (int)CardMechanicTag.PackFutureHunt);
+		Assert.Equal(1 << 22, (int)CardMechanicTag.PackSuperBody);
+		Assert.Equal(1 << 23, (int)CardMechanicTag.PackReserve);
+		Assert.Equal(1 << 24, (int)CardMechanicTag.PackVanguard);
+		Assert.Equal(0, (int)CardPackCatalog.AllPackTags & (int)CardMechanicTag.Intel);
+	}
+
+	[Fact]
+	public void PackBits_MapToOneToOneWithBuiltInPackIds()
+	{
+		foreach (var packId in CardPackCatalog.BuiltInPackIds)
+		{
+			var tag = CardPackCatalog.GetTagForPack(packId);
+			Assert.True(CardPackCatalog.IsPackTag(tag), $"{packId} 未映射到系列标签位");
+			Assert.Equal(tag, CardPackCatalog.GetTagForPack(packId.ToUpperInvariant()));
+		}
+		Assert.Equal(CardMechanicTag.None, CardPackCatalog.GetTagForPack("my_diy_pack"));
 	}
 }

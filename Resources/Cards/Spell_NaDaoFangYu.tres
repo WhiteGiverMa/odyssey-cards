@@ -12,6 +12,7 @@ CustomEffectName = "NaDaoFangYu"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_nadao_fangyu"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 2072
 CardName = "拿刀防卫"

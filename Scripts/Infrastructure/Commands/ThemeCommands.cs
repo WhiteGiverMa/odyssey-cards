@@ -29,7 +29,7 @@ public class ThemePreviewCommand : ChatScreenCommand
 			("溯光", "sokou", "res://Resources/Themes/ThemeProfile_Sokou.tres"),
 		};
 
-		var cardPool = GameManager.Instance.GetAllCards();
+		var cardPool = GameManager.Instance.GetEnabledCards();
 		if (cardPool.Count == 0)
 			return CommandResult.Fail("卡池为空，无法生成");
 

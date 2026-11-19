@@ -12,6 +12,7 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "status_explain"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 8192
 CardName = "解释"

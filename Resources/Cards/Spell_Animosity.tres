@@ -11,6 +11,7 @@ CustomEffectName = "Animosity"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_animosity"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 128
 CardName = "敌意"

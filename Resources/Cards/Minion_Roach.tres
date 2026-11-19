@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1")
 Id = "minion_roach"
+PackId = "future_hunt"
 UnitClass = 0
 MechanicTags = 64
 CardName = "机械小蠊"

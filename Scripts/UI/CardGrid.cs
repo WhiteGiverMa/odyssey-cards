@@ -38,8 +38,13 @@ namespace OdysseyCards.UI
 		private ScrollContainer _scrollContainer = null!;
 		private FlowContainer _flowContainer = null!;
 		private HBoxContainer _filterBar = null!;
+		private OptionButton _packFilterOption = null!;
 		private HBoxContainer _pageBar = null!;
 		private Label _pageLabel = null!;
+
+		/// <summary>卡包筛选下拉的选项 ID 列表（索引 0 为「全部卡包」空串）。</summary>
+		private readonly List<string> _packFilterIds = new();
+		private bool _suppressPackFilterEvent;
 
 		// ===== 状态 =====
 
@@ -56,6 +61,7 @@ namespace OdysseyCards.UI
 		private int? _filterCostMin;
 		private int? _filterCostMax;
 		private CardRarity? _filterRarity;
+		private string? _filterPackId;
 
 		// ===== 拖拽状态 =====
 
@@ -236,6 +242,16 @@ namespace OdysseyCards.UI
 			_filterBar.AddChild(CreateFilterButton(Loc.T("ui.card_grid.filter_minion", "随从"), () => SetTypeFilter(CardType.Minion)));
 			_filterBar.AddChild(CreateFilterButton(Loc.T("ui.card_grid.filter_spell", "法术"), () => SetTypeFilter(CardType.Spell)));
 			_filterBar.AddChild(CreateFilterButton(Loc.T("ui.card_grid.filter_domain", "领域"), () => SetTypeFilter(CardType.Domain)));
+			_filterBar.AddChild(CreateFilterButton(Loc.T("ui.card_grid.filter_countermeasure", "反制"), () => SetTypeFilter(CardType.Countermeasure)));
+
+			// 卡包（系列）筛选：内置包 + 卡牌里出现的 DIY PackId
+			_packFilterOption = new OptionButton
+			{
+				CustomMinimumSize = new Vector2(120 * s, 30 * s),
+			};
+			_packFilterOption.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(13 * s));
+			_packFilterOption.ItemSelected += OnPackFilterSelected;
+			_filterBar.AddChild(_packFilterOption);
 
 			root.AddChild(_filterBar);
 
@@ -320,6 +336,7 @@ namespace OdysseyCards.UI
 		{
 			EnsureLayout();
 			_allCards = new List<CardData>(cards);
+			RebuildPackFilterOptions();
 			ApplyFilter();
 		}
 
@@ -352,6 +369,17 @@ namespace OdysseyCards.UI
 		}
 
 		/// <summary>
+		/// 设置卡包（系列）过滤。null / 空串表示「全部卡包」。
+		/// </summary>
+		public void SetPackFilter(string? packId)
+		{
+			_filterPackId = string.IsNullOrEmpty(packId) ? null : packId;
+			EnsureLayout();
+			RebuildPackFilterOptions();
+			ApplyFilter();
+		}
+
+		/// <summary>
 		/// 清除所有过滤条件。
 		/// </summary>
 		public void ClearFilters()
@@ -360,6 +388,8 @@ namespace OdysseyCards.UI
 			_filterCostMin = null;
 			_filterCostMax = null;
 			_filterRarity = null;
+			_filterPackId = null;
+			RebuildPackFilterOptions();
 			ApplyFilter();
 		}
 
@@ -369,7 +399,46 @@ namespace OdysseyCards.UI
 		public void Refresh()
 		{
 			EnsureLayout();
+			RebuildPackFilterOptions();
 			RenderCurrentPage();
+		}
+
+		// ===== 卡包筛选 =====
+
+		private void RebuildPackFilterOptions()
+		{
+			if (_packFilterOption == null)
+				return;
+
+			string? previous = _filterPackId;
+			_packFilterOption.Clear();
+			_packFilterIds.Clear();
+			_packFilterIds.Add("");
+			_packFilterOption.AddItem(Loc.T("ui.card_grid.filter_all_packs", "全部卡包"));
+
+			int selectedIndex = 0;
+			foreach (var id in CardPackCatalog.GetAllPackIds(_allCards.Select(c => c.PackId)))
+			{
+				_packFilterIds.Add(id);
+				_packFilterOption.AddItem(
+					Loc.T(CardPackCatalog.GetDisplayNameKey(id), CardPackCatalog.GetDefaultDisplayName(id)));
+				if (string.Equals(previous, id, StringComparison.OrdinalIgnoreCase))
+					selectedIndex = _packFilterIds.Count - 1;
+			}
+
+			_suppressPackFilterEvent = true;
+			_packFilterOption.Select(selectedIndex);
+			_suppressPackFilterEvent = false;
+			_filterPackId = selectedIndex == 0 ? null : _packFilterIds[selectedIndex];
+		}
+
+		private void OnPackFilterSelected(long index)
+		{
+			if (_suppressPackFilterEvent)
+				return;
+			int i = (int)index;
+			_filterPackId = i > 0 && i < _packFilterIds.Count ? _packFilterIds[i] : null;
+			ApplyFilter();
 		}
 
 		// ===== 过滤与分页 =====
@@ -394,6 +463,12 @@ namespace OdysseyCards.UI
 				}
 
 				if (_filterRarity.HasValue && c.Rarity != _filterRarity.Value)
+				{
+					return false;
+				}
+
+				if (!string.IsNullOrEmpty(_filterPackId)
+					&& !string.Equals(CardPackCatalog.Normalize(c.PackId), _filterPackId, StringComparison.OrdinalIgnoreCase))
 				{
 					return false;
 				}

@@ -14,6 +14,7 @@ CustomEffectName = "FlyingAway"
 [resource]
 script = ExtResource("1_data")
 Id = "domain_flying_away"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 33816
 DomainId = "flying_away"

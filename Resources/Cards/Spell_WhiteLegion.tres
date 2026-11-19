@@ -17,6 +17,7 @@ TargetType = "Mechanics"
 [resource]
 script = ExtResource("1_data")
 Id = "spell_white_legion"
+PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 16896
 CardName = "白色军团"

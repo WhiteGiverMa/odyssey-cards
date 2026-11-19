@@ -50,7 +50,7 @@ public partial class ThemedDeckSelectUI : Control
 		_openedTicks = Time.GetTicksMsec();
 
 		// 1. 预生成 3 套管卡组
-		var cardPool = GameManager.Instance.GetAllCards();
+		var cardPool = GameManager.Instance.GetEnabledCards();
 		int seed = (int)Time.GetTicksMsec();
 
 		foreach (var heroId in new[] { "ayame", "rie", "sokou" })

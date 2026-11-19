@@ -12,6 +12,7 @@ TargetType = "preemptive_strike"
 [resource]
 script = ExtResource("1_data")
 Id = "domain_preemptive_strike"
+PackId = "super_body_project"
 FrontlineOnlySpell = false
 MechanicTags = 132097
 DomainId = "preemptive_strike"
