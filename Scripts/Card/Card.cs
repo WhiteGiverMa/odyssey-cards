@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using OdysseyCards.Core;
+using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.Card;
 
@@ -18,6 +19,7 @@ public class Card
 	private readonly string _id = "";
 	private readonly CardType _type;
 	private readonly int _actionCost;
+	private readonly int _cost;
 
 	/// <summary>情报公开状态随实例回手、洗回与显式运行时复制保留。</summary>
 	public bool IsRevealedByIntel { get; set; }
@@ -36,7 +38,7 @@ public class Card
 	/// <summary>
 	/// 法力值消耗（部署费用）。
 	/// </summary>
-	public int Cost => Data?.Cost ?? 0;
+	public int Cost => Data?.Cost ?? _cost;
 
 	/// <summary>
 	/// 运行时费用调整值（正数=增加费用，负数=减少费用）。
@@ -88,6 +90,22 @@ public class Card
 	public bool HasUnplayable => Data?.HasKeyword(Keyword.Unplayable) ?? false;
 
 	/// <summary>
+	/// 当前反制牌是否已在手中激活（待命）。敌方回合触发或失效后清零。
+	/// </summary>
+	public bool IsCountermeasureArmed { get; internal set; }
+
+	/// <summary>
+	/// 激活反制牌时实际支付的法力值，用于友方回合内取消激活时精确返还。
+	/// </summary>
+	public int ArmedManaCost { get; internal set; }
+
+	/// <summary>
+	/// 「能量币」的动态额外法力层数：打出时获得 <c>1 + BonusEnergyValue</c> 点法力。
+	/// 仅对 <c>spell_energy_coin</c> 有意义，通过 <see cref="CopyRuntimeModifiersFrom"/> 同步复制。
+	/// </summary>
+	public int BonusEnergyValue { get; set; }
+
+	/// <summary>
 	/// 创建卡牌运行时实例。
 	/// </summary>
 	/// <param name="data">卡牌数据资源</param>
@@ -97,11 +115,12 @@ public class Card
 	}
 
 	/// <summary>不依赖资源加载的运行时入口，供规则模拟与纯 C# 测试使用。</summary>
-	public Card(string id, CardType type = CardType.Spell, int actionCost = 0)
+	public Card(string id, CardType type = CardType.Spell, int actionCost = 0, int cost = 0)
 	{
 		_id = id;
 		_type = type;
 		_actionCost = actionCost;
+		_cost = cost;
 	}
 
 	/// <summary>
@@ -113,6 +132,7 @@ public class Card
 		GrantedRecycle = other.GrantedRecycle;
 		EndTurnDrawPileReturnsRemaining = other.EndTurnDrawPileReturnsRemaining;
 		IsRevealedByIntel = other.IsRevealedByIntel;
+		BonusEnergyValue = other.BonusEnergyValue;
 	}
 
 	/// <summary>
@@ -121,6 +141,11 @@ public class Card
 	/// </summary>
 	public string GetLocalizedName()
 	{
+		if (Id == "spell_energy_coin" && BonusEnergyValue > 0)
+		{
+			return Loc.T("cards.spell_energy_coin.plus_name", "能量币+{bonus}")
+				.Replace("{bonus}", BonusEnergyValue.ToString());
+		}
 		return Data?.GetLocalizedName() ?? CardName;
 	}
 
@@ -131,6 +156,12 @@ public class Card
 	/// <param name="parameters">占位符替换参数（可选）</param>
 	public string GetLocalizedDescription(Dictionary<string, object> parameters = null)
 	{
+		if (Id == "spell_energy_coin" && BonusEnergyValue > 0)
+		{
+			string amount = (1 + BonusEnergyValue).ToString();
+			return Loc.T("cards.spell_energy_coin.description_with_bonus", "获得{amount}点法力。")
+				.Replace("{amount}", amount);
+		}
 		return Data?.GetLocalizedDescription(parameters) ?? Data?.Description ?? string.Empty;
 	}
 
@@ -141,7 +172,8 @@ public class Card
 	/// <returns>费用足够时返回 true</returns>
 	public virtual bool CanPlay(int availableMana)
 	{
-		return availableMana >= GetEffectiveCost();
+		// 已激活的反制牌在友方回合始终可点击/拖出，以便取消激活并返还法力。
+		return IsCountermeasureArmed || availableMana >= GetEffectiveCost();
 	}
 
 }

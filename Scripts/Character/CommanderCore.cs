@@ -153,6 +153,20 @@ public class CommanderCore
 		OnManaChanged?.Invoke(CurrentMana, MaxMana);
 	}
 
+	/// <summary>
+	/// 返还反制牌取消激活时支付的法力（不超过硬上限）。
+	/// </summary>
+	public void RestoreMana(int amount)
+	{
+		if (amount <= 0)
+			return;
+		int restored = Math.Min(Math.Max(0, amount), HardMaxManaCap - CurrentMana);
+		if (restored <= 0)
+			return;
+		CurrentMana += restored;
+		OnManaChanged?.Invoke(CurrentMana, MaxMana);
+	}
+
 	public void ResetMana()
 	{
 		CurrentMana = MaxMana;
@@ -240,6 +254,14 @@ public class CommanderCore
 	public void AddToDrawPileBottom(OdysseyCards.Card.Card card)
 	{
 		CombatDeckState.AddToDrawPileBottom(card);
+	}
+
+	/// <summary>
+	/// 将卡牌插入抽牌堆顶部——下次抽牌必抽到。
+	/// </summary>
+	public void AddToDrawPileTop(OdysseyCards.Card.Card card)
+	{
+		CombatDeckState.AddToDrawPileTop(card);
 	}
 
 	/// <summary>

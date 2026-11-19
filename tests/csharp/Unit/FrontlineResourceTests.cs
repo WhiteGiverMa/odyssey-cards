@@ -24,7 +24,7 @@ public class FrontlineResourceTests
 	public void AllCards_MigrateExplicitTopology_AndPreserveValidEffectReferences()
 	{
 		var files = Directory.GetFiles(Path.Combine(Root(), "Resources", "Cards"), "*.tres");
-		Assert.Equal(61, files.Length);
+		Assert.Equal(68, files.Length);
 		Assert.Equal(19, files.Count(path => Path.GetFileName(path).StartsWith("Minion_", StringComparison.Ordinal)));
 		foreach (string path in files)
 		{
@@ -61,7 +61,7 @@ public class FrontlineResourceTests
 	[Theory]
 	[InlineData("zh.yaml")]
 	[InlineData("en.yaml")]
-	public void Localization_AllSixtyOneCardsAndNewRules_HaveKeysAndTwoSpaceIndent(string file)
+	public void Localization_AllSixtyEightCardsAndNewRules_HaveKeysAndTwoSpaceIndent(string file)
 	{
 		string text = File.ReadAllText(Path.Combine(Root(), "Resources", "Localization", file));
 		Assert.DoesNotContain('\t', text);

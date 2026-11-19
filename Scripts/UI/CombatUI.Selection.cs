@@ -459,6 +459,11 @@ public partial class CombatUI
 				EnterNoTargetPlayMode(card);
 				break;
 
+			case CardType.Countermeasure:
+				// 反制牌：拖入播放区（或点击播放区）付费激活；已激活时同样操作可取消激活并退费。
+				EnterNoTargetPlayMode(card);
+				break;
+
 			default:
 				GD.Print($"[CombatUI] 未知卡牌类型：{card.Type}");
 				break;
@@ -2080,6 +2085,15 @@ public partial class CombatUI
 			case CardType.Domain:
 				success = _combat.PlayDomain(_selectedCard);
 				break;
+			case CardType.Countermeasure:
+				// 反制牌不离开手牌，不走飞向弃牌堆的动画，只需重建手牌以刷新待命徽章。
+				bool toggled = _combat.PlayCountermeasure(_selectedCard);
+				CleanupDragCard();
+				ResetSelection();
+				RefreshAll();
+				if (!toggled)
+					GD.Print("[CombatUI] ✗ 反制牌激活/取消失败");
+				return;
 			default:
 				GD.PrintErr($"[CombatUI] 不支持的类型：{_selectedCard.Type}");
 				OnCardDragCancelled();

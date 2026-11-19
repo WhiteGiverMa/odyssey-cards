@@ -44,7 +44,9 @@
 | Infrastructure/ | `EvalGatewayTests`                                                                                                                           | C# 反射求值网关                                                                             |
 | Localization/   | `YamlParserTests`                                                                                                                            | YAML 解析 + tab 缩进回归                                                                    |
 
-**0 覆盖的模块**：AI/（29 文件）、Heat/（2）、Relic/（7）、Roguelike/（5）、Character/（5）、Card/HeroPowers/（4）、Infrastructure 剩余（~16）、UI 剩余（~35）。
+| AI/ / Roguelike/ | `CommanderAiTests`, `DeckDrivenEnemyTests` | 同构牌手：10~20 / 21~39 / 40 张三档卡组生成、重复上限自动放宽、派生核心卡保留、遭遇池全员 `DeckDrivenCommander`、被动标记 |
+
+**0 覆盖的模块**：Heat/（2）、Relic/（7）、Character/（5）、Card/HeroPowers/（4）、Infrastructure 剩余（~16）、UI 剩余（~35）。
 
 ## Anti-Patterns
 

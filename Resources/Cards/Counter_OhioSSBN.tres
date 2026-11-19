@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="Effect_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+CustomEffectName = "CountermeasureOhio"
+
+[resource]
+script = ExtResource("1_data")
+Id = "counter_ohio_ssbn"
+PackId = "cutoff_current"
+FrontlineOnlySpell = false
+MechanicTags = 256
+CardName = "俄亥俄级战略核潜艇"
+Description = "反制：敌方使用花费不小于4的法术时，阻止其生效，将其转化为「能量币+1」并返回卡组顶。友方回合内可随时取消激活并退还费用。"
+Rarity = 2
+Cost = 4
+Type = 4
+RequiresTarget = false
+Effects = [SubResource("Effect_1")]

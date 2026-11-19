@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="Effect_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+CustomEffectName = "CountermeasureBorei"
+
+[resource]
+script = ExtResource("1_data")
+Id = "counter_borei"
+PackId = "cutoff_current"
+FrontlineOnlySpell = false
+MechanicTags = 512
+CardName = "北风之神"
+Description = "反制：敌方使用指令时，其随机弃1张牌。友方回合内可随时取消激活并退还费用。"
+Rarity = 3
+Cost = 2
+Type = 4
+RequiresTarget = false
+Effects = [SubResource("Effect_1")]

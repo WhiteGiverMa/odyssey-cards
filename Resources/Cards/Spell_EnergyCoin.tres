@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="Effect_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+CustomEffectName = "EnergyCoinMana"
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_energy_coin"
+PackId = "core"
+FrontlineOnlySpell = false
+MechanicTags = 36864
+CardName = "能量币"
+Description = "获得1点法力。+n的能量币额外获得n点法力。"
+Rarity = 0
+Cost = 0
+Type = 1
+RequiresTarget = false
+Effects = [SubResource("Effect_1")]

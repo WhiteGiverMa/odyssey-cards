@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="Effect_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+CustomEffectName = "ReturnMinionToOwnerDeckTop"
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_uss_indiana"
+PackId = "cutoff_current"
+FrontlineOnlySpell = false
+MechanicTags = 256
+CardName = "印第安纳号"
+Description = "使一个随从返回其所有者卡组顶（不触发亡语）。"
+Rarity = 3
+Cost = 6
+Type = 1
+RequiresTarget = true
+TargetFilter = 8
+Effects = [SubResource("Effect_1")]

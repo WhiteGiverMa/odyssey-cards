@@ -492,6 +492,11 @@ public partial class CombatManager : Node
 	private CardEffectDispatcher _effectDispatcher = null!;
 
 	/// <summary>
+	/// 反制牌规则服务——手中付费激活/取消激活、敌方回合拦截法术。
+	/// </summary>
+	private CountermeasureService _countermeasures = null!;
+
+	/// <summary>
 	/// 领域触发管理器——封装领域在部署/回合/受击等时机的行为。
 	/// </summary>
 	private DomainTriggerManager _domainTriggerManager = null!;
@@ -614,9 +619,9 @@ public partial class CombatManager : Node
 		}
 		else
 		{
-			// 回退：如果没有运行状态（例如直接从 Combat.tscn 启动），使用默认邪教徒
-			encounters = new EnemyEncounter[] { new Cultist() };
-			GD.Print("[CombatManager] 回退使用默认敌人 — 邪教徒");
+			// 回退：如果没有运行状态（例如直接从 Combat.tscn 启动），使用默认牌手
+			encounters = new EnemyEncounter[] { EnemyDeckProfiles.CreateCultist() };
+			GD.Print("[CombatManager] 回退使用默认敌人 — 狂热学徒（卡组牌手）");
 		}
 
 		// 为每个 EnemyEncounter 创建对应的 Hero + EnemyUnit
@@ -758,7 +763,8 @@ public partial class CombatManager : Node
 			request.TitleFallback, request.Labels, request.Descriptions, chosen);
 		_effectDispatcher = new CardEffectDispatcher(PlayerHero, EnemyUnits, Board,
 			NotifyCombatStateChanged, RequestDamageVfx, Intel, LoadCombatCard,
-			() => GameManager.Instance?.GetAllCards() ?? Array.Empty<CardData>());
+			() => GameManager.Instance?.GetEnabledCards() ?? new List<CardData>());
+		_countermeasures = new CountermeasureService(LoadCombatCard, NotifyCombatStateChanged);
 		_deathHandler = new DeathHandler(Board, PlayerHero, _effectDispatcher, _attackTracker,
 			minion => CreateActorContext(minion.OwnerHero ?? GetOwnerHero(minion.IsPlayerSide), minion));
 		_weaponAttack = new WeaponAttackSystem(
@@ -810,8 +816,10 @@ public partial class CombatManager : Node
 			unit.Body.Weapon = unit.Brain.CreateWeapon();
 			if (unit.Controller is IDeckDrivenCommander commander)
 			{
-				var theme = GD.Load<ThemeProfile>($"res://Resources/Themes/ThemeProfile_{char.ToUpperInvariant(commander.HeroId[0])}{commander.HeroId[1..]}.tres");
-				commander.InitializeDeck(unit.Body, GameManager.Instance.GetAllCards(), theme, Random.Shared.Next());
+				var profile = commander.DeckProfile
+					?? LoadThemeDeckProfile(commander.HeroId)
+					?? new DeckProfile { HeroId = commander.HeroId, ThemeName = "通用牌组", TargetDeckSize = commander.TargetDeckSize };
+				commander.InitializeDeck(unit.Body, GameManager.Instance.GetEnabledCards(), profile, Random.Shared.Next());
 				unit.Body.Core.CombatDeckState.OnBeforeDiscard = card => HandleQiqiaoDiscard(unit.Body, card);
 			}
 			if (unit.Brain.StartingDefense != 0)
@@ -829,18 +837,46 @@ public partial class CombatManager : Node
 	}
 
 	/// <summary>
+	/// 加载某英雄的主题卡组画像（纯 C# 快照）；资源不存在时返回 null。
+	/// 供「牌手未自带 DeckProfile」的宿敌指挥官回退使用。
+	/// </summary>
+	private static DeckProfile? LoadThemeDeckProfile(string heroId)
+	{
+		if (string.IsNullOrEmpty(heroId))
+			return null;
+		string path = $"res://Resources/Themes/ThemeProfile_{char.ToUpperInvariant(heroId[0])}{heroId[1..]}.tres";
+		if (!ResourceLoader.Exists(path))
+			return null;
+		return GD.Load<ThemeProfile>(path)?.ToDeckProfile();
+	}
+
+	/// <summary>
 	/// 注入敌人被动技能 modifier 到对应的 Hero。
-	/// 固璋(3) → DamageCapModifier；不破(1) 由 Hero._hasTakenDamageThisTurn 门控处理。
+	/// 固璋(3) → DamageCapModifier；不破(1) → HasUnbreakable。
+	/// 旧意图敌人（张郎）与同构牌手（DeckDrivenCommander 的被动标记）都走同一入口。
 	/// </summary>
 	private static void ApplyEnemyPassives(EnemyUnit unit)
 	{
+		if (unit.Brain is DeckDrivenCommander commander)
+		{
+			if (commander.DamageCap is int cap)
+			{
+				unit.Body._damageModifiers.Add(new DamageCapModifier(cap));
+				GD.Print($"[CombatManager] {unit.Brain.Name} 固璋({cap}) — 单次伤害上限 {cap}");
+			}
+			if (commander.Unbreakable)
+			{
+				unit.Body.HasUnbreakable = true;
+				GD.Print($"[CombatManager] {unit.Brain.Name} 不破(1) — 每回合仅受一次生命伤害");
+			}
+		}
+
+		// 旧意图死代码路径：保留以保证旧单测与 /fight 直接 new ZhangLang() 仍可用。
 		if (unit.Brain is ZhangLang)
 		{
 			unit.Body._damageModifiers.Add(new DamageCapModifier(3));
 			GD.Print($"[CombatManager] {unit.Brain.Name} 固璋(3) — 单次伤害上限 3");
 		}
-		// 不破(1)：需在 ApplyEnemyPassives 中设置 unit.Body.HasUnbreakable = true，
-		// 并由 Hero._hasTakenDamageThisTurn 守卫 + StartPlayerTurn/EndPlayerTurn 的 ResetDamageTakenThisTurn 处理
 	}
 
 	// ===== 战斗开始 =====
@@ -881,6 +917,9 @@ public partial class CombatManager : Node
 	/// </summary>
 	private void StartPlayerTurn()
 	{
+		// 反制牌新回合失效：上一轮未触发的已激活反制牌解除激活，需重新付费。
+		_countermeasures?.DisarmAll(PlayerHero);
+
 		// 重置英雄技能使用标记
 		_heroPowerUsedThisTurn = false;
 		_chansuTriggeredThisPlayerTurn = false;
@@ -1041,6 +1080,50 @@ public partial class CombatManager : Node
 	public bool PlayDomain(Card.Card card)
 	{
 		return PlayDomain(CreateActorContext(PlayerHero, PlayerHero, card), card);
+	}
+
+	// ===== 反制牌（手中激活 / 取消激活） =====
+
+	/// <summary>
+	/// 玩家在友方回合内激活或取消激活手中的反制牌。
+	/// 首次调用支付费用并置为待命（卡不离开手牌）；再次调用退还费用并解除待命。
+	/// </summary>
+	public bool PlayCountermeasure(Card.Card card)
+	{
+		if (IsDiscovering || !State.IsPlayerTurn || State.IsGameOver || card == null
+			|| card.Type != CardType.Countermeasure || !PlayerHero.Hand.Contains(card))
+			return false;
+
+		bool wasArmed = card.IsCountermeasureArmed;
+		int cost = GetPlayCost(CreateActorContext(PlayerHero, PlayerHero, card), card);
+		if (!_countermeasures.Toggle(PlayerHero, card, cost))
+			return false;
+
+		if (!wasArmed)
+			NotifyCardPlayed(card, cost);
+		NotifyCombatStateChanged();
+		return true;
+	}
+
+	/// <summary>AI 牌手能否在回合末激活这张反制牌。</summary>
+	internal bool CanArmCountermeasure(Hero owner, Card.Card card)
+	{
+		if (owner == null || !IsOwnerTurn(owner) || _countermeasures == null)
+			return false;
+		int cost = GetPlayCost(CreateActorContext(owner, owner, card), card);
+		return !card.IsCountermeasureArmed && _countermeasures.CanToggle(owner, card, cost);
+	}
+
+	/// <summary>AI 牌手在回合末激活反制牌。</summary>
+	internal bool ArmCountermeasure(Hero owner, Card.Card card)
+	{
+		if (!CanArmCountermeasure(owner, card))
+			return false;
+		int cost = GetPlayCost(CreateActorContext(owner, owner, card), card);
+		bool armed = _countermeasures.Arm(owner, card, cost);
+		if (armed && !owner.IsPlayerSide)
+			NotifyCombatStateChanged();
+		return armed;
 	}
 
 	/// <summary>
@@ -2127,6 +2210,22 @@ public partial class CombatManager : Node
 		int cost = GetPlayCost(actor, card);
 		if (!actor.CasterHero.CanSpendMana(cost) || !ValidateTarget(actor, card, target))
 			return false;
+
+		// 敌方回合（或玩家法术被敌方反制牌拦截）时，先让防守方已激活的反制牌判定。
+		// 被「俄亥俄级」取消的法术：不结算效果、不进弃牌堆，只消耗法力并从手中移除。
+		var defender = ResolveCountermeasureDefender(actor.CasterHero);
+		var interception = _countermeasures?.Intercept(actor.CasterHero, defender, card) ?? default;
+		if (interception.Canceled)
+		{
+			actor.OwnerCore.TrySpendMana(cost);
+			actor.CasterHero.RemoveFromHand(card);
+			if (actor.IsPlayerSide)
+				NotifyCardPlayed(card, cost);
+			GD.Print($"[CombatManager] 「{card.CardName}」被反制拦截，效果未结算");
+			NotifyCombatStateChanged();
+			return true;
+		}
+
 		if (!actor.OwnerCore.TrySpendMana(cost))
 			return false;
 		// 先发制人按施法者阵营消费：同一张直伤法术只放大其首个施法者当回合的第一张。
@@ -2135,6 +2234,16 @@ public partial class CombatManager : Node
 			NotifyCardPlayed(card, cost);
 		ResolveSpellEffects(actor, card, target, 0);
 		return true;
+	}
+
+	/// <summary>反制判定的防守方：敌方施法→玩家英雄；玩家施法→首个存活敌方英雄。</summary>
+	private Hero ResolveCountermeasureDefender(Hero caster)
+	{
+		if (!caster.IsPlayerSide)
+			return PlayerHero;
+		return EnemyUnits.FirstOrDefault(unit => !unit.Body.IsDead && ReferenceEquals(unit.Body, caster))?.Body
+			?? EnemyUnits.FirstOrDefault(unit => !unit.Body.IsDead)?.Body
+			?? PlayerHero;
 	}
 
 	private void ResolveSpellEffects(EffectActorContext actor, Card.Card card, object? target, int index)
@@ -2290,6 +2399,9 @@ public partial class CombatManager : Node
 	/// <summary>指挥官回合开始：与玩家对等的自然法力增长、抽牌、武器与技能冷却。</summary>
 	internal void PrepareCommanderTurn(Hero owner)
 	{
+		// 敌方新回合开始：上一轮未触发的已激活反制牌失效。
+		_countermeasures?.DisarmAll(owner);
+
 		int growthCap = owner.ActiveDomains.ContainsKey("unlimited_potential")
 			? GameState.HardMaxManaCap : GameState.MaxManaCrystals;
 		owner.Core.StartTurn(growthCap);

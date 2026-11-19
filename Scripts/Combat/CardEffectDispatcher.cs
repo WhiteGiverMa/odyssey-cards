@@ -165,6 +165,25 @@ internal sealed class CardEffectDispatcher(
 				if (plan != null)
 					actor.OwnerCore.AddToHand(new Card.Card(plan));
 				break;
+			case "EnergyCoinMana":
+				// 能量币：基础 1 点 + 动态 +n 层数（由「俄亥俄级」等衍生时设置）。
+				CutoffCurrentEffects.GainEnergyCoinMana(hero, actor.PlayedCard?.BonusEnergyValue ?? 0);
+				break;
+			case "EnemyDiscardRandom":
+				// Value = 弃牌张数，SecondaryValue = 最大费用上限（<=0 表示无上限）。
+				CutoffCurrentEffects.DiscardRandomFromHand(EnemyHeroes(actor).FirstOrDefault(),
+					Math.Max(0, value), effect.SecondaryValue);
+				break;
+			case "ReturnMinionToOwnerDeckTop":
+				// 返回卡组顶不是死亡：RecallMinion 不触发亡语/死亡事件。
+				CutoffCurrentEffects.ReturnMinionToOwnerDeckTop(board, playerHero,
+					EnemyHeroes(actor).FirstOrDefault(), target);
+				break;
+			case "AddNamedCardsToHand":
+				// TargetType = 卡牌 ID（多个用 '|' 分隔），Value = 每张加入的数量。
+				CutoffCurrentEffects.AddNamedCardsToHand(actor.OwnerCore, effect.TargetType,
+					Math.Max(0, value), id => CreateRuntimeCard(id, CardType.Spell));
+				break;
 			case "FlyingAway":
 				hero.GainArmor(value);
 				break;
@@ -266,6 +285,10 @@ internal sealed class CardEffectDispatcher(
 		}
 		return false;
 	}
+
+	/// <summary>按 ID 或资源路径创建运行时卡；无 Godot 资源时回退为纯 C# 卡牌（便于 xUnit 直测）。</summary>
+	private Card.Card CreateRuntimeCard(string idOrPath, CardType fallbackType)
+		=> CutoffCurrentEffects.CreateCardById(idOrPath, fallbackType, loadCard);
 
 	private void ChooseDiscard(EffectActorContext actor, int amount, bool optional, bool blade, Action? completed)
 	{

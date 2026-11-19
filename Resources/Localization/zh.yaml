@@ -121,6 +121,7 @@ ui:
     passive_skill: "被动：{desc}"
     cost_suffix: "费"
     attack_suffix: "攻"
+    counter_armed: "⚡已激活"
   card:
     type_unit: "单位"
     type_order: "指令"
@@ -196,6 +197,16 @@ ui:
     filter_minion: "随从"
     filter_spell: "法术"
     filter_domain: "领域"
+    filter_countermeasure: "反制"
+    filter_all_packs: "全部卡包"
+  pack:
+    core: "核心"
+    unmanned_victory: "无人智胜"
+    future_hunt: "未来追杀"
+    super_body_project: "超体计划"
+    cutoff_current: "断流"
+    reserve: "预备"
+    vanguard: "先锋"
   pause:
     title: "暂停"
     continue_game: "继续"
@@ -284,6 +295,13 @@ ui:
     delete_confirm_message: "确定要删除牌组「{name}」吗？（共 {count} 张卡牌）"
     changes_undone: "已撤销未保存的更改"
     deck_file_filter: "JSON 牌组文件"
+    pack_manager: "卡包管理"
+    pack_manager_tooltip: "设置战斗中启用哪些卡包（系列）"
+    pack_manager_title: "卡包管理 — 战斗启用"
+    pack_manager_hint: "勾选的卡包会出现在战斗与随机卡池中；核心包始终启用。"
+    pack_core_always: "核心包保底启用，不可禁用"
+    pack_toggle_tooltip: "切换后立即保存，并影响战斗/奖励/构筑随机卡池"
+    pack_card_count: "{count} 张"
   info_screen:
     title: "综合信息"
     tab_run: "运行信息"
@@ -566,6 +584,30 @@ cards:
     name: "智能臭鸡蛋"
     description: "亡语：对敌方全体造成4点法术伤害"
 
+  spell_energy_coin:
+    name: "能量币"
+    plus_name: "能量币+{bonus}"
+    description: "获得1点法力。+n的能量币额外获得n点法力。"
+    description_with_bonus: "获得{amount}点法力。"
+  spell_093b_ssn:
+    name: "093B SSN"
+    description: "敌方随机弃一张花费不大于8的牌。"
+  spell_uss_indiana:
+    name: "印第安纳号"
+    description: "使一个随从返回其所有者卡组顶（不触发亡语）。"
+  spell_beneath_black_water:
+    name: "黑水之下"
+    description: "抽1张牌；敌方随机弃1张牌。"
+  spell_ultimatum:
+    name: "最后通牒"
+    description: "将3张「093B SSN」加入手牌。"
+  counter_ohio_ssbn:
+    name: "俄亥俄级战略核潜艇"
+    description: "反制：敌方使用花费不小于4的法术时，阻止其生效，将其转化为「能量币+1」并返回卡组顶。"
+  counter_borei:
+    name: "北风之神"
+    description: "反制：敌方使用指令时，其随机弃1张牌。"
+
 board_row:
   enemysupport: "敌方支援线"
   frontline: "中央前线"
@@ -586,6 +628,12 @@ card_type:
   spell: "法术"
   domain: "领域"
   status: "状态"
+  countermeasure: "反制"
+
+packs:
+  cutoff_current:
+    name: "断流"
+    description: "潜艇战主题的弃牌、回卡组顶与反制指令卡包。"
 
 intent:
   attack_format: "对{target}造成 {damage} 点伤害"
@@ -928,3 +976,40 @@ enemy:
       name: "宿敌·溯光"
       title: "轮战情报指挥官"
       passive: "开场展开「接化发」：敌方回合内针对英雄或前线的攻击全被格挡时，回合末获得「受身」。"
+  deckhand:
+    apprentice:
+      name: "实习机械师"
+      title: "机械整备牌手"
+      passive: "真实卡组牌手：偏好机械、护甲与召唤。"
+    goutansha:
+      name: "劫蛋者"
+      title: "臭蛋劫掠牌手"
+      passive: "真实卡组牌手：开局防御 -1，偏好亡语、召唤与直伤。"
+    slimy:
+      name: "软泥牌手"
+      title: "软泥铺场牌手"
+      passive: "真实卡组牌手：低费随从铺场与护甲。"
+    cultist:
+      name: "狂热学徒"
+      title: "狂热直伤牌手"
+      passive: "真实卡组牌手：偏好直伤与增益。"
+    wolf:
+      name: "速攻骑手"
+      title: "速攻突袭牌手"
+      passive: "真实卡组牌手：10 张薄卡组，抢节奏压制。"
+    zhanglang:
+      name: "张郎"
+      title: "机械蠊群牌手"
+      passive: "固璋(3)：单次受到的生命伤害最高 3 点。"
+    shanhu:
+      name: "珊胡"
+      title: "不破守护牌手"
+      passive: "不破(1)：每回合仅受到一次生命伤害。"
+    cosmonaut:
+      name: "宇宙员"
+      title: "宇宙冷漠牌手"
+      passive: "40 张厚卡组：无边黑暗与高费控制直伤。"
+    guardian:
+      name: "守护者"
+      title: "重装防线牌手"
+      passive: "40 张厚卡组：主战坦克与重甲大牌。"

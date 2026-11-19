@@ -530,6 +530,9 @@ public class Hero : IDamageTarget, IDamageSource
 	/// <param name="amount">获得量</param>
 	public void GainMana(int amount) => _core.GainMana(amount);
 
+	/// <summary>返还反制牌取消激活时支付的法力。</summary>
+	public void RestoreMana(int amount) => _core.RestoreMana(amount);
+
 	/// <summary>
 	/// 将当前法力水晶重置为最大值。
 	/// </summary>
@@ -642,6 +645,12 @@ public class Hero : IDamageTarget, IDamageSource
 	public void AddToDrawPileBottom(Card card)
 	{
 		_core.AddToDrawPileBottom(card);
+	}
+
+	/// <summary>将卡牌插入抽牌堆顶部——下次抽牌必抽到。</summary>
+	public void AddToDrawPileTop(Card card)
+	{
+		_core.AddToDrawPileTop(card);
 	}
 
 	/// <summary>

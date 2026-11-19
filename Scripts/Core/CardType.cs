@@ -27,7 +27,13 @@ public enum CardType
 	/// 状态牌：战斗中由敌人塞入的临时负面卡牌。
 	/// 仅战斗期间存在，战斗结束自动清除，不进入永久卡组。
 	/// </summary>
-	Status
+	Status,
+
+	/// <summary>
+	/// 反制牌（类 KARDS Countermeasure）：花费费用在手中激活后，于敌方回合待命；
+	/// 友方回合内可随时取消激活并返还费用。触发后从手牌移入弃牌堆。
+	/// </summary>
+	Countermeasure
 }
 
 /// <summary>

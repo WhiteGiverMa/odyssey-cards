@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="Effect_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+CustomEffectName = "EnemyDiscardRandom"
+Value = 1
+SecondaryValue = 8
+
+[resource]
+script = ExtResource("1_data")
+Id = "spell_093b_ssn"
+PackId = "cutoff_current"
+FrontlineOnlySpell = false
+MechanicTags = 512
+CardName = "093B SSN"
+Description = "敌方随机弃一张花费不大于8的牌。"
+Rarity = 4
+Cost = 3
+Type = 1
+RequiresTarget = false
+Effects = [SubResource("Effect_1")]

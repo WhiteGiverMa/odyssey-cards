@@ -146,6 +146,19 @@ public class CombatDeckState
 	}
 
 	/// <summary>
+	/// 将卡牌插入抽牌堆顶部——下次 <see cref="DrawCards"/> 的第一张必为此牌。
+	/// 用于「俄亥俄级」把法术转化为「能量币+1」塞回施法方牌库顶。
+	/// </summary>
+	public void AddToDrawPileTop(OdysseyCards.Card.Card card)
+	{
+		if (card == null)
+			return;
+		DrawPile.Insert(0, card);
+		GD.Print($"[CombatDeckState] 将「{card.CardName}」加入抽牌堆顶部（共 {DrawPile.Count} 张）");
+		OnDrawPileChanged?.Invoke();
+	}
+
+	/// <summary>
 	/// 直接将一张卡牌加入弃牌堆（不从手牌移除，用于随从死亡等外部来源）。
 	/// </summary>
 	/// <param name="card">要加入的卡牌实例</param>

@@ -121,6 +121,7 @@ ui:
     passive_skill: "Passive: {desc}"
     cost_suffix: " MP"
     attack_suffix: " ATK"
+    counter_armed: "⚡ARMED"
   card:
     type_unit: "UNIT"
     type_order: "ORDER"
@@ -196,6 +197,16 @@ ui:
     filter_minion: "Minion"
     filter_spell: "Spell"
     filter_domain: "Domain"
+    filter_countermeasure: "Countermeasure"
+    filter_all_packs: "All Packs"
+  pack:
+    core: "Core"
+    unmanned_victory: "Unmanned Victory"
+    future_hunt: "Future Hunt"
+    super_body_project: "Super Body Project"
+    cutoff_current: "Cutoff Current"
+    reserve: "Reserve"
+    vanguard: "Vanguard"
   pause:
     title: "Pause"
     continue_game: "Continue"
@@ -284,6 +295,13 @@ ui:
     delete_confirm_message: 'Delete deck "{name}"? ({count} cards)'
     changes_undone: "Changes undone"
     deck_file_filter: "JSON Deck Files"
+    pack_manager: "Manage Packs"
+    pack_manager_tooltip: "Choose which card packs (series) are enabled in battle"
+    pack_manager_title: "Manage Packs — Battle Enabled"
+    pack_manager_hint: "Checked packs appear in battles and random pools; Core is always enabled."
+    pack_core_always: "Core is always enabled and cannot be disabled"
+    pack_toggle_tooltip: "Changes save immediately and affect battle, reward and deck-building pools"
+    pack_card_count: "{count} cards"
   info_screen:
     title: "Comprehensive Info"
     tab_run: "Run Info"
@@ -562,6 +580,30 @@ cards:
     name: "Smart Rotten Egg"
     description: "Deathrattle: Deal 4 spell damage to all enemies."
 
+  spell_energy_coin:
+    name: "Energy Coin"
+    plus_name: "Energy Coin +{bonus}"
+    description: "Gain 1 Mana. An Energy Coin +n grants n extra Mana."
+    description_with_bonus: "Gain {amount} Mana."
+  spell_093b_ssn:
+    name: "093B SSN"
+    description: "Make the enemy discard a random card costing 8 or less."
+  spell_uss_indiana:
+    name: "USS Indiana"
+    description: "Return a minion to its owner's draw pile top (no deathrattle)."
+  spell_beneath_black_water:
+    name: "Beneath Black Water"
+    description: "Draw 1 card; make the enemy discard a random card."
+  spell_ultimatum:
+    name: "Ultimatum"
+    description: "Add 3 copies of 093B SSN to your hand."
+  counter_ohio_ssbn:
+    name: "Ohio-class SSBN"
+    description: "Counter: When the enemy plays a spell costing 4 or more, prevent it and put an Energy Coin +1 on top of their draw pile."
+  counter_borei:
+    name: "Borei"
+    description: "Counter: When the enemy plays an order, make them discard a random card."
+
 board_row:
   enemysupport: "Enemy Support"
   frontline: "Frontline"
@@ -582,6 +624,12 @@ card_type:
   spell: "Spell"
   domain: "Domain"
   status: "Status"
+  countermeasure: "Countermeasure"
+
+packs:
+  cutoff_current:
+    name: "Cutoff Current"
+    description: "A submarine-warfare pack of discard, deck-top return and counter-order tactics."
 
 intent:
   attack_format: "Deal {damage} damage to {target}"
@@ -923,3 +971,40 @@ enemy:
       name: "Rival Sokou"
       title: "Recycle Intel Commander"
       passive: "Opens with Jiehuafa: if all enemy attacks on her hero or frontline are blocked, she gains Ukemi at turn end."
+  deckhand:
+    apprentice:
+      name: "Apprentice Mechanic"
+      title: "Mech Maintenance Deckhand"
+      passive: "Real-deck deckhand: favors Mechanics, Armor and Summon."
+    goutansha:
+      name: "Egg Robber"
+      title: "Stinky Egg Raid Deckhand"
+      passive: "Real-deck deckhand: starts at -1 Defense, favors deathrattle, summon and direct damage."
+    slimy:
+      name: "Slime Deckhand"
+      title: "Slime Swarm Deckhand"
+      passive: "Real-deck deckhand: cheap minions and armor."
+    cultist:
+      name: "Zealous Adept"
+      title: "Zeal Direct Damage Deckhand"
+      passive: "Real-deck deckhand: favors direct damage and buffs."
+    wolf:
+      name: "Rush Rider"
+      title: "Rush Assault Deckhand"
+      passive: "Real-deck deckhand: a 10-card thin deck built for tempo."
+    zhanglang:
+      name: "Zhang Lang"
+      title: "Roach Swarm Deckhand"
+      passive: "Solid Jade (3): takes at most 3 health damage per hit."
+    shanhu:
+      name: "Shan Hu"
+      title: "Unbreakable Guardian Deckhand"
+      passive: "Unbreakable (1): takes health damage only once per turn."
+    cosmonaut:
+      name: "Cosmonaut"
+      title: "Cosmic Indifference Deckhand"
+      passive: "40-card deck: Boundless Darkness and high-cost control/damage."
+    guardian:
+      name: "Guardian"
+      title: "Heavy Defense Line Deckhand"
+      passive: "40-card deck: main battle tanks and heavy armor."

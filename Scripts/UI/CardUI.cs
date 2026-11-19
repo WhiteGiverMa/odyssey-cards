@@ -48,6 +48,8 @@ public partial class CardUI : Control
 	private static readonly Color ClrCannotPlay = new("#666666");
 	private static readonly Color ClrBorder = new("#555540");
 	private static readonly Color ClrActionCost = new("#cc3333");
+	/// <summary>反制牌待命徽章——青金色，与「已激活」提示形成强视觉标识。</summary>
+	private static readonly Color ClrArmedBadge = new("#0e5f6e");
 
 	// 稀有度标识背景
 	private static readonly Color ClrRarityBg = new("#1a1a10");
@@ -167,6 +169,10 @@ public partial class CardUI : Control
 	private ColorRect _rarityBg = null!;
 	private Label _rarityLabel = null!;
 
+	// 反制牌「已激活」徽章
+	private ColorRect _armedBadgeBg = null!;
+	private Label _armedBadgeLabel = null!;
+
 	// 播放区高亮缓存的 StyleBoxFlat（复用避免每帧分配新对象）
 	private StyleBoxFlat? _playZoneHighlightStyle;
 
@@ -232,6 +238,7 @@ public partial class CardUI : Control
 		BuildSpellTypeLabel(s, cardSize);
 		BuildDescriptionArea(s, cardSize);
 		BuildRarityIndicator(s, cardSize);
+		BuildArmedBadge(s, cardSize);
 		BuildTacticalBadge(s, cardSize);
 
 		if (!DisplayOnly)
@@ -576,6 +583,34 @@ public partial class CardUI : Control
 		AddChild(_rarityLabel);
 	}
 
+	/// <summary>构建反制牌待命徽章（默认隐藏）。</summary>
+	private void BuildArmedBadge(float s, Vector2 size)
+	{
+		float w = 54f * s;
+		float h = HEADER_H * s;
+		_armedBadgeBg = new ColorRect
+		{
+			Color = ClrArmedBadge,
+			Size = new Vector2(w, h),
+			Position = new Vector2(size.X - w, 0),
+			Visible = false,
+		};
+		AddChild(_armedBadgeBg);
+
+		_armedBadgeLabel = new Label
+		{
+			Size = new Vector2(w, h),
+			Position = new Vector2(size.X - w, 0),
+			HorizontalAlignment = HorizontalAlignment.Center,
+			VerticalAlignment = VerticalAlignment.Center,
+			Text = Loc.T("ui.combat.counter_armed", "⚡已激活"),
+			Visible = false,
+		};
+		_armedBadgeLabel.AddThemeColorOverride("font_color", new Color(0.55f, 0.95f, 1f));
+		_armedBadgeLabel.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(7 * s));
+		AddChild(_armedBadgeLabel);
+	}
+
 	/// <summary>构建卡面右上角的战术兵种/嘲讽/守护矢量微标覆盖层。</summary>
 	private void BuildTacticalBadge(float s, Vector2 size)
 	{
@@ -632,6 +667,18 @@ public partial class CardUI : Control
 		{
 			ShowSpellLayout(card, s);
 		}
+
+		// 反制牌待命徽章——已激活时始终可点击/拖出以取消激活。
+		bool armed = card.Type == CardType.Countermeasure && card.IsCountermeasureArmed;
+		if (_armedBadgeBg != null)
+		{
+			_armedBadgeBg.Visible = armed;
+			_armedBadgeLabel.Visible = armed;
+			if (armed)
+				_armedBadgeLabel.Text = Loc.T("ui.combat.counter_armed", "⚡已激活");
+		}
+		if (armed)
+			SetCanPlay(true);
 
 		// 描述文字（本地化）；随从展示兵种，帮助出牌前判断行动与射程。
 		string description = card.GetLocalizedDescription();
@@ -1148,6 +1195,7 @@ public partial class CardUI : Control
 			CardType.Spell => Loc.T("card_type.spell", "法术"),
 			CardType.Domain => Loc.T("card_type.domain", "领域"),
 			CardType.Status => Loc.T("card_type.status", "状态"),
+			CardType.Countermeasure => Loc.T("card_type.countermeasure", "反制"),
 			_ => Loc.T("card_type.spell", "法术")
 		};
 	}
