@@ -1,6 +1,6 @@
 import type { CardTypeKey, Language, LocalText, UnitClass } from "./types.ts";
 
-export const TYPE_KEYS: CardTypeKey[] = ["minion", "spell", "domain", "status"];
+export const TYPE_KEYS: CardTypeKey[] = ["minion", "spell", "domain", "status", "countermeasure"];
 export const RARITY_KEYS = ["derivative", "master", "excellent", "good", "common", "special", "statusToken"];
 export const KEYWORD_KEYS = [
   "none",
@@ -57,6 +57,7 @@ export const TYPE_NAMES: Record<CardTypeKey, LocalText> = {
   spell: { zh: "法术", en: "Spell" },
   domain: { zh: "领域", en: "Domain" },
   status: { zh: "状态", en: "Status" },
+  countermeasure: { zh: "反制", en: "Countermeasure" },
 };
 export const UNIT_NAMES: Record<UnitClass, LocalText> = {
   vanguard: { zh: "先锋", en: "Vanguard" },

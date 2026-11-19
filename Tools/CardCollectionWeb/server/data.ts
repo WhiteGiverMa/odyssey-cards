@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { KEYWORD_KEYS, MECHANIC_TAGS, RARITY_KEYS, TYPE_KEYS } from "../shared/constants.ts";
+import { resolveDefaultPackId } from "../shared/packs.ts";
 import type {
   CardEffect,
   CardRecord,
@@ -22,6 +23,13 @@ import { asNumber, asNumberArray, asNumberMap, asString, asStringArray, parseTre
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 function findRepositoryRoot(): string {
+  const explicitRoot = process.env.ODYSSEY_REPOSITORY_ROOT;
+  if (explicitRoot) {
+    const resolved = path.resolve(explicitRoot);
+    if (existsSync(path.join(resolved, "Resources", "Cards")) && existsSync(path.join(resolved, "OdysseyCards.csproj")))
+      return resolved;
+    throw new Error(`Invalid ODYSSEY_REPOSITORY_ROOT: ${resolved}`);
+  }
   let candidate = HERE;
   for (let depth = 0; depth < 8; depth++) {
     if (
@@ -36,7 +44,18 @@ function findRepositoryRoot(): string {
   throw new Error(`Unable to locate OdysseyCards repository from ${HERE}`);
 }
 export const REPOSITORY_ROOT = findRepositoryRoot();
-export const APPLICATION_ROOT = path.join(REPOSITORY_ROOT, "Tools", "CardCollectionWeb");
+function findApplicationRoot(): string {
+  let candidate = HERE;
+  for (let depth = 0; depth < 8; depth++) {
+    if (existsSync(path.join(candidate, "package.json")) && existsSync(path.join(candidate, "index.html")))
+      return candidate;
+    const parent = path.dirname(candidate);
+    if (parent === candidate) break;
+    candidate = parent;
+  }
+  throw new Error(`Unable to locate CardCollectionWeb application from ${HERE}`);
+}
+export const APPLICATION_ROOT = findApplicationRoot();
 const CARD_DIRECTORY = path.join(REPOSITORY_ROOT, "Resources", "Cards");
 const THEME_DIRECTORY = path.join(REPOSITORY_ROOT, "Resources", "Themes");
 const VIRTUAL_INTEL = new Set([
@@ -154,7 +173,7 @@ async function loadCards(tables: Record<Language, TranslationTable>): Promise<Lo
     if (VIRTUAL_INTEL.has(id)) keywords.add(14);
     if (VIRTUAL_SMOKE.has(id)) keywords.add(13);
     const mechanicTagKeys = numberMapKeys(mechanicTags, MECHANIC_TAGS);
-    if (VIRTUAL_INTEL.has(id)) mechanicTagKeys.push("intel");
+    if (VIRTUAL_INTEL.has(id) && !mechanicTagKeys.includes("intel")) mechanicTagKeys.push("intel");
     const cost = asNumber(raw.Cost, 1);
     const actionCost = asNumber(raw.ActionCost);
     const attack = asNumber(raw.Attack, 1);
@@ -198,6 +217,8 @@ async function loadCards(tables: Record<Language, TranslationTable>): Promise<Lo
       unitClassSource: unitClass ? (resourceUnit ? "resource" : "prd") : "not-applicable",
       tactical: profileFor(id) ?? nonUnitProfile(id, typeKey, mechanicTags, domainId),
       themes,
+      // 资源尚未写入 PackId 时，按 docs/draft/卡包.md 的清单与标签规则推断。
+      packId: asString(raw.PackId) || resolveDefaultPackId(id, mechanicTagKeys),
       name: name.text,
       description: description.text,
       localizationFallback: name.fallback,

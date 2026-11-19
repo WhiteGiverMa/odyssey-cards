@@ -1,6 +1,6 @@
 export type Language = "zh" | "en";
 export type LocalText = Record<Language, string>;
-export type CardTypeKey = "minion" | "spell" | "domain" | "status";
+export type CardTypeKey = "minion" | "spell" | "domain" | "status" | "countermeasure";
 export type UnitClass = "vanguard" | "assault" | "support" | "skirmisher";
 export type ArtworkStyle = "rune" | "mecha" | "abstract";
 export type RawValue = string | number | boolean | null | RawValue[] | { [key: string]: RawValue };
@@ -60,6 +60,8 @@ export interface CardRecord {
   unitClassSource: "resource" | "prd" | "not-applicable";
   tactical: TacticalProfile | null;
   themes: string[];
+  /** 所属卡包（系列）。缺省为 "core"，DIY 卡包为玩家自定义 slug。 */
+  packId: string;
   name: LocalText;
   description: LocalText;
   localizationFallback: Record<Language, boolean>;
@@ -157,6 +159,15 @@ export interface CardsResponse {
   repository: string;
 }
 
+export interface PackAssignResponse {
+  cards: CardRecord[];
+  total: number;
+  generatedAt: string;
+  updated: string[];
+  missing: string[];
+  packId: string;
+}
+
 export interface UnitClassRule {
   id: UnitClass;
   name: LocalText;
@@ -169,6 +180,15 @@ export interface KeywordRule {
   id: string;
   name: LocalText;
   description: LocalText;
+}
+
+export interface ResourceValidationReport {
+  ok: boolean;
+  cards: number;
+  themes: number;
+  errors: string[];
+  warnings: string[];
+  checkedAt: string;
 }
 
 export interface RulesResponse {

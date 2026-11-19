@@ -11,7 +11,8 @@
     "start": "node dist/server/server/index.js",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && vite build && tsc -p tsconfig.server.json",
-    "test": "tsx --test server/parser.test.ts src/lib/tactics.test.ts src/lib/deck.test.ts",
+    "test": "tsx --test server/parser.test.ts server/tres-writer.test.ts src/lib/tactics.test.ts src/lib/deck.test.ts src/lib/glossary.test.ts",
+    "tag": "tsx scripts/tag-cli.ts",
     "smoke": "node scripts/smoke.mjs",
     "verify": "npm run build && node scripts/verify-production.mjs",
     "test:browser": "npm run build && node scripts/browser-smoke.mjs"

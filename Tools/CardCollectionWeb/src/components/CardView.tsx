@@ -4,10 +4,14 @@ import { KEYWORD_NAMES, RARITY_COLORS, RARITY_NAMES, TYPE_NAMES } from "../../sh
 import { t } from "../i18n.ts";
 import { ArtworkCanvas } from "./Artwork.tsx";
 import { UnitBadge } from "./UnitBadge.tsx";
+import { RichGameText } from "./RichGameText.tsx";
+import { PackBadge } from "./PackBadge.tsx";
 
 interface CardViewProps {
   card: CardRecord;
+  cards: CardRecord[];
   language: Language;
+  onWikiTerm: (id: string) => void;
   palette: "classic" | "new";
   deckCount?: number;
   onInspect: (id: string) => void;
@@ -15,7 +19,17 @@ interface CardViewProps {
   large?: boolean;
 }
 
-export function CardView({ card, language, palette, deckCount = 0, onInspect, onAdd, large = false }: CardViewProps) {
+export function CardView({
+  card,
+  cards,
+  language,
+  palette,
+  deckCount = 0,
+  onInspect,
+  onAdd,
+  onWikiTerm,
+  large = false,
+}: CardViewProps) {
   const ref = useRef<HTMLElement>(null);
   const rarityColor = RARITY_COLORS[palette][card.rarity] ?? "#c8c8c8";
   const addDisabled = !card.buildable || deckCount >= card.maxCopies;
@@ -43,7 +57,7 @@ export function CardView({ card, language, palette, deckCount = 0, onInspect, on
       onClick={() => !large && onInspect(card.id)}
       onDoubleClick={() => !large && !addDisabled && onAdd(card.id)}
       onKeyDown={(event) => {
-        if (large) return;
+        if (large || event.target !== event.currentTarget) return;
         if (event.key === "Enter") onInspect(card.id);
         if (event.key === "+" && !addDisabled) onAdd(card.id);
       }}
@@ -79,6 +93,7 @@ export function CardView({ card, language, palette, deckCount = 0, onInspect, on
         </div>
         <div className="card-text-body">
           <div className="card-taxonomy">
+            <PackBadge packId={card.packId} language={language} compact title={t(language, "packSeries")} />
             <span>{TYPE_NAMES[card.typeKey][language]}</span>
             {card.tactical && (
               <>
@@ -86,7 +101,15 @@ export function CardView({ card, language, palette, deckCount = 0, onInspect, on
               </>
             )}
           </div>
-          <p>{card.description[language] || "—"}</p>
+          <p>
+            <RichGameText
+              text={card.description[language] || "—"}
+              cards={cards}
+              language={language}
+              onWikiTerm={onWikiTerm}
+              onSelectCard={onInspect}
+            />
+          </p>
         </div>
         {card.typeKey === "minion" ? (
           <div className="card-statline">

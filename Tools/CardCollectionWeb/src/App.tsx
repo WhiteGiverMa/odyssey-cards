@@ -21,6 +21,8 @@ import {
   UNIT_NAMES,
 } from "../shared/constants.ts";
 import { api } from "./api.ts";
+import { summarizePacks } from "../shared/packs.ts";
+import { displayPackName } from "./lib/packNames.ts";
 import { t } from "./i18n.ts";
 import { cardCounts, type DeckState } from "./lib/deck.ts";
 import { CardView } from "./components/CardView.tsx";
@@ -28,6 +30,7 @@ import { Inspector } from "./components/Inspector.tsx";
 import { DeckPanel } from "./components/DeckPanel.tsx";
 import { Codex } from "./components/Codex.tsx";
 import { Wiki } from "./components/Wiki.tsx";
+import { Workshop } from "./components/Workshop.tsx";
 
 interface CatalogData {
   cards: CardRecord[];
@@ -38,11 +41,16 @@ interface CatalogData {
   rules: RulesResponse;
 }
 
-type Page = "collection" | "builder" | "codex" | "wiki";
-const PAGE_IDS: Page[] = ["collection", "builder", "codex", "wiki"];
+type Page = "collection" | "workshop" | "codex" | "wiki";
+const PAGE_IDS: Page[] = ["collection", "workshop", "codex", "wiki"];
 function pageFromHash(): Page {
-  const id = window.location.hash.replace(/^#\/?/, "") as Page;
-  return PAGE_IDS.includes(id) ? id : "collection";
+  const id = window.location.hash.replace(/^#\/?/, "").split("/")[0];
+  if (id === "builder") return "collection";
+  return PAGE_IDS.includes(id as Page) ? (id as Page) : "collection";
+}
+function wikiTermFromHash(): string {
+  const match = /^#\/?wiki\/term\/([a-z0-9-]+)/i.exec(window.location.hash);
+  return match?.[1] ?? "";
 }
 interface Filters {
   search: string;
@@ -54,6 +62,7 @@ interface Filters {
   rarity: string;
   keyword: string;
   mechanic: string;
+  pack: string;
   sort: string;
 }
 const DEFAULT_FILTERS: Filters = {
@@ -66,6 +75,7 @@ const DEFAULT_FILTERS: Filters = {
   rarity: "all",
   keyword: "all",
   mechanic: "all",
+  pack: "all",
   sort: "cost",
 };
 
@@ -159,7 +169,10 @@ export default function App() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [deck, setDeck] = useState<DeckState>(readStoredDeck);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
-  const [deckOpen, setDeckOpen] = useState(() => window.innerWidth > 1200);
+  const [wikiTermId, setWikiTermId] = useState(wikiTermFromHash);
+  const [deckOpen, setDeckOpen] = useState(
+    () => window.location.hash.replace(/^#\/?/, "") === "builder" || window.innerWidth > 1200,
+  );
   const [filterOpen, setFilterOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const load = useCallback(async () => {
@@ -191,12 +204,21 @@ export default function App() {
     void load();
   }, [load]);
   useEffect(() => {
-    const sync = () => setPage(pageFromHash());
+    const sync = () => {
+      if (window.location.hash.replace(/^#\/?/, "") === "builder") setDeckOpen(true);
+      setPage(pageFromHash());
+      setWikiTermId(wikiTermFromHash());
+      if (window.location.hash.replace(/^#\/?/, "") === "builder") window.history.replaceState(null, "", "#collection");
+    };
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
   useEffect(() => {
+    if (page === "wiki" && window.location.hash.startsWith("#wiki")) return;
     if (window.location.hash !== `#${page}`) window.history.replaceState(null, "", `#${page}`);
+  }, [page]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
   }, [page]);
   useEffect(() => {
     localStorage.setItem("odyssey-web-language", language);
@@ -214,6 +236,7 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [notice]);
   const counts = useMemo(() => cardCounts(deck.cardIds), [deck.cardIds]);
+  const packSummaries = useMemo(() => (data ? summarizePacks(data.cards.map((card) => card.packId)) : []), [data]);
   const setFilter = (key: keyof Filters, value: string) => setFilters((current) => ({ ...current, [key]: value }));
   const addCard = (id: string) => {
     if (!data) return;
@@ -245,6 +268,7 @@ export default function App() {
       if (filters.rarity !== "all" && card.rarity !== Number(filters.rarity)) return false;
       if (filters.keyword !== "all" && !card.keywordKeys.includes(filters.keyword)) return false;
       if (filters.mechanic !== "all" && !card.mechanicTagKeys.includes(filters.mechanic)) return false;
+      if (filters.pack !== "all" && card.packId !== filters.pack) return false;
       if (needle) {
         const haystack = [
           card.id,
@@ -274,6 +298,27 @@ export default function App() {
   }, [data, filters, language]);
   const selectedCard = data?.cards.find((card) => card.id === selectedCardId) ?? null;
   const closeInspector = useCallback(() => setSelectedCardId(null), []);
+  const openWikiTerm = (id: string) => {
+    setSelectedCardId(null);
+    setWikiTermId(id);
+    setPage("wiki");
+    window.location.hash = `wiki/term/${id}`;
+  };
+  const cardSaved = (saved: CardRecord) => {
+    setData((current) =>
+      current ? { ...current, cards: current.cards.map((card) => (card.id === saved.id ? saved : card)) } : current,
+    );
+  };
+  const cardsAssigned = (cards: CardRecord[]) => {
+    setData((current) => (current ? { ...current, cards } : current));
+  };
+  const themeSaved = (saved: ThemeRecord) => {
+    setData((current) =>
+      current
+        ? { ...current, themes: current.themes.map((theme) => (theme.id === saved.id ? saved : theme)) }
+        : current,
+    );
+  };
   const activeFilterCount =
     Object.entries(filters).filter(([key, value]) => key !== "sort" && key !== "search" && value !== "all").length +
     (filters.search ? 1 : 0);
@@ -307,7 +352,7 @@ export default function App() {
     );
   if (!data) return null;
 
-  const collectionMode = page === "collection" || page === "builder";
+  const collectionMode = page === "collection";
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -321,8 +366,15 @@ export default function App() {
           </span>
         </button>
         <nav className="main-nav" aria-label="Main navigation">
-          {(["collection", "builder", "codex", "wiki"] as Page[]).map((entry, index) => (
-            <button key={entry} className={page === entry ? "active" : ""} onClick={() => setPage(entry)}>
+          {(["collection", "workshop", "codex", "wiki"] as Page[]).map((entry, index) => (
+            <button
+              key={entry}
+              className={page === entry ? "active" : ""}
+              onClick={() => {
+                setWikiTermId("");
+                setPage(entry);
+              }}
+            >
               <span>0{index + 1}</span>
               {t(language, entry)}
             </button>
@@ -370,9 +422,9 @@ export default function App() {
           <>
             <header className="collection-title page-container">
               <div>
-                <span className="section-index">{page === "collection" ? "01 / CARD REGISTRY" : "02 / DECK LAB"}</span>
-                <h1>{t(language, page === "collection" ? "collectionTitle" : "builderTitle")}</h1>
-                <p>{t(language, page === "collection" ? "collectionSubtitle" : "builderSubtitle")}</p>
+                <span className="section-index">01 / COLLECTION & DECK</span>
+                <h1>{t(language, "collectionTitle")}</h1>
+                <p>{t(language, "collectionSubtitle")}</p>
               </div>
               <div className="registry-summary">
                 <strong>{String(data.cards.length).padStart(3, "0")}</strong>
@@ -453,7 +505,7 @@ export default function App() {
                 </FilterGroup>
                 <FilterGroup title={t(language, "cardType")}>
                   <div className="filter-button-grid type-filter">
-                    {(["all", "minion", "spell", "domain", "status"] as const).map((type) => (
+                    {(["all", "minion", "spell", "domain", "status", "countermeasure"] as const).map((type) => (
                       <ChoiceButton key={type} active={filters.type === type} onClick={() => setFilter("type", type)}>
                         {type === "all" ? t(language, "all") : TYPE_NAMES[type][language]}
                       </ChoiceButton>
@@ -536,6 +588,25 @@ export default function App() {
                     )}
                   </div>
                 </FilterGroup>
+                <FilterGroup title={t(language, "packFilter")}>
+                  <div className="filter-button-grid pack-filter">
+                    <ChoiceButton active={filters.pack === "all"} onClick={() => setFilter("pack", "all")}>
+                      {t(language, "packAll")} · {data.cards.length}
+                    </ChoiceButton>
+                    {packSummaries.map((pack) => (
+                      <ChoiceButton
+                        key={pack.id}
+                        active={filters.pack === pack.id}
+                        onClick={() => setFilter("pack", pack.id)}
+                        color={pack.color}
+                        title={pack.description[language]}
+                      >
+                        {displayPackName(pack.id, language)} · {pack.count}
+                      </ChoiceButton>
+                    ))}
+                  </div>
+                  <p className="filter-hint">{t(language, "packFilterHint")}</p>
+                </FilterGroup>
               </aside>
               <section className="collection-results">
                 <div className="result-toolbar">
@@ -580,8 +651,10 @@ export default function App() {
                       <CardView
                         key={card.id}
                         card={card}
+                        cards={data.cards}
                         language={language}
                         palette={palette}
+                        onWikiTerm={openWikiTerm}
                         deckCount={counts.get(card.id) ?? 0}
                         onInspect={setSelectedCardId}
                         onAdd={addCard}
@@ -614,10 +687,39 @@ export default function App() {
             </div>
           </>
         )}
-        {page === "codex" && (
-          <Codex heroes={data.heroes} weapons={data.weapons} relics={data.relics} language={language} />
+        {page === "workshop" && (
+          <Workshop
+            cards={data.cards}
+            themes={data.themes}
+            language={language}
+            onInspect={setSelectedCardId}
+            onCardSaved={cardSaved}
+            onCardsAssigned={cardsAssigned}
+            onThemeSaved={themeSaved}
+            onNotice={setNotice}
+          />
         )}
-        {page === "wiki" && <Wiki language={language} rules={data.rules} />}
+        {page === "codex" && (
+          <Codex
+            heroes={data.heroes}
+            weapons={data.weapons}
+            relics={data.relics}
+            cards={data.cards}
+            language={language}
+            onWikiTerm={openWikiTerm}
+            onSelectCard={setSelectedCardId}
+          />
+        )}
+        {page === "wiki" && (
+          <Wiki
+            language={language}
+            rules={data.rules}
+            cards={data.cards}
+            focusedTermId={wikiTermId}
+            onWikiTerm={openWikiTerm}
+            onSelectCard={setSelectedCardId}
+          />
+        )}
       </main>
       <footer className="app-footer">
         <span>{t(language, "footer")}</span>
@@ -636,6 +738,9 @@ export default function App() {
           onClose={closeInspector}
           onSelect={setSelectedCardId}
           onAdd={addCard}
+          onWikiTerm={openWikiTerm}
+          onSaved={cardSaved}
+          onNotice={setNotice}
         />
       )}
       {notice && (

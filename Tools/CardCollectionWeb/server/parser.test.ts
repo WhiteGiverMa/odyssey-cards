@@ -19,8 +19,8 @@ test("Godot Variant parser reads arrays, dictionaries and subresources", () => {
 
 test("catalog loads every real card, all tactical classes and reference decks", async () => {
   const catalog = await loadCatalog();
-  assert.equal(catalog.cards.length, 61);
-  assert.equal(new Set(catalog.cards.map((card) => card.id)).size, 61);
+  assert.equal(catalog.cards.length, 68);
+  assert.equal(new Set(catalog.cards.map((card) => card.id)).size, 68);
   assert.equal(catalog.cards.filter((card) => card.typeKey === "minion").length, 19);
   assert.ok(catalog.cards.every((card) => card.tactical));
   assert.ok(catalog.cards.filter((card) => card.typeKey === "minion").every((card) => card.unitClass && card.tactical));

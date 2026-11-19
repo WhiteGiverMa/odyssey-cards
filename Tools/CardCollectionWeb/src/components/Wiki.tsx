@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
-import type { Language, RulesResponse, UnitClass } from "../../shared/types.ts";
+import { useEffect, useMemo, useState } from "react";
+import type { CardRecord, Language, RulesResponse, UnitClass } from "../../shared/types.ts";
+import { GLOSSARY, type GlossaryCategory } from "../../shared/glossary.ts";
 import { UNIT_CLASSES } from "../../shared/constants.ts";
 import { evaluateTargets, HQ_ID, type BoardRow, type BoardUnit, type TargetReason } from "../../shared/tactics.ts";
 import { t } from "../i18n.ts";
 import { UnitBadge } from "./UnitBadge.tsx";
+import { RichGameText } from "./RichGameText.tsx";
 
 type EditorMode = "select" | "player" | "enemy" | "erase";
 
@@ -51,7 +53,21 @@ function reasonKey(reason: TargetReason): string {
               : "reasonEscort";
 }
 
-export function Wiki({ language, rules }: { language: Language; rules: RulesResponse }) {
+export function Wiki({
+  language,
+  rules,
+  cards,
+  focusedTermId,
+  onWikiTerm,
+  onSelectCard,
+}: {
+  language: Language;
+  rules: RulesResponse;
+  cards: CardRecord[];
+  focusedTermId: string;
+  onWikiTerm: (id: string) => void;
+  onSelectCard: (id: string) => void;
+}) {
   const [units, setUnits] = useState<BoardUnit[]>(SCENARIOS.escort ?? []);
   const [scenario, setScenario] = useState("escort");
   const [attackerId, setAttackerId] = useState("P-01");
@@ -62,6 +78,18 @@ export function Wiki({ language, rules }: { language: Language; rules: RulesResp
   const [boardMessage, setBoardMessage] = useState("");
   const [intel, setIntel] = useState(3);
   const [hiddenCards, setHiddenCards] = useState(1);
+  const [glossaryFilter, setGlossaryFilter] = useState<"all" | GlossaryCategory>("all");
+  const rich = (text: string) => (
+    <RichGameText text={text} cards={cards} language={language} onWikiTerm={onWikiTerm} onSelectCard={onSelectCard} />
+  );
+  useEffect(() => {
+    if (!focusedTermId) return;
+    setGlossaryFilter("all");
+    const timer = window.setTimeout(() => {
+      document.getElementById(`term-${focusedTermId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [focusedTermId]);
   const attacker = units.find((unit) => unit.id === attackerId && unit.side === "player");
   const targets = useMemo(() => (attacker ? evaluateTargets(attacker, units) : []), [attacker, units]);
   const selectedTarget = targets.find((target) => target.id === focusTarget);
@@ -379,7 +407,7 @@ export function Wiki({ language, rules }: { language: Language; rules: RulesResp
           {rules.priority.map((rule, index) => (
             <article key={index}>
               <span>0{index + 1}</span>
-              <p>{rule[language]}</p>
+              <p>{rich(rule[language])}</p>
             </article>
           ))}
         </div>
@@ -405,14 +433,14 @@ export function Wiki({ language, rules }: { language: Language; rules: RulesResp
               <dl>
                 <div>
                   <dt>ACTION</dt>
-                  <dd>{rule.actions[language]}</dd>
+                  <dd>{rich(rule.actions[language])}</dd>
                 </div>
                 <div>
                   <dt>RANGE</dt>
-                  <dd>{rule.range[language]}</dd>
+                  <dd>{rich(rule.range[language])}</dd>
                 </div>
               </dl>
-              <p>{rule.trait[language]}</p>
+              <p>{rich(rule.trait[language])}</p>
             </article>
           ))}
         </div>
@@ -449,7 +477,7 @@ export function Wiki({ language, rules }: { language: Language; rules: RulesResp
                 onChange={(event) => setHiddenCards(Number(event.target.value))}
               />
             </label>
-            <p>{rules.intel.reveal[language]}</p>
+            <p>{rich(rules.intel.reveal[language])}</p>
           </div>
           <div className="intel-equation">
             <div>
@@ -473,10 +501,68 @@ export function Wiki({ language, rules }: { language: Language; rules: RulesResp
             </div>
           </div>
           <div className="intel-rules">
-            <p>{rules.intel.overflow[language]}</p>
-            <p>{rules.intel.conversion[language]}</p>
+            <p>{rich(rules.intel.overflow[language])}</p>
+            <p>{rich(rules.intel.conversion[language])}</p>
             <small>{t(language, "intelNote")}</small>
           </div>
+        </div>
+      </section>
+      <section className="glossary-section" id="glossary-index">
+        <header className="section-heading">
+          <div>
+            <span className="section-index">LEX / LINKED RULES</span>
+            <h2>{t(language, "glossaryIndex")}</h2>
+          </div>
+          <p>{GLOSSARY.length} LINKED ENTRIES</p>
+        </header>
+        <div className="glossary-filters" role="group" aria-label={t(language, "glossaryIndex")}>
+          {(["all", "keyword", "status", "mechanic"] as const).map((category) => (
+            <button
+              key={category}
+              className={glossaryFilter === category ? "active" : ""}
+              onClick={() => setGlossaryFilter(category)}
+            >
+              {t(
+                language,
+                category === "all"
+                  ? "all"
+                  : category === "keyword"
+                    ? "keywords"
+                    : category === "status"
+                      ? "statusEffects"
+                      : "spaceMechanics",
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="glossary-grid">
+          {GLOSSARY.filter((term) => glossaryFilter === "all" || term.category === glossaryFilter).map((term) => (
+            <article
+              id={`term-${term.id}`}
+              data-term-card={term.id}
+              className={`glossary-entry ${term.category} ${focusedTermId === term.id ? "anchor-highlight" : ""}`}
+              key={term.id}
+            >
+              <span className="glossary-category">
+                {t(
+                  language,
+                  term.category === "keyword"
+                    ? "keywords"
+                    : term.category === "status"
+                      ? "statusEffects"
+                      : "spaceMechanics",
+                )}
+              </span>
+              <h3>{term.name[language]}</h3>
+              <small>
+                {language === "zh" ? term.name.en : term.name.zh} · #{term.id}
+              </small>
+              <p>{rich(term.description[language])}</p>
+              <a href={`#wiki/term/${term.id}`} onClick={() => onWikiTerm(term.id)}>
+                #{term.id}
+              </a>
+            </article>
+          ))}
         </div>
       </section>
     </div>

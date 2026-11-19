@@ -1,20 +1,36 @@
 import { useState } from "react";
-import type { HeroRecord, Language, RelicRecord, WeaponRecord } from "../../shared/types.ts";
+import { TYPE_NAMES } from "../../shared/constants.ts";
+import { packColor, summarizePacks } from "../../shared/packs.ts";
+import type { CardRecord, HeroRecord, Language, RelicRecord, WeaponRecord } from "../../shared/types.ts";
 import { t } from "../i18n.ts";
+import { displayPackName } from "../lib/packNames.ts";
 import { EmblemCanvas } from "./Artwork.tsx";
+import { RichGameText } from "./RichGameText.tsx";
 
 export function Codex({
   heroes,
   weapons,
   relics,
+  cards,
   language,
+  onWikiTerm,
+  onSelectCard,
 }: {
   heroes: HeroRecord[];
   weapons: WeaponRecord[];
   relics: RelicRecord[];
+  cards: CardRecord[];
   language: Language;
+  onWikiTerm: (id: string) => void;
+  onSelectCard: (id: string) => void;
 }) {
   const [selectedHero, setSelectedHero] = useState(heroes[0]?.id ?? "");
+  const packs = summarizePacks(cards.map((card) => card.packId));
+  const [activePack, setActivePack] = useState(packs[0]?.id ?? "all");
+  const previewCards = cards.filter((card) => activePack === "all" || card.packId === activePack);
+  const rich = (text: string) => (
+    <RichGameText text={text} cards={cards} language={language} onWikiTerm={onWikiTerm} onSelectCard={onSelectCard} />
+  );
   return (
     <div className="codex-page page-container">
       <header className="page-title-block">
@@ -29,6 +45,60 @@ export function Codex({
           07 WEAPONS · 08 RELICS
         </div>
       </header>
+      <section className="pack-board-section">
+        <header className="section-heading">
+          <div>
+            <span className="section-index">PACK / SERIES</span>
+            <h2>{t(language, "packBoard")}</h2>
+          </div>
+          <p>{t(language, "packDefaultNote")}</p>
+        </header>
+        <div className="pack-board">
+          <button className={`pack-tile ${activePack === "all" ? "active" : ""}`} onClick={() => setActivePack("all")}>
+            <span className="pack-tile-code">ALL</span>
+            <strong>{t(language, "packAll")}</strong>
+            <span className="pack-tile-count">{t(language, "packCount", { count: cards.length })}</span>
+            <small>ARCHIVE</small>
+          </button>
+          {packs.map((pack) => (
+            <button
+              key={pack.id}
+              className={`pack-tile ${activePack === pack.id ? "active" : ""}`}
+              style={{ "--pack-color": pack.color } as React.CSSProperties}
+              onClick={() => setActivePack(pack.id)}
+            >
+              <span className="pack-tile-code">{pack.code}</span>
+              <strong>{displayPackName(pack.id, language)}</strong>
+              <span className="pack-tile-count">{t(language, "packCount", { count: pack.count })}</span>
+              <small>{pack.custom ? t(language, "packCustom") : t(language, "packOfficial")}</small>
+            </button>
+          ))}
+        </div>
+        <div className="pack-preview">
+          <div className="pack-preview-head">
+            <strong>{activePack === "all" ? t(language, "packAll") : displayPackName(activePack, language)}</strong>
+            <span>{t(language, "packCount", { count: previewCards.length })}</span>
+          </div>
+          {previewCards.length ? (
+            <div className="pack-preview-grid">
+              {previewCards.map((card) => (
+                <button
+                  className="pack-preview-card"
+                  key={card.id}
+                  style={{ "--pack-color": packColor(card.packId) } as React.CSSProperties}
+                  onClick={() => onSelectCard(card.id)}
+                >
+                  <span>{card.id}</span>
+                  <strong>{card.name[language]}</strong>
+                  <small>{TYPE_NAMES[card.typeKey][language]}</small>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">{t(language, "packEmpty")}</p>
+          )}
+        </div>
+      </section>
       <section className="hero-grid">
         {heroes.map((hero, index) => {
           const weapon = weapons.find((entry) => entry.id === hero.weaponId);
@@ -54,7 +124,7 @@ export function Codex({
                     <strong>{hero.maxHealth}</strong>
                   </div>
                 </div>
-                <p>{hero.description[language]}</p>
+                <p>{rich(hero.description[language])}</p>
                 <div className="hero-loadout">
                   <div>
                     <span className="loadout-icon">P</span>
@@ -64,7 +134,7 @@ export function Codex({
                         {hero.power.cooldown ? ` · CD ${hero.power.cooldown}` : ""}
                       </small>
                       <strong>{hero.power.name[language]}</strong>
-                      <p>{hero.power.description[language]}</p>
+                      <p>{rich(hero.power.description[language])}</p>
                     </section>
                   </div>
                   <div>
@@ -74,7 +144,7 @@ export function Codex({
                         {t(language, "weapon")} · {weapon?.attack} ATK / {weapon?.attackCost} MP
                       </small>
                       <strong>{weapon?.name[language]}</strong>
-                      <p>{weapon?.passive?.description[language]}</p>
+                      <p>{rich(weapon?.passive?.description[language] ?? "")}</p>
                     </section>
                   </div>
                 </div>
@@ -121,14 +191,14 @@ export function Codex({
               </div>
               <div className="weapon-skills">
                 <p>
-                  <b>{weapon.passive?.name[language] ?? "—"}</b> {weapon.passive?.description[language]}
+                  <b>{weapon.passive?.name[language] ?? "—"}</b> {rich(weapon.passive?.description[language] ?? "")}
                 </p>
                 {weapon.active && (
                   <p>
                     <b>
                       {weapon.active.name[language]} · {weapon.active.cost}MP
                     </b>{" "}
-                    {weapon.active.description[language]}
+                    {rich(weapon.active.description[language])}
                   </p>
                 )}
               </div>
@@ -164,7 +234,7 @@ export function Codex({
                   </span>
                   <h3>{relic.name[language]}</h3>
                   <small>{relic.id}</small>
-                  <p>{relic.description[language]}</p>
+                  <p>{rich(relic.description[language])}</p>
                 </div>
               </article>
             );

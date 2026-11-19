@@ -35,6 +35,11 @@ assert.equal(relics.length, 8);
 const { themes } = await request("/api/themes");
 assert.equal(themes.length, 3);
 const rules = await request("/api/rules");
+const validation = await request("/api/validate");
+assert.equal(validation.ok, true);
+assert.equal(validation.cards, 61);
+assert.equal(validation.themes, 3);
+assert.deepEqual(validation.errors, []);
 assert.deepEqual(rules.board.capacities, [4, 5, 4]);
 assert.equal(rules.unitClasses.length, 4);
 const generated = await request("/api/themes/ayame/generate", {
@@ -76,6 +81,7 @@ console.log(
         "/api/themes",
         "/api/themes/ayame/generate",
         "/api/rules",
+        "/api/validate",
       ],
     },
     null,

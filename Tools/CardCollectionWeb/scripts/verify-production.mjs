@@ -5,9 +5,11 @@ import { promisify } from "node:util";
 
 const execute = promisify(execFile);
 const root = process.cwd();
+const port = process.env.VERIFY_PORT ?? "8898";
+const base = `http://127.0.0.1:${port}`;
 const child = spawn(process.execPath, ["dist/server/server/index.js"], {
   cwd: root,
-  env: { ...process.env, NODE_ENV: "production", PORT: "8787" },
+  env: { ...process.env, NODE_ENV: "production", PORT: port },
   stdio: ["ignore", "pipe", "pipe"],
 });
 child.stdout.on("data", (chunk) => process.stdout.write(chunk));
@@ -18,7 +20,7 @@ try {
   for (let attempt = 0; attempt < 50; attempt++) {
     if (child.exitCode !== null) throw new Error(`Production server exited before readiness (${child.exitCode})`);
     try {
-      const response = await fetch("http://127.0.0.1:8787/api/health");
+      const response = await fetch(`${base}/api/health`);
       if (response.ok) {
         ready = true;
         break;
@@ -29,7 +31,7 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   if (!ready) throw new Error("Production server readiness timeout");
-  process.env.API_BASE = "http://127.0.0.1:8787";
+  process.env.API_BASE = base;
   process.env.CHECK_CLIENT = "1";
   await import("./smoke.mjs");
   if (process.env.CAPTURE_MOBILE === "1") {
@@ -43,7 +45,7 @@ try {
         "--window-size=390,844",
         "--virtual-time-budget=6000",
         `--screenshot=${path.join(root, "dist", "qa-mobile-final.png")}`,
-        "http://127.0.0.1:8787/#collection",
+        `${base}/#collection`,
       ],
       { timeout: 30000 },
     );

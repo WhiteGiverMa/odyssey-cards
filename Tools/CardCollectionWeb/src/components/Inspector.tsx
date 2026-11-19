@@ -12,6 +12,9 @@ import {
 import { t } from "../i18n.ts";
 import { CardView } from "./CardView.tsx";
 import { UnitBadge } from "./UnitBadge.tsx";
+import { RichGameText } from "./RichGameText.tsx";
+import { CardTagEditor } from "./CardTagEditor.tsx";
+import { PackBadge } from "./PackBadge.tsx";
 
 interface InspectorProps {
   card: CardRecord;
@@ -23,6 +26,9 @@ interface InspectorProps {
   onClose: () => void;
   onSelect: (id: string) => void;
   onAdd: (id: string) => void;
+  onWikiTerm: (id: string) => void;
+  onSaved: (card: CardRecord) => void;
+  onNotice: (message: string) => void;
 }
 
 export function Inspector({
@@ -35,6 +41,9 @@ export function Inspector({
   onClose,
   onSelect,
   onAdd,
+  onWikiTerm,
+  onSaved,
+  onNotice,
 }: InspectorProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -72,7 +81,16 @@ export function Inspector({
         </header>
         <div className="inspector-layout">
           <div className="inspector-card-column">
-            <CardView card={card} language={language} palette={palette} onInspect={onSelect} onAdd={onAdd} large />
+            <CardView
+              card={card}
+              cards={cards}
+              language={language}
+              palette={palette}
+              onInspect={onSelect}
+              onAdd={onAdd}
+              onWikiTerm={onWikiTerm}
+              large
+            />
             <button
               className="primary-button inspector-add"
               disabled={!card.buildable || deckCount >= card.maxCopies}
@@ -89,6 +107,7 @@ export function Inspector({
               <h2 id="inspector-title">{card.name[language]}</h2>
               <p className="card-id-line">{card.id}</p>
               <div className="tag-row">
+                <PackBadge packId={card.packId} language={language} title={t(language, "packSeries")} />
                 <span className="data-tag accent">{TYPE_NAMES[card.typeKey][language]}</span>
                 <span className="data-tag">
                   {t(language, "deployCost")} {card.cost}
@@ -108,11 +127,20 @@ export function Inspector({
             </div>
             <section className="inspector-section card-full-text">
               <h3>{t(language, "cardText")}</h3>
-              <p>{card.description[language]}</p>
+              <p>
+                <RichGameText
+                  text={card.description[language]}
+                  cards={cards}
+                  language={language}
+                  onWikiTerm={onWikiTerm}
+                  onSelectCard={onSelect}
+                />
+              </p>
               {language === "en" && card.localizationFallback.en && (
                 <small className="fallback-note">{t(language, "localizationFallback")}</small>
               )}
             </section>
+            <CardTagEditor card={card} language={language} onSaved={onSaved} onNotice={onNotice} />
             <div className="inspector-two-col">
               <section className="inspector-section">
                 <h3>{t(language, "keywords")}</h3>
@@ -124,7 +152,15 @@ export function Inspector({
                       return (
                         <div key={key}>
                           <strong>{KEYWORD_NAMES[key]?.[language] ?? key}</strong>
-                          <p>{rule?.description[language] ?? t(language, "rawResource")}</p>
+                          <p>
+                            <RichGameText
+                              text={rule?.description[language] ?? t(language, "rawResource")}
+                              cards={cards}
+                              language={language}
+                              onWikiTerm={onWikiTerm}
+                              onSelectCard={onSelect}
+                            />
+                          </p>
                         </div>
                       );
                     })}
@@ -144,7 +180,15 @@ export function Inspector({
                   <div className="tactical-note">
                     <small>{t(language, "statusPlanned")}</small>
                     <strong>{card.tactical.role[language]}</strong>
-                    <p>{card.tactical.note[language]}</p>
+                    <p>
+                      <RichGameText
+                        text={card.tactical.note[language]}
+                        cards={cards}
+                        language={language}
+                        onWikiTerm={onWikiTerm}
+                        onSelectCard={onSelect}
+                      />
+                    </p>
                     <dl>
                       <div>
                         <dt>{t(language, "recommendedLine")}</dt>
