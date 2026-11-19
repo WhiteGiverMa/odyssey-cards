@@ -18,8 +18,15 @@ public interface IIntentDrivenEnemy : IEnemyController, IIntentActor
 public interface IDeckDrivenCommander : IEnemyController
 {
 	string HeroId { get; }
+
+	/// <summary>目标卡组厚度（普通 10~20 / 精英 21~39 / Boss 40）。</summary>
+	int TargetDeckSize { get; }
+
+	/// <summary>牌手自带卡组画像；null 表示由 CombatManager 回退加载主题资源。</summary>
+	DeckProfile? DeckProfile { get; }
+
 	IDecisionProvider DecisionProvider { get; }
-	void InitializeDeck(Hero body, IReadOnlyList<CardData> pool, ThemeProfile profile, int seed);
+	void InitializeDeck(Hero body, IReadOnlyList<CardData> pool, DeckProfile profile, int seed);
 }
 
 /// <summary>原意图大脑的控制轨道，不持有独立血量或手牌。</summary>

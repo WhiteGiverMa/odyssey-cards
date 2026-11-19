@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 namespace OdysseyCards.Core;
@@ -102,5 +103,37 @@ public partial class ThemeProfile : Resource
 		if (CardWeightOverrides.TryGetValue(cardId, out var w))
 			return w;
 		return 0;
+	}
+
+	/// <summary>
+	/// 导出为纯 C# 的 <see cref="DeckProfile"/> 快照。
+	/// 只在 Godot 运行时可用（读取 <c>Godot.Collections</c>）；纯 C# 单测请直接构造 <see cref="DeckProfile"/>。
+	/// </summary>
+	public DeckProfile ToDeckProfile()
+	{
+		var tagWeights = new Dictionary<CardMechanicTag, int>();
+		foreach (var pair in TagWeights)
+			tagWeights[(CardMechanicTag)pair.Key] = pair.Value;
+
+		var keywordWeights = new Dictionary<Keyword, int>();
+		foreach (var pair in KeywordWeights)
+			keywordWeights[(Keyword)pair.Key] = pair.Value;
+
+		var overrides = new Dictionary<string, int>();
+		foreach (var pair in CardWeightOverrides)
+			overrides[pair.Key] = pair.Value;
+
+		return new DeckProfile
+		{
+			HeroId = HeroId,
+			ThemeName = ThemeName,
+			TagWeights = tagWeights,
+			KeywordWeights = keywordWeights,
+			CoreCardIds = new List<string>(CoreCardIds),
+			CardWeightOverrides = overrides,
+			TargetDeckSize = TargetDeckSize,
+			MaxDuplicatesPerCard = MaxDuplicatesPerCard,
+			MaxDomainCards = MaxDomainCards,
+		};
 	}
 }

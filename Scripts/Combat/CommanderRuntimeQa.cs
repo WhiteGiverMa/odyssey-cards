@@ -51,7 +51,8 @@ internal static class CommanderRuntimeQa
 		Check(unit.Body.HasDomain(openingDomain), $"{expectedHeroId} 指挥官开场应展开 {openingDomain}");
 		Check(unit.Body.Hand.All(card => !card.IsRevealedByIntel), "指挥官起手应全部为暗牌");
 		int deckTotal = unit.Body.Hand.Count + unit.Body.DeckState.DrawPile.Count + unit.Body.DeckState.DiscardPile.Count;
-		Check(deckTotal == 20, $"主题卡组应为 20 张（实际 {deckTotal}）");
+		Check(unit.Controller is DeckDrivenCommander { TargetDeckSize: 28 }, "精英牌手卡组厚度应为 28");
+		Check(deckTotal == 28, $"精英主题卡组应为 28 张（实际 {deckTotal}）");
 
 		// 2. 宿敌池与 /fight 注册。
 		var rivals = EnemyRegistry.GetRivalCommanderIds(expectedHeroId);

@@ -22,6 +22,7 @@ namespace OdysseyCards.AI;
 /// D: 对所有玩家目标造成3点伤害2次
 /// E: 复制玩家手中的「解释」
 /// </summary>
+/// <remarks>旧意图死代码：已退出主流程遭遇池，仅保留兼容旧单测；新牌手请用 <see cref="EnemyDeckProfiles.CreateCosmonaut"/>。</remarks>
 public class Cosmonaut : EnemyEncounter
 {
 	public override Weapon CreateWeapon() => new RailPistol();

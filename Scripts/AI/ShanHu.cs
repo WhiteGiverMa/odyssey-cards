@@ -16,6 +16,7 @@ namespace OdysseyCards.AI;
 /// 意图：A(3~4伤害) / B(2伤害×2) 随机交换 → C(武器攻击+2) → 循环。
 /// D 每 2~4 回合替代主意图：给随机友方目标 5 点护甲。
 /// </summary>
+/// <remarks>旧意图死代码：已退出主流程遭遇池，仅保留兼容旧单测；新牌手请用 <see cref="EnemyDeckProfiles.CreateShanHu"/>。</remarks>
 public class ShanHu : EnemyEncounter
 {
 	private int _dTurnsRemaining;

@@ -10,7 +10,7 @@ namespace OdysseyCards.Roguelike;
 ///
 /// 生成流程：
 ///   1. 从卡池过滤合法候选（排除状态牌、衍生牌等不可构筑的卡）
-///   2. 加入核心池招牌卡（几乎必带，保证角色识别度）
+///   2. 加入核心池招牌卡（几乎必带，保证角色识别度；核心卡可显式指定衍生牌）
 ///   3. 对剩余卡按主题权重加权随机抽取，施加约束：
 ///      - 法力曲线（低费/中费/高费/超高费分布）
 ///      - 类型分布（随从/法术/领域比例）
@@ -19,13 +19,19 @@ namespace OdysseyCards.Roguelike;
 ///
 /// 权重计算：对每张候选卡 card，
 ///   weight = Σ(标签权重 × 卡的标签命中) + 人工 override
-/// 其中「标签命中」= card.MechanicTags.HasFlag(tag) ? 1 : 0
-/// 关键词偏好通过 ThemeProfile.KeywordWeights 以同样方式叠加。
-/// 未在任何 ThemeProfile.TagWeights 中列出的标签贡献 0。
+/// 其中「标签命中」= card.HasMechanicTag(tag) ? 1 : 0
+/// 关键词偏好通过 <see cref="DeckProfile.KeywordWeights"/> 以同样方式叠加。
+/// 未在 <see cref="DeckProfile.TagWeights"/> 中列出的标签贡献 0。
 /// weight 可为负（不擅长的卡），生成器在加权随机时 clamp 到最小 1（避免完全排除但大幅降权）。
+///
+/// 敌方牌手厚度：普通 10~20、精英 21~39、Boss 40。当目标厚度 &gt; 20 时，
+/// 单卡重复上限会按 <c>ceil(target / 12)</c> 自动放宽，保证 61 张卡池能稳定产出 40 张 Boss 卡组。
 /// </summary>
 public static class ThemedDeckGenerator
 {
+	/// <summary>玩家构筑上限——超过它即进入「敌方厚卡组」区间。</summary>
+	public const int ConstructedDeckLimit = 20;
+
 	/// <summary>
 	/// 法力曲线目标分布（低/中/高/超高费比例，归一化后按此比例约束）。
 	/// 低费=0-3，中费=4-7，高费=8-12，超高费=13-30。
@@ -53,13 +59,13 @@ public static class ThemedDeckGenerator
 		/// <summary>生成的卡牌 ID 列表（已按 CoreCardIds 优先 + 加权随机排序）。</summary>
 		public IReadOnlyList<string> CardIds { get; init; }
 
-		/// <summary>使用的 ThemeProfile（便于调试/展示）。</summary>
-		public ThemeProfile Profile { get; init; }
+		/// <summary>使用的卡组画像（便于调试/展示）。</summary>
+		public DeckProfile Profile { get; init; }
 
 		/// <summary>生成统计（各标签命中数、曲线分布等），便于预览对比。</summary>
 		public GenerationStats Stats { get; init; }
 
-		public static GenerationResult Empty(ThemeProfile profile) => new()
+		public static GenerationResult Empty(DeckProfile profile) => new()
 		{
 			CardIds = Array.Empty<string>(),
 			Profile = profile,
@@ -106,20 +112,28 @@ public static class ThemedDeckGenerator
 	}
 
 	/// <summary>
-	/// 生成主题卡组。
+	/// 从 Godot 资源画像生成主题卡组（运行时入口）。
 	/// </summary>
-	/// <param name="profile">角色主题画像。</param>
-	/// <param name="cardPool">候选卡池（通常来自 GameManager.GetAllCards()，生成器内部会过滤状态牌）。</param>
+	public static GenerationResult Generate(ThemeProfile profile, IReadOnlyList<CardData> cardPool, Random rng)
+		=> profile == null
+			? GenerationResult.Empty(new DeckProfile())
+			: Generate(profile.ToDeckProfile(), cardPool, rng);
+
+	/// <summary>
+	/// 生成主题卡组（纯 C# 入口）。
+	/// </summary>
+	/// <param name="profile">卡组画像。</param>
+	/// <param name="cardPool">候选卡池（生成器内部会过滤状态牌与不可构筑稀有度）。</param>
 	/// <param name="rng">随机数生成器（传入可复现的 RNG 即可确定性生成）。</param>
 	/// <returns>生成结果；profile 为 null 或卡池不足返回 Empty。</returns>
-	public static GenerationResult Generate(ThemeProfile profile, IReadOnlyList<CardData> cardPool, Random rng)
+	public static GenerationResult Generate(DeckProfile profile, IReadOnlyList<IDeckCard> cardPool, Random rng)
 	{
 		if (profile == null || cardPool == null || cardPool.Count == 0)
-			return GenerationResult.Empty(profile!);
+			return GenerationResult.Empty(profile ?? new DeckProfile());
 
-		int target = profile.TargetDeckSize;
+		int target = Math.Max(1, profile.TargetDeckSize);
 		var coreIds = profile.CoreCardIds.ToList();
-		var maxDup = Math.Max(1, profile.MaxDuplicatesPerCard);
+		int maxDup = ResolveMaxDuplicates(profile, target);
 		int maxDomain = Math.Max(0, profile.MaxDomainCards);
 
 		// 1. 过滤候选：排除状态牌、衍生牌、角色专属牌（这些不可构筑）
@@ -130,8 +144,13 @@ public static class ThemedDeckGenerator
 		if (legalPool.Count == 0)
 			return GenerationResult.Empty(profile);
 
-		// 2. 核心池：从 legalPool 找到 CoreCardIds 对应的卡，几乎必带
-		var result = new List<CardData>();
+		// 1.5 核心卡可越过稀有度过滤——显式点名的招牌卡（如智能臭鸡蛋、机械小蠊）即使标记为衍生牌也应带上。
+		var corePool = cardPool
+			.Where(c => c.Type != CardType.Status)
+			.ToList();
+
+		// 2. 核心池：从 corePool 找到 CoreCardIds 对应的卡，几乎必带
+		var result = new List<IDeckCard>();
 		var dupCount = new Dictionary<string, int>();
 		int domainCount = 0;
 
@@ -139,7 +158,7 @@ public static class ThemedDeckGenerator
 		{
 			if (result.Count >= target)
 				break;
-			var card = legalPool.FirstOrDefault(c => c.Id == coreId);
+			var card = corePool.FirstOrDefault(c => c.Id == coreId);
 			if (card == null)
 				continue;
 			if (dupCount.GetValueOrDefault(card.Id) >= maxDup)
@@ -234,30 +253,44 @@ public static class ThemedDeckGenerator
 	}
 
 	/// <summary>
-	/// 计算单张卡对某 ThemeProfile 的主题权重。
+	/// 解析单卡重复上限。目标厚度超过玩家构筑上限（20）时自动放宽，
+	/// 保证 61 张卡池能稳定生成 40 张 Boss 卡组。
+	/// </summary>
+	public static int ResolveMaxDuplicates(DeckProfile profile, int targetDeckSize)
+	{
+		int configured = Math.Max(1, profile?.MaxDuplicatesPerCard ?? 1);
+		if (targetDeckSize <= ConstructedDeckLimit)
+			return configured;
+
+		int scaled = (int)Math.Ceiling(targetDeckSize / 12.0);
+		return Math.Max(configured, scaled);
+	}
+
+	/// <summary>
+	/// 计算单张卡对某卡组画像的主题权重。
 	/// weight = Σ(标签权重 × 卡的标签命中) + 人工 override
 	/// 最小 clamp 到 1（避免负权重完全排除，但大幅降权）。
 	/// </summary>
-	private static int ComputeWeight(ThemeProfile profile, CardData card)
+	private static int ComputeWeight(DeckProfile profile, IDeckCard card)
 	{
 		int weight = 0;
-		foreach (var (tagBit, tagWeight) in profile.TagWeights)
+		foreach (var (tag, tagWeight) in profile.TagWeights)
 		{
 			if (tagWeight == 0)
 				continue;
-			var tag = (CardMechanicTag)tagBit;
 			if (card.HasMechanicTag(tag))
 				weight += tagWeight;
 		}
-		foreach (var (keywordValue, keywordWeight) in profile.KeywordWeights)
+		foreach (var (keyword, keywordWeight) in profile.KeywordWeights)
 		{
 			if (keywordWeight == 0)
 				continue;
-			var keyword = (Keyword)keywordValue;
-			if (card.Keywords.Contains(keyword))
+			if (card.HasKeyword(keyword))
 				weight += keywordWeight;
 		}
-		weight += profile.GetCardOverride(card.Id);
+		weight += profile.CardWeightOverrides.TryGetValue(card.Id, out int overrideWeight)
+			? overrideWeight
+			: 0;
 		return Math.Max(1, weight);
 	}
 
@@ -265,7 +298,7 @@ public static class ThemedDeckGenerator
 	/// 法力曲线软约束：根据当前卡组的曲线分布，降低已超额曲线段的卡权重。
 	/// 不硬排除——优先满足张数。
 	/// </summary>
-	private static void ApplyManaCurveSoftBias(List<(CardData card, int weight)> weighted, int currentCount, int target, List<CardData> currentDeck)
+	private static void ApplyManaCurveSoftBias(List<(IDeckCard card, int weight)> weighted, int currentCount, int target, List<IDeckCard> currentDeck)
 	{
 		if (currentCount == 0)
 			return;
@@ -308,7 +341,7 @@ public static class ThemedDeckGenerator
 	/// <summary>
 	/// 随从比例软约束：随从过多时降低随从权重，法术过多时降低法术权重。
 	/// </summary>
-	private static void ApplyMinionRatioSoftBias(List<(CardData card, int weight)> weighted, List<CardData> currentDeck)
+	private static void ApplyMinionRatioSoftBias(List<(IDeckCard card, int weight)> weighted, List<IDeckCard> currentDeck)
 	{
 		if (currentDeck.Count == 0)
 			return;
@@ -342,7 +375,7 @@ public static class ThemedDeckGenerator
 	/// <summary>
 	/// 构建生成结果 + 统计。
 	/// </summary>
-	private static GenerationResult BuildResult(ThemeProfile profile, List<CardData> cards, List<string> coreIds)
+	private static GenerationResult BuildResult(DeckProfile profile, List<IDeckCard> cards, List<string> coreIds)
 	{
 		var cardIds = cards.Select(c => c.Id).ToList();
 
@@ -377,7 +410,7 @@ public static class ThemedDeckGenerator
 		{
 			if (keyword == Keyword.None)
 				continue;
-			int count = cards.Count(c => c.Keywords.Contains(keyword));
+			int count = cards.Count(c => c.HasKeyword(keyword));
 			if (count > 0)
 				tagCounts[$"Keyword:{keyword}"] = count;
 		}

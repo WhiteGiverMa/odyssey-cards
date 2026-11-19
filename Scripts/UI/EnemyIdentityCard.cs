@@ -117,7 +117,7 @@ public partial class EnemyIdentityCard : Panel
 
 		_nameLabel = new Label
 		{
-			Text = unit.Brain.Name,
+			Text = unit.Brain.DisplayName,
 			CustomMinimumSize = new Vector2(50, 0),
 		};
 		_nameLabel.AddThemeColorOverride("font_color", _nameColor);

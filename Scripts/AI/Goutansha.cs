@@ -11,6 +11,7 @@ namespace OdysseyCards.AI;
 /// 劫蛋者。
 /// 开场释放难逃之瑕，随后每 3 回合将 B/C/D 随机排列后依次执行。
 /// </summary>
+/// <remarks>旧意图死代码：已退出主流程遭遇池，仅保留兼容旧单测；新牌手请用 <see cref="EnemyDeckProfiles.CreateGoutansha"/>。</remarks>
 public sealed class Goutansha : EnemyEncounter
 {
 	private const string SmartEggPath = "res://Resources/Cards/Minion_SmartStinkyEgg.tres";

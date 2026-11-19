@@ -168,6 +168,11 @@ public abstract class EnemyEncounter
 	public string Name { get; }
 
 	/// <summary>
+	/// 显示名——默认与 <see cref="Name"/> 相同，子类可覆盖为本地化解析结果。
+	/// </summary>
+	public virtual string DisplayName => Name;
+
+	/// <summary>
 	/// 最大生命值。
 	/// </summary>
 	public int MaxHealth { get; }
@@ -455,6 +460,7 @@ public abstract class EnemyEncounter
 /// 意图模式：攻击(6) → 攻击(6) → 防御(5) → 循环。
 /// 生命值 20，攻击较高但防御薄弱，适合作为第一个遭遇战。
 /// </summary>
+/// <remarks>旧意图死代码：已退出主流程遭遇池，仅保留兼容旧单测；新牌手请用 <see cref="EnemyDeckProfiles.CreateCultist"/>。</remarks>
 public class Cultist : EnemyEncounter
 {
 	public Cultist()
@@ -477,6 +483,7 @@ public class Cultist : EnemyEncounter
 /// 意图模式：攻击(8) → 召唤(1) → 防御(4) → 循环。
 /// 生命值 40，会定期召唤 1/1 软泥怪随从铺场。
 /// </summary>
+/// <remarks>旧意图死代码：已退出主流程遭遇池，仅保留兼容旧单测；新牌手请用 <see cref="EnemyDeckProfiles.CreateSlimy"/>。</remarks>
 public class SlimeBoss : EnemyEncounter
 {
 	public SlimeBoss()
@@ -534,6 +541,7 @@ public class SlimeBoss : EnemyEncounter
 /// 意图模式：攻击(5) → 循环（每回合攻击）。
 /// 生命值仅 12，但每回合稳定输出，考验玩家的爆发击杀能力。
 /// </summary>
+/// <remarks>旧意图死代码：已退出主流程遭遇池，仅保留兼容旧单测；新牌手请用 <see cref="EnemyDeckProfiles.CreateWolf"/>。</remarks>
 public class WolfRider : EnemyEncounter
 {
 	public WolfRider()
@@ -553,6 +561,7 @@ public class WolfRider : EnemyEncounter
 /// 意图模式：召唤(1)→增益(5)→增益(5)→增益(5)→...（若机械静螳死亡则重新召唤）。
 /// 生命值 20，武器为棍木（攻击力 1）。
 /// </summary>
+/// <remarks>旧意图死代码：已退出主流程遭遇池，仅保留兼容旧单测；新牌手请用 <see cref="EnemyDeckProfiles.CreateApprentice"/>。</remarks>
 public class ApprenticeMechanic : EnemyEncounter
 {
 	private const string MechLancerPath = "res://Resources/Cards/Minion_Mech_Lancer.tres";
@@ -667,6 +676,7 @@ public class ApprenticeMechanic : EnemyEncounter
 /// 意图模式：攻击(12) → 防御(8) → 攻击(12) → 循环。
 /// 生命值 60，高伤害高耐久，考验玩家的资源管理和爆发能力。
 /// </summary>
+/// <remarks>旧意图死代码：已退出主流程遭遇池，仅保留兼容旧单测；新牌手请用 <see cref="EnemyDeckProfiles.CreateGuardian"/>。</remarks>
 public class GuardianBoss : EnemyEncounter
 {
 	public GuardianBoss()

@@ -231,40 +231,29 @@ public class GameRunState
 	public EnemyEncounter CreateEncounter() => CreateEncounters()[0];
 
 	/// <summary>
-	/// 创建普通怪物遭遇。
+	/// 创建普通怪物遭遇——从同构牌手池随机抽取（10~20 张卡组）。
 	/// </summary>
-	private static EnemyEncounter CreateMonsterEncounter()
-	{
-		// 简单随机选择一个普通敌人
-		var enemies = new EnemyEncounter[]
-		{
-			new Cultist(),
-			new WolfRider(),
-			new SlimeBoss(),
-			new Goutansha(),
-		};
-		return enemies[new Random().Next(enemies.Length)];
-	}
+	private static EnemyEncounter CreateMonsterEncounter() => EnemyDeckProfiles.CreateRandomMonster();
 
 	/// <summary>
-	/// 创建精英怪物遭遇——宿敌少女指挥官或原有张郎 &amp; 珊胡双敌人战。
+	/// 创建精英遭遇——宿敌少女指挥官（28 张卡组）或张郎 / 珊胡 / 双人组合（21~39 张卡组）。
 	/// 指挥官会自动排除玩家当前英雄。
 	/// </summary>
 	private IReadOnlyList<EnemyEncounter> CreateEliteEncounters()
 	{
 		if (Random.Shared.Next(2) == 0)
 			return new[] { EnemyRegistry.CreateRivalCommander(boss: false, GameManager.Instance?.SelectedHeroId) };
-		return new EnemyEncounter[] { new ZhangLang(), new ShanHu() };
+		return EnemyDeckProfiles.CreateRandomElite();
 	}
 
 	/// <summary>
-	/// 创建 Boss 遭遇——宿敌少女指挥官（Boss 生命补正）或原有守护者。
+	/// 创建 Boss 遭遇——宿敌少女指挥官（40 张卡组）或宇宙员 / 守护者（40 张卡组）。
 	/// </summary>
 	private EnemyEncounter CreateBossEncounter()
 	{
 		if (Random.Shared.Next(2) == 0)
 			return EnemyRegistry.CreateRivalCommander(boss: true, GameManager.Instance?.SelectedHeroId);
-		return new GuardianBoss();
+		return EnemyDeckProfiles.CreateRandomBoss();
 	}
 
 	// ===== 持久化 =====

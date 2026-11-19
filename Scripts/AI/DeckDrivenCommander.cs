@@ -12,34 +12,125 @@ using GD = OdysseyCards.Core.ModelLog;
 namespace OdysseyCards.AI;
 
 /// <summary>
-/// 精英/Boss 主题卡组指挥官。
+/// 通用同构牌手（卡组驱动）。
+///
+/// 普通敌人、精英与 Boss 在机制上完全同构：都持有真实卡组、抽牌堆、手牌与法力，
+/// 回合内用实时状态评分贪心序列抽牌、出随从、打法术、推进前线、攻击。
+/// 主要区分维度只有 <see cref="EnemyEncounter.MaxHealth"/> 与 <see cref="TargetDeckSize"/>：
+///   普通 10~20 张 / 精英 21~39 张 / Boss 40 张。
+///
 /// 身体、牌堆、手牌与法力全部驱动在 <see cref="EnemyUnit.Body"/> 的 CommanderCore 上，
-/// 回合内用实时状态评分贪心序列执行动作，不做对象图深拷贝。
+/// 不做对象图深拷贝。
 /// </summary>
 public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 {
 	private const int EliteHealth = 38;
 	private const int BossHealth = 60;
 	private readonly string[] _openingDomains;
+	private readonly Func<Weapon>? _weaponFactory;
+	private readonly Func<IHeroPower>? _heroPowerFactory;
+	private readonly IReadOnlyList<string>? _coreCardOverrides;
+	private readonly IReadOnlyDictionary<CardMechanicTag, int>? _tagWeightOverrides;
+	private readonly IReadOnlyDictionary<Keyword, int>? _keywordWeightOverrides;
+	private readonly int _startingDefense;
 	private bool _initialized;
 	private bool _heroPowerUsedThisTurn;
 
+	/// <summary>牌手 ID（同时是本地化 key 与调试标识）。</summary>
 	public string HeroId { get; }
-	public string DisplayNameKey => $"enemy.commander.{HeroId}.name";
-	public string TitleKey => $"enemy.commander.{HeroId}.title";
-	public string PassiveKey => $"enemy.commander.{HeroId}.passive";
+
+	/// <summary>显示名本地化 key。</summary>
+	public string DisplayNameKey { get; }
+
+	/// <summary>头衔本地化 key。</summary>
+	public string TitleKey { get; }
+
+	/// <summary>被动本地化 key。</summary>
+	public string PassiveKey { get; }
+
+	/// <summary>头衔中文回退。</summary>
+	public string TitleFallback { get; }
+
+	/// <summary>目标卡组厚度（普通 10~20 / 精英 21~39 / Boss 40）。</summary>
+	public int TargetDeckSize { get; }
+
+	/// <summary>该牌手自带的卡组画像；null 表示由 CombatManager 回退加载主题资源。</summary>
+	public DeckProfile? DeckProfile { get; }
+
+	/// <summary>单次受到生命伤害的上限（固璋(3) 等被动）；null 表示无上限。</summary>
+	public int? DamageCap { get; }
+
+	/// <summary>「不破」被动——每回合仅受一次生命伤害。</summary>
+	public bool Unbreakable { get; }
+
+	/// <summary>定位标签（normal / elite / boss），仅用于日志与 QA。</summary>
+	public string Role { get; }
+
 	public IDecisionProvider DecisionProvider { get; } = new AiDecisionProvider();
 
-	public DeckDrivenCommander(string heroId, int maxHealth, params string[] openingDomains)
-		: base(ResolveName(heroId), maxHealth, new[] { new EnemyIntent(IntentType.Buff, 0, "") })
+	/// <summary>显示名——优先本地化，缺失时回退到构造时的中文名。</summary>
+	public override string DisplayName => Localization.Localization.T(DisplayNameKey, Name);
+
+	public DeckDrivenCommander(DeckDrivenCommanderSpec spec)
+		: base(
+			(spec ?? throw new ArgumentNullException(nameof(spec))).DisplayName,
+			spec.MaxHealth,
+			new[] { new EnemyIntent(IntentType.Buff, 0, "") })
 	{
-		HeroId = heroId;
-		_openingDomains = openingDomains;
-		MoveStates = new[] { new MoveState("COMMANDER", null, new UnknownIntent()) };
+		HeroId = spec.Id;
+		DisplayNameKey = string.IsNullOrEmpty(spec.DisplayNameKey) ? $"enemy.deckhand.{spec.Id}.name" : spec.DisplayNameKey;
+		TitleKey = string.IsNullOrEmpty(spec.TitleKey) ? $"enemy.deckhand.{spec.Id}.title" : spec.TitleKey;
+		PassiveKey = string.IsNullOrEmpty(spec.PassiveKey) ? $"enemy.deckhand.{spec.Id}.passive" : spec.PassiveKey;
+		TitleFallback = string.IsNullOrEmpty(spec.TitleFallback) ? "主题卡组牌手" : spec.TitleFallback;
+		TargetDeckSize = Math.Max(1, spec.TargetDeckSize);
+		DeckProfile = spec.Profile;
+		DamageCap = spec.DamageCap;
+		Unbreakable = spec.Unbreakable;
+		Role = spec.Role;
+		_startingDefense = spec.StartingDefense;
+		_openingDomains = spec.OpeningDomains ?? Array.Empty<string>();
+		_weaponFactory = spec.WeaponFactory;
+		_heroPowerFactory = spec.HeroPowerFactory;
+		_coreCardOverrides = spec.CoreCardOverrides;
+		_tagWeightOverrides = spec.TagWeightOverrides;
+		_keywordWeightOverrides = spec.KeywordWeightOverrides;
+		MoveStates = new[] { new MoveState("DECKHAND", null, new UnknownIntent()) };
 	}
 
-	public static DeckDrivenCommander CreateElite(string heroId) => new(heroId, EliteHealth, OpeningDomainFor(heroId));
-	public static DeckDrivenCommander CreateBoss(string heroId) => new(heroId, BossHealth, OpeningDomainFor(heroId));
+	/// <summary>创建精英宿敌少女（38 HP / 28 张主题卡组）。</summary>
+	public static DeckDrivenCommander CreateElite(string heroId) => new(new DeckDrivenCommanderSpec
+	{
+		Id = heroId,
+		DisplayName = $"宿敌·{HeroProfile.Get(heroId).DisplayName}",
+		DisplayNameKey = $"enemy.commander.{heroId}.name",
+		TitleKey = $"enemy.commander.{heroId}.title",
+		TitleFallback = "宿敌指挥官",
+		PassiveKey = $"enemy.commander.{heroId}.passive",
+		MaxHealth = EliteHealth,
+		TargetDeckSize = 28,
+		OpeningDomains = new[] { OpeningDomainFor(heroId) },
+		WeaponFactory = () => HeroProfile.Get(heroId).CreateWeapon(),
+		HeroPowerFactory = () => HeroProfile.Get(heroId).CreateHeroPower(),
+		Role = "elite",
+	});
+
+	/// <summary>创建 Boss 宿敌少女（60 HP / 40 张主题卡组）。</summary>
+	public static DeckDrivenCommander CreateBoss(string heroId) => new(new DeckDrivenCommanderSpec
+	{
+		Id = heroId,
+		DisplayName = $"宿敌·{HeroProfile.Get(heroId).DisplayName}",
+		DisplayNameKey = $"enemy.commander.{heroId}.name",
+		TitleKey = $"enemy.commander.{heroId}.title",
+		TitleFallback = "宿敌指挥官",
+		PassiveKey = $"enemy.commander.{heroId}.passive",
+		MaxHealth = BossHealth,
+		TargetDeckSize = 40,
+		OpeningDomains = new[] { OpeningDomainFor(heroId) },
+		WeaponFactory = () => HeroProfile.Get(heroId).CreateWeapon(),
+		HeroPowerFactory = () => HeroProfile.Get(heroId).CreateHeroPower(),
+		Role = "boss",
+	});
+
 	public static IReadOnlyList<string> CommanderHeroIds { get; } = new[] { "ayame", "rie", "sokou" };
 
 	private static string OpeningDomainFor(string heroId) => heroId switch
@@ -50,15 +141,12 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 		_ => "zhijian",
 	};
 
-	private static string ResolveName(string heroId)
-	{
-		string fallback = HeroProfile.Get(heroId).DisplayName;
-		return Localization.Localization.T($"enemy.commander.{heroId}.name", $"宿敌·{fallback}");
-	}
+	/// <summary>开局防御修正（劫蛋者等负防御牌手）。</summary>
+	public override int StartingDefense => _startingDefense;
 
-	public override Weapon CreateWeapon() => HeroProfile.Get(HeroId).CreateWeapon();
+	public override Weapon CreateWeapon() => _weaponFactory?.Invoke() ?? new RollingLog();
 
-	/// <summary>指挥官不显示单步意图，显示实时战术摘要供 UI 兼容读取。</summary>
+	/// <summary>牌手不显示单步意图，显示实时战术摘要供 UI 兼容读取。</summary>
 	public override EnemyIntent GetCurrentIntent(CombatManager combat, Hero self)
 		=> new(IntentType.Buff, 0, BuildPlanSummary(combat, self));
 
@@ -67,14 +155,23 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 	public override void AdvanceMove() { }
 	public override void AdvanceIntent() { }
 
-	public void InitializeDeck(Hero body, IReadOnlyList<CardData> pool, ThemeProfile profile, int seed)
+	public void InitializeDeck(Hero body, IReadOnlyList<CardData> pool, DeckProfile profile, int seed)
 	{
-		if (_initialized || body == null || profile == null || pool == null || pool.Count == 0)
+		if (_initialized || body == null || pool == null || pool.Count == 0)
 			return;
-		_initialized = true;
 
-		var generated = ThemedDeckGenerator.Generate(profile, pool, new Random(seed));
-		var deck = new Deck { Name = $"{Name}·{profile.ThemeName}" };
+		// 优先级：牌手自带画像 > 外部（CombatManager 加载的主题资源）> 通用兜底画像。
+		var source = DeckProfile ?? profile ?? new DeckProfile
+		{
+			HeroId = HeroId,
+			ThemeName = "通用牌组",
+			TargetDeckSize = TargetDeckSize,
+		};
+
+		_initialized = true;
+		var effective = ResolveEffectiveProfile(source);
+		var generated = ThemedDeckGenerator.Generate(effective, pool, new Random(seed));
+		var deck = new Deck { Name = $"{Name}·{effective.ThemeName}" };
 		foreach (string id in generated.CardIds)
 		{
 			var data = pool.FirstOrDefault(card => card.Id == id);
@@ -86,10 +183,26 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 		body.Core.SetupDrawPile();
 		body.Core.MaxHandSize = 10;
 		body.Core.SetMana(0, 0);
-		body.HeroPower = HeroProfile.Get(HeroId).CreateHeroPower();
+		body.HeroPower = _heroPowerFactory?.Invoke();
 		foreach (string domain in _openingDomains)
 			body.AddDomain(domain, null);
-		GD.Print($"[DeckDrivenCommander] {Name} 卡组 {deck.CardCount} 张，HP {body.MaxHealth}，开场领域 {string.Join(",", _openingDomains)}");
+		GD.Print($"[DeckDrivenCommander] {Name}（{Role}）卡组 {deck.CardCount} 张，HP {body.MaxHealth}，"
+			+ $"开场领域 {(_openingDomains.Length == 0 ? "无" : string.Join(",", _openingDomains))}");
+	}
+
+	/// <summary>
+	/// 把外来画像（主题资源）按牌手规格改写成最终卡组配置。纯 C#，可单测。
+	/// </summary>
+	internal DeckProfile ResolveEffectiveProfile(DeckProfile source)
+	{
+		var effective = source.WithTargetDeckSize(TargetDeckSize);
+		if (_coreCardOverrides != null)
+			effective = effective.WithCoreCards(_coreCardOverrides);
+		if (_tagWeightOverrides != null)
+			effective = effective.WithTagWeights(_tagWeightOverrides);
+		if (_keywordWeightOverrides != null)
+			effective = effective.WithKeywordWeights(_keywordWeightOverrides);
+		return effective;
 	}
 
 	public void ExecuteTurn(CombatManager combat, EnemyUnit unit)
@@ -108,6 +221,13 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 			combat.CheckDeaths();
 			if (Snapshot(combat, body) == before)
 				break;
+		}
+
+		// 回合末若仍有富余法力，激活手中的反制牌（类 KARDS：在敌方回合待命）。
+		foreach (var card in body.Hand.ToList())
+		{
+			if (card.Type == CardType.Countermeasure && combat.CanArmCountermeasure(body, card))
+				combat.ArmCountermeasure(body, card);
 		}
 	}
 
@@ -529,7 +649,7 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 		int threats = combat.Board.GetPlayerMinions().Count;
 		int frontline = combat.Board.GetAllMinions().Count(minion =>
 			!minion.IsDead && minion.IsPlayerSide == self.IsPlayerSide && minion.BoardRow == BoardRow.Frontline);
-		string title = Localization.Localization.T(TitleKey, "主题卡组指挥官");
+		string title = Localization.Localization.T(TitleKey, TitleFallback);
 		return $"{title}：手牌 {self.Hand.Count}，法力 {self.CurrentMana}/{self.MaxMana}，前线 {frontline}，威胁 {threats}";
 	}
 
@@ -541,4 +661,68 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 	};
 
 	private sealed record Candidate(string Label, double Score, Action Execute);
+}
+
+/// <summary>
+/// <see cref="DeckDrivenCommander"/> 的构造描述——把「牌手是谁」与「怎么打牌」解耦。
+/// 所有字段都是纯 C#，可在单测中安全构造。
+/// </summary>
+public sealed class DeckDrivenCommanderSpec
+{
+	/// <summary>牌手 ID（snake_case，同时作为本地化 key 后缀）。</summary>
+	public string Id { get; init; } = "";
+
+	/// <summary>显示名中文回退（本地化缺失时使用）。</summary>
+	public string DisplayName { get; init; } = "";
+
+	/// <summary>显示名本地化 key；为空时用 <c>enemy.deckhand.{Id}.name</c>。</summary>
+	public string DisplayNameKey { get; init; } = "";
+
+	/// <summary>头衔本地化 key；为空时用 <c>enemy.deckhand.{Id}.title</c>。</summary>
+	public string TitleKey { get; init; } = "";
+
+	/// <summary>头衔中文回退。</summary>
+	public string TitleFallback { get; init; } = "主题卡组牌手";
+
+	/// <summary>被动本地化 key；为空时用 <c>enemy.deckhand.{Id}.passive</c>。</summary>
+	public string PassiveKey { get; init; } = "";
+
+	/// <summary>最大生命值。</summary>
+	public int MaxHealth { get; init; } = 20;
+
+	/// <summary>目标卡组厚度（普通 10~20 / 精英 21~39 / Boss 40）。</summary>
+	public int TargetDeckSize { get; init; } = 20;
+
+	/// <summary>自带卡组画像；null 表示由 CombatManager 回退加载主题资源。</summary>
+	public DeckProfile? Profile { get; init; }
+
+	/// <summary>对外来画像（主题资源）的核心卡覆盖；null 表示不覆盖。</summary>
+	public IReadOnlyList<string>? CoreCardOverrides { get; init; }
+
+	/// <summary>对外来画像的机制标签权重覆盖；null 表示不覆盖。</summary>
+	public IReadOnlyDictionary<CardMechanicTag, int>? TagWeightOverrides { get; init; }
+
+	/// <summary>对外来画像的关键词权重覆盖；null 表示不覆盖。</summary>
+	public IReadOnlyDictionary<Keyword, int>? KeywordWeightOverrides { get; init; }
+
+	/// <summary>开场展开的领域 ID。</summary>
+	public string[] OpeningDomains { get; init; } = Array.Empty<string>();
+
+	/// <summary>初始武器工厂；null 时回退棍木。</summary>
+	public Func<Weapon>? WeaponFactory { get; init; }
+
+	/// <summary>英雄技能工厂；null 表示该牌手没有英雄技能。</summary>
+	public Func<IHeroPower>? HeroPowerFactory { get; init; }
+
+	/// <summary>开局防御修正。</summary>
+	public int StartingDefense { get; init; }
+
+	/// <summary>单次生命伤害上限（固璋等被动）。</summary>
+	public int? DamageCap { get; init; }
+
+	/// <summary>「不破」被动——每回合仅受一次生命伤害。</summary>
+	public bool Unbreakable { get; init; }
+
+	/// <summary>定位标签（normal / elite / boss）。</summary>
+	public string Role { get; init; } = "normal";
 }

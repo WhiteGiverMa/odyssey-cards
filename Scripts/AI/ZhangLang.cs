@@ -15,6 +15,7 @@ namespace OdysseyCards.AI;
 /// 意图：A(3~4伤害) / B(1伤害×3) 随机交换 → C(武器攻击+1) → 循环。
 /// D 每 2~4 回合替代主意图：召唤机械小蠊。
 /// </summary>
+/// <remarks>旧意图死代码：已退出主流程遭遇池，仅保留兼容旧单测；新牌手请用 <see cref="EnemyDeckProfiles.CreateZhangLang"/>。</remarks>
 public class ZhangLang : EnemyEncounter
 {
 	private int _dTurnsRemaining;

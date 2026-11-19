@@ -90,10 +90,10 @@ public class CommanderAiTests
 	[InlineData(CardDecisionKind.BladeCrisis, 0, 5)]
 	[InlineData(CardDecisionKind.CopyHandFill, 1, 1)]
 	[InlineData(CardDecisionKind.RestructureDiscard, 1, 1)]
-	public void AiDecisionProvider_All61CardIds_AlwaysCompletesWithinBounds(CardDecisionKind kind, int min, int max)
+	public void AiDecisionProvider_All68CardIds_AlwaysCompletesWithinBounds(CardDecisionKind kind, int min, int max)
 	{
 		var cards = LoadAllRuntimeCards();
-		Assert.Equal(61, cards.Count);
+		Assert.Equal(68, cards.Count);
 		var provider = new AiDecisionProvider(card => (card.Id.GetHashCode() & 31) + 1);
 		int calls = 0;
 		IReadOnlyList<RuntimeCard>? chosen = null;
