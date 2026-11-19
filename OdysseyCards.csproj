@@ -46,7 +46,7 @@
         <None Include="tests\**\*.cs" />
     </ItemGroup>
 
-    <!-- 排除工具目录 (由 Tools/CardTagEditor 等独立项目编译)。
+    <!-- 排除工具目录（独立工具由各自工具链编译，当前标签工作台为 TypeScript）。
          Tools/ 在仓库根下但不应被主游戏程序集编译。 -->
     <ItemGroup>
         <Compile Remove="Tools\**\*.cs" />

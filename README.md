@@ -25,15 +25,15 @@
 
 ### 关键词
 
-| 关键词 | 英文 | 效果 |
-|--------|------|------|
-| 闪击 | Charge | 召唤的回合即可攻击 |
-| 嘲讽 | Taunt | 敌方随从必须优先攻击此随从 |
-| 战吼 | Battlecry | 从手牌打出时触发效果 |
-| 亡语 | Deathrattle | 随从死亡时触发效果 |
-| 风怒 | Windfury | 每回合可以攻击两次 |
-| 伏击 | Ambush | 每回合首次被攻击时，先于攻击者造成反击伤害 |
-| 冲击 | Impact | 攻击时抵消所有反击伤害（一次性消耗） |
+| 关键词 | 英文        | 效果                                       |
+| ------ | ----------- | ------------------------------------------ |
+| 闪击   | Charge      | 召唤的回合即可攻击                         |
+| 嘲讽   | Taunt       | 敌方随从必须优先攻击此随从                 |
+| 战吼   | Battlecry   | 从手牌打出时触发效果                       |
+| 亡语   | Deathrattle | 随从死亡时触发效果                         |
+| 风怒   | Windfury    | 每回合可以攻击两次                         |
+| 伏击   | Ambush      | 每回合首次被攻击时，先于攻击者造成反击伤害 |
+| 冲击   | Impact      | 攻击时抵消所有反击伤害（一次性消耗）       |
 
 ### 伤害计算
 
@@ -59,41 +59,29 @@ YAML-based 本地化系统（`Scripts/Localization/`），中文/英文双语支
 
 `ChatScreen`（Autoload）按 `` ` `` 呼出。架构：`ChatScreen` → `ChatScreenEngine` → `Commands/*`。支持资源、伤害、召唤、战斗跳转、藏品、标签、运行时 QA 等命令；AI 可通过 godot-mcp 远程调用。
 
-### 卡牌标签编辑工具
+### 星图档案 · 卡牌收藏与标签工作台
 
-独立于游戏的 .NET 8 控制台工具（`Tools/CardTagEditor/`，零 Godot 依赖），用于可视化编辑卡牌的机制标签/关键词和角色主题画像，直接回写 `.tres` 资源。
+`Tools/CardCollectionWeb/` 是统一的本地全栈工作台：收藏筛选与卡组构筑共用三栏页面，卡牌检视台支持词条悬停/跳转与标签内联编辑；「标签与主题工坊」提供批量矩阵、3 套 ThemeProfile 权重/核心卡池调音和资源健康校验。原独立 C# 标签编辑器已完整并入此工具。
 
-**启动 Web UI**（推荐，从项目根目录运行）：
-
-```bash
-cd G:\dev\odyssey-cards
-dotnet run --project Tools/CardTagEditor -- serve
-# 浏览器打开 http://localhost:8765
-```
-
-`serve` 不带 `--path` 时自动从当前目录向上找 `project.godot` 检测仓库根。在其他目录运行需显式指定：
+**启动 Web UI**（需要 Node.js 22+）：
 
 ```bash
-dotnet run --project G:\dev\odyssey-cards\Tools\CardTagEditor -- serve --path G:\dev\odyssey-cards
+cd G:\dev\odyssey-cards\Tools\CardCollectionWeb
+npm install
+npm run dev
+# 前端 http://127.0.0.1:5173，API http://127.0.0.1:8787
 ```
 
-**CLI 子命令**：
+**CLI 子命令**（只读，不修改资源）：
 
 ```bash
-dotnet run --project Tools/CardTagEditor -- list                    # 列出所有卡牌/主题摘要
-dotnet run --project Tools/CardTagEditor -- dump minion_Mech_Lancer # JSON 转储单卡
-dotnet run --project Tools/CardTagEditor -- dump theme:ayame        # JSON 转储单主题
-dotnet run --project Tools/CardTagEditor -- validate                # 校验未知位/越界关键词/悬空引用
-dotnet run --project Tools/CardTagEditor -- migrate --dry-run       # 预览 Tags→MechanicTags 迁移
-dotnet run --project Tools/CardTagEditor -- serve --port 9000       # 指定端口启动 Web UI
+npm run tag -- list                     # 列出 61 张卡牌与 3 套主题摘要
+npm run tag -- dump spell_heavy_strike  # JSON 转储单卡
+npm run tag -- dump theme:ayame         # JSON 转储单主题
+npm run tag -- validate                 # 校验未知位/越界关键词/兵种与悬空引用
 ```
 
-**Web UI 功能**：
-- 卡牌编辑器：41 张卡列表 + 17 机制标签 checkbox + 11 关键词 checkbox + 保存回写
-- 主题编辑器：3 个 ThemeProfile + 标签/关键词权重表格 + 核心卡 ID 编辑 + 保存回写
-- 保存时只修改目标字段，其他 `.tres` 行保持原样（round-trip 保真）
-
-**技术栈**：纯 .NET 8 BCL（`HttpListener` + `System.Text.Json`）+ Alpine.js CDN（零 node/npm 构建步骤）。
+保存采用行级无损 round-trip：未触碰的资源段、子资源、未知字段和原始 CRLF/LF 换行均保留。写回边界仅限 `UnitClass`（随从）、`Keywords`、`MechanicTags`、旧 `Speed` 清理，以及主题的 `TagWeights` / `KeywordWeights` / `CoreCardIds`；部署费、油费、攻/防/血等平衡数值不开放编辑。
 
 ## 技术栈
 
@@ -164,15 +152,15 @@ dotnet format OdysseyCards.sln --verify-no-changes
 
 ## 场景
 
-| 场景 | 路径 | 说明 |
-|------|------|------|
-| 主菜单 | `Scenes/Main.tscn` | 入口场景 |
-| 战斗 | `Scenes/Combat.tscn` | 战斗场景，程序化 UI 布局 |
-| 收藏 | `Scenes/Collection.tscn` | 卡牌收藏与卡组编辑 |
-| 地图 | `Scenes/Map.tscn` | Roguelike 路线选择 |
-| 卡牌预览 | `Scenes/CardPreview.tscn` | 编辑器预览 |
-| 棋盘预览 | `Scenes/BoardPreview.tscn` | 编辑器预览 |
-| 战斗预览 | `Scenes/CombatPreview.tscn` | 编辑器预览 |
+| 场景     | 路径                        | 说明                     |
+| -------- | --------------------------- | ------------------------ |
+| 主菜单   | `Scenes/Main.tscn`          | 入口场景                 |
+| 战斗     | `Scenes/Combat.tscn`        | 战斗场景，程序化 UI 布局 |
+| 收藏     | `Scenes/Collection.tscn`    | 卡牌收藏与卡组编辑       |
+| 地图     | `Scenes/Map.tscn`           | Roguelike 路线选择       |
+| 卡牌预览 | `Scenes/CardPreview.tscn`   | 编辑器预览               |
+| 棋盘预览 | `Scenes/BoardPreview.tscn`  | 编辑器预览               |
+| 战斗预览 | `Scenes/CombatPreview.tscn` | 编辑器预览               |
 
 ## Autoload 单例
 
