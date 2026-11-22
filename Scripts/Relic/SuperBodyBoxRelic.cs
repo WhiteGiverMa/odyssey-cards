@@ -1,9 +1,10 @@
-namespace OdysseyCards.Relic;
 using System;
 using System.Linq;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
+
+namespace OdysseyCards.Relic;
 
 /// <summary>
 /// 超体插件盒——战斗开始时随机一张「超体」机制 tag 卡牌放入手牌，花费变为 0。
@@ -25,7 +26,7 @@ public sealed class SuperBodyBoxRelic : AbstractRelic
 			return;
 
 		var pickedData = superBodyCards[Random.Shared.Next(superBodyCards.Count)];
-		var newCard = new Card(pickedData);
+		var newCard = new OdysseyCards.Card.Card(pickedData);
 		newCard.CostModifier = -pickedData.Cost;
 		combat.PlayerHero.DeckState.AddToHand(newCard);
 	}

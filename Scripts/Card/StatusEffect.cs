@@ -1,6 +1,6 @@
 using System;
-using GD = OdysseyCards.Core.ModelLog;
 using OdysseyCards.Core;
+using GD = OdysseyCards.Core.ModelLog;
 
 namespace OdysseyCards.Card;
 

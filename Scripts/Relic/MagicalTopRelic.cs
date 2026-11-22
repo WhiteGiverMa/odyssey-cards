@@ -1,5 +1,6 @@
-namespace OdysseyCards.Relic;
 using OdysseyCards.Combat;
+
+namespace OdysseyCards.Relic;
 
 /// <summary>
 /// 魔幻陀螺——参考 STS2 不休陀螺：没有手牌时抽 1 张牌。

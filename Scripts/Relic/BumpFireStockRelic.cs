@@ -1,5 +1,6 @@
-namespace OdysseyCards.Relic;
 using OdysseyCards.Combat;
+
+namespace OdysseyCards.Relic;
 
 /// <summary>
 /// 撞火枪托——英雄武器每回合可攻击次数 +1。
