@@ -811,6 +811,16 @@ domain:
   shiyoru_raidenkou_desc: "At the end of your turn, deal 5 damage to a random enemy. Each stack is 1 remaining trigger."
   sutaraito_spirit: "Sutaraito Spirit"
   sutaraito_spirit_desc: "At the start of your next turn, draw 2 extra cards and gain 2 Mana."
+  preemptive_strike: "Preemptive Strike"
+  preemptive_strike_desc: "Domain: The first direct-damage card each turn deals 10% more damage for every card in your hand."
+  zhijian: "Blade Sharp"
+  zhijian_desc: "Domain: Friendly minions gain +1 Attack when deployed."
+  infinite_fire: "Infinite Firepower"
+  infinite_fire_desc: "Domain: At the end of your turn, shuffle a Strike into your deck."
+  nadaofangyu: "Blade Defense"
+  nadaofangyu_desc: "The Attack bonus granted by Blade Defense, lasting until the end of the next enemy turn."
+  cosmic_coldness: "Cosmic Coldness"
+  cosmic_coldness_desc: "Legacy Cosmonaut domain: each stack increases the cost of Explain by 1 (compatibility entry)."
 
 stat:
   unit_class_format: "Class: {class}"
@@ -822,6 +832,14 @@ stat:
 modifier:
   deathrattle_replaced: "Deathrattle Replaced"
   deathrattle_replaced_desc: "Deathrattle effect has been replaced."
+
+status:
+  smokescreen:
+    name: "Smokescreen"
+    desc: "Cannot be hit by enemy weapons or minion attacks."
+  fatal_rift:
+    name: "Fatal Rift"
+    desc: "Destroyed by friendly damage while below 18% Health. Bosses are immune."
 
 keyword_source:
   bait_tactics: "Bait Tactics"

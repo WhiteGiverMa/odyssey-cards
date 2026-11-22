@@ -852,8 +852,8 @@ public class Minion : Card, IDamageSource, IDamageTarget
 			});
 		}
 
-		// 敌意：受到来自玩家阵营的伤害翻倍
-		if (_damageModifiers.Any(m => m is OdysseyCards.Core.AnimosityDamageModifier))
+		// 敌意：受到来自玩家阵营的伤害翻倍（静态与运行时相对敌意都实现 IAnimosityModifier）
+		if (_damageModifiers.Any(m => m is OdysseyCards.Core.IAnimosityModifier))
 		{
 			var data = EffectIconTable.GetModifier("animosity");
 			if (data != null)

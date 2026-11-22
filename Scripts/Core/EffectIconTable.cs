@@ -44,6 +44,8 @@ public static class EffectIconTable
 		["sutaraito_spirit"] = new() { Icon = "⭐", PlainLabel = "星", PlainLabelEn = "STR", AccentColorRgba = DomainColor, NameKey = "domain.sutaraito_spirit", DescKey = "domain.sutaraito_spirit_desc", IsBuff = true },
 		["smokescreen"] = new() { Icon = "🌫", PlainLabel = "烟", PlainLabelEn = "SMK", AccentColorRgba = DefenseColor, NameKey = "status.smokescreen.name", DescKey = "status.smokescreen.desc", IsBuff = true },
 		["fatal_rift"] = new() { Icon = "💀", PlainLabel = "裂", PlainLabelEn = "RFT", AccentColorRgba = AttackColor, NameKey = "status.fatal_rift.name", DescKey = "status.fatal_rift.desc", IsBuff = false },
+		// 「拿刀防卫」的限时攻击力增益按次结算，运行时 ID 带序号（nadaofangyu_atk_buff_1/2…）。
+		["nadaofangyu_atk_buff"] = new() { Icon = "🔪", PlainLabel = "卫", PlainLabelEn = "GRD", AccentColorRgba = BuffColor, NameKey = "domain.nadaofangyu", DescKey = "domain.nadaofangyu_desc", IsBuff = true },
 	};
 
 	private static readonly Dictionary<string, EffectIconData> _domains = new()
@@ -56,6 +58,10 @@ public static class EffectIconTable
 		["scheme"] = new() { Icon = "🪺", PlainLabel = "谋", PlainLabelEn = "SCH", AccentColorRgba = DomainColor, NameKey = "domain.scheme", DescKey = "domain.scheme_desc", IsBuff = true },
 		["inescapable_flaw"] = new() { Icon = "🥚", PlainLabel = "瑕", PlainLabelEn = "FLW", AccentColorRgba = DebuffColor, NameKey = "domain.inescapable_flaw", DescKey = "domain.inescapable_flaw_desc", IsBuff = false },
 		["preemptive_strike"] = new() { Icon = "⚔", PlainLabel = "先", PlainLabelEn = "PRE", AccentColorRgba = AttackColor, NameKey = "domain.preemptive_strike", DescKey = "domain.preemptive_strike_desc", IsBuff = true },
+		["infinite_fire"] = new() { Icon = "🔥", PlainLabel = "火", PlainLabelEn = "FIR", AccentColorRgba = AttackColor, NameKey = "domain.infinite_fire", DescKey = "domain.infinite_fire_desc", IsBuff = true },
+		["zhijian"] = new() { Icon = "🗡", PlainLabel = "锐", PlainLabelEn = "SHP", AccentColorRgba = AttackColor, NameKey = "domain.zhijian", DescKey = "domain.zhijian_desc", IsBuff = true },
+		// 旧「宇宙员」宇宙冷漠领域的兼容条目，避免历史战斗状态无图标。
+		["cosmic_coldness"] = new() { Icon = "❄", PlainLabel = "寒", PlainLabelEn = "CLD", AccentColorRgba = DefenseColor, NameKey = "domain.cosmic_coldness", DescKey = "domain.cosmic_coldness_desc", IsBuff = true },
 	};
 
 	private static readonly Dictionary<string, EffectIconData> _keywordSources = new()
@@ -70,7 +76,15 @@ public static class EffectIconTable
 
 	public static EffectIconData? GetStatusEffect(string id)
 	{
-		return _statusEffects.TryGetValue(id, out var data) ? data : null;
+		if (id == null)
+			return null;
+		if (_statusEffects.TryGetValue(id, out var data))
+			return data;
+		// 拿刀防卫运行时 ID 形如 nadaofangyu_atk_buff_1，归一化到公共条目。
+		if (id.StartsWith("nadaofangyu_atk_buff_", StringComparison.Ordinal)
+			&& _statusEffects.TryGetValue("nadaofangyu_atk_buff", out var nadao))
+			return nadao;
+		return null;
 	}
 
 	public static EffectIconData? GetDomain(string domainId)

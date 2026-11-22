@@ -607,7 +607,7 @@ public partial class CombatUI : Control
 			enemyArea.CustomMinimumSize = new Vector2(0, 120f * s);
 		Control? playerArea = GetNodeOrNull<Control>("CombatRoot/PlayerArea");
 		if (playerArea != null)
-			playerArea.CustomMinimumSize = new Vector2(0, 80f * s);
+			playerArea.CustomMinimumSize = new Vector2(0, 96f * s);
 
 		RefreshAll();
 		SceneLifecycleGuard.CallDeferredSafe(this, nameof(RefreshIntentArrowsAfterLayout));
@@ -1225,6 +1225,13 @@ public partial class CombatUI : Control
 	private void OnCombatStateChangedRefresh()
 	{
 		_boardUI.RefreshBoard();
+		// 状态变化同样影响英雄/随从面板：血量、护甲、防御、武器与效果栏都必须同步，
+		// 否则领域开启（如无限火力）后 PlayerIdentityCard 的效果栏不刷新。
+		UpdateHealthBars();
+		UpdateArmorDisplay();
+		UpdateDefenseDisplay();
+		UpdateWeaponDisplay();
+		UpdateStatusEffectDisplay();
 		RefreshIntentDisplay();
 		RefreshIntentArrows();
 		UpdateSmartAttackButton();

@@ -27,14 +27,17 @@ public partial class PlayerIdentityCard : Control
 	private Label _nameLabel = null!;
 	private Label _armorLabel = null!;
 	private Label _defenseLabel = null!;
+	private HBoxContainer _statsRow = null!;
 	public HealthBar HealthBar { get; private set; } = null!;
 	public Button HeroSpellButton { get; private set; } = null!;
 	public EffectBar EffectBar { get; private set; } = null!;
 
 	public PlayerIdentityCard()
 	{
-		CustomMinimumSize = new Vector2(160, 82);
+		CustomMinimumSize = new Vector2(180, 94);
 		SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		// Pass：不吞掉指针事件，EffectIcon 的 hover 才能稳定命中。
+		MouseFilter = MouseFilterEnum.Pass;
 
 		// 面板 StyleBox（蓝色系，区分红色敌方卡）
 		var panelStyle = new StyleBoxFlat
@@ -51,7 +54,7 @@ public partial class PlayerIdentityCard : Control
 			CornerRadiusBottomRight = 6,
 		};
 
-		_panel = new Panel();
+		_panel = new Panel { MouseFilter = MouseFilterEnum.Pass };
 		_panel.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 		_panel.AddThemeStyleboxOverride("panel", panelStyle);
 		AddChild(_panel);
@@ -100,21 +103,21 @@ public partial class PlayerIdentityCard : Control
 		// Row 2: HealthBar
 		HealthBar = new HealthBar
 		{
-			CustomMinimumSize = new Vector2(60, 16),
+			CustomMinimumSize = new Vector2(60, 12),
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 		};
 		content.AddChild(HealthBar);
 
-		// Row 3: Armor + Defense
-		var statsRow = new HBoxContainer();
+		// Row 3: Armor + Defense（两者都隐藏时整行收起，给 EffectBar 让出纵向空间）
+		_statsRow = new HBoxContainer { Visible = false };
 		_armorLabel = new Label { Text = "", Visible = false };
 		_armorLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.3f));
-		statsRow.AddChild(_armorLabel);
+		_statsRow.AddChild(_armorLabel);
 
 		_defenseLabel = new Label { Text = "", Visible = false };
 		_defenseLabel.AddThemeColorOverride("font_color", new Color(0.3f, 0.7f, 1f));
-		statsRow.AddChild(_defenseLabel);
-		content.AddChild(statsRow);
+		_statsRow.AddChild(_defenseLabel);
+		content.AddChild(_statsRow);
 
 		// Row 4: EffectBar
 		EffectBar = new EffectBar();
@@ -154,6 +157,7 @@ public partial class PlayerIdentityCard : Control
 		_armorLabel.Visible = armor > 0;
 		if (armor > 0)
 			_armorLabel.Text = Loc.T("ui.combat.armor_format", "护甲: {value}").Replace("{value}", armor.ToString());
+		UpdateStatsRowVisibility();
 	}
 
 	/// <summary>仅刷新防御显示。</summary>
@@ -166,6 +170,13 @@ public partial class PlayerIdentityCard : Control
 			_defenseLabel.AddThemeColorOverride("font_color",
 				defense > 0 ? new Color(0.3f, 0.7f, 1f) : new Color(1f, 0.3f, 0.3f));
 		}
+		UpdateStatsRowVisibility();
+	}
+
+	/// <summary>护甲与防御都为空时收起整行，避免第 4 行 EffectBar 被挤出面板下沿。</summary>
+	private void UpdateStatsRowVisibility()
+	{
+		_statsRow.Visible = _armorLabel.Visible || _defenseLabel.Visible;
 	}
 
 	/// <summary>仅刷新效果图标。</summary>

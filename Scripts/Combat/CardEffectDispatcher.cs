@@ -444,7 +444,7 @@ internal sealed class CardEffectDispatcher(
 		public int ModifyDamageTaken(int damage, DamageContext context) => damage;
 	}
 
-	private sealed class RelativeAnimosityModifier(bool side) : IDamageModifier
+	private sealed class RelativeAnimosityModifier(bool side) : OdysseyCards.Core.IAnimosityModifier
 	{
 		public DamagePhase Phase => DamagePhase.MULTIPLICATIVE;
 		public int ModifyDamageDealt(int damage, DamageContext context) => damage;

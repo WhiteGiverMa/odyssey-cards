@@ -18,6 +18,7 @@ public partial class BoardUI : Control
 	public event Action<BoardPosition>? OnSlotRightClicked;
 	private readonly Dictionary<BoardPosition, BoardSlot> _slots = new();
 	private readonly Dictionary<BoardPosition, EffectBar> _effectBars = new();
+	private readonly Dictionary<BoardPosition, Action> _effectBarRebuiltHandlers = new();
 	private readonly Dictionary<BoardRow, Label> _rowTitles = new();
 	private readonly Dictionary<BoardRow, HBoxContainer> _rowLines = new();
 	private FrontlineArenaBackdrop _backdrop = null!;
@@ -86,6 +87,10 @@ public partial class BoardUI : Control
 				var bar = new EffectBar { Name = $"{row}EffectBar{slot}" };
 				_effectBars.Add(position, bar);
 				effectLayer.AddChild(bar);
+				// 图标是延迟两帧才入树的，宽度变化必须回调重排，否则居中用的是旧宽度。
+				Action rebuilt = () => RepositionEffectBar(position);
+				_effectBarRebuiltHandlers.Add(position, rebuilt);
+				bar.OnIconsRebuilt += rebuilt;
 			}
 		}
 		QueueArenaSynchronization();
@@ -99,6 +104,12 @@ public partial class BoardUI : Control
 	{
 		DisableKeyboardTargeting();
 		UnbindBoard();
+		foreach (var (position, handler) in _effectBarRebuiltHandlers)
+		{
+			if (_effectBars.TryGetValue(position, out var bar) && GodotObject.IsInstanceValid(bar))
+				bar.OnIconsRebuilt -= handler;
+		}
+		_effectBarRebuiltHandlers.Clear();
 		if (_fontScaleSource != null)
 			_fontScaleSource.OnFontScaleChanged -= OnFontScaleChanged;
 		_fontScaleSource = null;
@@ -173,12 +184,21 @@ public partial class BoardUI : Control
 			slot.UpdateDisplay(minion);
 			var bar = _effectBars[position];
 			bar.Populate(minion?.GetDisplayableEffects() ?? (IReadOnlyList<DisplayableEffect>)Array.Empty<DisplayableEffect>());
-			if (bar.Visible)
-			{
-				var rect = slot.GetGlobalRect();
-				bar.GlobalPosition = new Vector2(rect.Position.X + (rect.Size.X - bar.Size.X) / 2, rect.End.Y);
-			}
+			RepositionEffectBar(position);
 		}
+	}
+
+	/// <summary>把效果栏水平居中贴到对应槽位下沿；图标延迟重建后由 OnIconsRebuilt 再次调用。</summary>
+	private void RepositionEffectBar(BoardPosition position)
+	{
+		if (!_effectBars.TryGetValue(position, out var bar) || !_slots.TryGetValue(position, out var slot))
+			return;
+		if (!bar.Visible || !bar.IsInsideTree() || bar.IsQueuedForDeletion())
+			return;
+		var rect = slot.GetGlobalRect();
+		// Size.X 在容器布局前仍是旧值，合并最小宽度保证居中不漂移。
+		float width = Mathf.Max(bar.Size.X, bar.GetCombinedMinimumSize().X);
+		bar.GlobalPosition = new Vector2(rect.Position.X + (rect.Size.X - width) * 0.5f, rect.End.Y);
 	}
 
 	private void UpdateArenaOwner()

@@ -32,6 +32,12 @@ public partial class EffectBar : HBoxContainer
 	private string _effectSignature = string.Empty;
 	private bool _rebuildQueued;
 
+	/// <summary>
+	/// 图标实际重建并入树后触发。延迟两帧的重建流程会改变 Size.X，
+	/// 外部（BoardUI）必须在此事件后重新计算居中位置，不能依赖 Populate 同步返回时的旧宽度。
+	/// </summary>
+	public event Action? OnIconsRebuilt;
+
 	public EffectBar()
 	{
 		Alignment = AlignmentMode.Center;
@@ -79,6 +85,9 @@ public partial class EffectBar : HBoxContainer
 		string signature = BuildSignature(sorted);
 		if (signature == _effectSignature && !_rebuildQueued)
 		{
+			// 首次填充空列表时签名同为 ""，这里补一次隐藏，避免空效果栏白占一行高度。
+			if (_pendingEffects.Length == 0)
+				Visible = false;
 			return;
 		}
 
@@ -124,12 +133,15 @@ public partial class EffectBar : HBoxContainer
 
 		HideTooltip();
 
-		_activeTooltip = new EffectTooltip(effect);
 		var root = GetTree().Root;
+		// 详情宽度随窗口走：窄窗不铺满，宽窗也不至于拉成长条。
+		int contentWidth = Mathf.Clamp((int)(root.Size.X * 0.42f), 160, 360);
+
+		_activeTooltip = new EffectTooltip(effect, contentWidth);
 		root.AddChild(_activeTooltip);
 
-		int estimatedW = 200;
-		int estimatedH = string.IsNullOrEmpty(effect.Description) ? 40 : 70;
+		int estimatedW = contentWidth + 28;
+		int estimatedH = string.IsNullOrEmpty(effect.Description) ? 44 : 78;
 
 		int posX = (int)Mathf.Clamp(screenPos.X + 8, 4, root.Size.X - estimatedW - 8);
 		int posY = (int)Mathf.Clamp(screenPos.Y - estimatedH - 8, 4, root.Size.Y - estimatedH - 8);
@@ -252,6 +264,20 @@ public partial class EffectBar : HBoxContainer
 		{
 			AddChild(new EffectIcon(effect, this));
 		}
+
+		// 子节点入树后容器要等一次布局才会更新 Size.X；
+		// 再延迟一帧通知外部重新居中，避免用旧宽度摆放。
+		CallDeferred(nameof(NotifyIconsRebuiltDeferred));
+	}
+
+	private void NotifyIconsRebuiltDeferred()
+	{
+		if (!IsInsideTree() || IsQueuedForDeletion())
+		{
+			return;
+		}
+
+		OnIconsRebuilt?.Invoke();
 	}
 
 	// ==================================================================
@@ -262,7 +288,7 @@ public partial class EffectBar : HBoxContainer
 	{
 		private readonly DisplayableEffect _effect;
 		private readonly EffectBar _parent;
-		private readonly ColorRect _background;
+		private readonly Panel _background;
 		private readonly Label _iconLabel;
 		private readonly Label? _stackLabel;
 		private bool _isHovered;
@@ -288,6 +314,8 @@ public partial class EffectBar : HBoxContainer
 
 			bool isBuff = effect.IsBuff;
 
+			// 注意：ColorRect 不读取 "panel" stylebox，会给所有图标画成纯白块。
+			// 边框与底板必须用 Panel 才能吃到 StyleBoxFlat，且保持 Ignore 不拦截外层 hover。
 			var borderStyle = new StyleBoxFlat
 			{
 				BgColor = isBuff ? BuffBorderColor : DebuffBorderColor,
@@ -296,18 +324,19 @@ public partial class EffectBar : HBoxContainer
 				CornerRadiusBottomLeft = 3,
 				CornerRadiusBottomRight = 3,
 			};
-			var borderRect = new ColorRect
+			var borderRect = new Panel
 			{
-				AnchorsPreset = (int)LayoutPreset.FullRect,
 				MouseFilter = MouseFilterEnum.Ignore,
 			};
 			borderRect.AddThemeStyleboxOverride("panel", borderStyle);
 			AddChild(borderRect);
+			borderRect.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 
-			_background = new ColorRect
+			_background = new Panel
 			{
 				Position = new Vector2(1, 1),
 				Size = new Vector2(IconCellSize - 2, IconCellSize - 2),
+				MouseFilter = MouseFilterEnum.Ignore,
 			};
 			var bgStyle = new StyleBoxFlat
 			{
@@ -320,7 +349,6 @@ public partial class EffectBar : HBoxContainer
 				CornerRadiusBottomRight = 2,
 			};
 			_background.AddThemeStyleboxOverride("panel", bgStyle);
-			_background.MouseFilter = MouseFilterEnum.Ignore;
 			AddChild(_background);
 
 			_iconLabel = new Label
@@ -332,7 +360,14 @@ public partial class EffectBar : HBoxContainer
 				VerticalAlignment = VerticalAlignment.Center,
 			};
 			_iconLabel.AddThemeColorOverride("font_color", Colors.White);
-			_iconLabel.AddThemeFontSizeOverride("font_size", UiSymbolMode.Enabled ? IconFontSize : 9);
+			// 中文单字给 11 留笔画空间；2~3 字母英文简字压到 9 才能塞进 22px 格子。
+			int labelFontSize = UiSymbolMode.Enabled
+				? IconFontSize
+				: effect.PlainLabel.Length <= 1 ? 11 : 9;
+			_iconLabel.AddThemeFontSizeOverride("font_size", labelFontSize);
+			// 暖金/青金亮底上的白字需要深色描边才锐利。
+			_iconLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.72f));
+			_iconLabel.AddThemeConstantOverride("outline_size", 2);
 			_iconLabel.MouseFilter = MouseFilterEnum.Ignore;
 			AddChild(_iconLabel);
 
@@ -347,6 +382,8 @@ public partial class EffectBar : HBoxContainer
 					VerticalAlignment = VerticalAlignment.Bottom,
 				};
 				_stackLabel.AddThemeColorOverride("font_color", StackTextColor);
+				_stackLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
+				_stackLabel.AddThemeConstantOverride("outline_size", 2);
 				_stackLabel.AddThemeFontSizeOverride("font_size", StackFontSize);
 				_stackLabel.MouseFilter = MouseFilterEnum.Ignore;
 				AddChild(_stackLabel);
@@ -464,7 +501,7 @@ public partial class EffectBar : HBoxContainer
 
 	private partial class EffectTooltip : PopupPanel
 	{
-		public EffectTooltip(DisplayableEffect effect)
+		public EffectTooltip(DisplayableEffect effect, int contentWidth)
 		{
 			var style = new StyleBoxFlat
 			{
@@ -488,7 +525,7 @@ public partial class EffectBar : HBoxContainer
 			if (UiSymbolMode.Enabled)
 			{
 				var iconLabel = new Label { Text = effect.Icon };
-				iconLabel.AddThemeFontSizeOverride("font_size", 12);
+				iconLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(12));
 				titleRow.AddChild(iconLabel);
 			}
 			else
@@ -510,7 +547,7 @@ public partial class EffectBar : HBoxContainer
 			nameLabel.AddThemeColorOverride("font_color", effect.IsBuff
 				? new Color(0.5f, 1f, 0.5f)
 				: new Color(1f, 0.5f, 0.5f));
-			nameLabel.AddThemeFontSizeOverride("font_size", 13);
+			nameLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(13));
 			titleRow.AddChild(nameLabel);
 			vbox.AddChild(titleRow);
 
@@ -519,11 +556,11 @@ public partial class EffectBar : HBoxContainer
 				var descLabel = new Label
 				{
 					Text = effect.Description,
-					CustomMinimumSize = new Vector2(160, 0),
+					CustomMinimumSize = new Vector2(contentWidth, 0),
 					AutowrapMode = TextServer.AutowrapMode.Word,
 				};
 				descLabel.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.8f));
-				descLabel.AddThemeFontSizeOverride("font_size", 10);
+				descLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(10));
 				vbox.AddChild(descLabel);
 			}
 		}

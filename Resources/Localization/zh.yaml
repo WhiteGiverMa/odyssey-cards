@@ -815,6 +815,16 @@ domain:
   shiyoru_raidenkou_desc: "友方回合结束时对随机敌人造成5点伤害，每层代表剩余1次触发。"
   sutaraito_spirit: "星途精神"
   sutaraito_spirit_desc: "下回合开始时额外抽2张牌并获得2点法力。"
+  preemptive_strike: "先发制人"
+  preemptive_strike_desc: "领域：每回合的第一张直伤卡牌，每有1张手牌其造成的伤害值+10％。"
+  zhijian: "执锐"
+  zhijian_desc: "领域：友方随从部署时攻击力+1。"
+  infinite_fire: "无限火力"
+  infinite_fire_desc: "领域：友方回合结束时，将一张「打击」洗入牌库。"
+  nadaofangyu: "拿刀防卫"
+  nadaofangyu_desc: "「拿刀防卫」赋予的攻击力增益，持续到下个敌方回合结束。"
+  cosmic_coldness: "宇宙冷漠"
+  cosmic_coldness_desc: "旧版宇宙员领域：每层使「解释」费用+1（历史兼容）。"
 
 stat:
   unit_class_format: "兵种：{class}"

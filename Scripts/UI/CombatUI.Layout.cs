@@ -198,7 +198,8 @@ public partial class CombatUI
 			Name = "PlayerArea",
 			Alignment = BoxContainer.AlignmentMode.Center,
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-			CustomMinimumSize = new Vector2(0, 80f * scale),
+			// 96：名字行 + 血条 + 护甲/防御行 + EffectBar 四行在 120% 字号下也需要完整高度。
+			CustomMinimumSize = new Vector2(0, 96f * scale),
 		};
 
 		// 生命值区域占位（垂直堆叠生命条 + 护甲标签）
