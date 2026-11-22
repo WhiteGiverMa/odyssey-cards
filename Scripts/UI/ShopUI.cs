@@ -61,7 +61,7 @@ public partial class ShopUI : Control
 	{
 		var (dialog, content, buttonRow) = MobileDialogHost.CreateDialog(
 			this,
-			$"🏪 {_room.DisplayName}",
+			UiSymbolMode.Select(_room.DisplayName, $"🏪 {_room.DisplayName}"),
 			width: 520);
 
 		_dialog = dialog;
@@ -157,10 +157,10 @@ public partial class ShopUI : Control
 		};
 		metaRow.AddThemeConstantOverride("separation", 6);
 
-		// 法力消耗：💧 图标 + 数值
+		// 法力消耗：默认简字，对照模式恢复图标。
 		var costLabel = new Label
 		{
-			Text = $"💧{cardData.Cost}",
+			Text = UiSymbolMode.Select($"{Loc.T("ui.shop.cost_prefix", "费")}{cardData.Cost}", $"💧{cardData.Cost}"),
 			MouseFilter = MouseFilterEnum.Ignore,
 		};
 		costLabel.AddThemeFontSizeOverride("font_size", 14);
@@ -191,7 +191,7 @@ public partial class ShopUI : Control
 
 			var atkLabel = new Label
 			{
-				Text = $"⚔️ {cardData.Attack}",
+				Text = UiSymbolMode.Select($"{Loc.T("ui.shop.attack_prefix", "攻")} {cardData.Attack}", $"⚔️ {cardData.Attack}"),
 				MouseFilter = MouseFilterEnum.Ignore,
 			};
 			atkLabel.AddThemeFontSizeOverride("font_size", 13);
@@ -200,7 +200,7 @@ public partial class ShopUI : Control
 
 			var hpLabel = new Label
 			{
-				Text = $"❤️ {cardData.Health}",
+				Text = UiSymbolMode.Select($"{Loc.T("ui.shop.health_prefix", "血")} {cardData.Health}", $"❤️ {cardData.Health}"),
 				MouseFilter = MouseFilterEnum.Ignore,
 			};
 			hpLabel.AddThemeFontSizeOverride("font_size", 13);
@@ -211,7 +211,7 @@ public partial class ShopUI : Control
 			{
 				var defLabel = new Label
 				{
-					Text = $"🛡️ {cardData.Defense}",
+					Text = UiSymbolMode.Select($"{Loc.T("ui.shop.defense_prefix", "防")} {cardData.Defense}", $"🛡️ {cardData.Defense}"),
 					MouseFilter = MouseFilterEnum.Ignore,
 				};
 				defLabel.AddThemeFontSizeOverride("font_size", 13);
@@ -354,7 +354,8 @@ public partial class ShopUI : Control
 	private static string GetBuyButtonText(CardRarity rarity, int goldCost)
 	{
 		string label = Loc.T("ui.shop.buy", "购买");
-		string goldLabel = Loc.T("ui.shop.gold_cost", "💰{cost}").Replace("{cost}", goldCost.ToString());
+		string plainGold = Loc.T("ui.shop.gold_cost", "{cost} 金币").Replace("{cost}", goldCost.ToString());
+		string goldLabel = UiSymbolMode.Select(plainGold, $"💰{goldCost}");
 		return $"{goldLabel}\n{label}";
 	}
 

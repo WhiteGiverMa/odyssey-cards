@@ -82,7 +82,9 @@ public partial class FloatingDamageNumber : Control
 	{
 		if (amount <= 0)
 			return;
-		CreateText($"🛡+{amount}", screenPosition + new Vector2(0, -24), ArmorGainColor, ArmorGainFontSize, ArmorGainDuration, parent);
+		string plain = Localization.Localization.T("ui.combat.armor_gain_float", "甲");
+		CreateText(UiSymbolMode.Select($"{plain}+{amount}", $"🛡+{amount}"),
+			screenPosition + new Vector2(0, -24), ArmorGainColor, ArmorGainFontSize, ArmorGainDuration, parent);
 	}
 
 	/// <summary>

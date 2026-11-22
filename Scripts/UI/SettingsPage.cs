@@ -47,6 +47,7 @@ public partial class SettingsPage : Control
 	private CheckBox _intentTooltipShowAllToggle = null!;
 	private CheckBox _devModeToggle = null!;
 	private CheckBox _ecchiTextToggle = null!;
+	private CheckBox _emojiIconsToggle = null!;
 	private Button _consoleButton = null!;
 	private Label _emoteIdleTimeLabel = null!;
 	private HSlider _emoteIdleTimeSlider = null!;
@@ -75,6 +76,14 @@ public partial class SettingsPage : Control
 	private Label _deploySpeedLabel = null!;
 	private HSlider _deploySpeedSlider = null!;
 	private Label _deploySpeedValueLabel = null!;
+	private Label _deploySpeedHintLabel = null!;
+
+	// ===== 界面字体大小控件 =====
+
+	private Label _fontScaleLabel = null!;
+	private HSlider _fontScaleSlider = null!;
+	private Label _fontScaleValueLabel = null!;
+	private Label _fontScaleHintLabel = null!;
 
 	// ===== 键位设置控件 =====
 
@@ -105,7 +114,7 @@ public partial class SettingsPage : Control
 		OdysseyInput.SelectCard10,
 		// 战斗 — 命令
 		OdysseyInput.EndTurn, OdysseyInput.SmartAttack, OdysseyInput.Pause,
-		OdysseyInput.ViewDeck, OdysseyInput.ViewDiscard, OdysseyInput.TabTarget,
+		OdysseyInput.ViewDeck, OdysseyInput.ViewDiscard, OdysseyInput.TabTarget, OdysseyInput.CombatLog,
 		// 战斗 — 其他
 		OdysseyInput.InfoScreen,
 		// 场景导航
@@ -138,6 +147,7 @@ public partial class SettingsPage : Control
 		[OdysseyInput.ViewDeck] = "查看牌库",
 		[OdysseyInput.ViewDiscard] = "查看弃牌堆",
 		[OdysseyInput.TabTarget] = "切换目标",
+		[OdysseyInput.CombatLog] = "战斗日志",
 		[OdysseyInput.PageUp] = "上一页",
 		[OdysseyInput.PageDown] = "下一页",
 		[OdysseyInput.Skip] = "跳过",
@@ -240,6 +250,7 @@ public partial class SettingsPage : Control
 		_backButton.Pressed -= OnBackPressed;
 		_devModeToggle.Toggled -= OnDevModeToggled;
 		_ecchiTextToggle.Toggled -= OnEcchiTextToggled;
+		_emojiIconsToggle.Toggled -= OnEmojiIconsToggled;
 		_consoleButton.Pressed -= OnConsolePressed;
 		_emoteIdleTimeSlider.ValueChanged -= OnEmoteIdleTimeChanged;
 		_emoteVarMinSlider.ValueChanged -= OnEmoteVarMinChanged;
@@ -252,6 +263,8 @@ public partial class SettingsPage : Control
 		_cardFlyScaleSlider.ValueChanged -= OnCardFlyScaleChanged;
 		_damageNumberScaleSlider.ValueChanged -= OnDamageNumberScaleChanged;
 		_emoteScaleSlider.ValueChanged -= OnEmoteScaleChanged;
+		_deploySpeedSlider.ValueChanged -= OnDeploySpeedChanged;
+		_fontScaleSlider.ValueChanged -= OnFontScaleChanged;
 	}
 
 	/// <summary>
@@ -430,6 +443,27 @@ public partial class SettingsPage : Control
 		_windowModeRow = windowModeRow;
 		_displayContainer.AddChild(windowModeRow);
 
+		// 界面字体大小——全局文字倍率（默认 120%，比旧版大一号）
+		float fontScale = UIScaler.Instance?.FontScale ?? UIScaler.DefaultFontScale;
+		_fontScaleLabel = CreateSettingLabel("ui.settings.font_scale", "界面字体大小");
+		_fontScaleSlider = new HSlider
+		{
+			MinValue = UIScaler.MinFontScale,
+			MaxValue = UIScaler.MaxFontScale,
+			Step = 0.05,
+			Value = Mathf.Clamp(fontScale, UIScaler.MinFontScale, UIScaler.MaxFontScale),
+			CustomMinimumSize = new Vector2(160, 0),
+		};
+		_fontScaleValueLabel = new Label
+		{
+			Text = FormatFontScale(_fontScaleSlider.Value),
+			CustomMinimumSize = new Vector2(64, 0),
+		};
+		_fontScaleValueLabel.AddThemeFontSizeOverride("font_size", 16);
+		_displayContainer.AddChild(CreateSliderRow(_fontScaleLabel, _fontScaleSlider, _fontScaleValueLabel));
+		_fontScaleHintLabel = CreateHintLabel("ui.settings.font_scale_hint", "拖动即可实时预览；120% 为默认界面字号");
+		_displayContainer.AddChild(CreateCenteredRow(_fontScaleHintLabel));
+
 		_displayContainer.AddChild(CreateSectionHeader("ui.settings.section_visual", "卡牌视觉"));
 
 		// 卡牌描述对齐
@@ -445,6 +479,14 @@ public partial class SettingsPage : Control
 		LoadRarityColorSchemeOptions();
 		_rarityColorSchemeRow = CreateSettingRow(_rarityColorSchemeLabel, _rarityColorSchemeOptionButton);
 		_displayContainer.AddChild(_rarityColorSchemeRow);
+
+		_emojiIconsToggle = new CheckBox
+		{
+			Text = Loc.T("ui.settings.emoji_icons", "启用 Emoji 图标（对照模式）"),
+			ButtonPressed = UIScaler.Instance?.EmojiIconsEnabled ?? false,
+		};
+		_emojiIconsToggle.AddThemeFontSizeOverride("font_size", 18);
+		_displayContainer.AddChild(CreateCenteredRow(_emojiIconsToggle));
 
 		// 意图视觉效果
 		bool iconFloating = UIScaler.Instance?.IntentIconFloatingEnabled ?? true;
@@ -495,14 +537,34 @@ public partial class SettingsPage : Control
 			ref _emoteScaleLabel, ref _emoteScaleSlider, ref _emoteScaleValueLabel,
 			"ui.settings.emote_effect_scale", "表情文字尺寸",
 			UIScaler.Instance?.EmoteScale ?? 1.0f);
-		SetupParticleScaleSlider(
-			ref _deploySpeedLabel, ref _deploySpeedSlider, ref _deploySpeedValueLabel,
-			"ui.settings.deploy_speed", "部署动画速度",
-			UIScaler.Instance?.DeployAnimationSpeed ?? 1.0f);
-		_deploySpeedSlider.MinValue = 0.1;
-		_deploySpeedSlider.Value = Mathf.Max(0.1f, (float)_deploySpeedSlider.Value);
-		_deploySpeedValueLabel.Text = $"×{_deploySpeedSlider.Value:F1}";
+
+		// 战斗动画速度——默认 0.75x（比旧版更慢更从容），可调 0.25x~2.5x。
+		float deploySpeed = UIScaler.Instance?.DeployAnimationSpeed ?? UIScaler.DefaultDeployAnimationSpeed;
+		_deploySpeedLabel = CreateSettingLabel("ui.settings.deploy_speed", "战斗动画速度");
+		_deploySpeedSlider = new HSlider
+		{
+			MinValue = 0.25,
+			MaxValue = 2.5,
+			Step = 0.05,
+			Value = Mathf.Clamp(deploySpeed, 0.25f, 2.5f),
+			CustomMinimumSize = new Vector2(160, 0),
+		};
+		_deploySpeedValueLabel = new Label
+		{
+			Text = FormatAnimationSpeed(_deploySpeedSlider.Value),
+			CustomMinimumSize = new Vector2(64, 0),
+		};
+		_deploySpeedValueLabel.AddThemeFontSizeOverride("font_size", 16);
+		_displayContainer.AddChild(CreateSliderRow(_deploySpeedLabel, _deploySpeedSlider, _deploySpeedValueLabel));
+		_deploySpeedHintLabel = CreateHintLabel("ui.settings.deploy_speed_hint", "0.75× 为默认从容速度，数值越高演出越快");
+		_displayContainer.AddChild(CreateCenteredRow(_deploySpeedHintLabel));
 	}
+
+	/// <summary>动画速度显示：保留两位小数（×0.75 / ×1.00 / ×2.50）。</summary>
+	private static string FormatAnimationSpeed(double value) => $"×{value:F2}";
+
+	/// <summary>字体倍率显示为百分比（120%）。</summary>
+	private static string FormatFontScale(double value) => $"{Mathf.RoundToInt((float)value * 100f)}%";
 
 	// ===== 游戏设置 UI =====
 
@@ -878,6 +940,19 @@ public partial class SettingsPage : Control
 		return row;
 	}
 
+	/// <summary>滑块下方的说明文字：小号暗色，用于提示实时预览与默认值。</summary>
+	private static Label CreateHintLabel(string key, string fallback)
+	{
+		var label = new Label
+		{
+			Text = Loc.T(key, fallback),
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		label.AddThemeColorOverride("font_color", new Color(0.55f, 0.58f, 0.7f));
+		label.AddThemeFontSizeOverride("font_size", 14);
+		return label;
+	}
+
 	/// <summary>创建一个粒子缩放滑块的标签、滑块和值标签，并加入显示容器。</summary>
 	private void SetupParticleScaleSlider(ref Label label, ref HSlider slider, ref Label valueLabel,
 		string key, string fallback, float currentValue)
@@ -915,6 +990,7 @@ public partial class SettingsPage : Control
 		_backButton.Pressed += OnBackPressed;
 		_devModeToggle.Toggled += OnDevModeToggled;
 		_ecchiTextToggle.Toggled += OnEcchiTextToggled;
+		_emojiIconsToggle.Toggled += OnEmojiIconsToggled;
 		_consoleButton.Pressed += OnConsolePressed;
 		_emoteIdleTimeSlider.ValueChanged += OnEmoteIdleTimeChanged;
 		_emoteVarMinSlider.ValueChanged += OnEmoteVarMinChanged;
@@ -924,6 +1000,7 @@ public partial class SettingsPage : Control
 		_damageNumberScaleSlider.ValueChanged += OnDamageNumberScaleChanged;
 		_emoteScaleSlider.ValueChanged += OnEmoteScaleChanged;
 		_deploySpeedSlider.ValueChanged += OnDeploySpeedChanged;
+		_fontScaleSlider.ValueChanged += OnFontScaleChanged;
 		_profileSelector.ItemSelected += OnProfileSelected;
 		_newProfileBtn.Pressed += OnNewProfile;
 		_deleteProfileBtn.Pressed += OnDeleteProfile;
@@ -1013,6 +1090,11 @@ public partial class SettingsPage : Control
 		UIScaler.Instance?.SetEcchiText(on); // 持久化 + 同步到 GameManager
 	}
 
+	private void OnEmojiIconsToggled(bool on)
+	{
+		UIScaler.Instance?.SetEmojiIconsEnabled(on);
+	}
+
 	private void OnConsolePressed()
 	{
 		GetNodeOrNull<ChatScreen>("/root/ChatScreen")?.Toggle();
@@ -1084,8 +1166,15 @@ public partial class SettingsPage : Control
 	private void OnDeploySpeedChanged(double value)
 	{
 		float v = (float)value;
-		_deploySpeedValueLabel.Text = $"×{v:F1}";
+		_deploySpeedValueLabel.Text = FormatAnimationSpeed(v);
 		UIScaler.Instance?.SetDeployAnimationSpeed(v);
+	}
+
+	private void OnFontScaleChanged(double value)
+	{
+		float v = (float)value;
+		_fontScaleValueLabel.Text = FormatFontScale(v);
+		UIScaler.Instance?.SetFontScale(v);
 	}
 
 	private void OnProfileSelected(long index)
@@ -1231,11 +1320,17 @@ public partial class SettingsPage : Control
 		_emoteVarMaxLabel.Text = Loc.T("ui.settings.emote_variation_max", "Variation Max");
 		_backButton.Text = Loc.T("ui.settings.back", "Back");
 		_devModeToggle.Text = Loc.T("ui.settings.dev_mode", "开发者模式");
+		_ecchiTextToggle.Text = Loc.T("ui.settings.ecchi_text", "涩情文案♥️");
+		_emojiIconsToggle.Text = Loc.T("ui.settings.emoji_icons", "启用 Emoji 图标（对照模式）");
 		_consoleButton.Text = Loc.T("ui.settings.open_console", "打开控制台");
 		_projectileScaleLabel.Text = Loc.T("ui.settings.projectile_scale", "弹道特效尺寸");
 		_cardFlyScaleLabel.Text = Loc.T("ui.settings.card_fly_scale", "卡牌飞行粒子尺寸");
 		_damageNumberScaleLabel.Text = Loc.T("ui.settings.damage_number_scale", "伤害数字尺寸");
 		_emoteScaleLabel.Text = Loc.T("ui.settings.emote_effect_scale", "表情文字尺寸");
+		_deploySpeedLabel.Text = Loc.T("ui.settings.deploy_speed", "战斗动画速度");
+		_deploySpeedHintLabel.Text = Loc.T("ui.settings.deploy_speed_hint", "0.75× 为默认从容速度，数值越高演出越快");
+		_fontScaleLabel.Text = Loc.T("ui.settings.font_scale", "界面字体大小");
+		_fontScaleHintLabel.Text = Loc.T("ui.settings.font_scale_hint", "拖动即可实时预览；120% 为默认界面字号");
 	}
 
 	private void UpdateCurrentLanguage()
@@ -1337,6 +1432,13 @@ public partial class SettingsPage : Control
 			GetViewport().SetInputAsHandled();
 			return;
 		}
+		if (IsDisplayTabActive() && HitTestControl(_emojiIconsToggle, touch.Position))
+		{
+			_emojiIconsToggle.ButtonPressed = !_emojiIconsToggle.ButtonPressed;
+			OnEmojiIconsToggled(_emojiIconsToggle.ButtonPressed);
+			GetViewport().SetInputAsHandled();
+			return;
+		}
 		if (IsDisplayTabActive() && HitTestControl(_intentIconFloatingToggle, touch.Position))
 		{
 			_intentIconFloatingToggle.ButtonPressed = !_intentIconFloatingToggle.ButtonPressed;
@@ -1402,9 +1504,12 @@ public partial class SettingsPage : Control
 		_resolutionOptionButton.CustomMinimumSize = new Vector2(260, 56);
 		_windowModeOptionButton.CustomMinimumSize = new Vector2(260, 56);
 		_cardDescriptionAlignmentOptionButton.CustomMinimumSize = new Vector2(260, 56);
+		_emojiIconsToggle.CustomMinimumSize = new Vector2(320, 56);
 		_intentIconFloatingToggle.CustomMinimumSize = new Vector2(260, 56);
 		_intentValueFloatingToggle.CustomMinimumSize = new Vector2(260, 56);
 		_intentTooltipShowAllToggle.CustomMinimumSize = new Vector2(260, 56);
+		_fontScaleSlider.CustomMinimumSize = new Vector2(200, 56);
+		_deploySpeedSlider.CustomMinimumSize = new Vector2(200, 56);
 		_backButton.CustomMinimumSize = new Vector2(220, 56);
 		_backButton.AddThemeFontSizeOverride("font_size", 22);
 		_consoleButton.CustomMinimumSize = new Vector2(220, 56);

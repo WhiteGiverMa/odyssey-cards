@@ -160,7 +160,7 @@ public partial class EmotePresetPage : Control
 
 		var badge = new Label
 		{
-			Text = entry.IsOfficialCollection ? "★" : (index + 1).ToString(),
+			Text = entry.IsOfficialCollection ? UiSymbolMode.Select("OFF", "★") : (index + 1).ToString(),
 			CustomMinimumSize = new Vector2(28, 0),
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};

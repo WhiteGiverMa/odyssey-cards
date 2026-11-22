@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GD = OdysseyCards.Core.ModelLog;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
+using GD = OdysseyCards.Core.ModelLog;
 
 namespace OdysseyCards.Card;
 
@@ -617,6 +617,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	{
 		var card = Data is null ? new Card(Id, Type, ActionCost) : new Card(Data);
 		card.CopyRuntimeModifiersFrom(this);
+		card.SetRuntimeStatSnapshot(Attack, CurrentHealth);
 		return card;
 	}
 
@@ -757,6 +758,8 @@ public class Minion : Card, IDamageSource, IDamageTarget
 			effects.Add(new DisplayableEffect
 			{
 				Icon = data.Value.Icon,
+				PlainLabel = EffectIconTable.GetPlainLabel(data.Value),
+				AccentColorRgba = data.Value.AccentColorRgba,
 				Name = Localization.Localization.T(data.Value.NameKey, ""),
 				Stacks = se.Stacks,
 				Description = Localization.Localization.T(data.Value.DescKey, ""),
@@ -785,10 +788,11 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		{
 			bool isBuff = attackDelta > 0;
 			string icon = isBuff ? "⚔" : "🔽";
-			string sign = isBuff ? "+" : "";
 			effects.Add(new DisplayableEffect
 			{
 				Icon = icon,
+				PlainLabel = EffectIconTable.GetPlainLabel("攻", "ATK"),
+				AccentColorRgba = isBuff ? EffectIconTable.BuffColor : EffectIconTable.DebuffColor,
 				Name = isBuff
 					? Localization.Localization.T("stat.attack_up", "攻击力+{value}").Replace("{value}", attackDelta.ToString())
 					: Localization.Localization.T("stat.attack_down", "攻击力{value}").Replace("{value}", attackDelta.ToString()),
@@ -804,10 +808,11 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		{
 			bool isBuff = defenseDelta > 0;
 			string icon = isBuff ? "🛡" : "💔";
-			string sign = isBuff ? "+" : "";
 			effects.Add(new DisplayableEffect
 			{
 				Icon = icon,
+				PlainLabel = EffectIconTable.GetPlainLabel("防", "DEF"),
+				AccentColorRgba = isBuff ? EffectIconTable.DefenseColor : EffectIconTable.DebuffColor,
 				Name = isBuff
 					? Localization.Localization.T("stat.defense_up", "防御力+{value}").Replace("{value}", defenseDelta.ToString())
 					: Localization.Localization.T("stat.defense_down", "防御力{value}").Replace("{value}", defenseDelta.ToString()),
@@ -837,6 +842,8 @@ public class Minion : Card, IDamageSource, IDamageTarget
 			effects.Add(new DisplayableEffect
 			{
 				Icon = "💀",
+				PlainLabel = EffectIconTable.GetPlainLabel("亡", "DTH"),
+				AccentColorRgba = EffectIconTable.DebuffColor,
 				Name = Localization.Localization.T("modifier.deathrattle_replaced", "亡语替换"),
 				Stacks = 0,
 				Description = Localization.Localization.T("modifier.deathrattle_replaced_desc", "亡语效果已被替换。"),
@@ -882,6 +889,8 @@ public class Minion : Card, IDamageSource, IDamageTarget
 			effects.Add(new DisplayableEffect
 			{
 				Icon = "🛡",
+				PlainLabel = EffectIconTable.GetPlainLabel("嘲", "TNT"),
+				AccentColorRgba = EffectIconTable.DefenseColor,
 				Name = Localization.Localization.T("keyword.taunt", "嘲讽"),
 				Stacks = 0,
 				Description = Localization.Localization.T("keyword.taunt_desc", "敌方随从必须优先攻击此随从。"),
@@ -896,6 +905,8 @@ public class Minion : Card, IDamageSource, IDamageTarget
 			effects.Add(new DisplayableEffect
 			{
 				Icon = "🗡",
+				PlainLabel = EffectIconTable.GetPlainLabel("伏", "AMB"),
+				AccentColorRgba = EffectIconTable.BuffColor,
 				Name = Localization.Localization.T("keyword.ambush", "伏击"),
 				Stacks = 0,
 				Description = Localization.Localization.T("keyword.ambush_desc", "每回合首次被攻击时，先于攻击者造成反击伤害。"),
@@ -910,6 +921,8 @@ public class Minion : Card, IDamageSource, IDamageTarget
 			effects.Add(new DisplayableEffect
 			{
 				Icon = "💥",
+				PlainLabel = EffectIconTable.GetPlainLabel("冲", "IMP"),
+				AccentColorRgba = EffectIconTable.AttackColor,
 				Name = Localization.Localization.T("keyword.impact", "冲击"),
 				Stacks = 0,
 				Description = Localization.Localization.T("keyword.impact_desc", "攻击时抵消所有反击伤害（一次性消耗）。"),

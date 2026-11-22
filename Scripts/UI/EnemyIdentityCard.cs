@@ -4,6 +4,7 @@ using Godot;
 using OdysseyCards.AI;
 using OdysseyCards.AI.Intents;
 using OdysseyCards.Combat;
+using OdysseyCards.Core;
 
 namespace OdysseyCards.UI;
 
@@ -17,6 +18,9 @@ public partial class EnemyIdentityCard : Panel
 {
 	public int EnemyIndex { get; }
 
+	/// <summary>身份卡内的效果图标栏；亮牌演出用它作为敌方领域/反制的收尾锚点。</summary>
+	public EffectBar EffectBar => _effectBar;
+
 	private readonly Label _nameLabel;
 	private readonly HealthBar _healthBar;
 	private readonly Label _armorLabel;
@@ -28,6 +32,15 @@ public partial class EnemyIdentityCard : Panel
 	private readonly HBoxContainer _statusContainer;
 	private readonly EffectBar _effectBar;
 	private readonly HBoxContainer _intentIconContainer;
+
+	// ===== 基础字号（实际字号 = 基础字号 × 界面字体倍率） =====
+	private const int NameBaseFontSize = 12;
+	private const int ArmorBaseFontSize = 12;
+	private const int DefenseBaseFontSize = 11;
+	private const int WeaponBaseFontSize = 11;
+	private const int IntentBaseFontSize = 12;
+	private const int TargetButtonBaseFontSize = 14;
+	private const int StatusBadgeBaseFontSize = 9;
 
 	// 攻击目标模式覆盖层 + 边框样式
 	private readonly ColorRect _attackOverlay;
@@ -59,7 +72,7 @@ public partial class EnemyIdentityCard : Panel
 		var unit = combat.EnemyUnits[enemyIndex];
 
 		// Panel setup——紧凑信息条（不 ExpandFill，EnemyArea HBox 居中排列，多敌人时自然并拢）
-		CustomMinimumSize = new Vector2(200, 112);
+		CustomMinimumSize = new Vector2(200, 118);
 
 		// --- Style: border via StyleBoxFlat ---
 		_normalBorderStyle = new StyleBoxFlat
@@ -121,7 +134,6 @@ public partial class EnemyIdentityCard : Panel
 			CustomMinimumSize = new Vector2(50, 0),
 		};
 		_nameLabel.AddThemeColorOverride("font_color", _nameColor);
-		_nameLabel.AddThemeFontSizeOverride("font_size", 12);
 		row1.AddChild(_nameLabel);
 
 		_healthBar = new HealthBar
@@ -137,24 +149,20 @@ public partial class EnemyIdentityCard : Panel
 		var row2 = new HBoxContainer();
 		_armorLabel = new Label { Text = "", Visible = false };
 		_armorLabel.AddThemeColorOverride("font_color", _armorColor);
-		_armorLabel.AddThemeFontSizeOverride("font_size", 12);
 		row2.AddChild(_armorLabel);
 
 		_defenseLabel = new Label { Text = "", Visible = false };
 		_defenseLabel.AddThemeColorOverride("font_color", _defenseColor);
-		_defenseLabel.AddThemeFontSizeOverride("font_size", 11);
 		row2.AddChild(_defenseLabel);
 		content.AddChild(row2);
 
 		// Row 3: Weapon
 		_weaponLabel = new Label { Text = "" };
-		_weaponLabel.AddThemeFontSizeOverride("font_size", 11);
 		content.AddChild(_weaponLabel);
 
 		// Row 4: Intent
 		_intentLabel = new Label { Text = "" };
 		_intentLabel.AddThemeColorOverride("font_color", _intentColor);
-		_intentLabel.AddThemeFontSizeOverride("font_size", 12);
 		content.AddChild(_intentLabel);
 
 		// Row 5: Status effects
@@ -188,23 +196,21 @@ public partial class EnemyIdentityCard : Panel
 		};
 		_attackButton = new Button
 		{
-			Text = "⚔",
-			CustomMinimumSize = new Vector2(120, 30),
+			Text = UiSymbolMode.Select("ATK", "⚔"),
+			CustomMinimumSize = new Vector2(120, 34),
 			Flat = true,
 			Visible = false,
 		};
-		_attackButton.AddThemeFontSizeOverride("font_size", 14);
 		_attackButton.AddThemeColorOverride("font_color", new Color(1f, 0.3f, 0.3f));
 		btnRow.AddChild(_attackButton);
 
 		_spellButton = new Button
 		{
-			Text = "✦",
-			CustomMinimumSize = new Vector2(120, 30),
+			Text = UiSymbolMode.Select("CAST", "✦"),
+			CustomMinimumSize = new Vector2(120, 34),
 			Flat = true,
 			Visible = false,
 		};
-		_spellButton.AddThemeFontSizeOverride("font_size", 14);
 		btnRow.AddChild(_spellButton);
 		content.AddChild(btnRow);
 
@@ -225,6 +231,20 @@ public partial class EnemyIdentityCard : Panel
 		// Mouse filter — Pass to allow combat targeting clicks through
 		// (intent icons and attack buttons handle their own clicks)
 		MouseFilter = MouseFilterEnum.Pass;
+
+		ApplyFontScale();
+	}
+
+	/// <summary>按界面字体倍率刷新敌方身份卡内所有显式字号（复用同一卡片时不重建节点）。</summary>
+	public void ApplyFontScale()
+	{
+		_nameLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(NameBaseFontSize));
+		_armorLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(ArmorBaseFontSize));
+		_defenseLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(DefenseBaseFontSize));
+		_weaponLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(WeaponBaseFontSize));
+		_intentLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(IntentBaseFontSize));
+		_attackButton.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(TargetButtonBaseFontSize));
+		_spellButton.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(TargetButtonBaseFontSize));
 	}
 
 	private IntentIcon? _manualHoverIcon;
@@ -304,7 +324,8 @@ public partial class EnemyIdentityCard : Panel
 		bool isDead = body.IsDead;
 
 		// Name
-		_nameLabel.Text = isDead ? $"{brain.Name} ☠" : brain.Name;
+		string deadMarker = UiSymbolMode.Select(Localization.Localization.T("ui.combat.dead_marker", "[阵亡]"), "☠");
+		_nameLabel.Text = isDead ? $"{brain.Name} {deadMarker}" : brain.Name;
 		Modulate = isDead ? new Color(1f, 1f, 1f, 0.55f) : Colors.White;
 
 		// HP
@@ -316,7 +337,7 @@ public partial class EnemyIdentityCard : Panel
 			_defenseLabel.Visible = false;
 			_weaponLabel.Text = "";
 			_intentLabel.Visible = true;
-			_intentLabel.Text = "☠";
+			_intentLabel.Text = deadMarker;
 			_intentIconContainer.Visible = false;
 			SetAttackTargetHighlight(false);
 			_spellButton.Visible = false;
@@ -399,7 +420,7 @@ public partial class EnemyIdentityCard : Panel
 				CustomMinimumSize = new Vector2(18, 14),
 			};
 			badge.AddThemeColorOverride("font_color", new Color(0.8f, 0.5f, 1f));
-			badge.AddThemeFontSizeOverride("font_size", 9);
+			badge.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(StatusBadgeBaseFontSize));
 			_statusContainer.AddChild(badge);
 		}
 

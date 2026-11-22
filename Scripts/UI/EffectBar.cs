@@ -38,6 +38,36 @@ public partial class EffectBar : HBoxContainer
 		AddThemeConstantOverride("separation", Spacing);
 	}
 
+	public override void _Ready()
+	{
+		if (UIScaler.Instance != null)
+			UIScaler.Instance.OnEmojiIconsChanged += OnEmojiIconsChanged;
+	}
+
+	public override void _ExitTree()
+	{
+		if (UIScaler.Instance != null)
+			UIScaler.Instance.OnEmojiIconsChanged -= OnEmojiIconsChanged;
+		HideTooltip();
+	}
+
+	private void OnEmojiIconsChanged()
+	{
+		if (!IsInsideTree() || IsQueuedForDeletion())
+			return;
+		_effectSignature = string.Empty;
+		Populate(_effects);
+	}
+
+	private static Color FromRgba(uint rgba)
+	{
+		return new Color(
+			((rgba >> 24) & 0xFF) / 255f,
+			((rgba >> 16) & 0xFF) / 255f,
+			((rgba >> 8) & 0xFF) / 255f,
+			(rgba & 0xFF) / 255f);
+	}
+
 	/// <summary>
 	/// 填充效果列表，安全重建所有图标。
 	/// </summary>
@@ -128,7 +158,7 @@ public partial class EffectBar : HBoxContainer
 		return IsInsideTree() && !IsQueuedForDeletion() && GetTree() != null;
 	}
 
-	private static string BuildSignature(IReadOnlyList<DisplayableEffect> effects)
+	private static string BuildSignature(List<DisplayableEffect> effects)
 	{
 		if (effects.Count == 0)
 		{
@@ -139,7 +169,7 @@ public partial class EffectBar : HBoxContainer
 		for (int i = 0; i < effects.Count; i++)
 		{
 			var effect = effects[i];
-			parts[i] = $"{effect.SortOrder}:{effect.Category}:{effect.SourceId}:{effect.Name}:{effect.Icon}:{effect.Stacks}:{effect.IsBuff}:{effect.Description}";
+			parts[i] = $"{effect.SortOrder}:{effect.Category}:{effect.SourceId}:{effect.Name}:{effect.Icon}:{effect.PlainLabel}:{effect.AccentColorRgba}:{effect.Stacks}:{effect.IsBuff}:{effect.Description}:{UiSymbolMode.Enabled}";
 		}
 
 		return string.Join("|", parts);
@@ -281,7 +311,9 @@ public partial class EffectBar : HBoxContainer
 			};
 			var bgStyle = new StyleBoxFlat
 			{
-				BgColor = isBuff ? BuffBgColor : DebuffBgColor,
+				BgColor = UiSymbolMode.Enabled
+					? (isBuff ? BuffBgColor : DebuffBgColor)
+					: FromRgba(effect.AccentColorRgba),
 				CornerRadiusTopLeft = 2,
 				CornerRadiusTopRight = 2,
 				CornerRadiusBottomLeft = 2,
@@ -293,13 +325,14 @@ public partial class EffectBar : HBoxContainer
 
 			_iconLabel = new Label
 			{
-				Text = effect.Icon,
+				Text = UiSymbolMode.Select(effect.PlainLabel, effect.Icon),
 				Position = new Vector2(2, 1),
 				Size = new Vector2(IconCellSize - 4, IconCellSize - 4),
 				HorizontalAlignment = HorizontalAlignment.Center,
 				VerticalAlignment = VerticalAlignment.Center,
 			};
-			_iconLabel.AddThemeFontSizeOverride("font_size", IconFontSize);
+			_iconLabel.AddThemeColorOverride("font_color", Colors.White);
+			_iconLabel.AddThemeFontSizeOverride("font_size", UiSymbolMode.Enabled ? IconFontSize : 9);
 			_iconLabel.MouseFilter = MouseFilterEnum.Ignore;
 			AddChild(_iconLabel);
 
@@ -452,12 +485,21 @@ public partial class EffectBar : HBoxContainer
 			AddChild(vbox);
 
 			var titleRow = new HBoxContainer();
-			var iconLabel = new Label
+			if (UiSymbolMode.Enabled)
 			{
-				Text = effect.Icon,
-			};
-			iconLabel.AddThemeFontSizeOverride("font_size", 12);
-			titleRow.AddChild(iconLabel);
+				var iconLabel = new Label { Text = effect.Icon };
+				iconLabel.AddThemeFontSizeOverride("font_size", 12);
+				titleRow.AddChild(iconLabel);
+			}
+			else
+			{
+				titleRow.AddChild(new ColorRect
+				{
+					Color = FromRgba(effect.AccentColorRgba),
+					CustomMinimumSize = new Vector2(12, 12),
+					MouseFilter = MouseFilterEnum.Ignore,
+				});
+			}
 
 			var nameLabel = new Label
 			{

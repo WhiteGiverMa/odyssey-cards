@@ -54,7 +54,7 @@ internal sealed class VictoryDefeatResolver
 		// 胜利 = 所有敌方英雄均已死亡
 		if (_enemyUnits.All(u => u.Body.IsDead))
 		{
-			GD.Print("[CombatManager] ★★★ 敌方全部被击败 — 玩家胜利！★★★");
+			GD.Print("[CombatManager] [Victory] 敌方全部被击败 — 玩家胜利！");
 
 			AwardGold();
 
@@ -65,7 +65,7 @@ internal sealed class VictoryDefeatResolver
 
 		if (_playerCore.IsDead)
 		{
-			GD.Print("[CombatManager] ☠☠☠ 玩家英雄被击败 — 玩家失败 ☠☠☠");
+			GD.Print("[CombatManager] [Defeat] 玩家英雄被击败 — 玩家失败");
 
 			_state.SetDefeat();
 			OnGameOver?.Invoke(false);

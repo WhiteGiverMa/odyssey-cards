@@ -1005,13 +1005,13 @@ public partial class MapUI : Control
 
 		_layerLabel.Text = "";
 		_progressLabel.Text = Localization.Localization.T("ui.map.adventure_complete", "冒险完成！");
-		_titleLabel.Text = Localization.Localization.T("ui.map.victory_title", "★ 胜利 ★");
+		_titleLabel.Text = UiSymbolMode.Select(Localization.Localization.T("ui.map.victory_title", "胜利"), $"★ {Localization.Localization.T("ui.map.victory_title", "胜利")} ★");
 		_quitButton.Visible = false;
 
 		// 弹出胜利对话框
 		var (dialog, content, buttonRow) = MobileDialogHost.CreateDialog(
 			this,
-			Localization.Localization.T("ui.map.victory_title", "★ 胜利 ★"),
+			UiSymbolMode.Select(Localization.Localization.T("ui.map.victory_title", "胜利"), $"★ {Localization.Localization.T("ui.map.victory_title", "胜利")} ★"),
 			width: 400);
 
 		var victoryLabel = new Label

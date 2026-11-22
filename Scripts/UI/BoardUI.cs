@@ -28,6 +28,8 @@ public partial class BoardUI : Control
 	private bool _includePlayer;
 	private bool _includeEnemy;
 	private bool _arenaSyncQueued;
+	private UIScaler? _fontScaleSource;
+	private const int RowTitleBaseFontSize = 12;
 
 	/// <summary>下一波美术组件可按位置挂载，不能更改模型状态。</summary>
 	public BoardSlot? GetSlotView(BoardPosition position) => _slots.GetValueOrDefault(position);
@@ -68,7 +70,7 @@ public partial class BoardUI : Control
 				HorizontalAlignment = HorizontalAlignment.Center,
 				MouseFilter = MouseFilterEnum.Ignore,
 			};
-			title.AddThemeFontSizeOverride("font_size", 10);
+			title.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(RowTitleBaseFontSize));
 			_rowTitles.Add(row, title);
 			rows.AddChild(title);
 			var line = new HBoxContainer { Name = row.ToString(), Alignment = BoxContainer.AlignmentMode.Center };
@@ -87,12 +89,37 @@ public partial class BoardUI : Control
 			}
 		}
 		QueueArenaSynchronization();
+
+		_fontScaleSource = UIScaler.Instance;
+		if (_fontScaleSource != null)
+			_fontScaleSource.OnFontScaleChanged += OnFontScaleChanged;
 	}
 
 	public override void _ExitTree()
 	{
 		DisableKeyboardTargeting();
 		UnbindBoard();
+		if (_fontScaleSource != null)
+			_fontScaleSource.OnFontScaleChanged -= OnFontScaleChanged;
+		_fontScaleSource = null;
+	}
+
+	/// <summary>界面字体倍率变化：刷新三线标题与全部槽位字号。</summary>
+	private void OnFontScaleChanged()
+	{
+		if (!IsInsideTree() || IsQueuedForDeletion())
+			return;
+		ApplyFontScale();
+		QueueArenaSynchronization();
+	}
+
+	/// <summary>把三线标题与槽位文字统一接入界面字体缩放。</summary>
+	public void ApplyFontScale()
+	{
+		foreach (var (_, title) in _rowTitles)
+			title.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(RowTitleBaseFontSize));
+		foreach (var slot in _slots.Values)
+			slot.ApplyFontScale();
 	}
 
 	public override void _Notification(int what)
@@ -351,6 +378,8 @@ public partial class BoardUI : Control
 		private readonly Label _intent = new() { HorizontalAlignment = HorizontalAlignment.Center, AutowrapMode = TextServer.AutowrapMode.Arbitrary, MaxLinesVisible = 2, ClipText = true, MouseFilter = MouseFilterEnum.Ignore };
 		private readonly StyleBoxFlat _style = new() { BgColor = new Color("191826") };
 		private bool _focused;
+		private const int ContentBaseFontSize = 12;
+		private const int IntentBaseFontSize = 11;
 		private BoardSlot() { }
 		public BoardSlot(BoardPosition position, BoardUI parent)
 		{
@@ -360,18 +389,28 @@ public partial class BoardUI : Control
 			MouseFilter = MouseFilterEnum.Stop;
 			var box = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
 			_content.SizeFlagsVertical = SizeFlags.ExpandFill;
-			_content.AddThemeFontSizeOverride("font_size", 12);
-			_intent.AddThemeFontSizeOverride("font_size", 10);
 			AddChild(box);
 			box.AddChild(_content);
 			box.AddChild(_intent);
+			ApplyFontScale();
 			UpdateDisplay(null);
+		}
+
+		/// <summary>槽位随从名/攻血与意图文字跟随界面字体缩放。</summary>
+		public void ApplyFontScale()
+		{
+			_content.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(ContentBaseFontSize));
+			_intent.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(IntentBaseFontSize));
 		}
 		public void UpdateDisplay(Minion? minion)
 		{
 			OccupyingMinion = minion;
+			string armorText = minion == null ? string.Empty : UiSymbolMode.Select(
+				$"{Loc.T("ui.board.armor_prefix", "甲")}{minion.CurrentArmor}", $"🛡{minion.CurrentArmor}");
+			string actionText = minion == null ? string.Empty : UiSymbolMode.Select(
+				$"{Loc.T("ui.board.act_prefix", "行")}{minion.ActionCost}", $"◆{minion.ActionCost}");
 			_content.Text = minion == null ? $"[{SlotIndex + 1}]\n{Loc.T("ui.combat.board_empty", "空")}"
-				: $"{minion.GetLocalizedName()}\n{GetUnitClassName(minion.UnitClass)}\n{minion.Attack}/{minion.CurrentHealth}  {Loc.T("ui.board.defense_prefix", "防")}{minion.Defense}  🛡{minion.CurrentArmor}\n◆{minion.ActionCost}  {Keywords(minion)}";
+				: $"{minion.GetLocalizedName()}\n{GetUnitClassName(minion.UnitClass)}\n{minion.Attack}/{minion.CurrentHealth}  {Loc.T("ui.board.defense_prefix", "防")}{minion.Defense}  {armorText}\n{actionText}  {Keywords(minion)}";
 			if (minion == null)
 				SetIntentText(null);
 			ApplyStyle();

@@ -105,6 +105,19 @@ public class Card
 	/// </summary>
 	public int BonusEnergyValue { get; set; }
 
+	/// <summary>战斗日志等历史卡面快照使用的攻击力；null 表示读取静态资源。</summary>
+	public int? RuntimeAttackSnapshot { get; private set; }
+
+	/// <summary>战斗日志等历史卡面快照使用的当前生命；null 表示读取静态资源。</summary>
+	public int? RuntimeHealthSnapshot { get; private set; }
+
+	/// <summary>记录随从在某一结算时刻的真实攻防快照，不改变静态卡牌资源。</summary>
+	public void SetRuntimeStatSnapshot(int attack, int currentHealth)
+	{
+		RuntimeAttackSnapshot = attack;
+		RuntimeHealthSnapshot = currentHealth;
+	}
+
 	/// <summary>
 	/// 创建卡牌运行时实例。
 	/// </summary>
@@ -133,6 +146,18 @@ public class Card
 		EndTurnDrawPileReturnsRemaining = other.EndTurnDrawPileReturnsRemaining;
 		IsRevealedByIntel = other.IsRevealedByIntel;
 		BonusEnergyValue = other.BonusEnergyValue;
+	}
+
+	/// <summary>创建保留运行时费用、关键词修饰与随从攻防的历史卡面快照。</summary>
+	public Card CreateSnapshot()
+	{
+		var snapshot = Data != null
+			? new Card(Data)
+			: new Card(Id, Type, ActionCost, Cost);
+		snapshot.CopyRuntimeModifiersFrom(this);
+		snapshot.RuntimeAttackSnapshot = RuntimeAttackSnapshot;
+		snapshot.RuntimeHealthSnapshot = RuntimeHealthSnapshot;
+		return snapshot;
 	}
 
 	/// <summary>

@@ -52,9 +52,15 @@ public static class UIThemeFactory
 
 	private static Theme? _shared;
 
+	/// <summary>共享 Theme 覆盖的控件类型——统一跟随界面字体缩放。</summary>
+	private static readonly string[] _fontScaledTypes = { "Label", "Button", "CheckBox", "OptionButton" };
+
+	/// <summary>主题基础字号（未缩放前）；与 Godot 默认一致。</summary>
+	private const int BaseThemeFontSize = 16;
+
 	/// <summary>
 	/// 获取全局共享主题（懒构建，单例）。
-	/// 覆盖 Button 五态、PanelContainer、Label 字色规范。
+	/// 覆盖 Button 五态、PanelContainer、Label 字色规范，并应用当前界面字体缩放。
 	/// </summary>
 	public static Theme GetSharedTheme()
 	{
@@ -86,8 +92,29 @@ public static class UIThemeFactory
 		// ===== AcceptDialog / 弹窗 =====
 		theme.SetStylebox("panel", "AcceptDialog", CreatePanelStyle(PanelBg, BorderNormal, 10, 2));
 
+		ApplyFontSizes(theme);
+
 		_shared = theme;
 		return _shared;
+	}
+
+	/// <summary>
+	/// 原地刷新共享 Theme 的字号。Godot 4 的 Theme 是被控件共享引用的实例，
+	/// 改这里即可让所有未显式 AddThemeFontSizeOverride 的控件实时换字号。
+	/// </summary>
+	public static void RefreshFontSizes()
+	{
+		if (_shared == null)
+			return;
+		ApplyFontSizes(_shared);
+	}
+
+	private static void ApplyFontSizes(Theme theme)
+	{
+		int fontSize = UIScaler.ApplyFontScale(BaseThemeFontSize);
+		theme.DefaultFontSize = fontSize;
+		foreach (string type in _fontScaledTypes)
+			theme.SetFontSize("font_size", type, fontSize);
 	}
 
 	/// <summary>测试挂钩：清空共享主题缓存。</summary>

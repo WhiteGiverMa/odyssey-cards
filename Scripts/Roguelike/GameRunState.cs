@@ -155,7 +155,7 @@ public class GameRunState
 		if (SelectedRoom.Type == RoomType.Boss)
 		{
 			IsRunComplete = true;
-			GD.Print("[GameRunState] ★★★ Boss 被击败 — 冒险胜利！★★★");
+			GD.Print("[GameRunState] [Victory] Boss 被击败 — 冒险胜利！");
 			OnRunCompleted?.Invoke();
 			return;
 		}
@@ -185,7 +185,7 @@ public class GameRunState
 	{
 		IsRunFailed = true;
 		IsRunComplete = true;
-		GD.Print("[GameRunState] ☠ 冒险失败 — 玩家阵亡");
+		GD.Print("[GameRunState] [Defeat] 冒险失败 — 玩家阵亡");
 		OnRunFailed?.Invoke();
 	}
 

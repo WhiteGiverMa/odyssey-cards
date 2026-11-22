@@ -25,6 +25,19 @@ public partial class UIScaler : Node
 	private Vector2 _currentCardSize = new(175, 245);
 	private const string _configPath = "user://settings.cfg";
 
+	/// <summary>
+	/// 战斗动画速度默认倍率。低于 1.0 让亮牌/部署/敌方回合步进更从容可读。
+	/// 持久化键已升级为 "combat_animation_speed"：旧配置里存过 1.0 的玩家也会拿到新的慢速默认值。
+	/// </summary>
+	public const float DefaultDeployAnimationSpeed = 0.75f;
+	public const float MinDeployAnimationSpeed = 0.1f;
+	public const float MaxDeployAnimationSpeed = 3.0f;
+
+	/// <summary>界面字体缩放默认倍率——比旧版放大 20%，并清晰易读。</summary>
+	public const float DefaultFontScale = 1.20f;
+	public const float MinFontScale = 0.8f;
+	public const float MaxFontScale = 1.8f;
+
 	/// <summary>预设分辨率列表（从高到低）</summary>
 	private static readonly (int Width, int Height)[] _presetResolutions = new[]
 	{
@@ -42,6 +55,9 @@ public partial class UIScaler : Node
 	public event Action OnCardDescriptionSettingsChanged;
 	public event Action OnParticleEffectSettingsChanged;
 	public event Action OnRarityColorSchemeChanged;
+	public event Action? OnEmojiIconsChanged;
+	/// <summary>界面字体缩放变化——各 UI 表面据此刷新字号与布局。</summary>
+	public event Action? OnFontScaleChanged;
 
 	public float CurrentScale { get; private set; } = 1f;
 	public Vector2 CurrentCardSize => _currentCardSize;
@@ -53,6 +69,8 @@ public partial class UIScaler : Node
 	public bool DevModeEnabled { get; private set; }
 	/// <summary>涩情文案开关（仅存档需持久化，运行时由 GameManager 同步给 EventData 读取）。</summary>
 	public bool EcchiTextEnabled { get; private set; }
+	/// <summary>Emoji 图标对照模式；默认关闭，使用纯色色块与简字。</summary>
+	public bool EmojiIconsEnabled { get; private set; }
 
 	/// <summary>稀有度颜色方案索引：0=经典（金/银/铜），1=新版（紫/蓝/绿）。</summary>
 	public int RarityColorSchemeIndex { get; private set; }
@@ -65,12 +83,15 @@ public partial class UIScaler : Node
 	public float DamageNumberScale { get; private set; } = 1.0f;
 	/// <summary>表情文字缩放（浮动表情弹幕的字号和浮动距离）</summary>
 	public float EmoteScale { get; private set; } = 1.0f;
-	/// <summary>随从部署动画速度倍率（实际时长 = 基础时长 / 速度，1.0=正常，2.0=两倍速）</summary>
-	public float DeployAnimationSpeed { get; private set; } = 1.0f;
+	/// <summary>随从部署/亮牌等战斗演出速度倍率（实际时长 = 基础时长 / 速度，0.75=默认从容，2.0=两倍速）</summary>
+	public float DeployAnimationSpeed { get; private set; } = DefaultDeployAnimationSpeed;
+	/// <summary>界面字体缩放倍率（仅界面文字；卡面内部排版仍按卡框自身尺寸自适应）</summary>
+	public float FontScale { get; private set; } = DefaultFontScale;
 
 	public override void _Ready()
 	{
 		Instance = this;
+		UiSymbolMode.Enabled = EmojiIconsEnabled;
 		GetTree().Root.SizeChanged += OnWindowSizeChanged;
 
 		LoadSettings();
@@ -109,7 +130,24 @@ public partial class UIScaler : Node
 
 	public int GetScaledFontSize(int baseSize)
 	{
-		return Mathf.RoundToInt(baseSize * CurrentScale);
+		return Mathf.Max(8, Mathf.RoundToInt(baseSize * CurrentScale * FontScale));
+	}
+
+	/// <summary>按当前界面字体倍率缩放字号；供各 UI 控件一行调用。</summary>
+	public int ScaleFont(int baseSize) => ScaleFontSize(baseSize, FontScale);
+
+	/// <summary>
+	/// 纯计算：把基础字号按倍率缩放并夹紧到可读下限与可调范围。
+	/// 无 <see cref="Instance"/> 时（编辑器预览/单测）回退到 <see cref="DefaultFontScale"/>。
+	/// </summary>
+	public static int ApplyFontScale(int baseSize)
+		=> ScaleFontSize(baseSize, Instance?.FontScale ?? DefaultFontScale);
+
+	/// <summary>纯计算：字号缩放公式（倍率夹紧 0.8~1.8，结果不小于 8px）。</summary>
+	public static int ScaleFontSize(int baseSize, float fontScale)
+	{
+		float clamped = Mathf.Clamp(fontScale, MinFontScale, MaxFontScale);
+		return Mathf.Max(8, Mathf.RoundToInt(baseSize * clamped));
 	}
 
 	public Vector2 GetScaledSize(Vector2 baseSize)
@@ -372,6 +410,21 @@ public partial class UIScaler : Node
 	/// <summary>涩情文案切换事件——EventUI 等订阅用于实时刷新显示文本。</summary>
 	public event Action? OnEcchiTextChanged;
 
+	/// <summary>切换 Emoji 图标对照模式，并同步纯 C# UI 符号真源。</summary>
+	public void SetEmojiIconsEnabled(bool enabled)
+	{
+		if (EmojiIconsEnabled == enabled)
+		{
+			UiSymbolMode.Enabled = enabled;
+			return;
+		}
+
+		EmojiIconsEnabled = enabled;
+		UiSymbolMode.Enabled = enabled;
+		SaveSettings();
+		OnEmojiIconsChanged?.Invoke();
+	}
+
 	/// <summary>设置弹道特效缩放并持久化（范围 0.0~5.0）。</summary>
 	public void SetProjectileScale(float scale)
 	{
@@ -428,10 +481,10 @@ public partial class UIScaler : Node
 		OnParticleEffectSettingsChanged?.Invoke();
 	}
 
-	/// <summary>设置随从部署动画速度倍率并持久化（范围 0.1~3.0，实际时长=基础时长/速度）。</summary>
+	/// <summary>设置战斗演出速度倍率并持久化（实际时长=基础时长/速度）。</summary>
 	public void SetDeployAnimationSpeed(float speed)
 	{
-		speed = Mathf.Clamp(speed, 0.1f, 3.0f);
+		speed = Mathf.Clamp(speed, MinDeployAnimationSpeed, MaxDeployAnimationSpeed);
 		if (Mathf.Abs(DeployAnimationSpeed - speed) < 0.001f)
 		{
 			return;
@@ -440,6 +493,22 @@ public partial class UIScaler : Node
 		DeployAnimationSpeed = speed;
 		SaveSettings();
 		OnParticleEffectSettingsChanged?.Invoke();
+	}
+
+	/// <summary>设置界面字体缩放倍率并持久化（范围 0.8~1.8，默认 1.20）。</summary>
+	public void SetFontScale(float scale)
+	{
+		scale = Mathf.Clamp(scale, MinFontScale, MaxFontScale);
+		if (Mathf.Abs(FontScale - scale) < 0.001f)
+		{
+			return;
+		}
+
+		FontScale = scale;
+		SaveSettings();
+		// 共享 Theme 原地改字号：所有未写死 AddThemeFontSizeOverride 的控件全自动实时刷新。
+		UIThemeFactory.RefreshFontSizes();
+		OnFontScaleChanged?.Invoke();
 	}
 
 	/// <summary>设置稀有度颜色方案并持久化（0=经典, 1=新版）。</summary>
@@ -482,11 +551,13 @@ public partial class UIScaler : Node
 		config.SetValue("visual", "card_description_centered", CardDescriptionCentered);
 		config.SetValue("visual", "dev_mode", DevModeEnabled);
 		config.SetValue("visual", "ecchi_text", EcchiTextEnabled);
+		config.SetValue("visual", "emoji_icons", EmojiIconsEnabled);
 		config.SetValue("visual", "projectile_scale", ProjectileScale);
 		config.SetValue("visual", "card_fly_scale", CardFlyScale);
 		config.SetValue("visual", "damage_number_scale", DamageNumberScale);
 		config.SetValue("visual", "emote_scale", EmoteScale);
-		config.SetValue("visual", "deploy_animation_speed", DeployAnimationSpeed);
+		config.SetValue("visual", "combat_animation_speed", DeployAnimationSpeed);
+		config.SetValue("visual", "font_scale", FontScale);
 		config.SetValue("visual", "rarity_color_scheme", RarityColorSchemeIndex);
 
 		Error err = config.Save(_configPath);
@@ -522,6 +593,8 @@ public partial class UIScaler : Node
 		CardDescriptionCentered = config.GetValue("visual", "card_description_centered", false).AsBool();
 		DevModeEnabled = config.GetValue("visual", "dev_mode", false).AsBool();
 		EcchiTextEnabled = config.GetValue("visual", "ecchi_text", false).AsBool();
+		EmojiIconsEnabled = config.GetValue("visual", "emoji_icons", false).AsBool();
+		UiSymbolMode.Enabled = EmojiIconsEnabled;
 
 		// 持久化恢复后同步到 GameManager（Roguelike 层读取入口）
 		if (GameManager.Instance != null)
@@ -533,7 +606,12 @@ public partial class UIScaler : Node
 		CardFlyScale = (float)config.GetValue("visual", "card_fly_scale", 1.0).AsDouble();
 		DamageNumberScale = (float)config.GetValue("visual", "damage_number_scale", 1.0).AsDouble();
 		EmoteScale = (float)config.GetValue("visual", "emote_scale", 1.0).AsDouble();
-		DeployAnimationSpeed = (float)config.GetValue("visual", "deploy_animation_speed", 1.0).AsDouble();
+		DeployAnimationSpeed = Mathf.Clamp(
+			(float)config.GetValue("visual", "combat_animation_speed", DefaultDeployAnimationSpeed).AsDouble(),
+			MinDeployAnimationSpeed, MaxDeployAnimationSpeed);
+		FontScale = Mathf.Clamp(
+			(float)config.GetValue("visual", "font_scale", DefaultFontScale).AsDouble(),
+			MinFontScale, MaxFontScale);
 		RarityColorSchemeIndex = config.GetValue("visual", "rarity_color_scheme", 0).AsInt32();
 
 		if (IsMobile)

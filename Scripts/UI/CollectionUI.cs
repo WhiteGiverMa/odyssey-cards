@@ -626,7 +626,7 @@ public partial class CollectionUI : Control
 		// 返回按钮
 		_backButton = new Button
 		{
-			Text = Loc.T("ui.collection.back", "← 返回主菜单"),
+			Text = Loc.T("ui.collection.back", "返回主菜单"),
 			CustomMinimumSize = new Vector2(120 * s, 36 * s),
 		};
 		_backButton.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(14 * s));
@@ -678,7 +678,7 @@ public partial class CollectionUI : Control
 		// 删除牌组按钮
 		_deleteDeckButton = new Button
 		{
-			Text = "✕",
+			Text = UiSymbolMode.Select("X", "✕"),
 			TooltipText = Loc.T("ui.collection.delete_deck", "删除当前牌组"),
 			CustomMinimumSize = new Vector2(32 * s, 30 * s),
 		};
@@ -703,7 +703,7 @@ public partial class CollectionUI : Control
 		// 最小卡牌数警告标签
 		_minCardsWarning = new Label
 		{
-			Text = Loc.T("ui.collection.min_cards_warning", "⚠ 牌组不足 10 张卡牌，无法用于战斗"),
+			Text = UiSymbolMode.Prefix(Loc.T("ui.collection.min_cards_warning", "牌组不足 10 张卡牌，无法用于战斗"), "⚠ "),
 			HorizontalAlignment = HorizontalAlignment.Center,
 			Visible = false,
 		};
@@ -1999,11 +1999,11 @@ public partial class CollectionUI : Control
 	/// </summary>
 	private void RefreshLanguageTexts()
 	{
-		_backButton.Text = Loc.T("ui.collection.back", "← 返回主菜单");
+		_backButton.Text = Loc.T("ui.collection.back", "返回主菜单");
 		_deckNameEdit.PlaceholderText = Loc.T("ui.collection.deck_name_placeholder", "输入牌组名称");
 		_newDeckButton.TooltipText = Loc.T("ui.collection.new_deck", "新建牌组");
 		_deleteDeckButton.TooltipText = Loc.T("ui.collection.delete_deck", "删除当前牌组");
-		_minCardsWarning.Text = Loc.T("ui.collection.min_cards_warning", "⚠ 牌组不足 10 张卡牌，无法用于战斗");
+		_minCardsWarning.Text = UiSymbolMode.Prefix(Loc.T("ui.collection.min_cards_warning", "牌组不足 10 张卡牌，无法用于战斗"), "⚠ ");
 		_clearDeckButton.Text = Loc.T("ui.collection.clear_deck", "一键清空卡组");
 		_undoButton.Text = Loc.T("ui.collection.undo", "撤销");
 		_saveButton.Text = Loc.T("ui.collection.save_changes", "保存");

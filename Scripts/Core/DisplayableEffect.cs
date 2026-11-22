@@ -25,8 +25,19 @@ public enum EffectCategory
 /// </summary>
 public readonly struct DisplayableEffect
 {
-	/// <summary>Emoji 图标字符（如 "🔒"、"🔥"、"🛡"）</summary>
+	/// <summary>初始化默认的双模显示元数据。</summary>
+	public DisplayableEffect()
+	{
+	}
+
+	/// <summary>Emoji 图标字符，仅在对照模式下显示。</summary>
 	public string Icon { get; init; }
+
+	/// <summary>关闭 Emoji 时显示的 1~2 个简字或紧凑英文缩写。</summary>
+	public string PlainLabel { get; init; } = "?";
+
+	/// <summary>关闭 Emoji 时的纯色底板，RGBA 排列。</summary>
+	public uint AccentColorRgba { get; init; } = 0x7FD8FFFF;
 
 	/// <summary>本地化显示名称</summary>
 	public string Name { get; init; }

@@ -55,7 +55,7 @@ public static class RestSiteUI
 			}
 			hasRested = true;
 			restButton.Disabled = true;
-			restButton.Text = $"{restButton.Text} ✓";
+			restButton.Text = $"{restButton.Text} {UiSymbolMode.Select("[OK]", "✓")}";
 			restButton.AddThemeColorOverride("font_color", new Color(0.5f, 0.8f, 0.5f, 1));
 		};
 		content.AddChild(restButton);

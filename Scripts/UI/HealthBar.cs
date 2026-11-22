@@ -14,6 +14,10 @@ public partial class HealthBar : ProgressBar
 	public ICommander Target => _target;
 
 	private Label _healthLabel;
+	private UIScaler? _fontScaleSource;
+
+	/// <summary>生命数字基础字号（实际字号 = 基础字号 × 界面字体倍率，并按血条高度封顶）。</summary>
+	private const int HealthLabelBaseFontSize = 11;
 
 	// 共享样式资源（渐变填充只读共享，避免每条生命条重复构建纹理）
 	private static StyleBoxFlat _bgStyle;
@@ -44,9 +48,37 @@ public partial class HealthBar : ProgressBar
 				MouseFilter = MouseFilterEnum.Ignore,
 			};
 			_healthLabel.AddThemeColorOverride("font_color", new Color(1f, 1f, 1f));
-			_healthLabel.AddThemeFontSizeOverride("font_size", 11);
 			AddChild(_healthLabel);
 		}
+
+		ApplyFontScale();
+
+		_fontScaleSource = UIScaler.Instance;
+		if (_fontScaleSource != null)
+			_fontScaleSource.OnFontScaleChanged += ApplyFontScale;
+	}
+
+	public override void _ExitTree()
+	{
+		if (_fontScaleSource != null)
+			_fontScaleSource.OnFontScaleChanged -= ApplyFontScale;
+		_fontScaleSource = null;
+	}
+
+	public override void _Notification(int what)
+	{
+		if (what == NotificationResized && GodotObject.IsInstanceValid(_healthLabel))
+			ApplyFontScale();
+	}
+
+	/// <summary>生命数字跟随界面字体倍率，但不超过血条自身高度的可读上限（敌人 8px 细条不溢出）。</summary>
+	public void ApplyFontScale()
+	{
+		if (_healthLabel == null || !GodotObject.IsInstanceValid(_healthLabel))
+			return;
+		int maxForHeight = Mathf.Max(HealthLabelBaseFontSize, Mathf.RoundToInt(Size.Y * 0.9f));
+		_healthLabel.AddThemeFontSizeOverride("font_size",
+			Mathf.Min(UIScaler.ApplyFontScale(HealthLabelBaseFontSize), maxForHeight));
 	}
 
 	/// <summary>
@@ -127,8 +159,8 @@ public partial class HealthBar : ProgressBar
 				MouseFilter = MouseFilterEnum.Ignore,
 			};
 			_healthLabel.AddThemeColorOverride("font_color", new Color(1f, 1f, 1f));
-			_healthLabel.AddThemeFontSizeOverride("font_size", 11);
 			AddChild(_healthLabel);
+			ApplyFontScale();
 		}
 
 		_healthLabel.Text = $"{current}/{max}";

@@ -16,6 +16,12 @@ public partial class PlayerIdentityCard : Control
 	private static readonly Color _bgColor = new(0.08f, 0.1f, 0.18f, 0.85f);
 	private static readonly Color _borderColor = new(0.25f, 0.5f, 0.9f);
 
+	// ===== 基础字号（实际字号 = 基础字号 × 界面字体倍率） =====
+	private const int NameBaseFontSize = 13;
+	private const int SpellButtonBaseFontSize = 11;
+	private const int ArmorBaseFontSize = 12;
+	private const int DefenseBaseFontSize = 11;
+
 	// ===== 子控件 =====
 	private Panel _panel = null!;
 	private Label _nameLabel = null!;
@@ -27,7 +33,7 @@ public partial class PlayerIdentityCard : Control
 
 	public PlayerIdentityCard()
 	{
-		CustomMinimumSize = new Vector2(160, 76);
+		CustomMinimumSize = new Vector2(160, 82);
 		SizeFlagsHorizontal = SizeFlags.ExpandFill;
 
 		// 面板 StyleBox（蓝色系，区分红色敌方卡）
@@ -78,18 +84,16 @@ public partial class PlayerIdentityCard : Control
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 		};
 		_nameLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.7f, 1f));
-		_nameLabel.AddThemeFontSizeOverride("font_size", 13);
 		nameRow.AddChild(_nameLabel);
 
 		HeroSpellButton = new Button
 		{
 			Name = "PlayerHeroSpellButton",
-			Text = Loc.T("ui.combat.spell_player_hero", "✦ 对己方英雄施法"),
+			Text = UiSymbolMode.Prefix(Loc.T("ui.combat.spell_player_hero", "对己方英雄施法"), "✦ "),
 			CustomMinimumSize = new Vector2(120, 24),
 			Visible = false,
 		};
 		HeroSpellButton.AddThemeColorOverride("font_color", new Color(0.5f, 0.7f, 1f));
-		HeroSpellButton.AddThemeFontSizeOverride("font_size", 11);
 		nameRow.AddChild(HeroSpellButton);
 		content.AddChild(nameRow);
 
@@ -105,18 +109,27 @@ public partial class PlayerIdentityCard : Control
 		var statsRow = new HBoxContainer();
 		_armorLabel = new Label { Text = "", Visible = false };
 		_armorLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.3f));
-		_armorLabel.AddThemeFontSizeOverride("font_size", 12);
 		statsRow.AddChild(_armorLabel);
 
 		_defenseLabel = new Label { Text = "", Visible = false };
 		_defenseLabel.AddThemeColorOverride("font_color", new Color(0.3f, 0.7f, 1f));
-		_defenseLabel.AddThemeFontSizeOverride("font_size", 11);
 		statsRow.AddChild(_defenseLabel);
 		content.AddChild(statsRow);
 
 		// Row 4: EffectBar
 		EffectBar = new EffectBar();
 		content.AddChild(EffectBar);
+
+		ApplyFontScale();
+	}
+
+	/// <summary>按界面字体倍率刷新身份卡内所有显式字号（复用同一控件时不重建节点）。</summary>
+	public void ApplyFontScale()
+	{
+		_nameLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(NameBaseFontSize));
+		HeroSpellButton.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(SpellButtonBaseFontSize));
+		_armorLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(ArmorBaseFontSize));
+		_defenseLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(DefenseBaseFontSize));
 	}
 
 	/// <summary>完整刷新——更新生命值、护甲、防御和效果图标。</summary>

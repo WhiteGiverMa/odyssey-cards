@@ -49,6 +49,7 @@ public partial class EnemyHandBar : Control
 	private Rect2 _previewSource;
 	private IDisposable? _touchRegistration;
 	private GameManager? _languageSource;
+	private UIScaler? _fontScaleSource;
 
 	/// <summary>预览浮层距逻辑视口边缘的安全留白，默认 12px。</summary>
 	[Export] public float PreviewSafeMargin { get; set; } = 12f;
@@ -131,6 +132,11 @@ public partial class EnemyHandBar : Control
 			{
 				_languageSource.LanguageChanged += OnLanguageChanged;
 			}
+			_fontScaleSource = UIScaler.Instance;
+			if (_fontScaleSource != null)
+			{
+				_fontScaleSource.OnFontScaleChanged += OnFontScaleChanged;
+			}
 			RegisterTouchZone();
 		}
 		RefreshLocalizedText();
@@ -148,6 +154,11 @@ public partial class EnemyHandBar : Control
 			_languageSource.LanguageChanged -= OnLanguageChanged;
 		}
 		_languageSource = null;
+		if (_fontScaleSource != null)
+		{
+			_fontScaleSource.OnFontScaleChanged -= OnFontScaleChanged;
+		}
+		_fontScaleSource = null;
 		HidePreview();
 	}
 
@@ -378,9 +389,12 @@ public partial class EnemyHandBar : Control
 		float left = Size.X - width;
 		DrawLine(new Vector2(left, 12f), new Vector2(left, Size.Y - 12f), new Color(_backGold, 0.2f), 0.8f);
 		Font font = GetThemeDefaultFont();
-		int fontSize = Mathf.Max(8, Mathf.Min(12, (int)(Size.Y * 0.18f)));
+		int baseFontSize = Mathf.Clamp((int)(Size.Y * 0.18f), 8, 12);
+		// 界面字体缩放：让右上角的敌方手牌/法力/牌库在 70px 栏高内仍然清晰可读。
+		int fontSize = Mathf.Min(UIScaler.ApplyFontScale(baseFontSize), Mathf.RoundToInt(Size.Y * 0.24f));
+		fontSize = Mathf.Max(8, fontSize);
 		DrawString(font, new Vector2(left + 12f, Size.Y * 0.28f), _handText,
-			HorizontalAlignment.Left, Mathf.Max(0, width - 20f), fontSize - 1, UIThemeFactory.TextDim);
+			HorizontalAlignment.Left, Mathf.Max(0, width - 20f), Mathf.Max(8, fontSize - 1), UIThemeFactory.TextDim);
 		int crystals = Mathf.Min(10, Mathf.Max(_currentMana, _maxMana));
 		float crystalStep = Mathf.Min(11f, Mathf.Max(2f, (width - 16f) / Mathf.Max(1, crystals)));
 		for (int i = 0; i < crystals; i++)
@@ -491,6 +505,16 @@ public partial class EnemyHandBar : Control
 			slot.Visual?.RefreshCard();
 		}
 		HidePreview();
+		QueueRedraw();
+	}
+
+	/// <summary>界面字体倍率变化——右上角资源文字随 FontScale 重新绘制。</summary>
+	private void OnFontScaleChanged()
+	{
+		if (!IsInsideTree() || IsQueuedForDeletion())
+		{
+			return;
+		}
 		QueueRedraw();
 	}
 

@@ -250,6 +250,7 @@ public partial class CardUI : Control
 		{
 			UIScaler.Instance.OnCardDescriptionSettingsChanged += OnCardDescriptionSettingsChanged;
 			UIScaler.Instance.OnRarityColorSchemeChanged += OnRarityColorSchemeChanged;
+			UIScaler.Instance.OnEmojiIconsChanged += OnEmojiIconsChanged;
 		}
 
 		_built = true;
@@ -293,6 +294,7 @@ public partial class CardUI : Control
 		{
 			UIScaler.Instance.OnCardDescriptionSettingsChanged -= OnCardDescriptionSettingsChanged;
 			UIScaler.Instance.OnRarityColorSchemeChanged -= OnRarityColorSchemeChanged;
+			UIScaler.Instance.OnEmojiIconsChanged -= OnEmojiIconsChanged;
 		}
 
 		if (_interactionFsm != null)
@@ -603,7 +605,7 @@ public partial class CardUI : Control
 			Position = new Vector2(size.X - w, 0),
 			HorizontalAlignment = HorizontalAlignment.Center,
 			VerticalAlignment = VerticalAlignment.Center,
-			Text = Loc.T("ui.combat.counter_armed", "⚡已激活"),
+			Text = UiSymbolMode.Prefix(Loc.T("ui.combat.counter_armed", "已激活"), "⚡"),
 			Visible = false,
 		};
 		_armedBadgeLabel.AddThemeColorOverride("font_color", new Color(0.55f, 0.95f, 1f));
@@ -675,7 +677,7 @@ public partial class CardUI : Control
 			_armedBadgeBg.Visible = armed;
 			_armedBadgeLabel.Visible = armed;
 			if (armed)
-				_armedBadgeLabel.Text = Loc.T("ui.combat.counter_armed", "⚡已激活");
+				_armedBadgeLabel.Text = UiSymbolMode.Prefix(Loc.T("ui.combat.counter_armed", "已激活"), "⚡");
 		}
 		if (armed)
 			SetCanPlay(true);
@@ -1164,8 +1166,8 @@ public partial class CardUI : Control
 	/// </summary>
 	private void ShowMinionLayout(Card.Card card, float s)
 	{
-		_attackLabel.Text = card.Data.Attack.ToString();
-		_healthLabel.Text = card.Data.Health.ToString();
+		_attackLabel.Text = (card.RuntimeAttackSnapshot ?? card.Data.Attack).ToString();
+		_healthLabel.Text = (card.RuntimeHealthSnapshot ?? card.Data.Health).ToString();
 
 		_attackBg.Visible = true;
 		_healthBg.Visible = true;
@@ -1393,6 +1395,12 @@ public partial class CardUI : Control
 	/// <summary>
 	/// 设置页切换描述对齐后，当前已存在的 CardUI 也需要即时重排名称和描述。
 	/// </summary>
+	private void OnEmojiIconsChanged()
+	{
+		if (_built && Card != null)
+			SetCard(Card);
+	}
+
 	private void OnCardDescriptionSettingsChanged()
 	{
 		if (!_built)
