@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using OdysseyCards.Card;
 using OdysseyCards.Character;
@@ -129,6 +130,7 @@ public sealed class CountermeasureService
 			return default;
 
 		bool canceled = false;
+		var triggeredCards = new List<Card.Card>();
 		int boreiTriggers = 0;
 		int ohioTriggers = 0;
 		int spellCost = spell.GetEffectiveCost();
@@ -142,6 +144,7 @@ public sealed class CountermeasureService
 			if (counter.Id == BoreiId)
 			{
 				Consume(defender, counter);
+				triggeredCards.Add(counter);
 				CutoffCurrentEffects.DiscardRandomFromHand(caster, 1, 0, exclude: spell);
 				boreiTriggers++;
 				GD.Print($"[CountermeasureService] 北风之神触发：{caster.CardNameOf(null)} 随机弃 1 张牌");
@@ -151,6 +154,7 @@ public sealed class CountermeasureService
 			if (counter.Id == OhioId && spellCost >= OhioCostThreshold)
 			{
 				Consume(defender, counter);
+				triggeredCards.Add(counter);
 				var coin = CreateCoin();
 				caster.DeckState.AddToDrawPileTop(coin);
 				canceled = true;
@@ -163,7 +167,7 @@ public sealed class CountermeasureService
 		if (boreiTriggers > 0 || canceled)
 			_notify?.Invoke();
 
-		return new InterceptionResult(canceled, boreiTriggers, ohioTriggers);
+		return new InterceptionResult(canceled, boreiTriggers, ohioTriggers, triggeredCards);
 	}
 
 	/// <summary>消耗已激活的反制牌：移入手牌之外并进弃牌堆，不退费。</summary>
@@ -186,7 +190,11 @@ public sealed class CountermeasureService
 }
 
 /// <summary>反制拦截结果：Canceled=true 时调用方必须放弃法术结算与弃牌。</summary>
-public readonly record struct InterceptionResult(bool Canceled, int BoreiTriggers, int OhioTriggers);
+public readonly record struct InterceptionResult(
+	bool Canceled,
+	int BoreiTriggers,
+	int OhioTriggers,
+	IReadOnlyList<Card.Card>? TriggeredCards = null);
 
 internal static class CountermeasureServiceExtensions
 {

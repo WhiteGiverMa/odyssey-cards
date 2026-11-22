@@ -205,30 +205,49 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 		return effective;
 	}
 
-	public void ExecuteTurn(CombatManager combat, EnemyUnit unit)
+	public EnemyStepKind LastActionKind { get; private set; } = EnemyStepKind.TurnPrepare;
+
+	/// <summary>重置每个指挥官回合的一次性资源标记。</summary>
+	public void BeginTurn(Hero body)
+	{
+		_heroPowerUsedThisTurn = false;
+		LastActionKind = EnemyStepKind.TurnPrepare;
+	}
+
+	/// <summary>执行当前评分最高的一个动作；与原同步贪心循环共用完全相同的候选与结算。</summary>
+	public bool TryExecuteSingleBestAction(CombatManager combat, EnemyUnit unit)
 	{
 		var body = unit.Body;
-		_heroPowerUsedThisTurn = false;
-		int guard = 0;
-		while (guard++ < 80 && !combat.State.IsGameOver && !body.IsDead)
-		{
-			string before = Snapshot(combat, body);
-			var best = Enumerate(combat, body).OrderByDescending(candidate => candidate.Score).FirstOrDefault();
-			if (best == null || best.Score <= 0.01)
-				break;
-			GD.Print($"[DeckDrivenCommander] {Name} 执行 {best.Label}（评分 {best.Score:F1}，法力 {body.CurrentMana}/{body.MaxMana}）");
-			best.Execute();
-			combat.CheckDeaths();
-			if (Snapshot(combat, body) == before)
-				break;
-		}
+		if (combat.State.IsGameOver || body.IsDead)
+			return false;
+		string before = Snapshot(combat, body);
+		var best = Enumerate(combat, body).OrderByDescending(candidate => candidate.Score).FirstOrDefault();
+		if (best == null || best.Score <= 0.01)
+			return false;
+		GD.Print($"[DeckDrivenCommander] {Name} 执行 {best.Label}（评分 {best.Score:F1}，法力 {body.CurrentMana}/{body.MaxMana}）");
+		LastActionKind = best.StepKind;
+		best.Execute();
+		combat.CheckDeaths();
+		return Snapshot(combat, body) != before;
+	}
 
-		// 回合末若仍有富余法力，激活手中的反制牌（类 KARDS：在敌方回合待命）。
+	/// <summary>回合末静默激活富余反制牌，不记日志、不亮牌。</summary>
+	public void ArmRemainingCountermeasures(CombatManager combat, Hero body)
+	{
 		foreach (var card in body.Hand.ToList())
 		{
 			if (card.Type == CardType.Countermeasure && combat.CanArmCountermeasure(body, card))
 				combat.ArmCountermeasure(body, card);
 		}
+	}
+
+	public void ExecuteTurn(CombatManager combat, EnemyUnit unit)
+	{
+		var body = unit.Body;
+		BeginTurn(body);
+		CommanderTurnLoop.Run(body,
+			() => TryExecuteSingleBestAction(combat, unit),
+			() => ArmRemainingCountermeasures(combat, body));
 	}
 
 	private static string Snapshot(CombatManager combat, Hero body)
@@ -256,7 +275,7 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 					continue;
 				var attacker = minion;
 				var victim = target;
-				result.Add(new Candidate($"随从攻击 {attacker.CardName}→{Describe(victim)}", score,
+				result.Add(new Candidate($"随从攻击 {attacker.CardName}→{Describe(victim)}", score, EnemyStepKind.Attack,
 					() => combat.CommanderAttack(body, attacker, victim)));
 			}
 		}
@@ -270,7 +289,7 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 			if (score <= 0)
 				continue;
 			var mover = minion;
-			result.Add(new Candidate($"推进 {mover.CardName}", score, () => combat.CommanderMove(body, mover)));
+			result.Add(new Candidate($"推进 {mover.CardName}", score, EnemyStepKind.Move, () => combat.CommanderMove(body, mover)));
 		}
 
 		// 武器平A
@@ -283,7 +302,7 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 				if (score <= 0)
 					continue;
 				var victim = target;
-				result.Add(new Candidate($"武器攻击→{Describe(victim)}", score,
+				result.Add(new Candidate($"武器攻击→{Describe(victim)}", score, EnemyStepKind.Weapon,
 					() => combat.CommanderWeaponAttack(body, victim)));
 			}
 		}
@@ -293,7 +312,7 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 		{
 			if (!active.RequiresTarget)
 			{
-				result.Add(new Candidate($"武器主动「{active.Name}」", 8 + active.Cost * 0.2,
+				result.Add(new Candidate($"武器主动「{active.Name}」", 8 + active.Cost * 0.2, EnemyStepKind.Weapon,
 					() => combat.CommanderWeaponActive(body, null)));
 			}
 			else
@@ -302,7 +321,7 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 				{
 					double score = 6 + (target is Minion m ? m.Attack * 0.6 + (m.UnitClass is UnitClass.Support or UnitClass.Skirmisher ? 3 : 0) : 1);
 					var victim = target;
-					result.Add(new Candidate($"武器主动「{active.Name}」→{Describe(victim)}", score,
+					result.Add(new Candidate($"武器主动「{active.Name}」→{Describe(victim)}", score, EnemyStepKind.Weapon,
 						() => combat.CommanderWeaponActive(body, victim)));
 				}
 			}
@@ -313,7 +332,7 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 		{
 			double score = ScoreHeroPower(body, power);
 			if (score > 0)
-				result.Add(new Candidate($"英雄技能「{power.Name}」", score,
+				result.Add(new Candidate($"英雄技能「{power.Name}」", score, EnemyStepKind.HeroPower,
 					() =>
 					{
 						if (combat.CommanderUseHeroPower(body))
@@ -338,7 +357,7 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 				if (body.CurrentMana == card.Cost)
 					score += 1.5;
 				var played = card;
-				result.Add(new Candidate($"部署 {card.GetLocalizedName()}（{card.Cost}费）", score,
+				result.Add(new Candidate($"部署 {card.GetLocalizedName()}（{card.Cost}费）", score, EnemyStepKind.Deploy,
 					() => combat.PlayMinion(actor, played, slot)));
 			}
 			else if (card.Type == CardType.Domain)
@@ -348,7 +367,7 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 				if (body.HasDomain(domainId))
 					score -= 9;
 				var played = card;
-				result.Add(new Candidate($"展开领域 {card.GetLocalizedName()}", score,
+				result.Add(new Candidate($"展开领域 {card.GetLocalizedName()}", score, EnemyStepKind.PlayCard,
 					() => combat.PlayDomain(actor, played)));
 			}
 			else if (card.Type is CardType.Spell or CardType.Status)
@@ -361,7 +380,7 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 					continue;
 				var played = card;
 				var chosen = target;
-				result.Add(new Candidate($"施放 {card.GetLocalizedName()}（{card.Cost}费）", score,
+				result.Add(new Candidate($"施放 {card.GetLocalizedName()}（{card.Cost}费）", score, EnemyStepKind.PlayCard,
 					() => combat.PlaySpell(actor, played, chosen)));
 			}
 		}
@@ -660,7 +679,7 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 		_ => "目标",
 	};
 
-	private sealed record Candidate(string Label, double Score, Action Execute);
+	private sealed record Candidate(string Label, double Score, EnemyStepKind StepKind, Action Execute);
 }
 
 /// <summary>

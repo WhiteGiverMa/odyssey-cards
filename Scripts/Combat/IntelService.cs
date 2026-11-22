@@ -16,6 +16,7 @@ public readonly record struct IntelResult(int Revealed, int Overflow);
 public sealed class IntelService
 {
 	public event Action<Hero, int, IntelOverflowReason>? OnIntelOverflow;
+	public event Action<int>? OnIntelRevealed;
 
 	public IntelResult Resolve(Hero owner, int count, IReadOnlyList<Card.Card>? enemyHand = null)
 	{
@@ -43,6 +44,8 @@ public sealed class IntelService
 			else
 				owner.GainArmor(1);
 		}
+		if (revealed > 0)
+			OnIntelRevealed?.Invoke(revealed);
 		if (overflow > 0)
 			OnIntelOverflow?.Invoke(owner, overflow, enemyHand == null ? IntelOverflowReason.NoEnemyHand : IntelOverflowReason.NotEnoughHiddenCards);
 		return new IntelResult(revealed, overflow);

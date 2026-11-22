@@ -26,7 +26,11 @@ public interface IDeckDrivenCommander : IEnemyController
 	DeckProfile? DeckProfile { get; }
 
 	IDecisionProvider DecisionProvider { get; }
+	EnemyStepKind LastActionKind { get; }
 	void InitializeDeck(Hero body, IReadOnlyList<CardData> pool, DeckProfile profile, int seed);
+	void BeginTurn(Hero body);
+	bool TryExecuteSingleBestAction(CombatManager combat, EnemyUnit unit);
+	void ArmRemainingCountermeasures(CombatManager combat, Hero body);
 }
 
 /// <summary>原意图大脑的控制轨道，不持有独立血量或手牌。</summary>

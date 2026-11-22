@@ -20,6 +20,8 @@ public class CombatDeckState
 	public event Action OnHandChanged;
 	public event Action OnDrawPileChanged;
 	public event Action OnDiscardPileChanged;
+	public event Action<IReadOnlyList<OdysseyCards.Card.Card>>? OnCardsDrawn;
+	public event Action<OdysseyCards.Card.Card>? OnCardDiscarded;
 
 	/// <summary>
 	/// 疲劳伤害回调。当抽牌堆空时，调用此委托造成疲劳伤害。
@@ -63,6 +65,7 @@ public class CombatDeckState
 
 		if (drawn.Count > 0)
 		{
+			OnCardsDrawn?.Invoke(drawn);
 			OnHandChanged?.Invoke();
 			OnDrawPileChanged?.Invoke();
 		}
@@ -81,6 +84,7 @@ public class CombatDeckState
 
 		Hand.Remove(card);
 		DiscardPile.Add(card);
+		OnCardDiscarded?.Invoke(card);
 		OnHandChanged?.Invoke();
 		OnDiscardPileChanged?.Invoke();
 	}

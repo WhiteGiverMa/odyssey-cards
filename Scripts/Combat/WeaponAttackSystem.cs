@@ -27,22 +27,30 @@ internal sealed class WeaponAttackSystem(
 
 		bool friendly = target is Minion m && m.IsPlayerSide == wielder.IsPlayerSide;
 		wielder.SpendMana(weapon.AttackCost);
-		int damage = weapon.GetModifiedDamage(weapon.Attack, wielder);
-		if (friendly)
-			((Minion)target).Heal(((IFriendlyMinionWeaponAttackPassive)weapon.PassiveSkill!).GetFriendlyMinionHealAmount(damage));
-		else
+		combatManager.BeginLogAction(CombatLogEntryKind.WeaponAction, wielder, null, target, wielder, weapon.Name);
+		try
 		{
-			if (target is Minion minion)
-				triggerBaitTactics(minion);
-			bool hit = AttackCombatResolver.Resolve(wielder, target, damage,
-				() => combatManager.RequestDamageVfx(wielder, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
-			if (hit)
-				weapon.PassiveSkill?.OnWeaponHit(target, wielder);
+			int damage = weapon.GetModifiedDamage(weapon.Attack, wielder);
+			if (friendly)
+				((Minion)target).Heal(((IFriendlyMinionWeaponAttackPassive)weapon.PassiveSkill!).GetFriendlyMinionHealAmount(damage));
+			else
+			{
+				if (target is Minion minion)
+					triggerBaitTactics(minion);
+				bool hit = AttackCombatResolver.Resolve(wielder, target, damage,
+					() => combatManager.RequestDamageVfx(wielder, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
+				if (hit)
+					weapon.PassiveSkill?.OnWeaponHit(target, wielder);
+			}
+			wielder.RecordWeaponAttack();
+			if (!wielder.IsDead && weapon.PassiveSkill is IWeaponAttackPassive passive)
+				passive.OnWeaponAttackResolved(wielder, combatManager);
+			deathHandler.CheckDeaths();
 		}
-		wielder.RecordWeaponAttack();
-		if (!wielder.IsDead && weapon.PassiveSkill is IWeaponAttackPassive passive)
-			passive.OnWeaponAttackResolved(wielder, combatManager);
-		deathHandler.CheckDeaths();
+		finally
+		{
+			combatManager.CommitLogAction();
+		}
 		onCombatStateChanged();
 		return true;
 	}
@@ -57,11 +65,20 @@ internal sealed class WeaponAttackSystem(
 		if (active == null || !active.CanUse(wielder))
 			return false;
 		combatManager.ActiveSkillTarget = target;
-		active.Execute(wielder, combatManager);
-		if (combatManager.ActiveSkillTarget != null)
-			wielder.Weapon?.PassiveSkill?.OnWeaponHit(combatManager.ActiveSkillTarget, wielder);
-		combatManager.ActiveSkillTarget = null;
-		deathHandler.CheckDeaths();
+		combatManager.BeginLogAction(CombatLogEntryKind.WeaponAction, wielder, null, target, wielder, active.Name);
+		try
+		{
+			active.Execute(wielder, combatManager);
+			if (combatManager.ActiveSkillTarget != null)
+				wielder.Weapon?.PassiveSkill?.OnWeaponHit(combatManager.ActiveSkillTarget, wielder);
+			combatManager.ActiveSkillTarget = null;
+			deathHandler.CheckDeaths();
+		}
+		finally
+		{
+			combatManager.ActiveSkillTarget = null;
+			combatManager.CommitLogAction();
+		}
 		onCombatStateChanged();
 		return true;
 	}

@@ -193,18 +193,25 @@ public partial class CombatManager : Node
 			GD.Print($"[CombatManager] 敌方英雄的攻击被烟幕完全阻挡，跳过");
 			return false;
 		}
-		if (target is Minion minionTarget)
+		BeginLogAction(CombatLogEntryKind.WeaponAction, attacker, null, target, attacker,
+			attacker.Weapon?.Name ?? GetLogHeroName(attacker));
+		try
 		{
-			TriggerBaitTacticsOnAttacked(minionTarget, attacker);
+			if (target is Minion minionTarget)
+				TriggerBaitTacticsOnAttacked(minionTarget, attacker);
+			bool hit = AttackCombatResolver.Resolve(attacker, target, baseDamage,
+				() => RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
+			if (hit)
+				attacker.Weapon?.PassiveSkill?.OnWeaponHit(target, attacker);
+			if (target is Minion defender)
+				TryTriggerIdolTwilight(defender);
+			CheckDeaths();
+			return true;
 		}
-		bool hit = AttackCombatResolver.Resolve(attacker, target, baseDamage,
-			() => RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
-		if (hit)
-			attacker.Weapon?.PassiveSkill?.OnWeaponHit(target, attacker);
-		if (target is Minion defender)
-			TryTriggerIdolTwilight(defender);
-		CheckDeaths();
-		return true;
+		finally
+		{
+			CommitLogAction();
+		}
 	}
 
 	public bool ExecuteEnemyMinionSmartAttack(Minion attacker)
@@ -218,24 +225,33 @@ public partial class CombatManager : Node
 			GD.Print($"[CombatManager] 随从 {attacker.CardName} 的攻击被烟幕完全阻挡，跳过");
 			return false;
 		}
-		if (target is Minion defender)
+		var owner = attacker.OwnerHero ?? GetOwnerHero(attacker.IsPlayerSide);
+		BeginLogAction(CombatLogEntryKind.Attack, owner, attacker.ToRuntimeCard(), target, attacker);
+		try
 		{
-			ResolveMinionCombat(attacker, defender);
-			if (defender.IsDead)
-				Board.RemoveMinion(defender);
+			if (target is Minion defender)
+			{
+				ResolveMinionCombat(attacker, defender);
+				if (defender.IsDead)
+					Board.RemoveMinion(defender);
+				if (attacker.IsDead)
+					Board.RemoveMinion(attacker);
+				CheckDeaths();
+				return true;
+			}
+
+			AttackCombatResolver.Resolve(attacker, target, attacker.Attack,
+				() => RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
+
 			if (attacker.IsDead)
 				Board.RemoveMinion(attacker);
 			CheckDeaths();
 			return true;
 		}
-
-		AttackCombatResolver.Resolve(attacker, target, attacker.Attack,
-			() => RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
-
-		if (attacker.IsDead)
-			Board.RemoveMinion(attacker);
-		CheckDeaths();
-		return true;
+		finally
+		{
+			CommitLogAction();
+		}
 	}
 
 	public bool CanExecuteSmartPlayerAttack()
@@ -696,6 +712,10 @@ public partial class CombatManager : Node
 		Board = new Board();
 		State = new GameState(_playerCore);
 
+		// 日志接线必须先于任何规则订阅：机械蜈蚣-防空型等“部署即受伤”的拦截
+		// 依赖新随从已订阅伤害事件，否则首次拦截伤害会从战报中丢失。
+		InitializeCombatLogging();
+
 		// 创建胜负判定器
 		_victoryResolver = new VictoryDefeatResolver(Board, State, EnemyUnits, _playerCore);
 		_victoryResolver.OnGameOver += (won) =>
@@ -766,7 +786,8 @@ public partial class CombatManager : Node
 			() => GameManager.Instance?.GetEnabledCards() ?? new List<CardData>());
 		_countermeasures = new CountermeasureService(LoadCombatCard, NotifyCombatStateChanged);
 		_deathHandler = new DeathHandler(Board, PlayerHero, _effectDispatcher, _attackTracker,
-			minion => CreateActorContext(minion.OwnerHero ?? GetOwnerHero(minion.IsPlayerSide), minion));
+			minion => CreateActorContext(minion.OwnerHero ?? GetOwnerHero(minion.IsPlayerSide), minion),
+			ExecuteLoggedDeathrattle);
 		_weaponAttack = new WeaponAttackSystem(
 			Board,
 			PlayerHero,
@@ -888,6 +909,7 @@ public partial class CombatManager : Node
 	public void StartCombat()
 	{
 		GD.Print("[CombatManager] ========== 战斗开始 ==========");
+		CombatLog.Clear();
 
 		// 从牌堆定义创建运行时卡牌并洗入抽牌堆
 		_playerCore.SetupDrawPile();
@@ -972,6 +994,8 @@ public partial class CombatManager : Node
 		// 启动表情空闲计时器
 		_emoteSystem?.StartIdleTimer();
 
+		CombatLog.RecordTurnStart(State.TurnCount, isPlayerSide: true,
+			Localization.Localization.T("ui.combat.player_turn", "玩家回合"));
 		GD.Print($"[CombatManager] 第 {State.TurnCount} 回合开始（法力 {State.PlayerMana}/{State.PlayerMaxMana}），手牌 {_playerCore.Hand.Count} 张");
 	}
 
@@ -1046,10 +1070,10 @@ public partial class CombatManager : Node
 		{
 			var copy = new Minion(tokenData, sourceMinion.IsPlayerSide) { OwnerHero = sourceMinion.OwnerHero };
 			Board.PlaceMinion(copy, targetSlot);
-			GD.Print($"[CombatManager] 🐕 我的刀盾复制到槽位{targetSlot}");
+			GD.Print($"[CombatManager] [Copy] 我的刀盾复制到槽位{targetSlot}");
 		}
 		else
-			GD.Print("[CombatManager] 🐕 我的刀盾：棋盘已满，无法复制");
+			GD.Print("[CombatManager] [Copy] 我的刀盾：棋盘已满，无法复制");
 	}
 
 	// ===== 法术施放 =====
@@ -1265,7 +1289,7 @@ public partial class CombatManager : Node
 
 		int stacks = Math.Max(1, domain.EffectData?.Value ?? 1) * domain.StackCount;
 		defender.GainStats(stacks, stacks);
-		GD.Print($"[CombatManager]   🌅 偶像的黄昏触发：{defender.CardName} 获得 +{stacks}/+{stacks}（{domain.StackCount}层）");
+		GD.Print($"[CombatManager]   [Domain] 偶像的黄昏触发：{defender.CardName} 获得 +{stacks}/+{stacks}（{domain.StackCount}层）");
 	}
 
 	/// <summary>
@@ -1282,7 +1306,7 @@ public partial class CombatManager : Node
 		if (a.IsDead || b.IsDead)
 			return;
 
-		GD.Print($"[CombatManager] ⚔ 战斗：{a.CardName}（{a.Attack}攻/{a.CurrentHealth}血）vs " +
+		GD.Print($"[CombatManager] [Combat] 战斗：{a.CardName}（{a.Attack}攻/{a.CurrentHealth}血）vs " +
 				  $"{b.CardName}（{b.Attack}攻/{b.CurrentHealth}血）");
 
 		// A 对 B 造成伤害（完整 DamageResolver 管线）
@@ -1318,7 +1342,7 @@ public partial class CombatManager : Node
 		if (attackerHero != null && attackerHero.IsPlayerSide != target.IsPlayerSide)
 		{
 			attackerHero.ModifyDefense(-1);
-			GD.Print($"[CombatManager] ◆ 诱饵战术触发：{target.CardName} 受到敌方英雄攻击，该英雄防御力-1（当前 {attackerHero.Defense}）");
+			GD.Print($"[CombatManager] [Trigger] 诱饵战术触发：{target.CardName} 受到敌方英雄攻击，该英雄防御力-1（当前 {attackerHero.Defense}）");
 		}
 		else
 		{
@@ -1326,7 +1350,7 @@ public partial class CombatManager : Node
 			if (enemyBody == null)
 				return;
 			enemyBody.ModifyDefense(-1);
-			GD.Print($"[CombatManager] ◆ 诱饵战术触发：{target.CardName} 受到攻击，敌方英雄防御力-1（当前 {enemyBody.Defense}）");
+			GD.Print($"[CombatManager] [Trigger] 诱饵战术触发：{target.CardName} 受到攻击，敌方英雄防御力-1（当前 {enemyBody.Defense}）");
 		}
 	}
 
@@ -1361,11 +1385,19 @@ public partial class CombatManager : Node
 			return false;
 		bool success = _playerActions.Attack(attacker, target, () =>
 		{
-			if (target is Minion defender)
-				ResolveMinionCombat(attacker, defender);
-			else
-				AttackCombatResolver.Resolve(attacker, target, attacker.Attack,
-					() => RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
+			BeginLogAction(CombatLogEntryKind.Attack, PlayerHero, attacker.ToRuntimeCard(), target, attacker);
+			try
+			{
+				if (target is Minion defender)
+					ResolveMinionCombat(attacker, defender);
+				else
+					AttackCombatResolver.Resolve(attacker, target, attacker.Attack,
+						() => RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
+			}
+			finally
+			{
+				CommitLogAction();
+			}
 		}, () => TriggerFirstAttackPassive(attacker, PlayerHero));
 		CheckDeaths();
 		NotifyCombatStateChanged();
@@ -1442,6 +1474,7 @@ public partial class CombatManager : Node
 	/// </summary>
 	private void CleanupCombat()
 	{
+		CancelEnemyTurnStepping();
 		// 清理状态牌——从手牌、抽牌堆、弃牌堆中移除所有 Status 类型的卡牌
 		VictoryDefeatResolver.RemoveStatusCardsFromList(_playerCore.Hand);
 		VictoryDefeatResolver.RemoveStatusCardsFromList(_playerCore.DrawPile);
@@ -1457,72 +1490,68 @@ public partial class CombatManager : Node
 	/// </summary>
 	public void EndPlayerTurn()
 	{
+		if (!CanEndPlayerTurn())
+			return;
+		if (!RunPlayerTurnEndPhase())
+			return;
+
+		// 切换到敌方回合；同步入口保持零等待，供单测与运行时 QA 使用。
+		State.EndPlayerTurn();
+		ExecuteEnemyTurn();
+		CompletePlayerRoundAfterEnemyTurn();
+	}
+
+	private bool CanEndPlayerTurn()
+	{
 		if (IsDiscovering)
 		{
 			GD.PrintErr("[CombatManager] EndPlayerTurn 失败 — 正在发现选牌阶段");
-			return;
+			return false;
 		}
-
 		if (!State.IsPlayerTurn)
 		{
 			GD.PrintErr("[CombatManager] EndPlayerTurn 失败 — 当前不是玩家回合");
-			return;
+			return false;
 		}
+		return true;
+	}
 
+	/// <summary>玩家回合末规则；同步/异步入口共用，不在 UI 复制结算。</summary>
+	private bool RunPlayerTurnEndPhase()
+	{
 		GD.Print("[CombatManager] ========== 玩家回合结束 ==========");
-
-		// 停止表情空闲计时器
 		_emoteSystem?.StopIdleTimer();
-
-		// 清理本回合攻击追踪
 		_attackTracker.Reset();
-
-		// 触发领域效果 — 友方回合结束时
 		_domainTriggerManager.OnPlayerTurnEnd();
 		TriggerPlayerTurnEndMinionEffects();
 		CheckDeaths();
 		if (_victoryResolver.CheckVictoryOrDefeat())
-			return;
+			return false;
 
-		// 藏品 — 玩家回合结束时触发
 		_relicManager.TriggerTurnEnd(this);
-
-		// 状态效果衰减 — 友方回合结束时
 		PlayerHero.TickStatusEffects(TickTiming.PlayerTurnEnd);
-		PlayerHero.ResetDamageTakenThisTurn(); // 玩家每回合重置受伤标记
+		PlayerHero.ResetDamageTakenThisTurn();
 		foreach (var unit in EnemyUnits)
 			unit.Body.TickStatusEffects(TickTiming.PlayerTurnEnd);
-		// 重置每回合受伤标记（不破等被动用）
 		foreach (var unit in EnemyUnits)
 			unit.Body.ResetDamageTakenThisTurn();
-
-		// Minion 状态效果衰减 — 友方回合结束时
 		foreach (var minion in Board.GetPlayerMinions())
 			minion.TickStatusEffects(TickTiming.PlayerTurnEnd);
 		foreach (var minion in Board.GetEnemyMinions())
 			minion.TickStatusEffects(TickTiming.PlayerTurnEnd);
 		CheckDeaths();
-		if (_victoryResolver.CheckVictoryOrDefeat())
-			return;
+		return !_victoryResolver.CheckVictoryOrDefeat();
+	}
 
-		// 切换到敌方回合
-		State.EndPlayerTurn();
-		GD.Print($"[CombatManager] ---------- 敌方回合开始（{EnemyUnits.Count} 个敌人）----------");
-
-		// 执行敌方回合
-		ExecuteEnemyTurn();
-
-		// 敌方回合结束，切换回玩家回合
+	private void CompletePlayerRoundAfterEnemyTurn()
+	{
 		if (State.IsGameOver)
 			return;
 		State.EndEnemyTurn();
-
-		// 开始玩家新回合
 		StartPlayerTurn();
-
-		// 检查胜负
 		_victoryResolver.CheckVictoryOrDefeat();
 	}
+
 
 	private void TriggerPlayerTurnEndMinionEffects(bool isPlayerSide = true)
 	{
@@ -1607,8 +1636,16 @@ public partial class CombatManager : Node
 			if (target == null)
 				return;
 
-			RequestDamageVfx(minion, target, DamageKind.Effect, CombatDamageVfxKind.Spell);
-			target.TakeDamage(minion.Attack, minion, DamageKind.Effect);
+			BeginLogAction(CombatLogEntryKind.EffectTriggered, owner, minion.ToRuntimeCard(), target, minion);
+			try
+			{
+				RequestDamageVfx(minion, target, DamageKind.Effect, CombatDamageVfxKind.Spell);
+				target.TakeDamage(minion.Attack, minion, DamageKind.Effect);
+			}
+			finally
+			{
+				CommitLogAction();
+			}
 			GD.Print($"[CombatManager] {minion.CardName} 响应直伤法术「{spell.CardName}」：造成 {minion.Attack} 点法术伤害");
 		}
 	}
@@ -1680,91 +1717,90 @@ public partial class CombatManager : Node
 	/// </summary>
 	private void ExecuteEnemyTurn()
 	{
-		// 冻结意图 UI 刷新——防止执行动画期间数值跳变
-		_isEnemyTurnAnimating = true;
+		if (!BeginEnemyTurnPhase())
+			return;
+		foreach (var unit in EnemyUnits)
+		{
+			if (!ExecuteEnemyActorTurn(unit))
+				return;
+		}
+		EnemyMinionsAttack();
+		RunEnemyTurnEndPhase();
+	}
 
-		// 接化发领域：重置本回合敌方英雄攻击追踪
+	/// <summary>敌方回合头：快照可行动随从、状态结算与回合日志。</summary>
+	private bool BeginEnemyTurnPhase()
+	{
+		_isEnemyTurnAnimating = true;
+		CombatLog.RecordTurnStart(State.TurnCount, isPlayerSide: false,
+			Localization.Localization.T("ui.combat.enemy_turn", "敌人回合"));
+		GD.Print($"[CombatManager] ---------- 敌方回合开始（{EnemyUnits.Count} 个敌人）----------");
 		_domainTriggerManager.OnEnemyTurnStart();
 		_chansuTriggeredThisEnemyTurn = false;
 		_enemyMinionsCanAttack.Clear();
 		foreach (var minion in Board.GetEnemyMinions())
 			_enemyMinionsCanAttack.Add(minion);
-
-		// 状态效果 — 敌方回合开始时（持续伤害先造成伤害，再减少层数）
 		TickTurnStartStatusEffects(TickTiming.EnemyTurnStart);
 		CheckDeaths();
 		if (_victoryResolver.CheckVictoryOrDefeat())
 		{
 			_isEnemyTurnAnimating = false;
-			return;
+			return false;
 		}
+		return true;
+	}
 
-		// 1. 依次执行每个敌人的当前意图（攻击/防御/召唤等）——使用动态目标选择
-		foreach (var unit in EnemyUnits)
+	/// <summary>同步执行一个敌方 actor；异步 UI 仅对指挥官拆分此阶段，旧意图怪共用本方法。</summary>
+	private bool ExecuteEnemyActorTurn(EnemyUnit unit)
+	{
+		if (unit.Body.IsDead)
+			return true;
+		if (unit.Controller is IDeckDrivenCommander commander)
 		{
-			// 跳过已死亡的敌人
-			if (unit.Body.IsDead)
-				continue;
-
-			if (unit.Controller is IDeckDrivenCommander commander)
-			{
-				PrepareCommanderTurn(unit.Body);
-				commander.ExecuteTurn(this, unit);
-				GD.Print($"[CombatManager] {unit.Brain.Name} 指挥官回合结束（法力 {unit.Body.CurrentMana}/{unit.Body.MaxMana}，手牌 {unit.Body.Hand.Count}）");
-			}
-			else
-			{
-				// 同步敌方攻击力到意图系统（考虑武器禁用/失能等状态）
-				unit.Brain.Attack = !unit.Body.IsIncapacitated && unit.Body.Weapon is { IsDisabled: false } ? unit.Body.Weapon.Attack : 0;
-				unit.Controller.ExecuteTurn(this, unit);
-				GD.Print($"[CombatManager] {unit.Brain.Name} 下回合意图：{unit.Brain.GetCurrentIntent(this, unit.Body).Description}");
-			}
-
-			// 每次执行后检查死亡（攻击意图可能杀死敌人自身或玩家）
-			CheckDeaths();
-			if (_victoryResolver.CheckVictoryOrDefeat())
-			{
-				_isEnemyTurnAnimating = false;
-				return;
-			}
+			PrepareCommanderTurn(unit.Body);
+			commander.ExecuteTurn(this, unit);
+			GD.Print($"[CombatManager] {unit.Brain.Name} 指挥官回合结束（法力 {unit.Body.CurrentMana}/{unit.Body.MaxMana}，手牌 {unit.Body.Hand.Count}）");
 		}
-
-		// 3. 敌方随从攻击
-		EnemyMinionsAttack();
-
-		// 4. 全局死亡检查（意图/攻击可能造成随从死亡）
+		else
+		{
+			unit.Brain.Attack = !unit.Body.IsIncapacitated && unit.Body.Weapon is { IsDisabled: false } ? unit.Body.Weapon.Attack : 0;
+			unit.Controller.ExecuteTurn(this, unit);
+			GD.Print($"[CombatManager] {unit.Brain.Name} 下回合意图：{unit.Brain.GetCurrentIntent(this, unit.Body).Description}");
+		}
 		CheckDeaths();
-
-		// 5. 胜负判定
 		if (_victoryResolver.CheckVictoryOrDefeat())
 		{
 			_isEnemyTurnAnimating = false;
-			return;
+			return false;
 		}
+		return true;
+	}
 
-		// 6. 解冻——允许 UI 重新响应状态变更
+	/// <summary>敌方回合末规则；调用前所有 actor 与随从行动已完成。</summary>
+	private bool RunEnemyTurnEndPhase()
+	{
+		CheckDeaths();
+		if (_victoryResolver.CheckVictoryOrDefeat())
+		{
+			_isEnemyTurnAnimating = false;
+			return false;
+		}
 		_isEnemyTurnAnimating = false;
-
-		// 7. 状态效果衰减 — 敌方回合结束时（武器禁用等 debuff 在此触发）
 		PlayerHero.TickStatusEffects(TickTiming.EnemyTurnEnd);
 		foreach (var unit in EnemyUnits)
 			unit.Body.TickStatusEffects(TickTiming.EnemyTurnEnd);
-
-		// Minion 状态效果衰减 — 敌方回合结束时
 		foreach (var minion in Board.GetPlayerMinions())
 			minion.TickStatusEffects(TickTiming.EnemyTurnEnd);
 		foreach (var minion in Board.GetEnemyMinions())
 			minion.TickStatusEffects(TickTiming.EnemyTurnEnd);
-
-		// 7.5 热力值自然增长 + 藏品敌方回合结束触发
 		TriggerPlayerTurnEndMinionEffects(isPlayerSide: false);
 		_heatSystem.OnEnemyTurnEnd();
 		_relicManager.TriggerEnemyTurnEnd(this);
 		_domainTriggerManager.OnEnemyTurnEnd();
-
-		// 8. 通知 UI 刷新意图显示（解冻后触发）
 		NotifyCombatStateChanged();
+		return true;
 	}
+
 
 	private void TickTurnStartStatusEffects(TickTiming timing)
 	{
@@ -1812,51 +1848,43 @@ public partial class CombatManager : Node
 	/// </summary>
 	private void EnemyMinionsAttack()
 	{
-		// 回合开始时已存在的随从可以攻击，有闪击的新召唤随从也可以
-		var enemies = Board.GetEnemyMinions()
+		foreach (var attacker in GetLegacyEnemyMinionsForTurn())
+			ExecuteLegacyEnemyMinionAction(attacker);
+	}
+
+	private List<Minion> GetLegacyEnemyMinionsForTurn()
+	{
+		return Board.GetEnemyMinions()
 			.Where(m => !m.IsDead && !m.IsIncapacitated && (_enemyMinionsCanAttack.Contains(m) || m.HasCharge))
 			.Where(m => !IsCommanderMinion(m))
 			.ToList();
-		if (enemies.Count == 0)
-			return;
-
-		foreach (var attacker in enemies)
-		{
-			if (State.IsGameOver)
-				break;
-			if (attacker.IsDead || attacker.IsIncapacitated)
-				continue;
-			// 近战召唤物优先争夺前线；先锋推进消耗整次行动，突击仍能开火。
-			if (attacker.UnitClass is UnitClass.Vanguard or UnitClass.Assault
-				&& Board.MoveMinionToFrontline(attacker) && attacker.UnitClass != UnitClass.Assault)
-				continue;
-
-			// 确保所有敌方随从有意图大脑（供 UI 意图显示使用）
-			attacker.IntentBrain ??= new DefaultAttackMinionBrain(attacker);
-
-			// 统一执行路径：优先使用 MoveState.OnPerform
-			if (attacker.IntentBrain != null)
-			{
-				var move = attacker.IntentBrain.GetCurrentMove(this);
-				if (move?.OnPerform != null)
-				{
-					// MoveState 统一路径——Boss 与随从使用同一执行入口
-					move.OnPerform(this, null);  // 随从无 Hero 身体
-				}
-				else
-				{
-					// 无 OnPerform → 回退传统 ExecuteIntent
-					attacker.IntentBrain.ExecuteIntent(this);
-				}
-				attacker.IntentBrain.AdvanceMove();
-				if (attacker.UnitClass == UnitClass.Assault && attacker.HasWindfury && !attacker.IsDead && !State.IsGameOver)
-					ExecuteEnemyMinionSmartAttack(attacker);
-				continue;
-			}
-
-			ExecuteEnemyMinionSmartAttack(attacker);
-		}
 	}
+
+	/// <summary>执行一只旧意图随从的移动/攻击；供同步与 UI 逐只步进共用。</summary>
+	private bool ExecuteLegacyEnemyMinionAction(Minion attacker)
+	{
+		if (State.IsGameOver || attacker.IsDead || attacker.IsIncapacitated)
+			return false;
+		if (attacker.UnitClass is UnitClass.Vanguard or UnitClass.Assault
+			&& Board.MoveMinionToFrontline(attacker) && attacker.UnitClass != UnitClass.Assault)
+			return true;
+
+		attacker.IntentBrain ??= new DefaultAttackMinionBrain(attacker);
+		if (attacker.IntentBrain != null)
+		{
+			var move = attacker.IntentBrain.GetCurrentMove(this);
+			if (move?.OnPerform != null)
+				move.OnPerform(this, null);
+			else
+				attacker.IntentBrain.ExecuteIntent(this);
+			attacker.IntentBrain.AdvanceMove();
+			if (attacker.UnitClass == UnitClass.Assault && attacker.HasWindfury && !attacker.IsDead && !State.IsGameOver)
+				ExecuteEnemyMinionSmartAttack(attacker);
+			return true;
+		}
+		return ExecuteEnemyMinionSmartAttack(attacker);
+	}
+
 
 	/// <summary>
 	/// 重置本回合攻击追踪：清空计数器并将所有玩家随从设为可攻击。
@@ -1994,8 +2022,17 @@ public partial class CombatManager : Node
 			if (placedMinion.IsDead)
 				break;
 
-			GD.Print($"[CombatManager] ◆ 机械蜈蚣-防空型拦截 {placedMinion.CardName}（{placedMinion.Cost}费）！");
-			ResolveCombat(centipede, placedMinion);
+			GD.Print($"[CombatManager] [Intercept] 机械蜈蚣-防空型拦截 {placedMinion.CardName}（{placedMinion.Cost}费）！");
+			BeginLogAction(CombatLogEntryKind.EffectTriggered,
+				centipede.OwnerHero ?? GetOwnerHero(centipede.IsPlayerSide), centipede.ToRuntimeCard(), placedMinion, centipede);
+			try
+			{
+				ResolveCombat(centipede, placedMinion);
+			}
+			finally
+			{
+				CommitLogAction();
+			}
 		}
 
 		// 清理战斗产生的死亡随从
@@ -2042,19 +2079,27 @@ public partial class CombatManager : Node
 		if (!card.HasQiqiao)
 			return false;
 
-		GD.Print($"[CombatManager] ◆ 奇巧触发：{(owner.IsPlayerSide ? "玩家" : "敌方")} 自动打出「{card.GetLocalizedName()}」");
-		owner.RemoveFromHand(card);
-		switch (card.Type)
+		GD.Print($"[CombatManager] [Qiqiao] 奇巧触发：{(owner.IsPlayerSide ? "玩家" : "敌方")} 自动打出「{card.GetLocalizedName()}」");
+		BeginLogAction(CombatLogEntryKind.EffectTriggered, owner, card, primarySource: owner);
+		try
 		{
-			case CardType.Minion:
-				AutoSummonQiqiaoMinion(owner, card);
-				break;
-			case CardType.Domain:
-				AutoPlayQiqiaoDomain(owner, card);
-				break;
-			default:
-				AutoPlayQiqiaoSpell(owner, card);
-				break;
+			owner.RemoveFromHand(card);
+			switch (card.Type)
+			{
+				case CardType.Minion:
+					AutoSummonQiqiaoMinion(owner, card);
+					break;
+				case CardType.Domain:
+					AutoPlayQiqiaoDomain(owner, card);
+					break;
+				default:
+					AutoPlayQiqiaoSpell(owner, card);
+					break;
+			}
+		}
+		finally
+		{
+			CommitLogAction();
 		}
 		return true;
 	}
@@ -2188,15 +2233,23 @@ public partial class CombatManager : Node
 			NotifyCardPlayed(card, cost);
 
 		var minion = new Minion(card, side) { OwnerHero = actor.CasterHero };
-		Board.PlaceMinion(minion, slotIndex);
-		if (minion.HasBattlecry)
-			foreach (var effect in minion.BattlecryEffects)
-				ResolveBattlecryEffect(effect, minion);
-		if (minion.HasBattlecry && minion.BattlecryEffects.Any(effect => effect.CustomEffectName == "CopyToAdjacentSlot"))
-			CopyMinionToAdjacentSlot(minion);
-		if (minion.HasCharge)
-			_attackTracker.AddCharged(minion);
-		actor.CasterHero.RemoveFromHand(card);
+		BeginLogAction(CombatLogEntryKind.DeployUnit, actor.CasterHero, card, primarySource: minion);
+		try
+		{
+			Board.PlaceMinion(minion, slotIndex);
+			if (minion.HasBattlecry)
+				foreach (var effect in minion.BattlecryEffects)
+					ResolveBattlecryEffect(effect, minion);
+			if (minion.HasBattlecry && minion.BattlecryEffects.Any(effect => effect.CustomEffectName == "CopyToAdjacentSlot"))
+				CopyMinionToAdjacentSlot(minion);
+			if (minion.HasCharge)
+				_attackTracker.AddCharged(minion);
+			actor.CasterHero.RemoveFromHand(card);
+		}
+		finally
+		{
+			CommitLogAction();
+		}
 		NotifyCombatStateChanged();
 		return true;
 	}
@@ -2215,12 +2268,21 @@ public partial class CombatManager : Node
 		// 被「俄亥俄级」取消的法术：不结算效果、不进弃牌堆，只消耗法力并从手中移除。
 		var defender = ResolveCountermeasureDefender(actor.CasterHero);
 		var interception = _countermeasures?.Intercept(actor.CasterHero, defender, card) ?? default;
+		foreach (var counter in interception.TriggeredCards ?? Array.Empty<Card.Card>())
+		{
+			RecordCountermeasureTriggered(defender, counter, card,
+				interception.Canceled && counter.Id == "counter_ohio_ssbn", counter.Id == "counter_borei");
+		}
 		if (interception.Canceled)
 		{
+			BeginLogAction(CombatLogEntryKind.PlayOrder, actor.CasterHero, card, target, actor.ActualDamageSource);
+			CombatLog.RecordCanceled();
+			// 亮牌由反制牌本身的 Present（带“已被反制”标签）承担，这里不再重复展示同一张法术，避免两卡叠在同一展示位。
 			actor.OwnerCore.TrySpendMana(cost);
 			actor.CasterHero.RemoveFromHand(card);
 			if (actor.IsPlayerSide)
 				NotifyCardPlayed(card, cost);
+			CommitLogAction();
 			GD.Print($"[CombatManager] 「{card.CardName}」被反制拦截，效果未结算");
 			NotifyCombatStateChanged();
 			return true;
@@ -2232,7 +2294,18 @@ public partial class CombatManager : Node
 		actor = CreateActorContext(actor.CasterHero, actor.ActualDamageSource, card, applyPreemptive: true);
 		if (actor.IsPlayerSide)
 			NotifyCardPlayed(card, cost);
-		ResolveSpellEffects(actor, card, target, 0);
+		PresentCardPlay(actor.CasterHero, card, target);
+		var logScope = BeginLogAction(CombatLogEntryKind.PlayOrder, actor.CasterHero, card, target, actor.ActualDamageSource);
+		try
+		{
+			ResolveSpellEffects(actor, card, target, 0, logScope);
+		}
+		catch
+		{
+			// 异常路径兜底提交；正常路径已由 FinishSpell 提交，按作用域引用提交不会误伤外层。
+			CommitLogAction(logScope);
+			throw;
+		}
 		return true;
 	}
 
@@ -2246,30 +2319,41 @@ public partial class CombatManager : Node
 			?? PlayerHero;
 	}
 
-	private void ResolveSpellEffects(EffectActorContext actor, Card.Card card, object? target, int index)
+	private void ResolveSpellEffects(EffectActorContext actor, Card.Card card, object? target, int index,
+		CombatLogEntry? logScope)
 	{
 		if (index >= card.Data.Effects.Count)
 		{
-			FinishSpell(actor, card);
+			FinishSpell(actor, card, logScope);
 			return;
 		}
 		_effectDispatcher.ExecuteEffect(card.Data.Effects[index], target, actor,
-			() => ResolveSpellEffects(actor, card, target, index + 1));
+			() => ResolveSpellEffects(actor, card, target, index + 1, logScope));
 	}
 
-	private void FinishSpell(EffectActorContext actor, Card.Card card)
+	private void FinishSpell(EffectActorContext actor, Card.Card card, CombatLogEntry? logScope = null)
 	{
 		var owner = actor.CasterHero;
-		if (card.HasRecycle)
-			owner.ReturnToDrawPile(card);
-		else if (card.Id == "status_explain")
-			HandleExplainReturnToHand(owner, card);
-		else
-			owner.DiscardCard(card);
+		_logSilentDiscardCards.Push(card);
+		try
+		{
+			if (card.HasRecycle)
+				owner.ReturnToDrawPile(card);
+			else if (card.Id == "status_explain")
+				HandleExplainReturnToHand(owner, card);
+			else
+				owner.DiscardCard(card);
+		}
+		finally
+		{
+			// 栈顶可能因嵌套自动出牌而改变；按引用移除本次入栈的卡，恢复外层状态。
+			RemoveLogSilentDiscard(card);
+		}
 
 		if (card.Type == CardType.Spell && card.Data.HasMechanicTag(CardMechanicTag.DirectDamage))
 			TriggerDirectDamageSpellMinionEffects(card, owner);
 		CheckDeaths();
+		CommitLogAction(logScope);
 		NotifyCombatStateChanged();
 	}
 
@@ -2286,13 +2370,22 @@ public partial class CombatManager : Node
 			NotifyCardPlayed(card, cost);
 
 		string domainId = string.IsNullOrEmpty(card.Data.DomainId) ? card.Data.Id : card.Data.DomainId;
-		foreach (var effect in card.Data.Effects)
+		BeginLogAction(CombatLogEntryKind.PlayDomain, actor.CasterHero, card, primarySource: actor.ActualDamageSource);
+		PresentCardPlay(actor.CasterHero, card, null);
+		try
 		{
-			_effectDispatcher.ExecuteEffect(effect, null, actor);
-			actor.CasterHero.AddDomain(domainId, effect);
+			foreach (var effect in card.Data.Effects)
+			{
+				_effectDispatcher.ExecuteEffect(effect, null, actor);
+				actor.CasterHero.AddDomain(domainId, effect);
+			}
+			_domainTriggerManager.OnDomainDeployed(actor.CasterHero, domainId);
+			actor.CasterHero.RemoveFromHand(card);
 		}
-		_domainTriggerManager.OnDomainDeployed(actor.CasterHero, domainId);
-		actor.CasterHero.RemoveFromHand(card);
+		finally
+		{
+			CommitLogAction();
+		}
 		NotifyCombatStateChanged();
 		return true;
 	}
@@ -2360,11 +2453,19 @@ public partial class CombatManager : Node
 		var actions = new MinionActionService(Board, _attackTracker, owner);
 		bool success = actions.Attack(attacker, target, () =>
 		{
-			if (target is Minion defender)
-				ResolveMinionCombat(attacker, defender);
-			else
-				AttackCombatResolver.Resolve(attacker, target, attacker.Attack,
-					() => RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
+			BeginLogAction(CombatLogEntryKind.Attack, owner, attacker.ToRuntimeCard(), target, attacker);
+			try
+			{
+				if (target is Minion defender)
+					ResolveMinionCombat(attacker, defender);
+				else
+					AttackCombatResolver.Resolve(attacker, target, attacker.Attack,
+						() => RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
+			}
+			finally
+			{
+				CommitLogAction();
+			}
 		}, () => TriggerFirstAttackPassive(attacker, owner));
 		CheckDeaths();
 		NotifyCombatStateChanged();
@@ -2389,7 +2490,16 @@ public partial class CombatManager : Node
 		var power = owner.HeroPower;
 		if (power == null || !power.CanUse(owner))
 			return false;
-		power.Execute(owner, this);
+		BeginLogAction(CombatLogEntryKind.HeroPower, owner, primarySource: owner, actorName: power.Name);
+		try
+		{
+			power.Execute(owner, this);
+			CheckDeaths();
+		}
+		finally
+		{
+			CommitLogAction();
+		}
 		if (owner.IsPlayerSide)
 			_heroPowerUsedThisTurn = true;
 		NotifyCombatStateChanged();
