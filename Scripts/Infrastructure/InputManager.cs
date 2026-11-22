@@ -347,6 +347,7 @@ public partial class InputManager : Node
 		// 全局界面
 		_keyMap[OdysseyInput.InfoScreen] = Key.Capslock;
 		_keyMap[OdysseyInput.HeroPower] = Key.H;
+		_keyMap[OdysseyInput.CombatLog] = Key.L;
 	}
 
 	/// <summary>将当前 _keyMap 序列化为可保存的字典。</summary>

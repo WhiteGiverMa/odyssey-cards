@@ -11,9 +11,10 @@ namespace OdysseyCards.UI;
 /// </summary>
 public partial class AttackProjectileVfx : Control
 {
-	private const float AttackDuration = 0.22f;
-	private const float SpellDuration = 0.34f;
-	private const float CombatDuration = 0.18f;
+	private const float AttackDuration = 0.30f;
+	private const float SpellDuration = 0.44f;
+	private const float CombatDuration = 0.24f;
+	private const float ImpactBaseDuration = 0.16f;
 	private const float ArcHeight = 42f;
 	private const int TrailSegments = 7;
 
@@ -71,12 +72,18 @@ public partial class AttackProjectileVfx : Control
 			CombatDamageVfxKind.Combat => CombatDuration,
 			_ => AttackDuration,
 		};
+		// 弹道时长与亮牌/部署共用同一战斗动画速度倍率，避免 1.0x 以下仍然一闪而没。
+		float speed = Mathf.Clamp(
+			UIScaler.Instance?.DeployAnimationSpeed ?? UIScaler.DefaultDeployAnimationSpeed,
+			UIScaler.MinDeployAnimationSpeed, UIScaler.MaxDeployAnimationSpeed);
+		duration /= speed;
+		float impactDuration = ImpactBaseDuration / speed;
 
 		var tween = CreateTween();
 		tween.TweenMethod(Callable.From<float>(SetProgress), 0f, 1f, duration)
 			.SetEase(Tween.EaseType.Out)
 			.SetTrans(Tween.TransitionType.Cubic);
-		tween.TweenMethod(Callable.From<float>(SetImpactProgress), 0f, 1f, 0.16f)
+		tween.TweenMethod(Callable.From<float>(SetImpactProgress), 0f, 1f, impactDuration)
 			.SetDelay(duration * 0.78f)
 			.SetEase(Tween.EaseType.Out)
 			.SetTrans(Tween.TransitionType.Quad);

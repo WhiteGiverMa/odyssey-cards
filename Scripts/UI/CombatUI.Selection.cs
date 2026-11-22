@@ -66,7 +66,7 @@ public partial class CombatUI
 	{
 		int slotIndex = position.SlotIndex;
 		bool isPlayerSide = _boardUI.IsPlayerPosition(position);
-		if (_combat.State.IsGameOver)
+		if (_combat.State.IsGameOver || _combat.IsEnemyTurnStepping || !_combat.State.IsPlayerTurn)
 			return;
 		if (_attackDragFsm.HasDragged && IsPointerTargetSelectionMode())
 		{
@@ -199,7 +199,7 @@ public partial class CombatUI
 		bool success = _combat.PlayMinion(_selectedCard, slotIndex);
 		if (success)
 		{
-			GD.Print($"[CombatUI] ✓ 随从 {_selectedCard.CardName} 已放置到槽位 {slotIndex}");
+			GD.Print($"[CombatUI] [OK] 随从 {_selectedCard.CardName} 已放置到槽位 {slotIndex}");
 			// 部署动画：从拖拽卡牌当前位置飞向目标槽位
 			if (_dragCardUI != null)
 			{
@@ -209,7 +209,7 @@ public partial class CombatUI
 		}
 		else
 		{
-			GD.Print($"[CombatUI] ✗ PlayMinion 失败 — 查看上方 [CombatManager] 错误日志");
+			GD.Print($"[CombatUI] [FAIL] PlayMinion 失败 — 查看上方 [CombatManager] 错误日志");
 		}
 
 		RefreshAll();
@@ -239,12 +239,12 @@ public partial class CombatUI
 		bool success = PlaySelectedSpellWithVfxOrigin(target);
 		if (success)
 		{
-			GD.Print($"[CombatUI] ✓ 法术 {_selectedCard.CardName} 已施放");
+			GD.Print($"[CombatUI] [OK] 法术 {_selectedCard.CardName} 已施放");
 			AnimateCardToDiscardPile();
 		}
 		else
 		{
-			GD.Print($"[CombatUI] ✗ 法术施放失败");
+			GD.Print($"[CombatUI] [FAIL] 法术施放失败");
 		}
 		RefreshAll();
 	}
@@ -363,7 +363,7 @@ public partial class CombatUI
 	/// <param name="card">被选中的卡牌</param>
 	private void OnCardSelectedFromHand(Card.Card card)
 	{
-		if (_combat.State.IsGameOver)
+		if (_combat.State.IsGameOver || _combat.IsEnemyTurnStepping || !_combat.State.IsPlayerTurn)
 			return;
 		if (card == null)
 			return;
@@ -1019,6 +1019,8 @@ public partial class CombatUI
 
 	private void OnEnemyHeroCardActionPressed(int enemyIndex)
 	{
+		if (_combat.IsEnemyTurnStepping || !_combat.State.IsPlayerTurn)
+			return;
 		if (_attackDragFsm.HasDragged && IsPointerTargetSelectionMode())
 		{
 			GD.Print($"[CombatUI] 忽略敌方英雄点击：目标拖拽尚未松手，mode={_selectionMode}, enemy={enemyIndex}");
@@ -1224,7 +1226,7 @@ public partial class CombatUI
 			return;
 		}
 
-		if (_combat.State.IsGameOver)
+		if (_combat.State.IsGameOver || _combat.IsEnemyTurnStepping || !_combat.State.IsPlayerTurn)
 			return;
 		if (_selectionMode == SelectionMode.SelectingWeaponTarget)
 		{
@@ -1281,7 +1283,7 @@ public partial class CombatUI
 			return;
 		}
 
-		if (_combat.State.IsGameOver)
+		if (_combat.State.IsGameOver || _combat.IsEnemyTurnStepping || !_combat.State.IsPlayerTurn)
 			return;
 		if (_selectionMode == SelectionMode.SelectingActiveSkillTarget)
 		{
@@ -1346,7 +1348,7 @@ public partial class CombatUI
 		{
 			_boardUI.HighlightMinions(_combat.Board.GetPlayerMinions());
 
-			_playerHeroSpellButton.Text = Loc.T("ui.combat.weapon_skill_on_player_hero", "✦ 对己方英雄释放");
+			_playerHeroSpellButton.Text = UiSymbolMode.Prefix(Loc.T("ui.combat.weapon_skill_on_player_hero", "对己方英雄释放"), "✦ ");
 			_playerHeroSpellButton.Visible = true;
 			_playerHeroSpellButton.Disabled = false;
 		}
@@ -1356,8 +1358,8 @@ public partial class CombatUI
 		foreach (var card in _enemyCards)
 		{
 			string activeName = _combat.PlayerHero.Weapon?.ActiveSkill?.Name
-				?? Loc.T("ui.combat.weapon_skill", "✦ 技能");
-			card.AttackButton.Text = $"✦ {activeName}";
+				?? UiSymbolMode.Prefix(Loc.T("ui.combat.weapon_skill", "技能"), "✦ ");
+			card.AttackButton.Text = UiSymbolMode.Prefix(activeName, "✦ ");
 		}
 		SetEnemyHeroAttackTargetsVisible(true);
 
@@ -1403,7 +1405,7 @@ public partial class CombatUI
 
 		_enemyHeroCardAction = OnWeaponAttackHeroPressed;
 		foreach (var card in _enemyCards)
-			card.AttackButton.Text = Loc.T("ui.combat.weapon_attack_cost", "⚔ 武器攻击 ({cost}费)").Replace("{cost}", _combat.PlayerHero.Weapon!.AttackCost.ToString());
+			card.AttackButton.Text = UiSymbolMode.Prefix(Loc.T("ui.combat.weapon_attack_cost", "武器攻击 ({cost}费)"), "⚔ ").Replace("{cost}", _combat.PlayerHero.Weapon!.AttackCost.ToString());
 		var legalHeroes = legalTargets.OfType<Hero>().ToList();
 		SetEnemyHeroAttackTargetsVisible(legalHeroes.Count > 0, legalHeroes);
 
@@ -1450,7 +1452,7 @@ public partial class CombatUI
 		_boardUI.HighlightMinions(_combat.Board.GetAllMinions().Where(m => !m.IsDead));
 
 		// 敌方英雄按钮
-		SetEnemyHeroSpellTargetsVisible(true, $"⚡ 对敌方英雄造成 {damageAmount} 点伤害");
+		SetEnemyHeroSpellTargetsVisible(true, UiSymbolMode.Prefix($"对敌方英雄造成 {damageAmount} 点伤害", "⚡ "));
 		_enemyHeroCardAction = OnEnemyHeroSpellTargetViaOverlay;
 
 		// 启用键盘目标选择（双方槽位）
@@ -2083,7 +2085,12 @@ public partial class CombatUI
 				success = PlaySelectedSpellWithVfxOrigin(_combat.PlayerHero);
 				break;
 			case CardType.Domain:
+				// 领域亮牌同样从拖拽卡当前位置弹入，收尾飞向玩家效果栏。
+				_lastPlayedCardOrigin = ResolveSelectedCardVfxOrigin(_selectedCard);
 				success = _combat.PlayDomain(_selectedCard);
+				_lastPlayedCardOrigin = Vector2.Zero;
+				if (success)
+					CleanupDragCard();
 				break;
 			case CardType.Countermeasure:
 				// 反制牌不离开手牌，不走飞向弃牌堆的动画，只需重建手牌以刷新待命徽章。
@@ -2092,7 +2099,7 @@ public partial class CombatUI
 				ResetSelection();
 				RefreshAll();
 				if (!toggled)
-					GD.Print("[CombatUI] ✗ 反制牌激活/取消失败");
+					GD.Print("[CombatUI] [FAIL] 反制牌激活/取消失败");
 				return;
 			default:
 				GD.PrintErr($"[CombatUI] 不支持的类型：{_selectedCard.Type}");
@@ -2102,13 +2109,13 @@ public partial class CombatUI
 
 		if (success)
 		{
-			GD.Print($"[CombatUI] ✓ 无目标卡牌 {_selectedCard.CardName} 已打出");
+			GD.Print($"[CombatUI] [OK] 无目标卡牌 {_selectedCard.CardName} 已打出");
 			AnimateCardToDiscardPile();
 			RefreshAll();
 		}
 		else
 		{
-			GD.Print($"[CombatUI] ✗ 打出失败，取消");
+			GD.Print($"[CombatUI] [FAIL] 打出失败，取消");
 			OnCardDragCancelled();
 		}
 	}

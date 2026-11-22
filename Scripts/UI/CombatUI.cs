@@ -1,7 +1,9 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading.Tasks;
 using Godot;
 using OdysseyCards.Card;
 using OdysseyCards.Character;
@@ -198,6 +200,7 @@ public partial class CombatUI : Control
 	/// 位于弹道层(14)和伤害数字层(15)之上，低于卡牌飞行层(20)。
 	/// </summary>
 	private Control _deployVfxLayer = null!;
+	private CombatLogDrawer _combatLogDrawer = null!;
 
 	/// <summary>
 	/// 棋盘运行时引用——用于订阅随从放置/移除事件。
@@ -229,6 +232,8 @@ public partial class CombatUI : Control
 	private CardUI? _dragCardUI;
 	private Card.Card? _pendingSpellVfxCard;
 	private Vector2 _pendingSpellVfxOrigin;
+	/// <summary>本次出牌起点的屏幕中心；由选择流程写入，亮牌演出消费后清零。</summary>
+	private Vector2 _lastPlayedCardOrigin;
 	private const string CardTargetArrowKey = "card_target_select";
 	private const float TargetingCardScale = 0.75f;
 	// ===== 外部引用 =====
@@ -255,6 +260,10 @@ public partial class CombatUI : Control
 	private readonly Dictionary<Minion, BoardPosition> _assaultOrigins = new();
 	/// <summary>正在播放的突击演出；同时用于抑制同一击的普通攻击弹道。</summary>
 	private readonly Dictionary<Minion, AssaultAdvanceVfx> _assaultVfx = new();
+	/// <summary>普通推进前线的平滑替身；一步突击接管时立即撤销，避免重影。</summary>
+	private readonly Dictionary<Minion, MinionMoveVfx> _moveVfx = new();
+	/// <summary>当前正在播放的亮牌展示；新亮牌会先收掉旧的，保证同一时刻只有一张。</summary>
+	private CardShowcaseVfx? _activeShowcase;
 	/// <summary>直接点选攻击时的真实目标，仅在一次攻击调用栈内有效。</summary>
 	private IDamageTarget? _pendingAssaultShotTarget;
 
@@ -437,6 +446,8 @@ public partial class CombatUI : Control
 		if (UIScaler.Instance != null)
 		{
 			UIScaler.Instance.OnResolutionChanged += OnResolutionChanged;
+			UIScaler.Instance.OnEmojiIconsChanged += OnEmojiIconsChanged;
+			UIScaler.Instance.OnFontScaleChanged += OnFontScaleChanged;
 		}
 	}
 
@@ -747,6 +758,13 @@ public partial class CombatUI : Control
 		_deployVfxLayer.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 		deployVfxLayer.AddChild(_deployVfxLayer);
 
+		// 战斗日志抽屉（Layer=24）：只拦截抽屉矩形，预览层 25，低于意图提示 26。
+		var combatLogLayer = new CanvasLayer { Name = "CombatLogLayer", Layer = 24 };
+		AddChild(combatLogLayer);
+		_combatLogDrawer = new CombatLogDrawer();
+		combatLogLayer.AddChild(_combatLogDrawer);
+		_combatLogDrawer.Initialize(_combat.CombatLog);
+
 		// 意图悬浮提示层（Layer=26，高于意图图标）
 		var intentTooltipLayer = new CanvasLayer { Name = "IntentTooltipLayer", Layer = 26 };
 		var tooltipParent = new Control { Name = "IntentTooltipContent", MouseFilter = MouseFilterEnum.Ignore };
@@ -796,6 +814,9 @@ public partial class CombatUI : Control
 		// 散点 AddThemeColorOverride 优先于 Theme，既有视觉不回归）
 		UIThemeFactory.ApplyTo(this);
 
+		// 界面字体缩放：统一刷新战斗 HUD 的显式字号覆盖
+		ApplyHudFontScale();
+
 		GD.Print("[CombatUI] 初始化完成");
 	}
 
@@ -809,6 +830,8 @@ public partial class CombatUI : Control
 		if (UIScaler.Instance != null)
 		{
 			UIScaler.Instance.OnResolutionChanged -= OnResolutionChanged;
+			UIScaler.Instance.OnEmojiIconsChanged -= OnEmojiIconsChanged;
+			UIScaler.Instance.OnFontScaleChanged -= OnFontScaleChanged;
 		}
 
 		foreach (var unsubscribe in _unsubscribeActions)
@@ -850,6 +873,51 @@ public partial class CombatUI : Control
 		if (!IsInsideTree() || IsQueuedForDeletion())
 			return;
 		RefreshAll();
+	}
+
+	private void OnEmojiIconsChanged()
+	{
+		if (!IsInsideTree() || IsQueuedForDeletion() || _combat == null)
+			return;
+		RefreshAll();
+	}
+
+	/// <summary>界面字体倍率变化：刷新战斗核心 HUD 的显式字号覆盖（主题默认字号由 UIThemeFactory 原地刷新）。</summary>
+	private void OnFontScaleChanged()
+	{
+		if (!IsInsideTree() || IsQueuedForDeletion())
+			return;
+		ApplyHudFontScale();
+	}
+
+	/// <summary>把玩家区域、敌方意图与牌堆按钮等战斗 HUD 的字号统一接入界面字体缩放。</summary>
+	private void ApplyHudFontScale()
+	{
+		ApplyScaleFont(_playerManaLabel, 13);
+		ApplyScaleFont(_weaponInfoLabel, 12);
+		ApplyScaleFont(_weaponAttackButton, 13);
+		ApplyScaleFont(_weaponActiveSkillButton, 13);
+		ApplyScaleFont(_drawPileBtn, 14);
+		ApplyScaleFont(_discardPileBtn, 14);
+		ApplyScaleFont(_enemyArmorLabel, 14);
+		ApplyScaleFont(_enemyDefenseLabel, 13);
+		ApplyScaleFont(_enemyIntentLabel, 14);
+		ApplyScaleFont(_pauseButton, 20);
+		ApplyScaleFont(_mobileCancelButton, 24);
+		ApplyScaleFont(_enemyHeroAttackButton, 16);
+		ApplyScaleFont(_enemyHeroSpellButton, 16);
+
+		_playerIdentityCard?.ApplyFontScale();
+		foreach (EnemyIdentityCard card in _enemyCards)
+			card.ApplyFontScale();
+	}
+
+	/// <summary>单个控件按界面字体缩放刷新字号；节点未创建或已销毁时安全跳过。</summary>
+	private static void ApplyScaleFont(Control? control, int baseSize)
+	{
+		if (control == null || !GodotObject.IsInstanceValid(control))
+			return;
+		control.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(baseSize));
 	}
 
 	// ===== 子组件创建（依赖 _combat 运行时数据） =====
@@ -994,6 +1062,10 @@ public partial class CombatUI : Control
 		_combat.OnDamageVfxRequested += OnDamageVfxRequested;
 		_unsubscribeActions.Add(() => _combat.OnDamageVfxRequested -= OnDamageVfxRequested);
 
+		// 亮牌展示 — 指令/领域/反制结算时由规则层广播，UI 只负责演出
+		_combat.OnCardPlayPresented += OnCardPlayPresented;
+		_unsubscribeActions.Add(() => _combat.OnCardPlayPresented -= OnCardPlayPresented);
+
 		// 发现选牌阶段切换
 		_combat.OnCombatStateChanged += OnCombatStateChangedForDiscover;
 		_unsubscribeActions.Add(() => _combat.OnCombatStateChanged -= OnCombatStateChangedForDiscover);
@@ -1087,8 +1159,17 @@ public partial class CombatUI : Control
 		hm.PushPressedBinding(OdysseyInput.InfoScreen, ToggleInfoScreen);
 		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.InfoScreen, ToggleInfoScreen));
 
+		hm.PushPressedBinding(OdysseyInput.CombatLog, ToggleCombatLog);
+		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.CombatLog, ToggleCombatLog));
+
 		hm.PushPressedBinding(OdysseyInput.Cancel, HandleCancel);
 		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.Cancel, HandleCancel));
+	}
+
+	private void ToggleCombatLog()
+	{
+		if (_combatLogDrawer != null && GodotObject.IsInstanceValid(_combatLogDrawer))
+			_combatLogDrawer.Toggle();
 	}
 
 	private void OnHandChanged()
@@ -1188,16 +1269,27 @@ public partial class CombatUI : Control
 		if (_selectedCard == null)
 			return false;
 
+		// 记录本次出牌的屏幕起点：亮牌演出会从拖拽卡当前位置弹入，再飞向牌堆/效果栏。
+		_lastPlayedCardOrigin = ResolveSelectedCardVfxOrigin(_selectedCard);
+		if (_lastPlayedCardOrigin == Vector2.Zero)
+			_lastPlayedCardOrigin = GetPlayerHandAreaCenter();
 		_pendingSpellVfxCard = _selectedCard;
-		_pendingSpellVfxOrigin = ResolveSelectedCardVfxOrigin(_selectedCard);
+		_pendingSpellVfxOrigin = _lastPlayedCardOrigin;
 		try
 		{
-			return _combat.PlaySpell(_selectedCard, target);
+			bool played = _combat.PlaySpell(_selectedCard, target);
+			// 被反制拦截等“无亮牌回调”的成功路径同样必须释放拖拽卡；
+			// 正常路径已在 OnCardPlayPresented 里释放，重复调用为空操作。
+			if (played)
+				CleanupDragCard();
+			return played;
 		}
 		finally
 		{
 			_pendingSpellVfxCard = null;
 			_pendingSpellVfxOrigin = Vector2.Zero;
+			// 演出已在 PresentCardPlay 内同步消费起点；无论成功失败都清零，避免污染下一次出牌。
+			_lastPlayedCardOrigin = Vector2.Zero;
 		}
 	}
 
@@ -1253,20 +1345,56 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void OnBoardMinionPlacedForDeployAnimation(Minion minion, BoardPosition position)
 	{
-		// 玩家侧：由 HandleMinionPlacement 显式调用，不在此处重复触发
+		if (_deployVfxLayer == null || !GodotObject.IsInstanceValid(_deployVfxLayer))
+			return;
+
+		// 玩家侧：由 HandleMinionPlacement 显式调用，使用拖拽卡牌位置作为起点。
 		if (minion.IsPlayerSide)
 			return;
 
-		// 敌方侧：从屏幕上方飞入
+		// 敌方侧：优先从顶部手牌栏中心飞出；无手牌栏时退到敌方身份卡中心。
 		var card = minion.ToRuntimeCard();
-		var viewportSize = GetViewportRect().Size;
-		Vector2 fromPos = new(viewportSize.X * 0.5f, -CardUI.DESIGN_HEIGHT * 0.5f);
+		Vector2 fromPos = ResolveEnemyPlayOrigin(GetEnemyHeroIndexBySide(minion));
+		if (fromPos == Vector2.Zero)
+		{
+			var viewportSize = GetViewportRect().Size;
+			fromPos = new Vector2(viewportSize.X * 0.5f, -CardUI.DESIGN_HEIGHT * 0.5f);
+		}
 		PlayMinionDeployAnimation(card, fromPos, position.SlotIndex, isPlayerSide: false);
 	}
 
+	/// <summary>敌方出牌起点：可见手牌栏中心 &gt; 敌方身份卡中心 &gt; 零（调用方回退）。</summary>
+	private Vector2 ResolveEnemyPlayOrigin(int enemyIndex)
+	{
+		if (_enemyHandBar != null && GodotObject.IsInstanceValid(_enemyHandBar) && _enemyHandBar.Visible)
+		{
+			Rect2 barRect = _enemyHandBar.GetGlobalRect();
+			if (barRect.Size.X > 0f && barRect.Size.Y > 0f)
+				return barRect.Position + barRect.Size * 0.5f;
+		}
+		if (enemyIndex >= 0)
+		{
+			Vector2 identity = GetEnemyIdentityCardCenter(enemyIndex);
+			if (identity != Vector2.Zero)
+				return identity;
+		}
+		// 没有手牌栏时回退到最先存活的敌人身份卡。
+		for (int i = 0; i < _enemyCards.Count; i++)
+		{
+			Vector2 center = GetEnemyIdentityCardCenter(i);
+			if (center != Vector2.Zero)
+				return center;
+		}
+		return Vector2.Zero;
+	}
+
+	/// <summary>从随从所属方定位敌方索引；敌方随从属于该方英雄。</summary>
+	private int GetEnemyHeroIndexBySide(Minion minion)
+		=> minion.OwnerHero != null ? GetEnemyHeroIndex(minion.OwnerHero) : -1;
+
 	/// <summary>
-	/// 播放随从部署动画：在 fromPos 创建临时 CardUI，沿贝塞尔曲线飞向目标槽位，
-	/// 到达后弹性缩放落地并溅射微尘粒子。动画不阻塞游戏操作。
+	/// 播放随从部署动画：在 fromPos 创建临时 CardUI，先飞到亮牌悬停点停留，
+	/// 再俯冲落入目标槽位、弹性缩放落地并溅射微尘粒子。动画不阻塞游戏操作。
 	/// </summary>
 	/// <param name="card">要展示的卡牌数据（仅用于渲染）</param>
 	/// <param name="fromPos">动画起始屏幕中心位置</param>
@@ -1282,14 +1410,133 @@ public partial class CombatUI : Control
 		}
 
 		Vector2 toPos = slotRect.Position + slotRect.Size * 0.5f;
-		float speed = UIScaler.Instance?.DeployAnimationSpeed ?? 1.0f;
-		MinionDeployVfx.Play(card, fromPos, toPos, slotRect.Size, isPlayerSide, speed, _deployVfxLayer);
+		MinionDeployVfx.Play(card, fromPos, toPos, slotRect.Size, isPlayerSide, ResolveDeploySpeed(), _deployVfxLayer);
 	}
 
 	private void OnBoardMinionRemovedUnsubscribeDamage(Minion minion)
 	{
 		_assaultOrigins.Remove(minion);
+		CancelMoveVfx(minion);
 		UnsubscribeMinionDamageEvents(minion);
+	}
+
+	// ===== 亮牌展示（指令 / 领域 / 反制） =====
+
+	/// <summary>
+	/// 规则层结算出牌时广播的亮牌演出：起点 → 左侧展示位定格 → 飞向牌堆/效果栏。
+	/// 玩家自己的指令/领域在此顺手释放拖拽卡，统一由此处收尾，避免与飞牌动画叠影。
+	/// </summary>
+	private void OnCardPlayPresented(CardPlayPresentationEvent presented)
+	{
+		if (presented == null || SceneLifecycleGuard.ShouldSkip(this))
+			return;
+		if (_cardFlyLayer == null || !GodotObject.IsInstanceValid(_cardFlyLayer))
+			return;
+
+		bool playerSide = presented.IsPlayerSide;
+		Vector2 origin = ResolveCardPlayOrigin(presented);
+		Vector2 targetCenter = presented.Target != null ? ResolveTargetScreenPos(presented.Target) : Vector2.Zero;
+		Vector2 endCenter = ResolveCardPlayEnd(presented);
+		string badge = ResolveCardPlayBadge(presented);
+
+		// 同一时刻只保留一张亮牌：敌方连续两步之间的等待可能略短于上一张的收尾。
+		if (_activeShowcase != null && GodotObject.IsInstanceValid(_activeShowcase))
+			_activeShowcase.CancelAndFree();
+		_activeShowcase = CardShowcaseVfx.Play(presented.Card, playerSide, origin, targetCenter, endCenter, badge,
+			presented.IsCountermeasureTrigger || presented.IsCanceled, ResolveDeploySpeed(), _cardFlyLayer);
+
+		// 玩家指令/领域已由亮牌接管收尾：干净隐藏并释放拖拽卡，手牌随后重建。
+		if (playerSide && !presented.IsCountermeasureTrigger)
+			CleanupDragCard();
+	}
+
+	/// <summary>亮牌起点：玩家取本次出牌记录/拖拽卡中心；敌方取顶栏手牌或身份卡中心。</summary>
+	private Vector2 ResolveCardPlayOrigin(CardPlayPresentationEvent presented)
+	{
+		if (presented.IsPlayerSide)
+		{
+			if (presented.IsCountermeasureTrigger)
+				return GetPlayerHandAreaCenter();
+			Vector2 recorded = _lastPlayedCardOrigin;
+			_lastPlayedCardOrigin = Vector2.Zero;
+			if (recorded != Vector2.Zero)
+				return recorded;
+			if (_dragCardUI != null && GodotObject.IsInstanceValid(_dragCardUI))
+			{
+				Rect2 rect = _dragCardUI.GetGlobalRect();
+				return rect.Position + rect.Size * 0.5f;
+			}
+			return GetPlayerHeroScreenCenter();
+		}
+		return ResolveEnemyPlayOrigin(GetEnemyHeroIndex(presented.CasterHero));
+	}
+
+	/// <summary>亮牌收尾：领域→效果栏，轮战→抽牌堆，其余→弃牌堆；敌方飞向身份卡侧。</summary>
+	private Vector2 ResolveCardPlayEnd(CardPlayPresentationEvent presented)
+	{
+		if (presented.IsCountermeasureTrigger)
+		{
+			return presented.IsPlayerSide
+				? GetPlayerEffectBarCenter()
+				: GetEnemyEffectBarCenter(GetEnemyHeroIndex(presented.CasterHero));
+		}
+		if (presented.Card.Type == CardType.Domain)
+		{
+			return presented.IsPlayerSide
+				? GetPlayerEffectBarCenter()
+				: GetEnemyEffectBarCenter(GetEnemyHeroIndex(presented.CasterHero));
+		}
+		if (!presented.IsPlayerSide)
+			return GetEnemyEffectBarCenter(GetEnemyHeroIndex(presented.CasterHero));
+		return presented.Card.HasRecycle ? GetDrawPileCenter() : GetDiscardPileCenter();
+	}
+
+	/// <summary>卡面下方标签；全部走本地化键，默认态不含任何 Emoji。</summary>
+	private static string ResolveCardPlayBadge(CardPlayPresentationEvent presented)
+	{
+		if (presented.IsCountermeasureTrigger)
+		{
+			return presented.IsCanceled
+				? Localization.Localization.T("ui.combat.log_counter_canceled", "已被反制")
+				: Localization.Localization.T("ui.combat.log_counter_trigger", "反制触发");
+		}
+		if (presented.IsCanceled)
+			return Localization.Localization.T("ui.combat.log_counter_canceled", "已被反制");
+		if (presented.Card.Type == CardType.Domain)
+			return Localization.Localization.T("ui.combat.log_domain_deploy", "展开领域");
+		return presented.IsPlayerSide
+			? Localization.Localization.T("ui.combat.log_player_order", "我方指令")
+			: Localization.Localization.T("ui.combat.log_enemy_order", "敌方指令");
+	}
+
+	/// <summary>玩家手牌区中心；反制触发等不来自拖拽卡的演出以它为起点。</summary>
+	private Vector2 GetPlayerHandAreaCenter()
+	{
+		if (_handArea != null && GodotObject.IsInstanceValid(_handArea))
+		{
+			Rect2 rect = _handArea.GetGlobalRect();
+			if (rect.Size.X > 0f && rect.Size.Y > 0f)
+				return rect.Position + rect.Size * 0.5f;
+		}
+		return GetPlayerHeroScreenCenter();
+	}
+
+	/// <summary>敌方身份卡效果栏中心；越界或未布局时退到身份卡中心。</summary>
+	private Vector2 GetEnemyEffectBarCenter(int enemyIndex)
+	{
+		if (enemyIndex < 0 || enemyIndex >= _enemyCards.Count)
+			return Vector2.Zero;
+		EnemyIdentityCard card = _enemyCards[enemyIndex];
+		if (!GodotObject.IsInstanceValid(card))
+			return Vector2.Zero;
+		EffectBar? bar = card.EffectBar;
+		if (bar != null && GodotObject.IsInstanceValid(bar))
+		{
+			Rect2 barRect = bar.GetGlobalRect();
+			if (barRect.Size.X > 0f && barRect.Size.Y > 0f)
+				return barRect.Position + barRect.Size * 0.5f;
+		}
+		return GetEnemyIdentityCardCenter(enemyIndex);
 	}
 
 	private void OnBoardMinionPreRemove(Minion minion, BoardPosition position)
@@ -1323,7 +1570,34 @@ public partial class CombatUI : Control
 		{
 			_assaultOrigins.Remove(minion);
 		}
+
+		// 普通推进前线：在部署层生成替身平滑滑行。突击单位由 OnAssaultAdvance 在同一栈帧接管并撤销替身。
+		bool advanceFrontline = to.Row == BoardRow.Frontline
+			&& from.Row is BoardRow.PlayerSupport or BoardRow.EnemySupport;
+		if (!advanceFrontline || _deployVfxLayer == null || !GodotObject.IsInstanceValid(_deployVfxLayer))
+			return;
+		CancelMoveVfx(minion);
+		Rect2 fromRect = _boardUI.GetSlotScreenRect(from);
+		Rect2 toRect = _boardUI.GetSlotScreenRect(to);
+		MinionMoveVfx? vfx = MinionMoveVfx.Play(minion, fromRect, toRect, minion.IsPlayerSide,
+			ResolveDeploySpeed(), _deployVfxLayer);
+		if (vfx != null)
+			_moveVfx[minion] = vfx;
 	}
+
+	/// <summary>撤销并移除某随从的普通推进替身；一步突击接管与离场清理共用。</summary>
+	private void CancelMoveVfx(Minion minion)
+	{
+		if (!_moveVfx.TryGetValue(minion, out MinionMoveVfx? vfx))
+			return;
+		_moveVfx.Remove(minion);
+		if (GodotObject.IsInstanceValid(vfx))
+			vfx.CancelAndFree();
+	}
+
+	private static float ResolveDeploySpeed() => Mathf.Clamp(
+		UIScaler.Instance?.DeployAnimationSpeed ?? UIScaler.DefaultDeployAnimationSpeed,
+		UIScaler.MinDeployAnimationSpeed, UIScaler.MaxDeployAnimationSpeed);
 
 	/// <summary>
 	/// 一步突击演出：50% 停稳射击、50% 行进间射击。
@@ -1334,6 +1608,7 @@ public partial class CombatUI : Control
 		if (SceneLifecycleGuard.ShouldSkip(this)
 			|| _deployVfxLayer == null || !GodotObject.IsInstanceValid(_deployVfxLayer))
 			return;
+		// 后续仅当突击演出成功创建时才撤销普通推进替身（见下方 vfx != null 分支）。
 		BoardPosition origin = _assaultOrigins.TryGetValue(minion, out BoardPosition recorded)
 			? recorded
 			: new BoardPosition(BoardRow.PlayerSupport, Mathf.Clamp(minion.BoardSlotIndex, 0, Board.SupportCapacity - 1));
@@ -1353,7 +1628,11 @@ public partial class CombatUI : Control
 				_assaultOrigins.Remove(minion);
 			});
 		if (vfx != null)
+		{
+			// 突击演出已接管：撤销 OnMinionMoved 刚创建的普通推进替身，避免两段动画叠影。
+			CancelMoveVfx(minion);
 			_assaultVfx[minion] = vfx;
+		}
 	}
 
 	/// <summary>优先使用玩家本次点选目标；智能攻击由后续伤害事件校正真实弹着点。</summary>
@@ -1545,22 +1824,63 @@ public partial class CombatUI : Control
 	/// 尝试结束当前回合（按钮或热键触发）。
 	/// 比 OnEndTurnPressed 多做一层守卫：检查按钮禁用态、发现选牌、非玩家回合。
 	/// </summary>
-	private void TryEndTurn()
+	[SuppressMessage("Reliability", "CA2007:DoNotConfigureAwait", Justification = "Godot 按钮/热键顶层包装，后续刷新必须留在主线程。")]
+	private async void TryEndTurn()
 	{
-		if (_combat == null)
-			return;
-		if (_combat.State.IsGameOver)
-			return;
-		if (_endTurnButton.Disabled)
-			return;
-		if (_combat.IsDiscovering)
-			return;
-		if (!_combat.State.IsPlayerTurn)
+		if (_combat == null || _combat.State.IsGameOver || _endTurnButton.Disabled
+			|| _combat.IsDiscovering || !_combat.State.IsPlayerTurn || _combat.IsEnemyTurnStepping)
 			return;
 
-		GD.Print("[CombatUI] 热键结束回合");
-		_combat.EndPlayerTurn();
+		GD.Print("[CombatUI] 热键结束回合（UI 步进）");
+		_endTurnButton.Disabled = true;
+		_smartAttackButton.Disabled = true;
+		_heroPowerButton.Disabled = true;
+		_weaponAttackButton.Disabled = true;
+		_weaponActiveSkillButton.Disabled = true;
+		try
+		{
+			await _combat.EndPlayerTurnAsync(PlayEnemyStepDelayAsync);
+		}
+		catch (Exception ex)
+		{
+			_combat.CancelEnemyTurnStepping();
+			GD.PrintErr($"[CombatUI] 敌方回合步进异常，已安全中止：{ex}");
+		}
+		finally
+		{
+			if (GodotObject.IsInstanceValid(this) && IsInsideTree() && !IsQueuedForDeletion())
+			{
+				_endTurnButton.Disabled = !_combat.State.IsPlayerTurn || _combat.State.IsGameOver;
+				RefreshAll();
+			}
+		}
+	}
+
+	[SuppressMessage("Reliability", "CA2007:DoNotConfigureAwait", Justification = "Godot SceneTreeTimer 必须在主线程等待。")]
+	private async Task PlayEnemyStepDelayAsync(EnemyStepKind kind)
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this))
+			return;
+		// 每一步先刷新：顶部手牌张数、法力水晶与棋盘在等待前就反映真实结算结果。
 		RefreshAll();
+		float speed = ResolveDeploySpeed();
+		float duration = kind switch
+		{
+			EnemyStepKind.TurnPrepare => 0.40f,
+			// 与敌方 CardShowcaseVfx（0.22 + 0.95 + 0.34 = 1.51）对齐，留足完整阅读时间。
+			EnemyStepKind.PlayCard => 1.45f,
+			// 与敌方随从从顶栏飞出悬停（0.26 + 0.65 + 0.20 = 1.11）对齐。
+			EnemyStepKind.Deploy => 1.15f,
+			EnemyStepKind.Move => 0.55f,
+			EnemyStepKind.Attack or EnemyStepKind.Weapon or EnemyStepKind.HeroPower
+				or EnemyStepKind.MinionAction => 0.68f,
+			EnemyStepKind.TurnEnd => 0.30f,
+			_ => 0.30f,
+		} / speed;
+		await ToSignal(GetTree().CreateTimer(duration), SceneTreeTimer.SignalName.Timeout);
+		// 等待期间场景可能被销毁/快速 SL；下一步开始前不再重复 RefreshAll，避免同帧重建手牌。
+		if (SceneLifecycleGuard.ShouldSkip(this))
+			return;
 	}
 
 	/// <summary>
@@ -1609,12 +1929,12 @@ public partial class CombatUI : Control
 
 		if (isVictory)
 		{
-			_gameOverPopup.Title = Localization.Localization.T("ui.combat.victory_title", "★ 胜利！");
+			_gameOverPopup.Title = UiSymbolMode.Prefix(Localization.Localization.T("ui.combat.victory_title", "胜利！"), "★ ");
 			_gameOverPopup.OkButtonText = Localization.Localization.T("ui.combat.continue_adventure", "继续冒险");
 		}
 		else
 		{
-			_gameOverPopup.Title = Localization.Localization.T("ui.combat.defeat_title", "☠ 失败");
+			_gameOverPopup.Title = UiSymbolMode.Prefix(Localization.Localization.T("ui.combat.defeat_title", "失败"), "☠ ");
 			_gameOverPopup.OkButtonText = Localization.Localization.T("ui.combat.back_to_menu", "返回主菜单");
 		}
 
@@ -1809,6 +2129,13 @@ public partial class CombatUI : Control
 		if (!IsInsideTree())
 			return;
 
+		// 战报抽屉展开时 ESC 优先收起，避免和卡牌取消抢同一个键
+		if (_combatLogDrawer != null && GodotObject.IsInstanceValid(_combatLogDrawer) && _combatLogDrawer.IsOpen)
+		{
+			_combatLogDrawer.SetOpen(false);
+			return;
+		}
+
 		// 手牌选择模式——取消弃牌选择
 		if (_isHandSelecting)
 		{
@@ -1853,6 +2180,7 @@ public partial class CombatUI : Control
 	private void OnSaveAndExit()
 	{
 		GD.Print("[CombatUI] 保存并退出 → 返回主菜单");
+		_combat?.CancelEnemyTurnStepping();
 
 		// 切换场景前必须先恢复暂停，否则新场景加载后按钮不响应
 		GetTree().Paused = false;
@@ -1875,6 +2203,7 @@ public partial class CombatUI : Control
 	private void OnQuickSL()
 	{
 		GD.Print("[CombatUI] 快速SL → 重新加载战斗场景");
+		_combat?.CancelEnemyTurnStepping();
 
 		// 切换场景前必须先恢复暂停
 		GetTree().Paused = false;

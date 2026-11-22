@@ -84,10 +84,10 @@ public partial class CombatUI
 		UpdateRelicDisplay();
 		UpdateEnemyHandBar();
 
-		// 游戏结束时禁用操作
+		// 回合状态是唯一操作锁；敌方步进时绝不允许重复结束回合。
+		_endTurnButton.Disabled = !_combat.State.IsPlayerTurn || _combat.IsEnemyTurnStepping || _combat.State.IsGameOver;
 		if (_combat.State.IsGameOver)
 		{
-			_endTurnButton.Disabled = true;
 			_smartAttackButton.Disabled = true;
 			_heroPowerButton.Disabled = true;
 		}
@@ -98,7 +98,7 @@ public partial class CombatUI
 		if (_smartAttackButton == null || _combat == null)
 			return;
 
-		_smartAttackButton.Text = Localization.Localization.T("ui.combat.smart_attack", "⚡ 智能攻击");
+		_smartAttackButton.Text = UiSymbolMode.Prefix(Localization.Localization.T("ui.combat.smart_attack", "智能攻击"), "⚡ ");
 		_smartAttackButton.Disabled = !_combat.CanExecuteSmartPlayerAttack();
 	}
 
@@ -443,13 +443,14 @@ public partial class CombatUI
 			// 武器攻击按钮——普通模式下显示
 			if (_selectionMode == SelectionMode.Normal && !_combat.State.IsGameOver)
 			{
-				bool canAttack = _combat.PlayerHero.CanWeaponAttack()
+				bool canAttack = _combat.State.IsPlayerTurn && !_combat.IsEnemyTurnStepping
+					&& _combat.PlayerHero.CanWeaponAttack()
 					&& _combat.PlayerHero.CanSpendMana(weapon.AttackCost);
 				_weaponAttackButton.Visible = true;
 				_weaponAttackButton.Disabled = !canAttack || weapon.IsDisabled;
 				_weaponAttackButton.Text = weapon.IsDisabled
-					? Localization.Localization.T("ui.combat.weapon_disabled", "⚔ 武器攻击 [禁用]")
-					: Localization.Localization.T("ui.combat.weapon_attack_cost", "⚔ 武器攻击 ({cost}费)").Replace("{cost}", weapon.AttackCost.ToString());
+					? UiSymbolMode.Prefix(Localization.Localization.T("ui.combat.weapon_disabled", "武器攻击 [禁用]"), "⚔ ")
+					: UiSymbolMode.Prefix(Localization.Localization.T("ui.combat.weapon_attack_cost", "武器攻击 ({cost}费)"), "⚔ ").Replace("{cost}", weapon.AttackCost.ToString());
 			}
 			else
 			{
@@ -462,14 +463,14 @@ public partial class CombatUI
 				var active = weapon.ActiveSkill;
 				bool skillVisible = (_selectionMode == SelectionMode.Normal || _selectionMode == SelectionMode.SelectingActiveSkillTarget) && !_combat.State.IsGameOver;
 				_weaponActiveSkillButton.Visible = skillVisible;
-				_weaponActiveSkillButton.Disabled = !active.CanUse(_combat.PlayerHero);
+				_weaponActiveSkillButton.Disabled = !_combat.State.IsPlayerTurn || _combat.IsEnemyTurnStepping || !active.CanUse(_combat.PlayerHero);
 
 				if (active.CurrentCooldown > 0)
 				{
 					string localActiveName = !string.IsNullOrEmpty(active.NameKey)
 						? Localization.Localization.T(active.NameKey, active.Name)
 						: active.Name;
-					_weaponActiveSkillButton.Text = Localization.Localization.T("ui.combat.skill_cooldown", "✦ {name} (冷却{cooldown})")
+					_weaponActiveSkillButton.Text = UiSymbolMode.Prefix(Localization.Localization.T("ui.combat.skill_cooldown", "{name} (冷却{cooldown})"), "✦ ")
 						.Replace("{name}", localActiveName).Replace("{cooldown}", active.CurrentCooldown.ToString());
 				}
 				else
@@ -477,7 +478,7 @@ public partial class CombatUI
 					string localActiveName = !string.IsNullOrEmpty(active.NameKey)
 						? Localization.Localization.T(active.NameKey, active.Name)
 						: active.Name;
-					string text = Localization.Localization.T("ui.combat.skill_cost", "✦ {name} ({cost}费)")
+					string text = UiSymbolMode.Prefix(Localization.Localization.T("ui.combat.skill_cost", "{name} ({cost}费)"), "✦ ")
 						.Replace("{name}", localActiveName).Replace("{cost}", active.Cost.ToString());
 					if (active is IChargeCooldownSkill chargeSkill)
 					{

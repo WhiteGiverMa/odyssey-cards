@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using Godot;
+using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
 
 namespace OdysseyCards.UI;
@@ -137,11 +138,11 @@ public partial class CombatUI
 		_pauseButton = new Button
 		{
 			Name = "PauseButton",
-			Text = "⏸",
+			Text = UiSymbolMode.Select("II", "⏸"),
 			CustomMinimumSize = new Vector2(40, 36),
 			Flat = true,
 		};
-		_pauseButton.AddThemeFontSizeOverride("font_size", 20);
+		_pauseButton.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(20));
 		_pauseButton.AddThemeColorOverride("font_color", new Color(0.8f, 0.8f, 0.8f));
 		_pauseButton.Pressed += OnPauseButtonPressed;
 		container.AddChild(_pauseButton);
@@ -151,12 +152,12 @@ public partial class CombatUI
 		_mobileCancelButton = new Button
 		{
 			Name = "MobileCancelButton",
-			Text = "✕",
+			Text = UiSymbolMode.Select("X", "✕"),
 			CustomMinimumSize = new Vector2(48, 48),
 			Flat = true,
 			Visible = false,
 		};
-		_mobileCancelButton.AddThemeFontSizeOverride("font_size", 24);
+		_mobileCancelButton.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(24));
 		_mobileCancelButton.AddThemeColorOverride("font_color", new Color(0.9f, 0.5f, 0.5f));
 		_mobileCancelButton.Pressed += OnMobileCancelPressed;
 		container.AddChild(_mobileCancelButton);
@@ -354,7 +355,7 @@ public partial class CombatUI
 			CustomMinimumSize = new Vector2(120, 18),
 		};
 		_playerManaLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.8f, 1f, 0.8f));
-		_playerManaLabel.AddThemeFontSizeOverride("font_size", 13);
+		_playerManaLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(13));
 
 		playerManaPlaceholder?.AddChild(_playerManaLabel);
 	}
@@ -373,7 +374,7 @@ public partial class CombatUI
 			CustomMinimumSize = new Vector2(100, 20),
 		};
 		_enemyArmorLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.3f));
-		_enemyArmorLabel.AddThemeFontSizeOverride("font_size", 14);
+		_enemyArmorLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(14));
 
 		var enemyHealthContainer = GetNodeOrNull<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
 		enemyHealthContainer?.AddChild(_enemyArmorLabel);
@@ -388,7 +389,7 @@ public partial class CombatUI
 			HorizontalAlignment = HorizontalAlignment.Right,
 		};
 		_enemyDefenseLabel.AddThemeColorOverride("font_color", new Color(0.3f, 0.7f, 1f));
-		_enemyDefenseLabel.AddThemeFontSizeOverride("font_size", 13);
+		_enemyDefenseLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(13));
 		enemyHealthContainer?.AddChild(_enemyDefenseLabel);
 	}
 
@@ -407,7 +408,7 @@ public partial class CombatUI
 		_smartAttackButton = new Button
 		{
 			Name = "SmartAttackButton",
-			Text = Localization.Localization.T("ui.combat.smart_attack", "⚡ 智能攻击"),
+			Text = UiSymbolMode.Prefix(Localization.Localization.T("ui.combat.smart_attack", "智能攻击"), "⚡ "),
 			CustomMinimumSize = new Vector2(120, 48),
 			Disabled = true,
 		};
@@ -525,7 +526,7 @@ public partial class CombatUI
 		_enemyHeroAttackButton = new Button
 		{
 			Name = "EnemyHeroAttackButton",
-			Text = Localization.Localization.T("ui.combat.attack_enemy_hero", "⚔ 攻击敌方英雄"),
+			Text = UiSymbolMode.Prefix(Localization.Localization.T("ui.combat.attack_enemy_hero", "攻击敌方英雄"), "⚔ "),
 			CustomMinimumSize = new Vector2(140, 44),
 			Visible = false,
 		};
@@ -536,7 +537,7 @@ public partial class CombatUI
 		_enemyHeroSpellButton = new Button
 		{
 			Name = "EnemyHeroSpellButton",
-			Text = Localization.Localization.T("ui.combat.spell_enemy_hero", "✦ 对敌方英雄施法"),
+			Text = UiSymbolMode.Prefix(Localization.Localization.T("ui.combat.spell_enemy_hero", "对敌方英雄施法"), "✦ "),
 			CustomMinimumSize = new Vector2(140, 44),
 			Visible = false,
 		};
@@ -576,7 +577,7 @@ public partial class CombatUI
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
 		_enemyIntentLabel.AddThemeColorOverride("font_color", new Color(1f, 0.4f, 0.4f));
-		_enemyIntentLabel.AddThemeFontSizeOverride("font_size", 14);
+		_enemyIntentLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(14));
 		enemyIntentPlaceholder.AddChild(_enemyIntentLabel);
 	}
 
@@ -607,7 +608,7 @@ public partial class CombatUI
 			CustomMinimumSize = new Vector2(100, 44),
 		};
 		_drawPileBtn.AddThemeColorOverride("font_color", new Color(0.7f, 0.8f, 1f));
-		_drawPileBtn.AddThemeFontSizeOverride("font_size", 13);
+		_drawPileBtn.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(14));
 		_drawPileBtn.Pressed += () => ShowDrawPileView();
 		btnContainer.AddChild(_drawPileBtn);
 
@@ -623,7 +624,7 @@ public partial class CombatUI
 			CustomMinimumSize = new Vector2(100, 44),
 		};
 		_discardPileBtn.AddThemeColorOverride("font_color", new Color(0.8f, 0.7f, 0.6f));
-		_discardPileBtn.AddThemeFontSizeOverride("font_size", 13);
+		_discardPileBtn.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(14));
 		_discardPileBtn.Pressed += () => ShowDiscardPileView();
 		btnContainer.AddChild(_discardPileBtn);
 
@@ -680,7 +681,7 @@ public partial class CombatUI
 			CustomMinimumSize = new Vector2(120, 18),
 		};
 		_weaponInfoLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.9f, 1f));
-		_weaponInfoLabel.AddThemeFontSizeOverride("font_size", 12);
+		_weaponInfoLabel.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(12));
 		weaponPlaceholder.AddChild(_weaponInfoLabel);
 
 		// 按钮容器
@@ -694,24 +695,24 @@ public partial class CombatUI
 		_weaponAttackButton = new Button
 		{
 			Name = "WeaponAttackButton",
-			Text = Localization.Localization.T("ui.combat.weapon_attack", "⚔ 武器攻击"),
+			Text = UiSymbolMode.Prefix(Localization.Localization.T("ui.combat.weapon_attack", "武器攻击"), "⚔ "),
 			CustomMinimumSize = new Vector2(100, 44),
 			Visible = false,
 		};
 		_weaponAttackButton.AddThemeColorOverride("font_color", new Color(1f, 0.5f, 0.3f));
-		_weaponAttackButton.AddThemeFontSizeOverride("font_size", 12);
+		_weaponAttackButton.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(13));
 		weaponBtnContainer.AddChild(_weaponAttackButton);
 
 		// 主动技能按钮
 		_weaponActiveSkillButton = new Button
 		{
 			Name = "WeaponActiveSkillButton",
-			Text = Localization.Localization.T("ui.combat.weapon_skill", "✦ 技能"),
+			Text = UiSymbolMode.Prefix(Localization.Localization.T("ui.combat.weapon_skill", "技能"), "✦ "),
 			CustomMinimumSize = new Vector2(100, 44),
 			Visible = false,
 		};
 		_weaponActiveSkillButton.AddThemeColorOverride("font_color", new Color(0.8f, 0.6f, 1f));
-		_weaponActiveSkillButton.AddThemeFontSizeOverride("font_size", 12);
+		_weaponActiveSkillButton.AddThemeFontSizeOverride("font_size", UIScaler.ApplyFontScale(13));
 		weaponBtnContainer.AddChild(_weaponActiveSkillButton);
 
 		weaponPlaceholder.AddChild(weaponBtnContainer);
