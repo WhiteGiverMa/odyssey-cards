@@ -120,6 +120,14 @@ public class IntentDebugCommand : ChatScreenCommand
 		for (int i = 0; i < cm.EnemyUnits.Count; i++)
 		{
 			var unit = cm.EnemyUnits[i];
+
+			// 同构牌手没有静态意图，避免误报 Buff -> <none>。
+			if (unit.Controller is IDeckDrivenCommander commander)
+			{
+				lines.AppendLine($"[Enemy[{i}] {unit.Brain.Name}: DeckDrivenCommander (no static intent), heroId={commander.HeroId}]");
+				continue;
+			}
+
 			var intent = unit.GetCurrentIntent(cm);
 			var target = intent.GetTarget(cm);
 			lines.AppendLine($"[Enemy[{i}] {unit.Brain.Name}: {intent.Type} -> {DescribeTarget(target)}, damage={intent.GetEffectiveDamage(cm)}]");

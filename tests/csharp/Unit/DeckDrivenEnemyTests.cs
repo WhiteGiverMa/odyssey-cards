@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using OdysseyCards.AI;
+using OdysseyCards.Card;
+using OdysseyCards.Character;
+using OdysseyCards.Combat;
 using OdysseyCards.Core;
 using OdysseyCards.Roguelike;
 using Xunit;
@@ -219,5 +222,95 @@ public class DeckDrivenEnemyTests
 	public void EnemyDeckProfiles_Goutansha_KeepsNegativeStartingDefense()
 	{
 		Assert.Equal(-1, EnemyDeckProfiles.CreateGoutansha().StartingDefense);
+	}
+
+	// ===== 意图可见性契约：同构牌手不暴露静态意图 =====
+
+	private static Hero CreateEnemyBody() => new(new CommanderCore(), false);
+
+	private static EnemyUnit CreateCommanderUnit(DeckDrivenCommander commander)
+		=> new(CreateEnemyBody(), commander);
+
+	[Fact]
+	public void EnemyIntentVisibility_AllCommanderTiers_HideHeroIntent()
+	{
+		var commanders = new[]
+		{
+			EnemyDeckProfiles.CreateGoutansha(),
+			DeckDrivenCommander.CreateElite("rie"),
+			DeckDrivenCommander.CreateBoss("sokou"),
+		};
+
+		foreach (var commander in commanders)
+		{
+			var unit = CreateCommanderUnit(commander);
+			var controller = Assert.IsType<DeckDrivenCommander>(unit.Controller);
+			Assert.False(EnemyIntentVisibility.ShouldShowHeroIntent(controller));
+		}
+	}
+
+	[Fact]
+	public void EnemyIntentVisibility_CommanderMinions_HideIntentOnBothRows()
+	{
+		var commander = CreateCommanderUnit(EnemyDeckProfiles.CreateGoutansha());
+		var units = new[] { commander };
+		var board = new Board();
+		var support = new Minion("support", false, 1, 2) { OwnerHero = commander.Body };
+		var frontline = new Minion("frontline", false, 1, 2) { OwnerHero = commander.Body };
+
+		Assert.True(board.PlaceMinion(support, 0));
+		Assert.True(board.PlaceMinion(frontline, 1));
+		Assert.True(board.MoveMinionToFrontline(frontline, 0));
+		Assert.Equal(BoardRow.EnemySupport, support.BoardRow!.Value);
+		Assert.Equal(BoardRow.Frontline, frontline.BoardRow!.Value);
+
+		Assert.True(EnemyIntentVisibility.IsCommanderMinion(support, units));
+		Assert.False(EnemyIntentVisibility.ShouldShowMinionIntent(support, units));
+		Assert.True(EnemyIntentVisibility.IsCommanderMinion(frontline, units));
+		Assert.False(EnemyIntentVisibility.ShouldShowMinionIntent(frontline, units));
+	}
+
+	[Fact]
+	public void EnemyIntentVisibility_DuoCommanders_HideOnlyOwnMinions()
+	{
+		var encounters = EnemyRegistry.Create("zhangshan");
+		var units = encounters
+			.Select(encounter => CreateCommanderUnit(Assert.IsType<DeckDrivenCommander>(encounter)))
+			.ToList();
+		var secondMinion = new Minion("shanhu_minion", false, 1, 1) { OwnerHero = units[1].Body };
+		var orphan = new Minion("orphan", false, 1, 1);
+
+		Assert.All(units, unit => Assert.False(EnemyIntentVisibility.ShouldShowHeroIntent(unit.Controller)));
+		Assert.False(EnemyIntentVisibility.ShouldShowMinionIntent(secondMinion, units));
+		Assert.True(EnemyIntentVisibility.ShouldShowMinionIntent(orphan, units));
+	}
+
+	[Fact]
+	public void EnemyIntentVisibility_LegacyEncounterAndOwnerlessMinion_KeepIntent()
+	{
+		var legacy = new EnemyUnit(CreateEnemyBody(), new Cultist());
+		var legacyMinion = new Minion("legacy", false, 1, 1) { OwnerHero = legacy.Body };
+		var units = new[] { legacy };
+
+		Assert.True(EnemyIntentVisibility.ShouldShowHeroIntent(legacy.Controller));
+		Assert.True(EnemyIntentVisibility.ShouldShowHeroIntent(null));
+		Assert.False(EnemyIntentVisibility.IsCommanderMinion(legacyMinion, units));
+		Assert.True(EnemyIntentVisibility.ShouldShowMinionIntent(legacyMinion, units));
+		Assert.True(EnemyIntentVisibility.ShouldShowMinionIntent(new Minion("orphan", false, 1, 1), units));
+		Assert.True(EnemyIntentVisibility.ShouldShowMinionIntent(null, units));
+		Assert.False(EnemyIntentVisibility.IsCommanderMinion(null, units));
+	}
+
+	[Fact]
+	public void EnemyIntentVisibility_MixedBattle_KeepsLegacyMinionVisible()
+	{
+		var commander = CreateCommanderUnit(EnemyDeckProfiles.CreateGoutansha());
+		var legacy = new EnemyUnit(CreateEnemyBody(), new Cultist());
+		var units = new[] { commander, legacy };
+		var commanderMinion = new Minion("commander_minion", false, 1, 1) { OwnerHero = commander.Body };
+		var legacyMinion = new Minion("legacy_minion", false, 1, 1) { OwnerHero = legacy.Body };
+
+		Assert.False(EnemyIntentVisibility.ShouldShowMinionIntent(commanderMinion, units));
+		Assert.True(EnemyIntentVisibility.ShouldShowMinionIntent(legacyMinion, units));
 	}
 }

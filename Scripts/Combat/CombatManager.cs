@@ -752,7 +752,8 @@ public partial class CombatManager : Node
 		Board.OnMinionPlaced += (minion, _) =>
 		{
 			minion.OwnerHero ??= ResolveDeploymentOwner(minion.IsPlayerSide);
-			if (!minion.IsPlayerSide)
+			// 同构牌手随从由评分贪心控制器行动，不挂旧意图脑，避免 UI 画出静态意图箭头。
+			if (!minion.IsPlayerSide && !IsCommanderMinion(minion))
 				minion.IntentBrain ??= new DefaultAttackMinionBrain(minion);
 			_attackTracker.RegisterDeployment(minion);
 		};
@@ -1583,13 +1584,12 @@ public partial class CombatManager : Node
 		}
 	}
 
-	/// <summary>指挥官随从由评分贪心控制器行动，不能再走意图脑造成二次行动。</summary>
-	private bool IsCommanderMinion(Minion minion)
-	{
-		var owner = minion.OwnerHero;
-		return owner != null && EnemyUnits.Any(unit =>
-			ReferenceEquals(unit.Body, owner) && unit.Controller is IDeckDrivenCommander);
-	}
+	/// <summary>
+	/// 随从是否由同构牌手的评分贪心控制器指挥；与 UI/单测共用同一判定。
+	/// 指挥官随从不能再走意图脑，否则会在指挥官回合造成二次行动。
+	/// </summary>
+	public bool IsCommanderMinion(Minion minion)
+		=> EnemyIntentVisibility.IsCommanderMinion(minion, EnemyUnits);
 
 	private void TriggerCenturionTurnEndBlock(Hero owner)
 	{

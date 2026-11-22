@@ -120,8 +120,13 @@ public partial class CombatUI
 			card.Refresh(_combat);
 
 		// 向后兼容：首个敌人意图标签
+		// 同构牌手没有静态意图，旧标签必须留空，避免暴露「Buff 摘要」误导文案。
 		if (_enemyIntentLabel != null && _enemyCards.Count > 0)
-			_enemyIntentLabel.Text = _combat.GetCurrentEnemyIntent().GetDisplayDescription(_combat);
+		{
+			_enemyIntentLabel.Text = EnemyIntentVisibility.ShouldShowHeroIntent(_combat.EnemyUnits[0].Controller)
+				? _combat.GetCurrentEnemyIntent().GetDisplayDescription(_combat)
+				: string.Empty;
+		}
 	}
 
 	/// <summary>布局稳定后的意图箭头补刷，避免首次初始化时身份卡/血条仍为零尺寸。</summary>
@@ -145,8 +150,8 @@ public partial class CombatUI
 		if (_combat.IsEnemyTurnAnimating)
 			return;
 
-		// 清除旧的意图箭头（前缀 "intent_"）
-		_arrowRenderer.ClearArrows();
+		// 只清理旧的意图箭头（前缀 "intent_"），保留玩家拖拽/瞄准中的选择箭头。
+		_arrowRenderer.ClearArrowsByPrefix("intent_");
 
 		// 清除敌方槽位的旧意图文字（由下面的循环重新设置）
 		foreach (var row in Enum.GetValues<BoardRow>())
@@ -159,6 +164,11 @@ public partial class CombatUI
 
 			// 死亡敌人不绘制意图箭头
 			if (unit.Body.IsDead)
+				continue;
+
+			// 同构牌手没有静态意图：DeckDrivenCommander.GetCurrentIntent 只是战术摘要，
+			// 若按 Buff 分支绘制会误画一条指向首个随从/自身的蓝色箭头。
+			if (!EnemyIntentVisibility.ShouldShowHeroIntent(unit.Controller))
 				continue;
 
 			var intent = unit.GetCurrentIntent(_combat);
@@ -223,6 +233,11 @@ public partial class CombatUI
 		{
 			if (minion.IsDead)
 				continue;
+
+			// 指挥官随从由评分贪心控制器行动，不画 intent_minion_* 箭头、不写槽位意图文字。
+			if (!EnemyIntentVisibility.ShouldShowMinionIntent(minion, _combat.EnemyUnits))
+				continue;
+
 			int slotIndex = minion.BoardSlotIndex;
 			if (slotIndex < 0)
 				continue;
@@ -250,7 +265,8 @@ public partial class CombatUI
 				intent.TargetSelector = _ => target;
 			}
 
-			string key = $"intent_minion_{slotIndex}";
+			// 箭头 key 必须带上阵线：前线与敌方支援线可同槽位索引，否则会互相覆盖。
+			string key = $"intent_minion_{minion.BoardRow}_{slotIndex}";
 
 			if (intent.Type == AIIntents.IntentType.Attack)
 			{

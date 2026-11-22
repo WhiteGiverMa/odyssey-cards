@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Godot;
@@ -89,6 +90,30 @@ public partial class ArrowRenderer : Control
 		if (_arrows.Count == 0)
 			return;
 		_arrows.Clear();
+		QueueRedraw();
+	}
+
+	/// <summary>
+	/// 按前缀成组清除箭头（如 <c>intent_</c>），保留玩家交互中的选择箭头。
+	/// 空前缀直接返回，避免退化为全量清除。
+	/// </summary>
+	public void ClearArrowsByPrefix(string prefix)
+	{
+		if (string.IsNullOrEmpty(prefix))
+			return;
+
+		List<string>? stale = null;
+		foreach (string key in _arrows.Keys)
+		{
+			if (key.StartsWith(prefix, StringComparison.Ordinal))
+				(stale ??= new List<string>()).Add(key);
+		}
+
+		if (stale == null)
+			return;
+
+		foreach (string key in stale)
+			_ = _arrows.Remove(key);
 		QueueRedraw();
 	}
 
