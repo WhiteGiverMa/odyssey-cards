@@ -497,7 +497,7 @@ export function Wiki({
             <span>→</span>
             <div className="heal-result">
               <small>{t(language, "healing")}</small>
-              <strong>+{overflow}</strong>
+              <strong>{overflow > 0 ? t(language, "noExtraEffect") : "—"}</strong>
             </div>
           </div>
           <div className="intel-rules">

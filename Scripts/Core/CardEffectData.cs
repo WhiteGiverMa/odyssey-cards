@@ -189,7 +189,7 @@ public enum CardEffectType
 	/// </summary>
 	GainArmorToFriendlyBoard = 34,
 
-	/// <summary>情报：Value 为揭露点数，未用完的点数转为溢出情报。</summary>
+	/// <summary>情报：Value 为揭露点数；未用完的点数直接溢出，不产生任何额外收益。</summary>
 	Intel = 35,
 }
 

@@ -148,12 +148,12 @@ export const RULES: RulesResponse = {
       en: "Intel N reveals up to N unrevealed cards from left to right. Copies are tracked separately.",
     },
     overflow: {
-      zh: "实际新揭露 K 张，则溢出情报 = N − K。敌方空手、暗牌不足或无手牌架构均会提高溢出。",
-      en: "If K new cards are revealed, Excess Intel = N − K. Empty hands and intent-driven enemies increase overflow.",
+      zh: "实际新揭露 K 张，则溢出情报 = N − K。敌方空手、暗牌不足或无手牌架构都会提高溢出，但溢出不产生任何额外收益。",
+      en: "If K new cards are revealed, Excess Intel = N − K. Empty hands and intent-driven enemies increase overflow, but overflow grants no extra effect.",
     },
     conversion: {
-      zh: "每点溢出情报回复1点生命；若生命已满，改为获得1点格挡。随后触发溢出情报事件供卡牌与藏品联动。",
-      en: "Each Excess Intel heals 1 HP, or grants 1 Block at full HP, then emits an event for synergies.",
+      zh: "多余点数直接溢出：不回复生命、不提供格挡，也不造成直伤；仅触发溢出情报事件供卡牌与藏品联动。",
+      en: "Leftover points simply overflow: no healing, no Block and no direct damage. The overflow event still fires for synergies.",
     },
   },
 };

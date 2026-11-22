@@ -647,6 +647,9 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 
 	internal static double ScoreMove(Board board, Hero body, Minion minion)
 	{
+		// 支援与游击自带全图射程（游击在支援线还享有免受近战普攻与同线护航），不主动上前线送死并浪费本回合开火机会。
+		if (minion.UnitClass is UnitClass.Support or UnitClass.Skirmisher)
+			return 0;
 		FrontlineOwner own = body.IsPlayerSide ? FrontlineOwner.Player : FrontlineOwner.Enemy;
 		if (board.FrontlineOwner == FrontlineOwner.None)
 			return 14 + minion.Attack * 1.2 + (minion.UnitClass == UnitClass.Assault ? 4 : 0);

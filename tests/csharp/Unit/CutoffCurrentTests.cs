@@ -276,6 +276,47 @@ public class CutoffCurrentTests
 		Assert.Equal("filler", enemy.DeckState.DrawPile[0].Id);
 	}
 
+	// ===== 弃牌溢出：不产生任何额外收益 =====
+
+	[Fact]
+	public void DiscardRandomFromHand_EmptyHand_ReturnsZeroWithoutTouchingHero()
+	{
+		var (_, enemy, _, _) = CreateBattle();
+		int health = enemy.CurrentHealth;
+		int armor = enemy.CurrentArmor;
+
+		int discarded = CutoffCurrentEffects.DiscardRandomFromHand(enemy, 3, 0);
+
+		Assert.Equal(0, discarded);
+		Assert.Equal(health, enemy.CurrentHealth);
+		Assert.Equal(armor, enemy.CurrentArmor);
+		Assert.Empty(enemy.Hand);
+		Assert.Empty(enemy.DeckState.DiscardPile);
+	}
+
+	[Fact]
+	public void Borei_WithNothingToDiscard_LeavesCasterHealthAndArmorUntouched()
+	{
+		var (player, enemy, _, _) = CreateBattle();
+		var borei = new Card.Card("counter_borei", CardType.Countermeasure, cost: 2);
+		player.Core.AddToHand(borei);
+		var service = CreateService();
+		Assert.True(service.Arm(player, borei));
+		int health = enemy.CurrentHealth;
+		int armor = enemy.CurrentArmor;
+
+		var spell = new Card.Card("enemy_spell", CardType.Spell, cost: 3);
+		var result = service.Intercept(enemy, player, spell);
+
+		Assert.False(result.Canceled);
+		Assert.Equal(1, result.BoreiTriggers);
+		Assert.Empty(enemy.Hand);
+		Assert.Empty(enemy.DeckState.DiscardPile);
+		Assert.Equal(health, enemy.CurrentHealth);
+		Assert.Equal(armor, enemy.CurrentArmor);
+		Assert.Single(player.DeckState.DiscardPile);
+	}
+
 	private sealed class StubEncounter : EnemyEncounter
 	{
 		public StubEncounter()

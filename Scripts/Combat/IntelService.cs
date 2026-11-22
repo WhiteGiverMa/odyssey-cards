@@ -12,7 +12,10 @@ public enum IntelOverflowReason
 
 public readonly record struct IntelResult(int Revealed, int Overflow);
 
-/// <summary>情报按手牌顺序公开实例；每点溢出独立结算回血，满血转格挡。</summary>
+/// <summary>
+/// 情报按手牌顺序公开实例。未用完的情报点数直接溢出：
+/// 不产生额外回血、格挡或直伤收益，只通过 OnIntelOverflow 发出纯通知事件。
+/// </summary>
 public sealed class IntelService
 {
 	public event Action<Hero, int, IntelOverflowReason>? OnIntelOverflow;
@@ -37,13 +40,6 @@ public sealed class IntelService
 			}
 		}
 		int overflow = count - revealed;
-		for (int i = 0; i < overflow; i++)
-		{
-			if (owner.CurrentHealth < owner.MaxHealth)
-				owner.Heal(1);
-			else
-				owner.GainArmor(1);
-		}
 		if (revealed > 0)
 			OnIntelRevealed?.Invoke(revealed);
 		if (overflow > 0)

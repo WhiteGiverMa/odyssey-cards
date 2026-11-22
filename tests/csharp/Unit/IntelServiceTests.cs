@@ -22,7 +22,7 @@ public class IntelServiceTests
 	}
 
 	[Fact]
-	public void Resolve_IntentEnemy_HealsThenConvertsEachRemainingPointToArmor()
+	public void Resolve_IntentEnemy_OverflowsWithoutHealingOrArmor()
 	{
 		var core = new CommanderCore();
 		core.InitializeHealth(30, 28);
@@ -34,25 +34,29 @@ public class IntelServiceTests
 			Assert.Same(owner, hero);
 			Assert.Equal(5, amount);
 			Assert.Equal(IntelOverflowReason.NoEnemyHand, reason);
-			Assert.Equal(30, owner.CurrentHealth);
-			Assert.Equal(3, owner.CurrentArmor);
 			events++;
 		};
 		Assert.Equal(new IntelResult(0, 5), intel.Resolve(owner, 5));
 		Assert.Equal(1, events);
+		// 溢出只发通知：既不能回血（28/30）也不能满血转格挡。
+		Assert.Equal(28, owner.CurrentHealth);
+		Assert.Equal(0, owner.CurrentArmor);
 	}
 
 	[Fact]
 	public void Resolve_NotEnoughHiddenCards_OverflowsOnlyUnusedPoints()
 	{
-		var owner = new Hero(new CommanderCore(), false);
+		var core = new CommanderCore();
+		core.InitializeHealth(30, 30);
+		var owner = new Hero(core, false);
 		var hand = new[] { new RuntimeCard("old") { IsRevealedByIntel = true }, new RuntimeCard("new") };
 		var intel = new IntelService();
 		IntelOverflowReason? observed = null;
 		intel.OnIntelOverflow += (_, _, reason) => observed = reason;
 		Assert.Equal(new IntelResult(1, 2), intel.Resolve(owner, 3, hand));
-		Assert.Equal(2, owner.CurrentArmor);
 		Assert.Equal(IntelOverflowReason.NotEnoughHiddenCards, observed);
+		Assert.Equal(0, owner.CurrentArmor);
+		Assert.Equal(30, owner.CurrentHealth);
 	}
 
 	[Theory]

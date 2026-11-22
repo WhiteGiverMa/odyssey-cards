@@ -296,8 +296,8 @@ export const GLOSSARY: GlossaryTerm[] = [
     name: { zh: "溢出情报", en: "Excess Intel" },
     aliases: { zh: ["溢出情报"], en: ["Excess Intel", "Intel Overflow"] },
     description: {
-      zh: "未实际用于新揭露的情报转化为溢出情报。每点回复己方英雄 1 点生命；若结算时已满血，改为获得 1 点格挡，随后触发溢出事件。",
-      en: "Intel not spent on new reveals becomes Excess Intel. Each point heals your hero for 1, or grants 1 Block at full Health, then emits the overflow event.",
+      zh: "未实际用于新揭露的情报直接溢出：不回复生命、不提供格挡，也不造成直伤；仅触发溢出事件供卡牌与藏品联动。",
+      en: "Intel not spent on new reveals simply overflows: no healing, no Block and no direct damage. The overflow event still fires for synergies.",
     },
   },
   {
@@ -306,8 +306,8 @@ export const GLOSSARY: GlossaryTerm[] = [
     name: { zh: "格挡 / 护甲", en: "Block / Armor" },
     aliases: { zh: ["格挡", "护甲"], en: ["Block", "Armor"] },
     description: {
-      zh: "伤害管线结算后由护甲/格挡优先吸收，剩余部分才扣除生命；溢出情报在满血时也会转化为格挡。",
-      en: "After the damage pipeline resolves, Armor/Block absorbs damage before Health is lost. Excess Intel also converts to Block at full Health.",
+      zh: "伤害管线结算后由护甲/格挡优先吸收，剩余部分才扣除生命。",
+      en: "After the damage pipeline resolves, Armor/Block absorbs damage before Health is lost.",
     },
   },
   {

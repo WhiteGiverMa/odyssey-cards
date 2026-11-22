@@ -16,7 +16,7 @@
 | `DomainTriggerManager.cs`                         | 领域触发点                         | 不把领域逻辑塞 CombatManager                |
 | `AttackTracker.cs`, `MinionActionService.cs`      | 四兵种整备/移动/攻击配额，油费事务 | 玩家入口先校验再扣费；突击可一步走打        |
 | `AttackTargetRules.cs`, `AttackCombatResolver.cs` | 普攻射程/防线与伏击反击            | 嘲讽 > 守护 > 游击护航；所有普攻路径共用    |
-| `IntelService.cs`                                 | 暗牌实例揭露与溢出回血/格挡        | 纯 C#；OnIntelOverflow 在基础收益结算后触发 |
+| `IntelService.cs`                                 | 暗牌实例揭露；溢出点数零收益       | 纯 C#；OnIntelOverflow 仅通知，不回血/不加格挡 |
 | `DeathHandler.cs`                                 | 死亡、亡语、牌堆回收               | 订阅 Board 事件                             |
 | `SelectionSystem.cs`                              | 发现、弃牌选择                     | `TaskCompletionSource` + 回调               |
 | `WeaponAttackSystem.cs`                           | 英雄/武器攻击                      | 与 UI 攻击选择耦合                          |

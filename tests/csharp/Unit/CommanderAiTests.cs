@@ -121,7 +121,7 @@ public class CommanderAiTests
 	}
 
 	[Fact]
-	public void CommanderHand_IntelRevealsLeftToRight_AndOverflowHealsThenArmor()
+	public void CommanderHand_IntelRevealsLeftToRight_AndOverflowHasNoExtraEffect()
 	{
 		var core = new CommanderCore();
 		core.InitializeHealth(38, 36);
@@ -141,8 +141,9 @@ public class CommanderAiTests
 
 		Assert.Equal(new IntelResult(2, 3), second);
 		Assert.True(hand[3].IsRevealedByIntel);
-		Assert.Equal(38, commander.CurrentHealth);
-		Assert.Equal(1, commander.CurrentArmor);
+		// 溢出点数不产生回血/格挡收益。
+		Assert.Equal(36, commander.CurrentHealth);
+		Assert.Equal(0, commander.CurrentArmor);
 	}
 
 	[Fact]
@@ -195,6 +196,19 @@ public class CommanderAiTests
 		double ownedLine = DeckDrivenCommander.ScoreMove(board, commander, raider);
 
 		Assert.True(emptyLine > ownedLine);
+	}
+
+	[Theory]
+	[InlineData(UnitClass.Support)]
+	[InlineData(UnitClass.Skirmisher)]
+	public void GreedyScoring_SupportAndSkirmisherStayInSupportLine(UnitClass unitClass)
+	{
+		var board = new Board();
+		var commander = new Hero(new CommanderCore(), false);
+		var backliner = new Minion("backliner", false, 4, 3, unitClass, 1);
+		board.PlaceMinion(backliner, 0);
+
+		Assert.Equal(0, DeckDrivenCommander.ScoreMove(board, commander, backliner));
 	}
 
 	[Fact]

@@ -68,9 +68,17 @@ internal static class FrontlineRuntimeQa
 		ClearBoard();
 		var scout = Card("Minion_DetectiveSquad");
 		scout.IsRevealedByIntel = true;
+		// 溢出规则：先把敌方手牌全部设为已公开，确保情报点数走溢出分支。
+		foreach (var unit in combat.EnemyUnits)
+		{
+			foreach (var hidden in unit.Body.Hand)
+				hidden.IsRevealedByIntel = true;
+		}
 		int armor = combat.PlayerHero.CurrentArmor;
+		int beforeHealth = combat.PlayerHero.CurrentHealth;
 		Check(combat.PlayMinion(scout, 0), "武侦小组部署");
-		Check(combat.PlayerHero.CurrentArmor == armor + 1, "战吼情报对意图敌人转格挡");
+		Check(combat.PlayerHero.CurrentArmor == armor && combat.PlayerHero.CurrentHealth == beforeHealth,
+			"情报溢出不再回血或转格挡");
 		Check(combat.Board.GetMinionAt(0, true)!.IsRevealedByIntel, "公开实例部署后保留情报状态");
 		ClearBoard();
 
@@ -163,10 +171,17 @@ internal static class FrontlineRuntimeQa
 		Check(!combat.IsDiscovering, "发现取消后应恢复玩家回合");
 		var hunter = new Minion(GD.Load<CardData>("res://Resources/Cards/Minion_LianshuScout.tres"), true);
 		combat.Board.PlaceMinion(hunter, 0);
+		foreach (var unit in combat.EnemyUnits)
+		{
+			foreach (var hidden in unit.Body.Hand)
+				hidden.IsRevealedByIntel = true;
+		}
 		armor = combat.PlayerHero.CurrentArmor;
+		beforeHealth = combat.PlayerHero.CurrentHealth;
 		hunter.ApplyDevDamage(1000);
 		combat.CheckDeaths();
-		Check(combat.PlayerHero.CurrentArmor == armor + 1, "侦察犬亡语情报在离场后仍归属于原阵营");
+		Check(combat.PlayerHero.CurrentArmor == armor && combat.PlayerHero.CurrentHealth == beforeHealth,
+			"侦察犬亡语情报溢出同样不产生额外收益");
 
 		string result = $"M1_RUNTIME_QA passed={checks}";
 		GD.Print(result);
