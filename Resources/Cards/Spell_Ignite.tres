@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CardData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
 [ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
@@ -8,20 +8,15 @@ script = ExtResource("2_effect")
 EffectType = 18
 Value = 1
 
-[sub_resource type="Resource" id="SubResource_2"]
-script = ExtResource("2_effect")
-EffectType = 2
-Value = 1
-
 [resource]
 script = ExtResource("1_data")
 Id = "spell_ignite"
 PackId = "core"
 FrontlineOnlySpell = false
-MechanicTags = 4112
+MechanicTags = 4096
 CardName = "燃起"
-Description = "获得1个额外的法力水晶槽，抽1张牌"
+Description = "获得1个指挥点槽。"
 Rarity = 4
 Cost = 2
 Type = 1
-Effects = [SubResource("SubResource_1"), SubResource("SubResource_2")]
+Effects = [SubResource("SubResource_1")]

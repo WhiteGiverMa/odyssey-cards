@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CardData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
 [ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
@@ -8,21 +8,16 @@ script = ExtResource("2_effect")
 EffectType = 20
 Value = 3
 
-[sub_resource type="Resource" id="Intel_1"]
-script = ExtResource("2_effect")
-EffectType = 35
-Value = 1
-
 [resource]
 script = ExtResource("1_data")
 Id = "spell_discover"
 PackId = "core"
 FrontlineOnlySpell = false
-MechanicTags = 294944
+MechanicTags = 32800
 CardName = "发现"
-Description = "情报1。从3张随机卡牌中选取一张加入手牌。"
+Description = "从3张随机卡牌中选取一张加入手牌。"
 Rarity = 3
-Cost = 1
+Cost = 2
 Type = 1
 RequiresTarget = false
-Effects = [SubResource("Intel_1"), SubResource("SubResource_1")]
+Effects = [SubResource("SubResource_1")]

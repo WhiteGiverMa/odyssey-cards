@@ -46,7 +46,7 @@ public class CardPackTests
 	public void AllCards_DeclareNonEmptyPackId()
 	{
 		var files = Directory.GetFiles(Path.Combine(Root(), "Resources", "Cards"), "*.tres");
-		Assert.Equal(68, files.Length);
+		Assert.Equal(81, files.Length);
 		foreach (var path in files)
 		{
 			var text = File.ReadAllText(path);
@@ -64,15 +64,16 @@ public class CardPackTests
 	[InlineData("Minion_WhatTheDogDoing.tres", "unmanned_victory")]
 	[InlineData("Spell_MambaMissile.tres", "unmanned_victory")]
 	[InlineData("Minion_MingshanWalkingSupport.tres", "unmanned_victory")]
-	[InlineData("Minion_40MainBattleTank.tres", "unmanned_victory")]
-	[InlineData("Minion_40AMainBattleTank.tres", "unmanned_victory")]
-	[InlineData("Minion_40BMainBattleTank.tres", "unmanned_victory")]
 	[InlineData("Minion_Roach.tres", "future_hunt")]
 	[InlineData("Minion_CentipedeAA.tres", "future_hunt")]
 	[InlineData("Minion_CentipedeSiege.tres", "future_hunt")]
 	[InlineData("Minion_Mech_Lancer.tres", "future_hunt")]
 	[InlineData("Minion_Centurion.tres", "future_hunt")]
 	[InlineData("Minion_Tombstone.tres", "future_hunt")]
+	[InlineData("Spell_WhiteLegion.tres", "future_hunt")]
+	[InlineData("Domain_UnlimitedPotential.tres", "reserve")]
+	[InlineData("Domain_InfiniteFire.tres", "reserve")]
+	[InlineData("Spell_Plan.tres", "reserve")]
 	[InlineData("Spell_FragBullet.tres", "super_body_project")]
 	[InlineData("Spell_SmokeRestore.tres", "super_body_project")]
 	[InlineData("Domain_PreemptiveStrike.tres", "super_body_project")]
@@ -94,18 +95,19 @@ public class CardPackTests
 		{
 			"Minion_LianshuScout.tres", "Minion_LianshuTransport.tres", "Minion_SmartStinkyEgg.tres",
 			"Spell_BladeCrisis.tres", "Minion_WhatTheDogDoing.tres", "Spell_MambaMissile.tres",
-			"Minion_MingshanWalkingSupport.tres", "Minion_40MainBattleTank.tres",
-			"Minion_40AMainBattleTank.tres", "Minion_40BMainBattleTank.tres",
+			"Minion_MingshanWalkingSupport.tres",
 			"Minion_Roach.tres", "Minion_CentipedeAA.tres", "Minion_CentipedeSiege.tres",
 			"Minion_Mech_Lancer.tres", "Minion_Centurion.tres", "Minion_Tombstone.tres",
+			"Spell_WhiteLegion.tres",
+			"Domain_UnlimitedPotential.tres", "Domain_InfiniteFire.tres", "Spell_Plan.tres",
 			"Spell_FragBullet.tres", "Spell_SmokeRestore.tres", "Domain_PreemptiveStrike.tres",
 			"Spell_093B_SSN.tres", "Spell_USS_Indiana.tres", "Spell_BeneathBlackWater.tres",
 			"Spell_Ultimatum.tres", "Counter_OhioSSBN.tres", "Counter_Borei.tres",
 		};
 
 		var files = Directory.GetFiles(Path.Combine(Root(), "Resources", "Cards"), "*.tres");
-		Assert.Equal(68, files.Length);
-		Assert.Equal(25, classified.Count);
+		Assert.Equal(81, files.Length);
+		Assert.Equal(26, classified.Count);
 		foreach (var path in files)
 		{
 			var name = Path.GetFileName(path);

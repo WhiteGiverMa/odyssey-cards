@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+Value = 1
+CustomEffectName = "ExplosiveReactiveArmor"
+
+[resource]
+script = ExtResource("1_data")
+Id = "domain_explosive_reactive_armor"
+PackId = "core"
+FrontlineOnlySpell = false
+MechanicTags = 1032
+DomainId = "explosive_reactive_armor"
+CardName = "爆炸反应装甲"
+Description = "领域：抵消下一次受到攻击造成的生命伤害。"
+Rarity = 0
+Cost = 2
+Type = 2
+Effects = [SubResource("SubResource_1")]

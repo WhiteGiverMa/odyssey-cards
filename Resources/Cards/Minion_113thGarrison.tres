@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_113th_garrison"
+PackId = "core"
+UnitClass = 0
+MechanicTags = 0
+CardName = "第113守备营"
+Description = ""
+Rarity = 4
+Cost = 1
+ActionCost = 0
+Type = 0
+Attack = 1
+Health = 3

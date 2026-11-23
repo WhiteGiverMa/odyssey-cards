@@ -24,8 +24,8 @@ public class FrontlineResourceTests
 	public void AllCards_MigrateExplicitTopology_AndPreserveValidEffectReferences()
 	{
 		var files = Directory.GetFiles(Path.Combine(Root(), "Resources", "Cards"), "*.tres");
-		Assert.Equal(68, files.Length);
-		Assert.Equal(19, files.Count(path => Path.GetFileName(path).StartsWith("Minion_", StringComparison.Ordinal)));
+		Assert.Equal(81, files.Length);
+		Assert.Equal(31, files.Count(path => Path.GetFileName(path).StartsWith("Minion_", StringComparison.Ordinal)));
 		foreach (string path in files)
 		{
 			string text = File.ReadAllText(path);
@@ -48,8 +48,6 @@ public class FrontlineResourceTests
 	[InlineData("Minion_DetectiveSquad.tres", 1)]
 	[InlineData("Minion_LianshuScout.tres", 1)]
 	[InlineData("Spell_Expose.tres", 1)]
-	[InlineData("Spell_Retrieve.tres", 2)]
-	[InlineData("Spell_Discover.tres", 1)]
 	public void IntelCards_UseAuthoritativeTagAndEffect(string file, int points)
 	{
 		string text = File.ReadAllText(Path.Combine(Root(), "Resources", "Cards", file));
@@ -61,7 +59,7 @@ public class FrontlineResourceTests
 	[Theory]
 	[InlineData("zh.yaml")]
 	[InlineData("en.yaml")]
-	public void Localization_AllSixtyEightCardsAndNewRules_HaveKeysAndTwoSpaceIndent(string file)
+	public void Localization_AllCardsAndNewRules_HaveKeysAndTwoSpaceIndent(string file)
 	{
 		string text = File.ReadAllText(Path.Combine(Root(), "Resources", "Localization", file));
 		Assert.DoesNotContain('\t', text);

@@ -83,7 +83,7 @@ ui:
     energy: "Energy"
     select_target: "Select Target"
     hp_label: "HP "
-    mana_format: "Mana {current}/{max}"
+    mana_format: "CP {current}/{max}"
     armor_format: "Armor: {value}"
     defense_format: "Defense: {value}"
     enemy_hero: "Enemy Hero"
@@ -220,7 +220,7 @@ ui:
     keyword_taunt: "T"
     keyword_charge: "C"
     keyword_windfury: "W"
-    keyword_battlecry: "B"
+    keyword_battlecry: "D"
     keyword_deathrattle: "D"
     keyword_ambush: "A"
     keyword_impact: "I"
@@ -438,19 +438,19 @@ cards:
     description: "Deal 3 damage to an enemy target. Draw 1 card."
   spell_alert:
     name: "Alert"
-    description: "Recycle\nDraw 1 card, restore 2 HP"
+    description: "Recycle\nDraw 1 card, restore 3 HP"
   spell_engine:
     name: "Engine"
     description: "Recycle. Draw 2 cards."
   spell_retrieve:
     name: "Retrieve"
-    description: "Draw 3 cards. Intel 2."
+    description: "Draw 3 cards."
   spell_response:
     name: "Response"
     description: "If you have n friendly minions, draw n+1 cards."
   spell_adrenaline:
     name: "Adrenaline"
-    description: "Draw 2 cards, gain 1 Mana slot, and gain 1 Mana."
+    description: "Draw 2 cards, gain 1 Command Point slot, and gain 2 Command Points."
   spell_heavy_strike:
     name: "Heavy Strike"
     description: "Deal 6 damage to a target. Apply 3 Vulnerable and 3 Incapacitated."
@@ -459,7 +459,7 @@ cards:
     description: "Recycle. Apply 2 Incapacitated to a unit. Draw 1 card."
   spell_mamba_missile:
     name: "Mamba Missile"
-    description: "Deal 3 damage to random enemies 5 times. Enemies with higher damage output are more likely to be hit."
+    description: "Deal 3 damage to random enemies 3 times. Enemies with higher damage output are more likely to be hit."
   spell_elbow_strike:
     name: "Elbow Strike"
     description: "Deal damage equal to your hero's Block. While the enemy holds the frontline, only enemy frontline units can be targeted."
@@ -474,13 +474,13 @@ cards:
     description: "Charge."
   minion_40_main_battle_tank:
     name: "Type 40 Main Battle Tank"
-    description: "Taunt. Battlecry: Draw 2 cards."
+    description: "Taunt. Deploy: Draw 2 cards."
   minion_centurion:
     name: "Centurion"
-    description: "Taunt. Battlecry: all friendly minions gain 3 Block, and your hero gains double that Block. At end of your turn, all friendly minions gain 1 Block, and your hero gains double that Block."
+    description: "Taunt. Deploy: all friendly minions gain 3 Block, and your hero gains double that Block. At end of your turn, all friendly minions gain 1 Block, and your hero gains double that Block."
   minion_detective_squad:
     name: "Detective Squad"
-    description: "Charge. Battlecry: Intel 1."
+    description: "Charge. Deploy: Intel 1."
   minion_lianshu_scout:
     name: "Lianshu Mech Hound Scout"
     description: "Charge, Recycle. Last Words: Intel 1."
@@ -489,13 +489,13 @@ cards:
     description: "Charge, Impact. When your hero casts a direct-damage spell, deal damage equal to this minion's Attack to a random enemy."
   minion_lianshu_transport:
     name: "Lianshu Mech Hound Transport"
-    description: "Charge. Battlecry: Draw 2 cards and restore 2 Health to your hero. At end of turn, if this is in play, return it to the draw pile. After this happens twice, put it into the discard pile instead."
+    description: "Charge. Deploy: Draw 2 cards and restore 2 Health to your hero. At end of turn, if this is in play, return it to the draw pile. After this happens twice, put it into the discard pile instead."
   domain_preemptive_strike:
     name: "Preemptive Strike"
     description: "Domain: The first direct-damage card each turn deals 10% more damage for every card in your hand."
   minion_rayan_ge:
     name: "Smoke Runner"
-    description: "Charge. On its first attack, your hero gains 1 Smokescreen."
+    description: "Charge. On its first action, your hero gains 1 Smokescreen."
   spell_smoke_restore:
     name: "Smoke Recovery"
     description: "Give all friendly units with Smokescreen +4 Health."
@@ -504,13 +504,13 @@ cards:
     description: "Deal 5 damage to an enemy. If it has less than 18% Health, mark it with Fatal Rift: the next friendly hit destroys it while below that threshold. Bosses cannot be executed."
   spell_smoke_dodge:
     name: "Smoke Dodge"
-    description: "Give all friendly units without Taunt or Guard 1 Smokescreen. Draw 1 card."
+    description: "Give 1 Smokescreen to all friendly units in the Support line without Taunt or Guard."
   spell_nadao_fangyu:
     name: "Blade Defense"
     description: "Your hero gains +3 Attack until the end of the next enemy turn. Draw 1 card. Choose one: gain Recycle this time, or draw 1 more card."
   domain_zhijian:
     name: "Blade Sharp"
-    description: "Domain: Friendly minions gain +1 Attack when deployed"
+    description: "Domain: Friendly units gain +1 Attack when deployed."
   domain_infinite_fire:
     name: "Infinite Firepower"
     description: "Domain: At end of friendly turn, shuffle a Strike into your deck"
@@ -522,37 +522,34 @@ cards:
     description: "At the end of your turn, summon a copy in your support line if a slot is available."
   spell_plan:
     name: "Plan"
-    description: "Gain an additional Mana Crystal slot"
+    description: "Gain an additional Command Point slot."
   spell_ignite:
     name: "Ignite"
-    description: "Gain an additional Mana Crystal slot. Draw 1 card."
+    description: "Gain 1 Command Point slot."
   spell_longtermism:
     name: "Long-termism"
-    description: "Gain an additional Mana Crystal slot, restore 3 Health, add a 'Plan' to your hand."
+    description: "Gain an additional Command Point slot, restore 3 Health, add an 'Ignite' to your hand."
   domain_unlimited_potential:
     name: "Unlimited Potential"
-    description: "Remove the natural growth cap of Mana Crystals."
+    description: "Remove the natural growth cap of Command Point slots."
   spell_discover:
     name: "Discover"
-    description: "Intel 1. Choose 1 of 3 random cards to add to your hand."
+    description: "Choose 1 of 3 random cards to add to your hand."
   minion_knight_type1:
     name: "Knight Type-I"
-    description: "Charge, Impact"
+    description: "Charge, Impact. Has +2 Attack while it has Impact."
   minion_centipede_siege:
     name: "Mech Centipede - Siege"
     description: "Ambush"
   minion_tombstone:
     name: "Tombstone"
-    description: "Taunt. Battlecry: Deal 1 damage to your hero.\nDamage this deals to targets with 1 or more Defense is increased by 2."
+    description: "Taunt. Deploy: Deal 1 damage to your hero.\nDamage this deals to targets with 1 or more Defense is increased by 2."
   minion_mech_lancer:
     name: "Mech Lancer"
     description: "Ambush\n+2 Attack while you have Armor"
   domain_flying_away:
     name: "Fly Away"
     description: "Domain: Gain 5 Block. The next time an enemy minion or hero attacks you, draw 2 cards and add a Body Roll to your hand."
-  domain_jiehuafa:
-    name: "Jie Hua Fa"
-    description: "Domain: At the end of the enemy turn, if your hero or frontline minions were attacked at least once and none of those attacks dealt Health damage, add a Body Roll to your hand."
   spell_ukemi:
     name: "Body Roll"
     description: "Gain 3 Block. Draw 1 card."
@@ -561,19 +558,19 @@ cards:
     description: "Remove all Block from a target. Your hero gains 8 Block. Intel 1."
   spell_bait_tactics:
     name: "Bait Tactics"
-    description: "Give a minion Ambush and Impact. When it is attacked, the player's enemy hero loses 1 Defense."
+    description: "Give a unit Ambush and Impact. When it is attacked, the user's enemy discards 1 card."
   spell_nano_corpse_art:
     name: "Nano Corpse Art"
-    description: "Make a minion lose Last Words and gain 'Last Words: your hero draws 1 card.' Draw 1 card."
+    description: "Remove a unit's Deathrattle and grant it 'Deathrattle: The player's hero draws 2 cards'."
   domain_idol_twilight:
     name: "Idol's Twilight"
     description: "Domain: All friendly minions in your hand, board, and deck gain: after being attacked, gain +1/+1."
   spell_moon_fishing:
     name: "Moon Fishing"
-    description: "Choose 2 of 5 cards from your discard pile and add them to your hand."
+    description: "Choose 1 of 3 cards from your discard pile to add to your hand. Repeat once."
   spell_animosity:
     name: "Animosity"
-    description: "Give a minion Taunt, 'Damage taken from the player's side is doubled', and Last Words: the player draws 1 card."
+    description: "Give a unit Taunt, 'Damage taken from the user's side is doubled', and Deathrattle: the user draws 1 card."
   minion_centipede_aa:
     name: "Mech Centipede - AA"
     description: "When the enemy hero deploys a minion costing 2 or less, this minion fights it."
@@ -585,27 +582,27 @@ cards:
     description: "Randomly discard 1 card from your hand, deal 3 damage to all enemies."
   spell_shiyoru_raidenkou:
     name: "Shiyoru Raidenkou"
-    description: "Recycle. For 4 turns, at the end of your turn, deal 5 damage to a random enemy. Casting this again while active stacks its remaining turns."
+    description: "Recycle. For 4 turns, at the end of your turn, deal 3 damage to a random enemy. Casting this again while active stacks its remaining turns."
   spell_blood_dogs_hand_fill:
     name: "One Hundred Thousand Blood Dogs"
     description: "Choose 1 card in your hand. Fill your hand with copies of it."
   spell_sutaraito_spirit:
     name: "Sutaraito Spirit"
-    description: "Gain 2 empty Mana Crystal slots; deal 2 damage to all enemies; draw 2 cards. At the start of your next turn, draw 2 extra cards and gain 2 Mana."
+    description: "Gain 2 Command Point slots, deal 2 damage to all enemies, draw 2 cards, and give all friendly units +2/+2; at the start of your next turn, draw 2 extra cards."
   minion_what_the_dog_doing:
     name: "What The Dog Doing"
-    description: "Guard. Battlecry: Summon a copy in an adjacent support slot, or another empty support slot if both adjacent slots are occupied."
+    description: "Guard. Deploy: Summon a copy in an adjacent support slot, or another empty support slot if both adjacent slots are occupied."
 
   spell_blade_crisis:
     name: "Blade Crisis"
-    description: "Discard up to 5 cards. Summon that many What The Dog Doing in empty friendly support slots (excess summons are lost), then draw that many cards."
+    description: "Discard up to 4 cards. Summon that many What The Dog Doing in empty friendly support slots (excess summons are lost), then draw that many cards."
 
   spell_boundless_darkness:
     name: "Boundless Darkness"
     description: "Apply 3 Vulnerable and 3 Fragile to all enemies."
   spell_chansu:
     name: "CHANSU~"
-    description: "Restore 2 HP, gain 2 Block, draw 1 card. The first time each turn you deal damage to an enemy with Heat > 100%, add this card to your hand from your draw or discard pile."
+    description: "Restore 2 HP, gain 2 Block, and draw 1 card. When dealing damage to an enemy with more than 10 Command Point slots, add this card from your draw or discard pile to your hand."
   status_explain:
     name: "Explanation"
     description: "Qiqiao. Apply 1 Total Observation to the enemy hero.\nReturn to hand."
@@ -619,8 +616,8 @@ cards:
   spell_energy_coin:
     name: "Energy Coin"
     plus_name: "Energy Coin +{bonus}"
-    description: "Gain 1 Mana. An Energy Coin +n grants n extra Mana."
-    description_with_bonus: "Gain {amount} Mana."
+    description: "Gain 1 Command Point. An Energy Coin +n grants n extra Command Points."
+    description_with_bonus: "Gain {amount} Command Points."
   spell_093b_ssn:
     name: "093B SSN"
     description: "Make the enemy discard a random card costing 8 or less."
@@ -639,6 +636,48 @@ cards:
   counter_borei:
     name: "Borei"
     description: "Counter: When the enemy plays an order, make them discard a random card."
+  minion_113th_garrison:
+    name: "113th Garrison Battalion"
+    description: ""
+  minion_122nd_bugle_battalion:
+    name: "122nd Bugle Battalion"
+    description: "Guard."
+  minion_232nd_vanguard_battalion:
+    name: "232nd Vanguard Battalion"
+    description: "Charge. Deploy: Deal 1 damage to an enemy target."
+  minion_type15a_plateau_tank:
+    name: "Type 15A Plateau Tank"
+    description: "Deploy: Draw 1 card."
+  minion_m10_booker:
+    name: 'M10 "Booker"'
+    description: "Charge. Costs 1 less to act while you control a friendly Vanguard unit."
+  minion_shadow_drone:
+    name: "Shadow Drone"
+    description: "Charge."
+  minion_hover_gunship_drone:
+    name: "Hover Gunship Drone"
+    description: "Guard. Deploy: Add a 'Strike' to your hand."
+  minion_peregrine_drone:
+    name: "Peregrine Drone"
+    description: "Charge. Deathrattle: Draw 1 card."
+  minion_gyrfalcon_heavy_drone:
+    name: "Gyrfalcon Heavy Drone"
+    description: "Ambush, Charge, Impact."
+  minion_type34_grenade_mg_team:
+    name: "Type 34 Grenade MG Team"
+    description: ""
+  minion_55th_orbital_corps:
+    name: "55th Orbital Mobile Corps"
+    description: "Charge, Guard. Deploy: Move a unit to the Frontline."
+  minion_t90m_late:
+    name: "T-90M Late Model"
+    description: "Guard. Deploy: Add an 'Explosive Reactive Armor' to your hand."
+  spell_perfect_block:
+    name: "Perfect Block"
+    description: "Give a friendly target 3 Block. If the next attack against it deals no Health damage, add a 'Body Roll' to your hand."
+  domain_explosive_reactive_armor:
+    name: "Explosive Reactive Armor"
+    description: "Domain: Negate the Health damage from the next attack you take."
 
 board_row:
   enemysupport: "Enemy Support"
@@ -726,6 +765,7 @@ combat:
   enemy_defeated: "{enemy} defeated!"
   damage_dealt: "Dealt {amount} damage to {target}"
   block_gained: "Gained {amount} block"
+  enemy_mana: "CP {current}/{max}"
 
 enemies:
   cosmonaut:
@@ -777,7 +817,7 @@ effect:
   weapon_disabled: "Weapon Disabled"
   weapon_disabled_desc: "Weapon cannot be used."
   animosity: "Animosity"
-  animosity_desc: "Damage taken from the player's side is doubled."
+  animosity_desc: "Damage taken from the user's side is doubled."
   vulnerable: "Vulnerable"
   vulnerable_desc: "Attack damage taken ×1.5. Doubled by Total Observation."
   weak: "Weak"
@@ -795,13 +835,11 @@ effect:
 
 domain:
   unlimited_potential: "Unlimited Potential"
-  unlimited_potential_desc: "Mana cap removed."
+  unlimited_potential_desc: "Command Point slot cap removed."
   flying_away: "Flying Away"
   flying_away_desc: "When attacked, draw 2 cards and gain Ukemi."
   idol_twilight: "Idol's Twilight"
   idol_twilight_desc: "After being attacked, gain +1/+1."
-  jiehuafa: "Jie Hua Fa"
-  jiehuafa_desc: "If your hero or frontline minions were attacked at least once during the enemy turn and none of those attacks dealt Health damage, gain Ukemi."
   focus: "Focus"
   focus_desc: "Each stack increases spell damage dealt by 1."
   scheme: "Scheme"
@@ -809,15 +847,17 @@ domain:
   inescapable_flaw: "Inescapable Flaw"
   inescapable_flaw_desc: "When the owner loses a negative effect, it immediately gains 1 stack of a random negative effect. If this effect itself is lost, it may be reapplied."
   shiyoru_raidenkou: "Shiyoru Raidenkou"
-  shiyoru_raidenkou_desc: "At the end of your turn, deal 5 damage to a random enemy. Each stack is 1 remaining trigger."
+  shiyoru_raidenkou_desc: "At the end of your turn, deal 3 damage to a random enemy. Each stack is 1 remaining trigger."
   sutaraito_spirit: "Sutaraito Spirit"
-  sutaraito_spirit_desc: "At the start of your next turn, draw 2 extra cards and gain 2 Mana."
+  sutaraito_spirit_desc: "At the start of your next turn, draw 2 extra cards."
   preemptive_strike: "Preemptive Strike"
   preemptive_strike_desc: "Domain: The first direct-damage card each turn deals 10% more damage for every card in your hand."
   zhijian: "Blade Sharp"
-  zhijian_desc: "Domain: Friendly minions gain +1 Attack when deployed."
+  zhijian_desc: "Domain: Friendly units gain +1 Attack when deployed."
   infinite_fire: "Infinite Firepower"
   infinite_fire_desc: "Domain: At the end of your turn, shuffle a Strike into your deck."
+  explosive_reactive_armor: "Explosive Reactive Armor"
+  explosive_reactive_armor_desc: "Domain: Negate the Health damage from the next attack you take."
   nadaofangyu: "Blade Defense"
   nadaofangyu_desc: "The Attack bonus granted by Blade Defense, lasting until the end of the next enemy turn."
   cosmic_coldness: "Cosmic Coldness"
@@ -844,13 +884,13 @@ status:
 
 keyword_source:
   bait_tactics: "Bait Tactics"
-  bait_tactics_desc: "Gain Ambush and Impact. Enemy hero loses 1 Defense when attacked."
+  bait_tactics_desc: "Gain Ambush and Impact. When attacked, the user's enemy discards 1 random card."
 
 keyword:
   taunt: "Taunt"
   taunt_desc: "Reachable Taunt minions intercept normal attacks against their line and their HQ. Cannot coexist with Smokescreen."
   guard: "Guard"
-  guard_desc: "Protects adjacent non-Guard, non-Taunt minions in the same line, but not the HQ. Cannot coexist with Smokescreen."
+  guard_desc: "Protects adjacent non-Taunt, non-Guard minions in the same line; while in the Support line it also protects your hero. Cannot coexist with Smokescreen."
   charge: "Charge"
   recycle: "Recycle"
   intel: "Intel"
@@ -870,7 +910,7 @@ keyword:
 blessing:
   vigor:
     name: "Vigor Blessing"
-    desc: "Start combat with +2 Mana (placeholder)"
+    desc: "Start combat with +2 Command Points (placeholder)"
   fortitude:
     name: "Fortitude Blessing"
     desc: "Gain +3 Max HP (placeholder)"
@@ -986,7 +1026,7 @@ tag:
   discard: "Discard"
   domain: "Domain"
   weapon_synergy: "Weapon"
-  mana_ramp: "Ramp"
+  mana_ramp: "CP"
   status_apply: "Status"
   shuffle: "Shuffle"
   token: "Token"
@@ -1007,9 +1047,6 @@ spell_nadao_fangyu:
 domain_preemptive_strike:
   name: "Preemptive Strike"
   description: "Domain: Each turn, your first Direct Damage card deals +10% damage per card in hand."
-minion_rayan_ge:
-  name: "Smoke Bro"
-  description: "Charge. On first attack, give your hero 1 Smokescreen."
 
 enemy:
   commander:
@@ -1020,11 +1057,11 @@ enemy:
     rie:
       name: "Rival Rie"
       title: "Direct Damage Sniper Commander"
-      passive: "Opens with Infinite Fire: shuffles Strikes into her draw pile at each turn end."
+      passive: "Opens with Preemptive Strike: the first direct-damage card each turn deals bonus damage per card in hand."
     sokou:
       name: "Rival Sokou"
       title: "Recycle Intel Commander"
-      passive: "Opens with Jiehuafa: if all enemy attacks on her hero or frontline are blocked, she gains Ukemi at turn end."
+      passive: "Opens with Flying Away: when attacked, draws 2 cards and gains Body Roll."
   deckhand:
     apprentice:
       name: "Apprentice Mechanic"

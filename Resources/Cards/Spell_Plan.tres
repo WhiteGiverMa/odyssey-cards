@@ -11,11 +11,11 @@ Value = 1
 [resource]
 script = ExtResource("1_data")
 Id = "spell_plan"
-PackId = "core"
+PackId = "reserve"
 FrontlineOnlySpell = false
 MechanicTags = 4096
 CardName = "计划"
-Description = "获得1个额外的法力水晶槽"
+Description = "获得1个额外的指挥点槽。"
 Rarity = 0
 Cost = 2
 Type = 1

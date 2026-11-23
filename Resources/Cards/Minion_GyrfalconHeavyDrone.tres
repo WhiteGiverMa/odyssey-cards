@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_gyrfalcon_heavy_drone"
+PackId = "core"
+UnitClass = 3
+MechanicTags = 0
+CardName = "猎隼重型无人机"
+Description = "伏击，闪击，冲击。"
+Rarity = 2
+Cost = 6
+ActionCost = 1
+Type = 0
+Attack = 4
+Health = 4
+Defense = 1
+Keywords = [6, 1, 7]

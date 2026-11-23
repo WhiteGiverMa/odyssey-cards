@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_shadow_drone"
+PackId = "core"
+UnitClass = 3
+MechanicTags = 0
+CardName = "暗影无人机"
+Description = "闪击。"
+Rarity = 4
+Cost = 3
+ActionCost = 1
+Type = 0
+Attack = 2
+Health = 3
+Keywords = [1]

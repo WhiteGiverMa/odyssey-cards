@@ -178,10 +178,10 @@ public partial class GameManager : Node
 	/// </summary>
 	internal static readonly string[] CardResourcePaths =
 	{
+		"res://Resources/Cards/Domain_ExplosiveReactiveArmor.tres",
 		"res://Resources/Cards/Domain_FlyingAway.tres",
 		"res://Resources/Cards/Domain_IdolTwilight.tres",
 		"res://Resources/Cards/Domain_InfiniteFire.tres",
-		"res://Resources/Cards/Domain_Jiehuafa.tres",
 		"res://Resources/Cards/Domain_UnlimitedPotential.tres",
 		"res://Resources/Cards/Domain_Zhijian.tres",
 		"res://Resources/Cards/Minion_40AMainBattleTank.tres",
@@ -233,6 +233,20 @@ public partial class GameManager : Node
 		"res://Resources/Cards/Spell_Strike.tres",
 		"res://Resources/Cards/Spell_WhiteLegion.tres",
 		"res://Resources/Cards/Status_Fatigue.tres",
+		// 0.2.3 早期战争：核心新卡
+		"res://Resources/Cards/Minion_113thGarrison.tres",
+		"res://Resources/Cards/Minion_122ndBugleBattalion.tres",
+		"res://Resources/Cards/Minion_232ndVanguardBattalion.tres",
+		"res://Resources/Cards/Minion_Type15APlateauTank.tres",
+		"res://Resources/Cards/Minion_M10Booker.tres",
+		"res://Resources/Cards/Minion_ShadowDrone.tres",
+		"res://Resources/Cards/Minion_HoverGunshipDrone.tres",
+		"res://Resources/Cards/Minion_PeregrineDrone.tres",
+		"res://Resources/Cards/Minion_GyrfalconHeavyDrone.tres",
+		"res://Resources/Cards/Minion_Type34GrenadeMgTeam.tres",
+		"res://Resources/Cards/Minion_55thOrbitalCorps.tres",
+		"res://Resources/Cards/Minion_T90MLate.tres",
+		"res://Resources/Cards/Spell_PerfectBlock.tres",
 		// 超体系列（2025-07-05）
 		"res://Resources/Cards/Spell_SmokeRestore.tres",
 		"res://Resources/Cards/Spell_FragBullet.tres",
@@ -760,14 +774,14 @@ public partial class GameManager : Node
 			"res://Resources/Cards/Minion_DetectiveSquad.tres",
 			"res://Resources/Cards/Minion_LianshuScout.tres",
 			"res://Resources/Cards/Domain_Zhijian.tres",
-			"res://Resources/Cards/Domain_InfiniteFire.tres",
+			"res://Resources/Cards/Minion_113thGarrison.tres",
 		};
 
 		string[] newCardPaths =
 		{
 			"res://Resources/Cards/Spell_Ignite.tres",
 			"res://Resources/Cards/Spell_Longtermism.tres",
-			"res://Resources/Cards/Domain_UnlimitedPotential.tres",
+			"res://Resources/Cards/Minion_122ndBugleBattalion.tres",
 			"res://Resources/Cards/Spell_Discover.tres",
 			"res://Resources/Cards/Minion_KnightType1.tres",
 			"res://Resources/Cards/Minion_CentipedeSiege.tres",

@@ -83,7 +83,7 @@ ui:
     energy: "能量"
     select_target: "选择目标"
     hp_label: "生命 "
-    mana_format: "法力 {current}/{max}"
+    mana_format: "指挥点 {current}/{max}"
     armor_format: "护甲: {value}"
     defense_format: "防御: {value}"
     enemy_hero: "敌方英雄"
@@ -220,7 +220,7 @@ ui:
     keyword_taunt: "嘲"
     keyword_charge: "冲"
     keyword_windfury: "风"
-    keyword_battlecry: "吼"
+    keyword_battlecry: "部"
     keyword_deathrattle: "亡"
     keyword_ambush: "伏"
     keyword_impact: "击"
@@ -438,19 +438,19 @@ cards:
     description: "对一个敌方目标造成 3 点伤害，抽 1 张牌。"
   spell_alert:
     name: "警戒"
-    description: "轮战\n抽 1 张牌，回复 2 点生命值"
+    description: "轮战\n抽 1 张牌，回复 3 点生命值"
   spell_engine:
     name: "引擎"
     description: "轮战。抽2张牌。"
   spell_retrieve:
     name: "检索"
-    description: "抽3张牌。情报2。"
+    description: "抽3张牌。"
   spell_response:
     name: "响应"
     description: "有n个友方随从时，抽（n+1）张牌。"
   spell_adrenaline:
     name: "肾上腺素"
-    description: "抽2张牌，获得1个法力槽，获得1点法力。"
+    description: "抽2张牌，获得1个指挥点槽，获得2个指挥点。"
   spell_heavy_strike:
     name: "沉重打击"
     description: "对一个目标造成6点伤害，使其获得3层易伤，失能3回合。"
@@ -459,7 +459,7 @@ cards:
     description: "轮战。使一个单位失能2回合，抽1张牌。"
   spell_mamba_missile:
     name: "曼巴导弹"
-    description: "对随机敌人造成3点伤害5次。伤害高的敌人更可能被击中。"
+    description: "对随机敌人造成3点伤害3次。伤害高的敌人更可能被击中。"
   spell_elbow_strike:
     name: "肘击"
     description: "造成等同于你英雄格挡值的伤害。敌方占领前线时只能指定敌方前线目标。"
@@ -474,13 +474,13 @@ cards:
     description: "闪击。"
   minion_40_main_battle_tank:
     name: "40主战坦克"
-    description: "嘲讽。战吼：抽2张牌。"
+    description: "嘲讽。部署：抽2张牌。"
   minion_centurion:
     name: "百机长"
-    description: "嘲讽。战吼：所有友方随从获得3点格挡，友方英雄获得双倍格挡。友方回合结束时，所有友方随从获得1点格挡，友方英雄获得双倍格挡。"
+    description: "嘲讽。部署：所有友方随从获得3点格挡，友方英雄获得双倍格挡。友方回合结束时，所有友方随从获得1点格挡，友方英雄获得双倍格挡。"
   minion_detective_squad:
     name: "武侦小组"
-    description: "闪击。战吼：情报1。"
+    description: "闪击。部署：情报1。"
   minion_lianshu_scout:
     name: "联树机器犬 侦察型"
     description: "闪击，轮战。亡语：情报1。"
@@ -489,7 +489,7 @@ cards:
     description: "闪击，冲击。在友方英雄释放直伤法术时，对随机敌人造成等同于攻击力的伤害。"
   minion_lianshu_transport:
     name: "联树机器犬 运输型"
-    description: "闪击。战吼：抽2张牌，友方英雄回复2点生命。回合结束时若在场上，回到抽牌堆。如此2次后，回合结束时进入弃牌堆。"
+    description: "闪击。部署：抽2张牌，友方英雄回复2点生命。回合结束时若在场上，回到抽牌堆。如此2次后，回合结束时进入弃牌堆。"
   spell_smoke_restore:
     name: "烟雾恢复"
     description: "使所有有「烟幕」的友方单位+4生命值。"
@@ -498,7 +498,7 @@ cards:
     description: "对一个敌人造成5点伤害；其生命值低于18％时，再受到来自友方单位的伤害后将其消灭。无法斩杀boss。"
   spell_smoke_dodge:
     name: "烟遁"
-    description: "使所有不具有嘲讽或守护的友方单位获得1层烟幕，抽1张牌。"
+    description: "使支援阵线所有不具有嘲讽或守护的友方单位获得1层烟幕。"
   spell_nadao_fangyu:
     name: "拿刀防卫"
     description: "友方英雄获得+3攻击力直到下个敌方回合结束，抽1张牌；抉择：*在本次获得轮战*或*多抽1张牌*。"
@@ -507,11 +507,11 @@ cards:
     description: "领域：每回合的第一张直伤卡牌，每有1张手牌其造成的伤害值+10％。"
   minion_rayan_ge:
     name: "拉烟哥"
-    description: "闪击。首次攻击时使友方英雄获得1层烟幕。"
+    description: "闪击。首次行动时使友方英雄获得1层烟幕。"
 
   domain_zhijian:
     name: "执锐"
-    description: "领域：友方随从部署时攻击力+1"
+    description: "领域：友方单位部署时攻击力+1。"
   domain_infinite_fire:
     name: "无限火力"
     description: "领域：友方回合结束时，将一张「打击」洗入牌库"
@@ -523,37 +523,34 @@ cards:
     description: "友方回合结束时，若支援线有空槽，复制自身到支援线。"
   minion_knight_type1:
     name: "骑士I型"
-    description: "闪击，冲击"
+    description: "闪击，冲击。具有冲击时，具有+2攻击力。"
   minion_centipede_siege:
     name: "机械蜈蚣-攻城型"
     description: "伏击"
   minion_tombstone:
     name: "墓碑"
-    description: "嘲讽。战吼：对友方英雄造成 1 点伤害。\n对防御力不低于 1 的目标造成的伤害 +2。"
+    description: "嘲讽。部署：对友方英雄造成 1 点伤害。\n对防御力不低于 1 的目标造成的伤害 +2。"
   minion_mech_lancer:
     name: "机械静螳"
     description: "伏击\n拥有格挡时，攻击力+2"
   spell_plan:
     name: "计划"
-    description: "获得1个额外的法力水晶槽"
+    description: "获得1个额外的指挥点槽。"
   spell_ignite:
     name: "燃起"
-    description: "获得1个额外的法力水晶槽，抽1张牌"
+    description: "获得1个指挥点槽。"
   spell_longtermism:
     name: "长期主义"
-    description: "获得1个额外的法力水晶槽，回复3点生命，将一张「计划」加入手牌"
+    description: "获得1个额外的指挥点槽，回复3点生命，将一张「燃起」加入手牌。"
   domain_unlimited_potential:
     name: "无限潜能"
-    description: "解除自然增长的水晶槽上限"
+    description: "解除自然增长的指挥点槽上限。"
   spell_discover:
     name: "发现"
-    description: "情报1。从3张随机卡牌中选取一张加入手牌。"
+    description: "从3张随机卡牌中选取一张加入手牌。"
   domain_flying_away:
     name: "飞远"
     description: "领域：获得5点格挡。下一次被敌方随从或英雄攻击时，抽2张牌，将一张「受身」加入手牌。"
-  domain_jiehuafa:
-    name: "接化发"
-    description: "领域：敌方回合结束时，若我方英雄或前线随从至少被攻击一次且这些攻击均未造成生命伤害，将1张「受身」加入手牌。"
   spell_ukemi:
     name: "受身"
     description: "获得3点格挡，抽1张牌"
@@ -562,19 +559,19 @@ cards:
     description: "使一个目标失去所有格挡。友方英雄获得8点格挡。情报1。"
   spell_bait_tactics:
     name: "诱饵战术"
-    description: "使一个随从获得伏击和冲击。它受到攻击时，玩家敌方的英雄防御力-1。"
+    description: "使一个单位获得伏击和冲击。它受到攻击时，使用者的敌方弃1张牌。"
   spell_nano_corpse_art:
     name: "纳米散尸术"
-    description: "使一个随从失去亡语，获得「亡语：玩家英雄抽1张牌」。抽1张牌。"
+    description: "使一个随从失去亡语，获得「亡语：玩家英雄抽2张牌」。"
   domain_idol_twilight:
     name: "偶像的黄昏"
     description: "领域：手中、场上和卡组中的所有友方随从获得：被攻击后，获得+1/+1。"
   spell_moon_fishing:
     name: "捞月"
-    description: "从弃牌堆中的5张牌中选择2张加入手牌。"
+    description: "从弃牌堆的3张牌中选择1张加入手牌，重复1次。"
   spell_animosity:
     name: "敌意"
-    description: "使一个随从获得嘲讽、「受到来自玩家阵营的伤害翻倍」和亡语：玩家抽一张牌。"
+    description: "使一个单位获得嘲讽、「受到来自使用者阵营的伤害翻倍」和亡语：使用者抽1张牌。"
   minion_centipede_aa:
     name: "机械蜈蚣-防空型"
     description: "敌方英雄部署费用不大于2的随从时，与本随从战斗。"
@@ -586,20 +583,20 @@ cards:
     description: "随机弃掉一张手牌，对全体敌方造成3点伤害。"
   spell_shiyoru_raidenkou:
     name: "四夜雷电光"
-    description: "轮战；4回合内，友方回合结束时对随机敌人造成5点伤害。（挂载效果未结束时再次释放可叠加回合数）"
+    description: "轮战；4回合内，友方回合结束时对随机敌人造成3点伤害。（挂载效果未结束时再次释放可叠加回合数）"
   spell_blood_dogs_hand_fill:
     name: "十万条吸血狗"
     description: "选择1张手牌，用这张牌的复制填满你的手牌。"
   spell_sutaraito_spirit:
     name: "星途精神"
-    description: "获得2个空法力水晶槽；对所有敌人造成2点伤害；抽2张牌；下回合开始时额外抽2张牌、获得2点法力。"
+    description: "获得2个指挥点槽，对所有敌人造成2点伤害，抽2张牌，使所有友方单位获得+2/+2；下回合开始时额外抽2张牌。"
   minion_what_the_dog_doing:
     name: "我的刀盾"
-    description: "守护。战吼：在所属支援线相邻空槽召唤一个复制；相邻槽已满时改为其他支援线空槽。"
+    description: "守护。部署：在所属支援线相邻空槽召唤一个复制；相邻槽已满时改为其他支援线空槽。"
 
   spell_blade_crisis:
     name: "刀盾危机"
-    description: "选择并弃掉不大于5张牌，在友方支援线空槽召唤等量个「我的刀盾」（满格溢出），并抽取等量张牌。"
+    description: "选择并弃掉不大于4张牌，在友方支援线空槽召唤等量个「我的刀盾」（满格溢出），并抽取等量张牌。"
 
   spell_what_the_dog_doing:
     name: "我的刀盾"
@@ -609,7 +606,7 @@ cards:
     description: "使所有敌人获得3层易伤和3层脆弱。"
   spell_chansu:
     name: "机会~"
-    description: "回复2点生命，获得2点格挡，抽1张牌。每回合首次对热力值大于100%的敌人造成伤害时，将牌库或弃牌堆中的这张牌加入手牌。"
+    description: "回复2点生命，获得2点格挡，抽1张牌。对指挥点槽数大于10的敌人造成伤害时，将牌库或弃牌堆中的这张牌加入手牌。"
   status_explain:
     name: "解释"
     description: "奇巧。打出时使敌方英雄获得1层总观效应。\n回到手牌。"
@@ -623,8 +620,8 @@ cards:
   spell_energy_coin:
     name: "能量币"
     plus_name: "能量币+{bonus}"
-    description: "获得1点法力。+n的能量币额外获得n点法力。"
-    description_with_bonus: "获得{amount}点法力。"
+    description: "获得1个指挥点。+n的能量币额外获得n个指挥点。"
+    description_with_bonus: "获得{amount}个指挥点。"
   spell_093b_ssn:
     name: "093B SSN"
     description: "敌方随机弃一张花费不大于8的牌。"
@@ -643,6 +640,48 @@ cards:
   counter_borei:
     name: "北风之神"
     description: "反制：敌方使用指令时，其随机弃1张牌。"
+  minion_113th_garrison:
+    name: "第113守备营"
+    description: ""
+  minion_122nd_bugle_battalion:
+    name: "大喇叭团第122营"
+    description: "守护。"
+  minion_232nd_vanguard_battalion:
+    name: "第232先锋营"
+    description: "闪击。部署：对一个敌方目标造成1点伤害。"
+  minion_type15a_plateau_tank:
+    name: "15A式高原坦克"
+    description: "部署：抽1张牌。"
+  minion_m10_booker:
+    name: "M10“布克”"
+    description: "闪击。有友方先锋单位时行动花费-1。"
+  minion_shadow_drone:
+    name: "暗影无人机"
+    description: "闪击。"
+  minion_hover_gunship_drone:
+    name: "悬浮炮艇无人机"
+    description: "守护。部署：将一张「打击」加入手牌。"
+  minion_peregrine_drone:
+    name: "游隼无人机"
+    description: "闪击。亡语：抽1张牌。"
+  minion_gyrfalcon_heavy_drone:
+    name: "猎隼重型无人机"
+    description: "伏击，闪击，冲击。"
+  minion_type34_grenade_mg_team:
+    name: "34式榴弹机枪组"
+    description: ""
+  minion_55th_orbital_corps:
+    name: "第55轨道机动兵团"
+    description: "闪击，守护。部署：使一个单位移动至前线。"
+  minion_t90m_late:
+    name: "T-90M晚期型"
+    description: "守护。部署：将一张「爆炸反应装甲」加入手牌。"
+  spell_perfect_block:
+    name: "完美格挡"
+    description: "使一个友方目标获得3点格挡，若其下次受到攻击没有被造成生命伤害，将一张「受身」加入手牌。"
+  domain_explosive_reactive_armor:
+    name: "爆炸反应装甲"
+    description: "领域：抵消下一次受到攻击造成的生命伤害。"
 
 board_row:
   enemysupport: "敌方支援线"
@@ -730,6 +769,7 @@ combat:
   enemy_defeated: "{enemy} 已被击败！"
   damage_dealt: "对 {target} 造成 {amount} 点伤害"
   block_gained: "获得 {amount} 点格挡"
+  enemy_mana: "指挥点 {current}/{max}"
 
 enemies:
   cultist:
@@ -781,7 +821,7 @@ effect:
   weapon_disabled: "武器禁用"
   weapon_disabled_desc: "武器无法使用。"
   animosity: "敌意"
-  animosity_desc: "受到来自玩家阵营的伤害翻倍。"
+  animosity_desc: "受到来自使用者阵营的伤害翻倍。"
   vulnerable: "易伤"
   vulnerable_desc: "受到的攻击伤害×1.5。总观效应下效果翻倍。"
   weak: "虚弱"
@@ -799,13 +839,11 @@ effect:
 
 domain:
   unlimited_potential: "无限潜能"
-  unlimited_potential_desc: "法力水晶上限移除。"
+  unlimited_potential_desc: "解除自然增长的指挥点槽上限。"
   flying_away: "飞远"
   flying_away_desc: "被攻击后抽2张牌并获得「受身」。"
   idol_twilight: "偶像的黄昏"
   idol_twilight_desc: "被攻击后获得+1/+1。"
-  jiehuafa: "接化发"
-  jiehuafa_desc: "敌方回合，我方英雄或前线随从至少被攻击一次且这些攻击均未造成生命伤害时，获得「受身」。"
   focus: "聚焦"
   focus_desc: "每层使造成的法术伤害+1。"
   scheme: "蓄谋"
@@ -813,15 +851,17 @@ domain:
   inescapable_flaw: "难逃之瑕"
   inescapable_flaw_desc: "持有者失去一种负面效果时，立刻随机获得1层另一种负面效果。若失去的是本效果，则也可能重新获得本效果。"
   shiyoru_raidenkou: "四夜雷电光"
-  shiyoru_raidenkou_desc: "友方回合结束时对随机敌人造成5点伤害，每层代表剩余1次触发。"
+  shiyoru_raidenkou_desc: "友方回合结束时对随机敌人造成3点伤害，每层代表剩余1次触发。"
   sutaraito_spirit: "星途精神"
-  sutaraito_spirit_desc: "下回合开始时额外抽2张牌并获得2点法力。"
+  sutaraito_spirit_desc: "下回合开始时额外抽2张牌。"
   preemptive_strike: "先发制人"
   preemptive_strike_desc: "领域：每回合的第一张直伤卡牌，每有1张手牌其造成的伤害值+10％。"
   zhijian: "执锐"
-  zhijian_desc: "领域：友方随从部署时攻击力+1。"
+  zhijian_desc: "领域：友方单位部署时攻击力+1。"
   infinite_fire: "无限火力"
   infinite_fire_desc: "领域：友方回合结束时，将一张「打击」洗入牌库。"
+  explosive_reactive_armor: "爆炸反应装甲"
+  explosive_reactive_armor_desc: "领域：抵消下一次受到攻击造成的生命伤害。"
   nadaofangyu: "拿刀防卫"
   nadaofangyu_desc: "「拿刀防卫」赋予的攻击力增益，持续到下个敌方回合结束。"
   cosmic_coldness: "宇宙冷漠"
@@ -840,13 +880,13 @@ modifier:
 
 keyword_source:
   bait_tactics: "诱饵战术"
-  bait_tactics_desc: "获得伏击和冲击。被攻击时敌方英雄防御力-1。"
+  bait_tactics_desc: "获得伏击和冲击。受到攻击时，使用者的敌方随机弃1张牌。"
 
 keyword:
   taunt: "嘲讽"
   taunt_desc: "普通攻击同阵线随从或我方英雄时，必须优先攻击射程可达的嘲讽。不能与烟幕共存。"
   guard: "守护"
-  guard_desc: "掩护同阵线左右紧邻的非嘲讽、非守护随从，不保护英雄。不能与烟幕共存。"
+  guard_desc: "掩护同阵线左右紧邻的非嘲讽、非守护随从；位于支援阵线时还能保护我方英雄。不能与烟幕共存。"
   charge: "闪击"
   recycle: "轮战"
   intel: "情报"
@@ -866,7 +906,7 @@ keyword:
 blessing:
   vigor:
     name: "活力祝颂"
-    desc: "战斗开始时获得2点法力（占位符）"
+    desc: "战斗开始时获得2个指挥点（占位符）"
   fortitude:
     name: "坚韧祝颂"
     desc: "获得3点最大生命值（占位符）"
@@ -983,7 +1023,7 @@ tag:
   discard: "弃牌"
   domain: "领域"
   weapon_synergy: "武器"
-  mana_ramp: "法力"
+  mana_ramp: "指挥点"
   status_apply: "状态"
   shuffle: "洗牌"
   token: "衍生"
@@ -1017,11 +1057,11 @@ enemy:
     rie:
       name: "宿敌·理惠"
       title: "直伤狙击指挥官"
-      passive: "开场展开「无限火力」：每回合结束将「打击」洗入抽牌堆。"
+      passive: "开场展开「先发制人」：每回合首张直伤牌按手牌数提高伤害。"
     sokou:
       name: "宿敌·溯光"
       title: "轮战情报指挥官"
-      passive: "开场展开「接化发」：敌方回合内针对英雄或前线的攻击全被格挡时，回合末获得「受身」。"
+      passive: "开场展开「飞远」：被攻击后抽2张牌并获得「受身」。"
   deckhand:
     apprentice:
       name: "实习机械师"

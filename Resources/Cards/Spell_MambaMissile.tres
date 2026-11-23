@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="SubResource_1"]
 script = ExtResource("2_effect")
 EffectType = 17
-Value = 5
+Value = 3
 SecondaryValue = 3
 CustomEffectName = "MambaMissile"
 
@@ -17,9 +17,9 @@ PackId = "unmanned_victory"
 FrontlineOnlySpell = false
 MechanicTags = 1
 CardName = "曼巴导弹"
-Description = "对随机敌人造成3点伤害5次。伤害高的敌人更可能被击中。"
+Description = "对随机敌人造成3点伤害3次。伤害高的敌人更可能被击中。"
 Rarity = 3
-Cost = 4
+Cost = 5
 Type = 1
 RequiresTarget = false
 Effects = [SubResource("SubResource_1")]

@@ -11,12 +11,12 @@ Value = 0
 [resource]
 script = ExtResource("1_data")
 Id = "domain_unlimited_potential"
-PackId = "core"
+PackId = "reserve"
 FrontlineOnlySpell = false
 MechanicTags = 5120
 DomainId = "unlimited_potential"
 CardName = "无限潜能"
-Description = "解除自然增长的水晶槽上限"
+Description = "解除自然增长的指挥点槽上限。"
 Rarity = 1
 Cost = 2
 Type = 2

@@ -11,7 +11,7 @@ Value = 1
 [sub_resource type="Resource" id="SubResource_2"]
 script = ExtResource("2_effect")
 EffectType = 1
-Value = 2
+Value = 3
 
 [resource]
 script = ExtResource("1_data")
@@ -20,8 +20,8 @@ PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 20
 CardName = "警戒"
-Description = "抽1张牌，回复2点生命值"
-Rarity = 0
+Description = "抽1张牌，回复3点生命值"
+Rarity = 4
 Cost = 2
 Type = 1
 Keywords = Array[int]([8])

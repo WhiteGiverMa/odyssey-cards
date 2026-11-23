@@ -93,7 +93,7 @@ public class CommanderAiTests
 	public void AiDecisionProvider_All68CardIds_AlwaysCompletesWithinBounds(CardDecisionKind kind, int min, int max)
 	{
 		var cards = LoadAllRuntimeCards();
-		Assert.Equal(68, cards.Count);
+		Assert.Equal(81, cards.Count);
 		var provider = new AiDecisionProvider(card => (card.Id.GetHashCode() & 31) + 1);
 		int calls = 0;
 		IReadOnlyList<RuntimeCard>? chosen = null;

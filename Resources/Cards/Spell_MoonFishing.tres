@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="CardData" load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
 [ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
@@ -6,8 +6,14 @@
 [sub_resource type="Resource" id="SubResource_1"]
 script = ExtResource("2_effect")
 EffectType = 24
-Value = 5
-SecondaryValue = 2
+Value = 3
+SecondaryValue = 1
+
+[sub_resource type="Resource" id="SubResource_2"]
+script = ExtResource("2_effect")
+EffectType = 24
+Value = 3
+SecondaryValue = 1
 
 [resource]
 script = ExtResource("1_data")
@@ -16,9 +22,9 @@ PackId = "core"
 FrontlineOnlySpell = false
 MechanicTags = 32800
 CardName = "捞月"
-Description = "从弃牌堆中的5张牌中选择2张加入手牌。"
+Description = "从弃牌堆的3张牌中选择1张加入手牌，重复1次。"
 Rarity = 2
 Cost = 4
 Type = 1
 RequiresTarget = false
-Effects = [SubResource("SubResource_1")]
+Effects = [SubResource("SubResource_1"), SubResource("SubResource_2")]

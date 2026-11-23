@@ -17,16 +17,16 @@ Value = 3
 script = ExtResource("2_effect")
 EffectType = 17
 Value = 1
-CustomEffectName = "AddPlanToHand"
+CustomEffectName = "AddIgniteToHand"
 
 [resource]
 script = ExtResource("1_data")
 Id = "spell_longtermism"
 PackId = "core"
 FrontlineOnlySpell = false
-MechanicTags = 36884
+MechanicTags = 36868
 CardName = "长期主义"
-Description = "获得1个额外的法力水晶槽，回复3点生命，将一张「计划」加入手牌"
+Description = "获得1个额外的指挥点槽，回复3点生命，将一张「燃起」加入手牌。"
 Rarity = 3
 Cost = 3
 Type = 1

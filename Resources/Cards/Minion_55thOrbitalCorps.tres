@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 17
+Value = 1
+CustomEffectName = "MoveTargetToFrontline"
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_55th_orbital_corps"
+PackId = "core"
+UnitClass = 0
+MechanicTags = 0
+CardName = "第55轨道机动兵团"
+Description = "闪击，守护。部署：使一个单位移动至前线。"
+Rarity = 3
+Cost = 4
+ActionCost = 1
+Type = 0
+Attack = 4
+Health = 4
+Keywords = [1, 12, 3]
+RequiresTarget = true
+TargetFilter = 8
+BattlecryEffects = [SubResource("SubResource_1")]

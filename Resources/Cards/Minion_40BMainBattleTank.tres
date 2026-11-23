@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_data")
 Id = "minion_40b_main_battle_tank"
-PackId = "unmanned_victory"
+PackId = "core"
 UnitClass = 1
 MechanicTags = 0
 CardName = "40B主战坦克"
@@ -16,5 +16,4 @@ ActionCost = 1
 Type = 0
 Attack = 6
 Health = 5
-Defense = 1
 Keywords = [1]

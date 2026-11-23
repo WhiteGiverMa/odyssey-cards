@@ -7,7 +7,7 @@
 script = ExtResource("2_effect")
 EffectType = 17
 CustomEffectName = "BladeCrisis"
-Value = 5
+Value = 4
 
 [resource]
 script = ExtResource("1_data")
@@ -16,9 +16,9 @@ PackId = "unmanned_victory"
 FrontlineOnlySpell = false
 MechanicTags = 592
 CardName = "刀盾危机"
-Description = "选择并弃掉不大于5张牌，在友方支援线空槽召唤等量个「我的刀盾」（满格溢出），并抽取等量张牌。"
+Description = "选择并弃掉不大于4张牌，在友方支援线空槽召唤等量个「我的刀盾」（满格溢出），并抽取等量张牌。"
 Rarity = 3
-Cost = 2
+Cost = 4
 Type = 1
 RequiresTarget = false
 Effects = [SubResource("SubResource_1")]

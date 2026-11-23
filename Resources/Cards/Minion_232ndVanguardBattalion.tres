@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
+[ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
+
+[sub_resource type="Resource" id="SubResource_1"]
+script = ExtResource("2_effect")
+EffectType = 5
+Value = 1
+
+[resource]
+script = ExtResource("1_data")
+Id = "minion_232nd_vanguard_battalion"
+PackId = "core"
+UnitClass = 0
+MechanicTags = 1
+CardName = "第232先锋营"
+Description = "闪击。部署：对一个敌方目标造成1点伤害。"
+Rarity = 3
+Cost = 2
+ActionCost = 1
+Type = 0
+Attack = 2
+Health = 3
+Keywords = [1, 3]
+RequiresTarget = true
+TargetFilter = 2
+BattlecryEffects = [SubResource("SubResource_1")]

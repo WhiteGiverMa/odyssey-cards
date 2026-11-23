@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CardData" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="CardData" load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://Scripts/Core/CardData.cs" id="1_data"]
 [ext_resource type="Script" path="res://Scripts/Core/CardEffectData.cs" id="2_effect"]
@@ -20,8 +20,15 @@ Value = 2
 
 [sub_resource type="Resource" id="SubResource_4"]
 script = ExtResource("2_effect")
-EffectType = 30
+EffectType = 17
 Value = 2
+SecondaryValue = 2
+CustomEffectName = "BuffFriendlyMinions"
+
+[sub_resource type="Resource" id="SubResource_5"]
+script = ExtResource("2_effect")
+EffectType = 30
+Value = 0
 SecondaryValue = 2
 CustomEffectName = "SutaraitoSpiritNextTurn"
 
@@ -30,11 +37,11 @@ script = ExtResource("1_data")
 Id = "spell_sutaraito_spirit"
 PackId = "core"
 FrontlineOnlySpell = false
-MechanicTags = 4113
+MechanicTags = 4241
 CardName = "星途精神"
-Description = "获得2个空法力水晶槽；对所有敌人造成2点伤害；抽2张牌。下回合开始时，额外抽2张牌并获得2点法力。"
+Description = "获得2个指挥点槽，对所有敌人造成2点伤害，抽2张牌，使所有友方单位获得+2/+2；下回合开始时额外抽2张牌。"
 Rarity = 2
 Cost = 10
 Type = 1
 RequiresTarget = false
-Effects = [SubResource("SubResource_1"), SubResource("SubResource_2"), SubResource("SubResource_3"), SubResource("SubResource_4")]
+Effects = [SubResource("SubResource_1"), SubResource("SubResource_2"), SubResource("SubResource_3"), SubResource("SubResource_4"), SubResource("SubResource_5")]

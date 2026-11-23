@@ -11,14 +11,14 @@ Value = 2
 [resource]
 script = ExtResource("1_data")
 Id = "minion_40_main_battle_tank"
-PackId = "unmanned_victory"
+PackId = "core"
 UnitClass = 1
 MechanicTags = 16
 CardName = "40主战坦克"
-Description = "嘲讽。战吼：抽2张牌。"
+Description = "嘲讽。部署：抽2张牌。"
 Rarity = 4
 Cost = 6
-ActionCost = 1
+ActionCost = 2
 Type = 0
 Attack = 5
 Health = 5

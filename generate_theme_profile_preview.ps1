@@ -131,7 +131,7 @@ function Build-Markdown {
         "Token"          = "衍生牌"
     }
     $kwCnFallback = @{
-        "Charge"      = "闪击";  "Taunt"       = "嘲讽";   "Battlecry"  = "战吼"
+        "Charge"      = "闪击";  "Taunt"       = "嘲讽";   "Battlecry"  = "部署"
         "Deathrattle" = "亡语";  "Windfury"    = "风怒";   "Ambush"     = "伏击"
         "Impact"      = "冲击";  "Recycle"     = "轮战";   "Unplayable" = "不可打出"
         "Ethereal"    = "虚无";  "Qiqiao"      = "奇巧"

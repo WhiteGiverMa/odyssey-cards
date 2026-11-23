@@ -7,7 +7,7 @@
 script = ExtResource("2_effect")
 EffectType = 17
 Value = 1
-SecondaryValue = 1
+SecondaryValue = 0
 CustomEffectName = "SmokeDodge"
 
 [resource]
@@ -15,9 +15,9 @@ script = ExtResource("1_data")
 Id = "spell_smoke_dodge"
 PackId = "core"
 FrontlineOnlySpell = false
-MechanicTags = 8208
+MechanicTags = 8192
 CardName = "烟遁"
-Description = "使所有不具有嘲讽或守护的友方单位获得1层烟幕，抽1张牌。"
+Description = "使支援阵线所有不具有嘲讽或守护的友方单位获得1层烟幕。"
 Rarity = 3
 Cost = 2
 Type = 1
