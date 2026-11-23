@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using OdysseyCards.Core;
 using Xunit;
@@ -73,27 +74,15 @@ public class CardMechanicTagTests
 	}
 
 	[Fact]
-	public void PackBits_StartAtOneShiftNineteen_AndStayDistinct()
+	public void NoPackBits_RemainInMechanicTags()
 	{
-		// 系列标签位从 1<<19 起，紧接 Intel(1<<18)，不与旧位重叠。
-		Assert.Equal(1 << 19, (int)CardMechanicTag.PackCore);
-		Assert.Equal(1 << 20, (int)CardMechanicTag.PackUnmanned);
-		Assert.Equal(1 << 21, (int)CardMechanicTag.PackFutureHunt);
-		Assert.Equal(1 << 22, (int)CardMechanicTag.PackSuperBody);
-		Assert.Equal(1 << 23, (int)CardMechanicTag.PackReserve);
-		Assert.Equal(1 << 24, (int)CardMechanicTag.PackVanguard);
-		Assert.Equal(0, (int)CardPackCatalog.AllPackTags & (int)CardMechanicTag.Intel);
-	}
+		// 正交性门禁：卡包是 CardData.PackId 字符串维度，不得再塞回机制标签枚举。
+		var values = Enum.GetValues<CardMechanicTag>();
+		foreach (var value in values)
+			Assert.DoesNotContain("Pack", value.ToString(), StringComparison.OrdinalIgnoreCase);
 
-	[Fact]
-	public void PackBits_MapToOneToOneWithBuiltInPackIds()
-	{
-		foreach (var packId in CardPackCatalog.BuiltInPackIds)
-		{
-			var tag = CardPackCatalog.GetTagForPack(packId);
-			Assert.True(CardPackCatalog.IsPackTag(tag), $"{packId} 未映射到系列标签位");
-			Assert.Equal(tag, CardPackCatalog.GetTagForPack(packId.ToUpperInvariant()));
-		}
-		Assert.Equal(CardMechanicTag.None, CardPackCatalog.GetTagForPack("my_diy_pack"));
+		int maxBit = values.Max(value => (int)value);
+		Assert.Equal(1 << 18, maxBit);
+		Assert.Equal(1 << 18, (int)CardMechanicTag.Intel);
 	}
 }

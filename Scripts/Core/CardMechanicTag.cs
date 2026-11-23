@@ -7,9 +7,15 @@ namespace OdysseyCards.Core;
 /// 描述「这张卡做什么」或「这张卡属于哪一类」的高层语义，供主题卡组生成、ThemeProfile 画像、收藏过滤、
 /// 卡牌效果目标过滤（如种族洗牌）使用。
 ///
-/// 与 <see cref="Keyword"/>（战斗关键词）正交：一张卡可同时拥有任意机制标签组合 + 任意关键词组合。
+/// 本维度与以下两个维度完全正交，互不派生：
+///   - 所属卡包见 <see cref="CardPackCatalog"/> / <c>CardData.PackId</c>（字符串单值维度）；
+///   - 战斗关键词见 <see cref="Keyword"/>（另一套 [Flags] 维度）。
+/// 三者各自独立：卡包不占用机制标签位，机制标签也不反推卡包。
+///
 /// 历史上曾存在正交的 <c>CardTag</c>（种族/阵营）维度，仅 <c>Mechanics</c> 一个位；
 /// 该维度已合并到本枚举作为 <see cref="Mechanics"/>=65536，<c>CardTag</c> 已删除。
+/// 历史上卡包系列位（<c>PackCore</c>..<c>PackCutoffCurrent</c>）曾并入本枚举，现已彻底移除，
+/// 卡包归属统一由 <c>CardData.PackId</c> 字符串表达。
 ///
 /// 设计原则：
 ///   - 此处收录「机制类别」与「种族/阵营类别」两类语义，统一为单一位掩码维度。
@@ -37,16 +43,6 @@ namespace OdysseyCards.Core;
 ///   Mechanics(65536)      — 机械族：原种族标签维度并入后的位；供种族洗牌效果、主题偏好使用
 ///   SuperBody(131072)     — 超体：neta 和平精英「超体对抗」
 ///   Intel(262144)         — 情报：揭露暗牌；未用完点数直接溢出且无额外收益
-///   PackCore(524288)      — 系列「核心」（1&lt;&lt;19，卡包系列标签位起点）
-///   PackUnmanned(1048576) — 系列「无人智胜」
-///   PackFutureHunt(2097152)    — 系列「未来追杀」
-///   PackSuperBody(4194304)     — 系列「超体计划」
-///   PackReserve(8388608)       — 系列「预备」
-///   PackVanguard(16777216)     — 系列「先锋」
-///   PackCutoffCurrent(33554432) — 系列「断流」（潜艇战主题）
-///
-/// 系列标签位由 <see cref="CardPackCatalog"/> 维护：查询时按 <c>CardData.PackId</c> 自动匹配，
-/// 无需在 .tres 的 MechanicTags 里重复打位。DIY 自定义 PackId 无预置位，需用字符串字段表达。
 /// </summary>
 [Flags]
 public enum CardMechanicTag
@@ -118,25 +114,4 @@ public enum CardMechanicTag
 
 	/// <summary>情报：揭露敌方暗牌，剩余点数回复生命或转为格挡。</summary>
 	Intel = 262144,
-
-	/// <summary>系列「核心」（卡包机制标签位起点 1&lt;&lt;19）。由 PackId 自动授予。</summary>
-	PackCore = 524288,
-
-	/// <summary>系列「无人智胜」。由 PackId 自动授予。</summary>
-	PackUnmanned = 1048576,
-
-	/// <summary>系列「未来追杀」（neta 环世界）。由 PackId 自动授予。</summary>
-	PackFutureHunt = 2097152,
-
-	/// <summary>系列「超体计划」（neta 和平精英超体对抗）。由 PackId 自动授予。</summary>
-	PackSuperBody = 4194304,
-
-	/// <summary>系列「预备」——默认禁用。由 PackId 自动授予。</summary>
-	PackReserve = 8388608,
-
-	/// <summary>系列「先锋」——新卡默认归属。由 PackId 自动授予。</summary>
-	PackVanguard = 16777216,
-
-	/// <summary>系列「断流」（潜艇战主题，0.2.2）。由 PackId 自动授予。</summary>
-	PackCutoffCurrent = 33554432,
 }

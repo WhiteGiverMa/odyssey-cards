@@ -82,7 +82,8 @@ public class TagsCommand : ChatScreenCommand
 		{
 			if (tag == Core.CardMechanicTag.None)
 				continue;
-			// 走 HasMechanicTag 而非直接 HasFlag，使「系列标签」也按 PackId 自动参与统计。
+			// 枚举现在只含真正的机制标签（卡包已独立为 CardData.PackId 字符串维度），
+			// 因此这里按机制标签统计即可，不再有「系列标签」需要按 PackId 自动展开。
 			var cards = cardCache.Values.Where(c => c.HasMechanicTag(tag)).OrderBy(c => c.CardName).ToList();
 			lines.Add($"  {tag} ({cards.Count} 张):");
 			foreach (var c in cards)

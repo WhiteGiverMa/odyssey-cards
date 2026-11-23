@@ -8,12 +8,12 @@ namespace OdysseyCards.Core;
 /// 卡包（扩展包 / 系列）目录。
 /// <para>
 /// 纯 C# 静态契约，不依赖 Godot，便于 xUnit 与 Web 工具层镜像同一套 ID。
-/// <see cref="CardData.PackId"/> 是资源上的权威字段；本目录提供 ID 常量、
-/// PackId ↔ <see cref="CardMechanicTag"/> 系列标签映射，以及卡包枚举辅助。
+/// <see cref="CardData.PackId"/> 是资源上的权威字段；本目录提供 ID 常量、规范化、
+/// 启用/禁用过滤与枚举辅助。
 /// </para>
 /// <para>
-/// 「卡牌所属系列本身也是机制标签」由 <see cref="CardData.HasMechanicTag"/> 兑现：
-/// 查询系列标签位时按 PackId 自动匹配，无需在 .tres 里手工维护重复位。
+/// 卡包是与机制标签（<see cref="CardMechanicTag"/>）、关键词（<see cref="Keyword"/>）
+/// 正交的独立单值维度：卡包不占机制标签位，机制标签也不反推卡包。
 /// </para>
 /// </summary>
 public static class CardPackCatalog
@@ -54,27 +54,6 @@ public static class CardPackCatalog
 	/// <summary>默认禁用的卡包——新存档只禁用「预备」。</summary>
 	public static readonly string[] DefaultDisabledPackIds = { PackReserve };
 
-	/// <summary>所有系列标签位的并集，用于从机制标签中拆分出「包位」。</summary>
-	public static readonly CardMechanicTag AllPackTags =
-		CardMechanicTag.PackCore |
-		CardMechanicTag.PackUnmanned |
-		CardMechanicTag.PackFutureHunt |
-		CardMechanicTag.PackSuperBody |
-		CardMechanicTag.PackCutoffCurrent |
-		CardMechanicTag.PackReserve |
-		CardMechanicTag.PackVanguard;
-
-	private static readonly Dictionary<string, CardMechanicTag> TagByPack = new(StringComparer.OrdinalIgnoreCase)
-	{
-		[PackCore] = CardMechanicTag.PackCore,
-		[PackUnmannedVictory] = CardMechanicTag.PackUnmanned,
-		[PackFutureHunt] = CardMechanicTag.PackFutureHunt,
-		[PackSuperBodyProject] = CardMechanicTag.PackSuperBody,
-		[PackCutoffCurrent] = CardMechanicTag.PackCutoffCurrent,
-		[PackReserve] = CardMechanicTag.PackReserve,
-		[PackVanguard] = CardMechanicTag.PackVanguard,
-	};
-
 	/// <summary>规范化 PackId：空白视为核心包。</summary>
 	public static string Normalize(string? packId)
 		=> string.IsNullOrWhiteSpace(packId) ? PackCore : packId.Trim();
@@ -89,18 +68,6 @@ public static class CardPackCatalog
 				return true;
 		}
 		return false;
-	}
-
-	/// <summary>取 PackId 对应的系列机制标签；未知 DIY 包返回 None。</summary>
-	public static CardMechanicTag GetTagForPack(string? packId)
-		=> TagByPack.TryGetValue(Normalize(packId), out var tag) ? tag : CardMechanicTag.None;
-
-	/// <summary>该机制标签是否「纯粹」是系列标签位（可含多个包位，但不含其他位）。</summary>
-	public static bool IsPackTag(CardMechanicTag tag)
-	{
-		if (tag == CardMechanicTag.None)
-			return false;
-		return (tag & AllPackTags) != CardMechanicTag.None && (tag & ~AllPackTags) == CardMechanicTag.None;
 	}
 
 	/// <summary>某包是否默认在战斗中启用（核心包恒启用，预备包恒禁用）。</summary>

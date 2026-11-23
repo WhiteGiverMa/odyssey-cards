@@ -20,7 +20,7 @@ public partial class CardData : Resource, ICardData, ILocalizable, IDeckCard
 	/// <summary>
 	/// 卡包（系列）ID —— 卡牌归属的权威字段，由 .tres 显式配置。
 	/// 内置值见 <see cref="CardPackCatalog"/>；玩家 DIY 卡可使用任意自定义字符串。
-	/// 该字段同时决定 <see cref="CardMechanicTag.PackCore"/> 等系列机制标签（见 <see cref="HasMechanicTag"/>）。
+	/// 卡包与机制标签（<see cref="CardMechanicTag"/>）、关键词（<see cref="Keyword"/>）完全正交，不占机制标签位。
 	/// </summary>
 	[Export] public string PackId { get; set; } = CardPackCatalog.PackCore;
 
@@ -83,7 +83,7 @@ public partial class CardData : Resource, ICardData, ILocalizable, IDeckCard
 	/// 历史上的 <c>CardTag</c>（种族/阵营）维度已合并入本字段（<c>Mechanics</c> 位=65536）。
 	/// 详见 <see cref="CardMechanicTag"/> 的设计原则。
 	/// </summary>
-	[Export(PropertyHint.Flags, "DirectDamage:1,DamageOverTime:2,Heal:4,Armor:8,Draw:16,Discover:32,Summon:64,Buff:128,Silence:256,Discard:512,Domain:1024,WeaponSynergy:2048,ManaRamp:4096,StatusApply:8192,Shuffle:16384,Token:32768,Mechanics:65536,SuperBody:131072,Intel:262144,PackCore:524288,PackUnmanned:1048576,PackFutureHunt:2097152,PackSuperBody:4194304,PackReserve:8388608,PackVanguard:16777216,PackCutoffCurrent:33554432")]
+	[Export(PropertyHint.Flags, "DirectDamage:1,DamageOverTime:2,Heal:4,Armor:8,Draw:16,Discover:32,Summon:64,Buff:128,Silence:256,Discard:512,Domain:1024,WeaponSynergy:2048,ManaRamp:4096,StatusApply:8192,Shuffle:16384,Token:32768,Mechanics:65536,SuperBody:131072,Intel:262144")]
 	public CardMechanicTag MechanicTags { get; set; } = CardMechanicTag.None;
 
 	/// <summary>
@@ -169,29 +169,12 @@ public partial class CardData : Resource, ICardData, ILocalizable, IDeckCard
 	}
 
 	/// <summary>
-	/// 检查是否拥有指定机制标签。
-	/// 系列标签位（PackCore..PackVanguard）由 <see cref="PackId"/> 自动判定——
-	/// 「卡牌所属系列本身也是一个机制标签」，无需在 .tres 的 MechanicTags 中重复打位。
+	/// 检查是否拥有指定机制标签（纯位掩码，卡包归属请直接比较 <see cref="PackId"/>）。
 	/// </summary>
 	public bool HasMechanicTag(CardMechanicTag tag)
 	{
-		if (tag == CardMechanicTag.None)
-			return true;
-
-		// 拆出包位与普通位：普通位仍完全由资源上的 MechanicTags 决定。
-		var requiredPacks = tag & CardPackCatalog.AllPackTags;
-		var ordinary = tag & ~CardPackCatalog.AllPackTags;
-		if (!MechanicTags.HasFlag(ordinary))
-			return false;
-		if (requiredPacks == CardMechanicTag.None)
-			return true;
-
-		var ownPack = CardPackCatalog.GetTagForPack(PackId);
-		return (requiredPacks & ownPack) == requiredPacks;
+		return tag == CardMechanicTag.None || MechanicTags.HasFlag(tag);
 	}
-
-	/// <summary>当前 PackId 对应的系列机制标签；DIY 包返回 None。</summary>
-	public CardMechanicTag PackTag => CardPackCatalog.GetTagForPack(PackId);
 
 	/// <summary>
 	/// 是否为随从牌。
