@@ -34,23 +34,30 @@ export const PRD_UNIT_MAPPINGS: Record<string, UnitMapping> = {
     role: { zh: "重装嘲讽铁壁", en: "Heavy taunt wall" },
     preferredLine: "frontline",
     note: {
-      zh: "保留嘲讽与2防御；建议降低行动油费。",
-      en: "Heavy armor and Taunt, with a proposed oil-cost reduction.",
+      zh: "保留嘲讽与2防御；0.2.3 行动花费定为3。",
+      en: "Heavy armor and Taunt; the 0.2.3 balance pass sets its oil cost to 3.",
     },
-    proposedActionCost: 1,
+    proposedActionCost: 3,
   },
   minion_40b_main_battle_tank: {
     unitClass: "assault",
     role: { zh: "闪击抢线", en: "Blitz flanker" },
     preferredLine: "frontline",
-    note: { zh: "标准闪击突击车，可推进后切后排。", en: "Charge enables advance-and-fire tempo plays." },
+    note: {
+      zh: "标准闪击突击车，防御力降为0换取推进后切后排的机动。",
+      en: "Charge flanks after advancing; the 0.2.3 pass trades its Defense down to 0.",
+    },
+    proposedActionCost: 1,
   },
   minion_40_main_battle_tank: {
     unitClass: "assault",
     role: { zh: "过牌重装", en: "Draw tank" },
     preferredLine: "frontline",
-    note: { zh: "嘲讽与战吼抽2；建议油费1。", en: "Taunt and Battlecry draw; proposed oil cost 1." },
-    proposedActionCost: 1,
+    note: {
+      zh: "嘲讽与部署抽2；0.2.3 行动花费定为2。",
+      en: "Taunt and Deploy draw 2; the 0.2.3 pass sets its oil cost to 2.",
+    },
+    proposedActionCost: 2,
   },
   minion_tombstone: {
     unitClass: "assault",
@@ -92,10 +99,14 @@ export const PRD_UNIT_MAPPINGS: Record<string, UnitMapping> = {
     note: { zh: "闪击冲击，响应直伤法术跨线轰击。", en: "Charge and Impact augment spell-triggered bombardment." },
   },
   minion_knight_type1: {
-    unitClass: "skirmisher",
-    role: { zh: "零油空袭刺客", en: "Zero-oil raider" },
-    preferredLine: "flex",
-    note: { zh: "0油跨线，高机动冲击空袭。", en: "Zero-oil global strikes with Charge and Impact." },
+    unitClass: "vanguard",
+    role: { zh: "冲击重骑", en: "Impact rider" },
+    preferredLine: "frontline",
+    note: {
+      zh: "0.2.3 改为先锋：4费1行动，4攻0防2生命，具有冲击时攻击力+2。",
+      en: "0.2.3 makes it a Vanguard: 4 cost / 1 oil, 4 ATK / 0 DEF / 2 HP, +2 ATK while it has Impact.",
+    },
+    proposedActionCost: 1,
   },
   minion_rayan_ge: {
     unitClass: "skirmisher",
@@ -148,6 +159,127 @@ export const PRD_UNIT_MAPPINGS: Record<string, UnitMapping> = {
     role: { zh: "后排定时爆破", en: "Backline demolition" },
     preferredLine: "support",
     note: { zh: "留守支援线，亡语对敌方全体法术伤害。", en: "Backline threat with global spell damage on death." },
+  },
+  // 0.2.3「早期战争」新增核心单位：.tres 已写入 UnitClass，此处补充战术定位与备注。
+  minion_113th_garrison: {
+    unitClass: "vanguard",
+    role: { zh: "零油守备", en: "Free garrison" },
+    preferredLine: "frontline",
+    note: {
+      zh: "1费0行动花费的守备营，廉价占住支援线并推进前线。",
+      en: "A 1-cost, zero-oil garrison that cheaply holds a support slot and advances.",
+    },
+    proposedActionCost: 0,
+  },
+  minion_122nd_bugle_battalion: {
+    unitClass: "vanguard",
+    role: { zh: "守护号手", en: "Guard bugler" },
+    preferredLine: "frontline",
+    note: {
+      zh: "自带守护的廉价先锋，与相邻单位互成防线。",
+      en: "A cheap Vanguard with Guard that anchors an adjacent defensive pair.",
+    },
+    proposedActionCost: 1,
+  },
+  minion_232nd_vanguard_battalion: {
+    unitClass: "vanguard",
+    role: { zh: "闪击前压", en: "Charging spearhead" },
+    preferredLine: "frontline",
+    note: {
+      zh: "闪击进场，部署即对一个敌方目标造成1点伤害。",
+      en: "Charge entry plus Deploy: deal 1 damage to an enemy target.",
+    },
+    proposedActionCost: 1,
+  },
+  minion_type15a_plateau_tank: {
+    unitClass: "assault",
+    role: { zh: "高原突进", en: "Plateau breakthrough" },
+    preferredLine: "frontline",
+    note: {
+      zh: "部署抽1；突击推进后可直接开火。",
+      en: "Deploy draws 1; as an Assault it can advance and fire in one turn.",
+    },
+    proposedActionCost: 1,
+  },
+  minion_m10_booker: {
+    unitClass: "assault",
+    role: { zh: "闪击轻坦", en: "Charging light tank" },
+    preferredLine: "frontline",
+    note: {
+      zh: "闪击；场上有友方先锋时行动花费-1。",
+      en: "Charge; costs 1 less oil while a friendly Vanguard is on the board.",
+    },
+    proposedActionCost: 1,
+  },
+  minion_shadow_drone: {
+    unitClass: "skirmisher",
+    role: { zh: "闪击游击", en: "Charging skirmisher" },
+    preferredLine: "flex",
+    note: {
+      zh: "闪击游击，可跨线骚扰但正常承受反击。",
+      en: "Charging Skirmisher that harasses across rows while still taking retaliation.",
+    },
+    proposedActionCost: 1,
+  },
+  minion_hover_gunship_drone: {
+    unitClass: "support",
+    role: { zh: "守护炮艇", en: "Guard gunship" },
+    preferredLine: "support",
+    note: {
+      zh: "支援线守护炮台，部署补一张「打击」。",
+      en: "A Guard battery in the support row; Deploy adds a Strike to hand.",
+    },
+    proposedActionCost: 1,
+  },
+  minion_peregrine_drone: {
+    unitClass: "skirmisher",
+    role: { zh: "侦察游击", en: "Recon skirmisher" },
+    preferredLine: "flex",
+    note: {
+      zh: "闪击与亡语抽1，2费换牌兼骚扰。",
+      en: "Charge and a Deathrattle draw for a cheap two-cost harassment play.",
+    },
+    proposedActionCost: 1,
+  },
+  minion_gyrfalcon_heavy_drone: {
+    unitClass: "skirmisher",
+    role: { zh: "重装猎手", en: "Heavy hunter" },
+    preferredLine: "flex",
+    note: {
+      zh: "伏击、闪击与冲击齐备，落地即可无伤先手。",
+      en: "Ambush, Charge and Impact together allow a safe first strike right after deployment.",
+    },
+    proposedActionCost: 1,
+  },
+  minion_type34_grenade_mg_team: {
+    unitClass: "support",
+    role: { zh: "跨线压制", en: "Cross-row suppression" },
+    preferredLine: "support",
+    note: {
+      zh: "无额外效果的跨线火力组，2行动花费持续输出。",
+      en: "A plain global-range fire team that pays 2 oil for steady damage.",
+    },
+    proposedActionCost: 2,
+  },
+  minion_55th_orbital_corps: {
+    unitClass: "vanguard",
+    role: { zh: "轨道突击", en: "Orbital shock" },
+    preferredLine: "frontline",
+    note: {
+      zh: "闪击与守护，部署把一个单位直接推进前线。",
+      en: "Charge and Guard; Deploy moves a unit straight into the frontline.",
+    },
+    proposedActionCost: 1,
+  },
+  minion_t90m_late: {
+    unitClass: "assault",
+    role: { zh: "重装守线", en: "Armored line holder" },
+    preferredLine: "frontline",
+    note: {
+      zh: "守护重坦，部署补一张「爆炸反应装甲」。",
+      en: "A Guard heavy tank; Deploy adds Explosive Reactive Armor to hand.",
+    },
+    proposedActionCost: 2,
   },
 };
 

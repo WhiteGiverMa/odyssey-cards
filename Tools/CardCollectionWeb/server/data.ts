@@ -58,18 +58,17 @@ function findApplicationRoot(): string {
 export const APPLICATION_ROOT = findApplicationRoot();
 const CARD_DIRECTORY = path.join(REPOSITORY_ROOT, "Resources", "Cards");
 const THEME_DIRECTORY = path.join(REPOSITORY_ROOT, "Resources", "Themes");
-const VIRTUAL_INTEL = new Set([
-  "minion_detective_squad",
-  "minion_lianshu_scout",
-  "spell_expose",
-  "spell_retrieve",
-  "spell_discover",
-]);
+const VIRTUAL_INTEL = new Set(["minion_detective_squad", "minion_lianshu_scout", "spell_expose"]);
 const VIRTUAL_SMOKE = new Set(["minion_rayan_ge", "spell_smoke_dodge", "spell_smoke_restore"]);
+/** 卡牌关联补充：资源 TargetType 未覆盖、或需要在规则层额外标注的引用（0.2.3 术语与效果调整后同步）。 */
 const EFFECT_REFERENCES: Record<string, string[]> = {
   domain_infinite_fire: ["spell_strike"],
-  spell_longtermism: ["spell_plan"],
+  spell_longtermism: ["spell_ignite"],
   spell_blade_crisis: ["minion_what_the_dog_doing"],
+  spell_perfect_block: ["spell_ukemi"],
+  minion_hover_gunship_drone: ["spell_strike"],
+  minion_t90m_late: ["domain_explosive_reactive_armor"],
+  domain_flying_away: ["spell_ukemi"],
 };
 
 interface LoadedCardResources {
@@ -217,8 +216,8 @@ async function loadCards(tables: Record<Language, TranslationTable>): Promise<Lo
       unitClassSource: unitClass ? (resourceUnit ? "resource" : "prd") : "not-applicable",
       tactical: profileFor(id) ?? nonUnitProfile(id, typeKey, mechanicTags, domainId),
       themes,
-      // 资源尚未写入 PackId 时，按 docs/draft/卡包.md 的清单与标签规则推断。
-      packId: asString(raw.PackId) || resolveDefaultPackId(id, mechanicTagKeys),
+      // 资源尚未写入 PackId 时，按显式卡单推断（卡包与机制标签正交）。
+      packId: asString(raw.PackId) || resolveDefaultPackId(id),
       name: name.text,
       description: description.text,
       localizationFallback: name.fallback,

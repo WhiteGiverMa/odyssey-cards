@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { GLOSSARY, tokenizeGameText } from "../../shared/glossary.ts";
+import { GLOSSARY, GLOSSARY_BY_ID, tokenizeGameText } from "../../shared/glossary.ts";
 import type { CardRecord } from "../../shared/types.ts";
 
 const card = {
@@ -62,4 +62,19 @@ test("quoted localized card names become card links and outrank inner terms", ()
     assert.equal(link?.kind === "card" ? link.card.id : "", "spell_heavy_strike");
     assert.equal(segments.map((entry) => entry.text).join(""), text);
   }
+});
+
+test("0.2.3 terminology renames Deploy and Command Points while keeping old aliases searchable", () => {
+  const deploy = GLOSSARY_BY_ID.get("battlecry");
+  assert.equal(deploy?.name.zh, "部署");
+  assert.equal(deploy?.name.en, "Deploy");
+  assert.ok(deploy?.aliases.zh.includes("战吼"));
+  assert.ok(deploy?.aliases.en.includes("Battlecry"));
+  assert.equal(GLOSSARY_BY_ID.get("command-point")?.name.zh, "指挥点槽");
+  assert.ok(GLOSSARY_BY_ID.get("command-point")?.aliases.zh.includes("法力槽"));
+  const legacy = tokenizeGameText("战吼：抽1张牌，获得1个法力槽。", []);
+  assert.deepEqual(
+    legacy.filter((entry) => entry.kind === "term").map((entry) => (entry.kind === "term" ? entry.term.id : "")),
+    ["battlecry", "command-point"],
+  );
 });

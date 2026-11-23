@@ -173,7 +173,7 @@ function ThemeMixer({
           <summary>{t(language, "editCorePool")}</summary>
           <div className="core-card-checks">
             {cards
-              .filter((card) => card.typeKey !== "status")
+              .filter((card) => card.buildable)
               .map((card) => (
                 <label key={card.id}>
                   <input

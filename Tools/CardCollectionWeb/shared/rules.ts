@@ -74,8 +74,8 @@ export const RULES: RulesResponse = {
       id: "guard",
       name: { zh: "守护", en: "Guard" },
       description: {
-        zh: "保护同线左右相邻的非守护、非嘲讽随从，不保护HQ，也不与另一守护互锁。",
-        en: "Protects adjacent non-Guard, non-Taunt allies. It does not protect HQ or other Guards.",
+        zh: "保护同线左右相邻的非守护、非嘲讽随从；位于支援阵线时也能掩护我方英雄（HQ），但不与另一守护互锁。",
+        en: "Protects adjacent non-Guard, non-Taunt allies; a Guard in the Support row also shields its own hero (HQ), and two Guards never lock each other.",
       },
     },
     {

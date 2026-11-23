@@ -88,14 +88,29 @@ test("card tag writer can write tags and PackId in the same lossless pass", () =
   assert.equal(output.replace(/\r\n/g, "").includes("\n"), false);
 });
 
-test("default pack mapping follows the card pack draft, with explicit lists beating tag heuristics", () => {
+test("default pack mapping follows explicit card lists and stays orthogonal to mechanic tags", () => {
   assert.equal(resolveDefaultPackId("minion_what_the_dog_doing"), PACK_IDS.unmannedVictory);
   assert.equal(resolveDefaultPackId("minion_mingshan_walking_support", ["mechanics"]), PACK_IDS.unmannedVictory);
-  assert.equal(resolveDefaultPackId("minion_40a_main_battle_tank", ["mechanics"]), PACK_IDS.unmannedVictory);
+  // 0.2.3：40 系主战坦克从无人智胜移入核心，显式名单不再命中。
+  assert.equal(resolveDefaultPackId("minion_40_main_battle_tank", ["mechanics"]), PACK_IDS.core);
+  assert.equal(resolveDefaultPackId("minion_40a_main_battle_tank", ["mechanics"]), PACK_IDS.core);
+  assert.equal(resolveDefaultPackId("minion_40b_main_battle_tank", ["mechanics"]), PACK_IDS.core);
+  // 机械族标签不再反推卡包：骑士I型带 mechanics 但归属核心，未知新卡同样默认核心。
+  assert.equal(resolveDefaultPackId("minion_knight_type1", ["mechanics"]), PACK_IDS.core);
+  assert.equal(resolveDefaultPackId("some_new_mech", ["mechanics"]), PACK_IDS.core);
+  assert.equal(resolveDefaultPackId("brand_new_card"), PACK_IDS.core);
+  // 未来追杀完全由显式名单决定，覆盖仓库中所有 PackId = "future_hunt" 的卡牌。
   assert.equal(resolveDefaultPackId("minion_roach"), PACK_IDS.futureHunt);
   assert.equal(resolveDefaultPackId("minion_centurion"), PACK_IDS.futureHunt);
-  assert.equal(resolveDefaultPackId("some_new_mech", ["mechanics"]), PACK_IDS.futureHunt);
+  assert.equal(resolveDefaultPackId("minion_mech_lancer", ["mechanics"]), PACK_IDS.futureHunt);
+  assert.equal(resolveDefaultPackId("minion_centipede_aa", ["mechanics"]), PACK_IDS.futureHunt);
+  assert.equal(resolveDefaultPackId("minion_centipede_siege", ["mechanics"]), PACK_IDS.futureHunt);
+  assert.equal(resolveDefaultPackId("minion_tombstone", ["mechanics"]), PACK_IDS.futureHunt);
+  assert.equal(resolveDefaultPackId("spell_white_legion"), PACK_IDS.futureHunt);
   assert.equal(resolveDefaultPackId("domain_preemptive_strike"), PACK_IDS.superBodyProject);
+  assert.equal(resolveDefaultPackId("domain_unlimited_potential"), PACK_IDS.reserve);
+  assert.equal(resolveDefaultPackId("domain_infinite_fire"), PACK_IDS.reserve);
+  assert.equal(resolveDefaultPackId("spell_plan"), PACK_IDS.reserve);
   assert.equal(resolveDefaultPackId("spell_strike"), PACK_IDS.core);
 });
 

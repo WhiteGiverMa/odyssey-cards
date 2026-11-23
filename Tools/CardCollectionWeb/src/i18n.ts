@@ -233,7 +233,7 @@ const messages: Record<Language, Record<string, string>> = {
     packSaved: "已将「{name}」的卡包切换为「{pack}」",
     packNotFound: "未知卡包",
     packDefaultNote: "资源未写入 PackId 时，按《卡包》草案自动归类",
-    packFilterHint: "点击卡包筛选卡牌；预备与先锋默认空置",
+    packFilterHint: "点击卡包筛选卡牌；先锋默认空置，预备仅收纳待重做卡牌",
     packCustomNamed: "已为卡包 ID 设置显示名",
   },
   en: {
@@ -472,7 +472,7 @@ const messages: Record<Language, Record<string, string>> = {
     packSaved: "Moved {name} to {pack}",
     packNotFound: "Unknown pack",
     packDefaultNote: "Cards without PackId fall back to the pack draft mapping",
-    packFilterHint: "Click a pack to filter cards; Reserve and Vanguard start empty",
+    packFilterHint: "Click a pack to filter cards; Vanguard starts empty and Reserve only holds cards awaiting rework",
     packCustomNamed: "Display name saved for this pack ID",
   },
 };

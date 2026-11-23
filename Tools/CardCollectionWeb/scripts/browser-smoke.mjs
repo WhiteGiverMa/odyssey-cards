@@ -109,7 +109,7 @@ try {
   if ((await evaluate("document.querySelectorAll('.main-nav button').length")) !== 4)
     throw new Error(`Collection did not load: ${await evaluate("location.href + ' | ' + document.body.innerText")}`);
   assert.equal(await evaluate("document.querySelectorAll('.main-nav button').length"), 4);
-  assert.equal(await evaluate("document.querySelectorAll('.game-card').length"), 61);
+  assert.equal(await evaluate("document.querySelectorAll('.game-card').length"), 81);
   assert.equal(await evaluate("Boolean(document.querySelector('.deck-panel'))"), true);
   assert.match(await evaluate("document.querySelector('.collection-title h1').textContent"), /收藏与构筑/);
   await screenshot("qa-collection.png");
@@ -196,13 +196,13 @@ try {
     "[...document.querySelectorAll('.main-nav button')].find((button) => button.textContent.includes('工坊')).click()",
   );
   await sleep(250);
-  assert.equal(await evaluate("document.querySelectorAll('.matrix-row').length"), 61);
+  assert.equal(await evaluate("document.querySelectorAll('.matrix-row').length"), 81);
   await evaluate("document.querySelector('.validate-button').click()");
   await sleep(400);
   assert.equal(await evaluate("document.querySelector('.validation-report').classList.contains('ok')"), true);
   assert.match(
     await evaluate("document.querySelector('.validation-report').textContent"),
-    /61 CARDS \/ 3 THEMES · 0 ERRORS/,
+    /81 CARDS \/ 3 THEMES · 0 ERRORS/,
   );
   await screenshot("qa-workshop.png");
 
@@ -234,15 +234,15 @@ try {
       {
         ok: true,
         navigation: ["collection", "workshop", "codex", "wiki"],
-        cardsRendered: 61,
+        cardsRendered: 81,
         builderRedirect: true,
-        glossaryEntries: 40,
+        glossaryEntries: 41,
         hyperlinksAndPopover: true,
         relatedCardNavigation: true,
         temporaryRoundTripWrite: true,
         balanceWriteRejected: true,
         themeApiIdempotent: true,
-        validation: "61 cards / 3 themes / 0 errors",
+        validation: "81 cards / 3 themes / 0 errors",
         screenshots: ["qa-collection.png", "qa-inspector-hyperlinks.png", "qa-workshop.png"],
       },
       null,

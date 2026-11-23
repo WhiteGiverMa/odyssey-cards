@@ -150,7 +150,6 @@ export class ResourceTagService {
       const document = parseTres(readText(path.join(this.cardsDirectory, fileName)));
       const type = asNumber(document.properties.Type);
       const mechanicTags = asNumber(document.properties.MechanicTags);
-      const mechanicTagKeys = MECHANIC_TAGS.filter(([, bit]) => (mechanicTags & bit) === bit).map(([key]) => key);
       const id = asString(document.properties.Id);
       return {
         id,
@@ -160,7 +159,8 @@ export class ResourceTagService {
         mechanicTags,
         keywords: asNumberArray(document.properties.Keywords),
         unitClass: type === 0 ? asNumber(document.properties.UnitClass) : null,
-        packId: asString(document.properties.PackId) || resolveDefaultPackId(id, mechanicTagKeys),
+        // 卡包与机制标签正交：缺 PackId 时只按显式卡单推断。
+        packId: asString(document.properties.PackId) || resolveDefaultPackId(id),
       };
     });
   }
@@ -248,9 +248,29 @@ export class ResourceTagService {
       return asString(document.properties.HeroId).toLowerCase() === id.toLowerCase();
     });
     if (!fileName) throw new ResourceNotFoundError(`Theme '${id}' does not exist.`);
+    this.assertBuildableCoreCards(write.coreCardIds);
     const filePath = path.join(this.themesDirectory, fileName);
     const source = await readFile(filePath, "utf8");
     await atomicWrite(filePath, rewriteThemeProfile(source, write));
+  }
+
+  /**
+   * 核心池与随机池同一标准：ThemeProfile 只允许点名可构筑卡。
+   * 衍生（0）/ 特殊（5）/ 状态（6）稀有度与状态牌类型一律拒收，
+   * 与 ThemedDeckGenerator / generator.ts 的 legalPool 保持一致。
+   */
+  private assertBuildableCoreCards(coreCardIds: string[]): void {
+    for (const cardId of coreCardIds) {
+      const cardFile = this.cardFileForId(cardId);
+      if (!cardFile) throw new ResourceInputError(`coreCardIds contains unknown card '${cardId}'.`);
+      const { properties } = parseTres(readText(path.join(this.cardsDirectory, cardFile)));
+      const type = asNumber(properties.Type);
+      const rarity = asNumber(properties.Rarity);
+      if (type === 3 || rarity === 0 || rarity === 5 || rarity === 6)
+        throw new ResourceInputError(
+          `coreCardIds must contain buildable cards; '${cardId}' is derivative, special, or a status card.`,
+        );
+    }
   }
 
   public validate(): ValidationReport {

@@ -23,7 +23,7 @@ export interface CardPack {
 }
 
 /**
- * 六个标准卡包。`reserve` / `vanguard` 默认空置，作为玩家 DIY 的缓冲区与新卡入口。
+ * 六个标准卡包。`reserve` 收纳待重做卡牌，`vanguard` 默认空置，作为新卡与玩家 DIY 的入口。
  */
 export const CARD_PACKS: CardPack[] = [
   {
@@ -43,8 +43,8 @@ export const CARD_PACKS: CardPack[] = [
     code: "U/V",
     name: { zh: "无人智胜", en: "Unmanned Victory" },
     description: {
-      zh: "联树机器犬、智能臭鸡蛋、刀盾危机、曼巴导弹、岷山与主战坦克系列。",
-      en: "Lianshu machines, smart eggs, blade tactics, Mamba missiles, Mingshan and main battle tanks.",
+      zh: "联树机器犬、智能臭鸡蛋、刀盾危机、曼巴导弹与「岷山」步行支援机。",
+      en: "Lianshu machines, smart eggs, blade tactics, Mamba missiles and the Mingshan walker.",
     },
     color: "#7fd8ff",
     order: 1,
@@ -55,8 +55,8 @@ export const CARD_PACKS: CardPack[] = [
     code: "F/H",
     name: { zh: "未来追杀", en: "Future Hunt" },
     description: {
-      zh: "全部机械族单位——机械小蠊、机械蜈蚣、百机长、墓碑等。",
-      en: "Every Mechanics unit — roaches, centipedes, the Centurion, tombstones and more.",
+      zh: "机械族单位与白色军团——机械小蠊、机械蜈蚣、百机长、墓碑等。",
+      en: "Mechanics units and the White Legion — roaches, centipedes, the Centurion, tombstones and more.",
     },
     color: "#ff9e7d",
     order: 2,
@@ -79,8 +79,8 @@ export const CARD_PACKS: CardPack[] = [
     code: "RES",
     name: { zh: "预备", en: "Reserve" },
     description: {
-      zh: "需要重做或存在待修问题的卡牌暂存区，默认不放入任何卡牌。",
-      en: "Holding area for cards awaiting redesign or fixes. Empty by default.",
+      zh: "需要重做或存在待修问题的卡牌暂存区：无限潜能、无限火力与计划。",
+      en: "Holding area for cards awaiting redesign or fixes: Unlimited Potential, Infinite Fire and Plan.",
     },
     color: "#8c8c94",
     order: 4,
@@ -114,7 +114,7 @@ export const CARD_PACKS: CardPack[] = [
 
 export const STANDARD_PACK_IDS: ReadonlySet<string> = new Set(CARD_PACKS.map((pack) => pack.id));
 
-/** 依据 docs/draft/卡包.md 逐项列出的「无人智胜」成员。 */
+/** 依据 docs/draft/卡包.md 逐项列出的「无人智胜」成员（40 系主战坦克已于 0.2.3 移入核心）。 */
 const UNMANNED_VICTORY_CARDS: ReadonlySet<string> = new Set([
   "minion_lianshu_scout", // 联树侦察犬（侦察型）
   "minion_lianshu_transport", // 联树机器犬 运输型
@@ -123,19 +123,27 @@ const UNMANNED_VICTORY_CARDS: ReadonlySet<string> = new Set([
   "minion_what_the_dog_doing", // 我的刀盾
   "spell_mamba_missile", // 曼巴导弹
   "minion_mingshan_walking_support", // 「岷山」步行支援机（机械族但明确排除出未来追杀）
-  "minion_40_main_battle_tank", // 40 主战坦克
-  "minion_40a_main_battle_tank", // 40A 主战坦克
-  "minion_40b_main_battle_tank", // 40B 主战坦克
 ]);
 
-/** 草案中点名但因资源尚未打上 Mechanics 标签而需要显式指定的机械族单位。 */
+/**
+ * 「未来追杀」成员：与 `Resources/Cards/*.tres` 中 `PackId = "future_hunt"` 的卡牌一一对应。
+ * 卡包与机制标签完全正交——不再因为带 Mechanics 标签就自动归入本包。
+ */
 const FUTURE_HUNT_CARDS: ReadonlySet<string> = new Set([
   "minion_roach", // 机械小蠊
   "minion_centipede_aa", // 机械蜈蚣-防空型
   "minion_centipede_siege", // 机械蜈蚣-攻城型
   "minion_centurion", // 百机长
-  "minion_tombstone", // 墓碑（草案要求新增机械族标签）
-  // 其余机械族（机械静螳、各型机械蜈蚣等）由 Mechanics 标签自动归入。
+  "minion_mech_lancer", // 机械枪骑兵
+  "minion_tombstone", // 墓碑
+  "spell_white_legion", // 白色军团（0.2.3 从核心移入未来追杀）
+]);
+
+/** 0.2.3「预备」暂存区：待重做或存在待修问题的卡牌。 */
+const RESERVE_CARDS: ReadonlySet<string> = new Set([
+  "domain_unlimited_potential", // 无限潜能
+  "domain_infinite_fire", // 无限火力
+  "spell_plan", // 计划（与「燃起」重复，待重做）
 ]);
 
 /** 草案「超体计划」逐项列出的指令。 */
@@ -156,15 +164,16 @@ const CUTOFF_CURRENT_CARDS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * 当 `.tres` 尚未写入 `PackId` 时，依据 docs/draft/卡包.md 推断卡包归属。
- * 显式名单优先于标签推断（岷山、40 系坦克带机械标签但归属无人智胜）。
+ * 当 `.tres` 尚未写入 `PackId` 时，依据显式卡单推断卡包归属。
+ * 卡包与机制标签正交：Mechanics 等标签不参与判断，未列入任何卡单的卡默认归入核心。
+ * `_mechanicTagKeys` 仅保留旧调用签名兼容，函数不再读取。
  */
-export function resolveDefaultPackId(cardId: string, mechanicTagKeys: readonly string[] = []): string {
+export function resolveDefaultPackId(cardId: string, _mechanicTagKeys?: readonly string[]): string {
   if (UNMANNED_VICTORY_CARDS.has(cardId)) return PACK_IDS.unmannedVictory;
   if (FUTURE_HUNT_CARDS.has(cardId)) return PACK_IDS.futureHunt;
   if (SUPER_BODY_PROJECT_CARDS.has(cardId)) return PACK_IDS.superBodyProject;
   if (CUTOFF_CURRENT_CARDS.has(cardId)) return PACK_IDS.cutoffCurrent;
-  if (mechanicTagKeys.includes("mechanics")) return PACK_IDS.futureHunt;
+  if (RESERVE_CARDS.has(cardId)) return PACK_IDS.reserve;
   return PACK_IDS.core;
 }
 

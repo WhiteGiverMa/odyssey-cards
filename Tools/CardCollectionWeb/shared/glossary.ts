@@ -186,18 +186,18 @@ export const GLOSSARY: GlossaryTerm[] = [
     name: { zh: "守护", en: "Guard" },
     aliases: { zh: ["守护"], en: ["Guard"] },
     description: {
-      zh: "保护同线左右相邻的非嘲讽、非守护随从；不保护 HQ，也不与另一守护形成互锁。与烟幕互斥。",
-      en: "Protects adjacent non-Taunt, non-Guard allies in the same row. Does not protect HQ or another Guard. Mutually exclusive with Smokescreen.",
+      zh: "保护同线左右相邻的非嘲讽、非守护随从；位于支援阵线时也能掩护我方英雄（HQ）。不与另一守护形成互锁，与烟幕互斥。",
+      en: "Protects adjacent non-Taunt, non-Guard allies in the same row, and a Guard in the Support row also shields its own hero (HQ). It never locks with another Guard and is mutually exclusive with Smokescreen.",
     },
   },
   {
     id: "battlecry",
     category: "keyword",
-    name: { zh: "战吼", en: "Battlecry" },
-    aliases: { zh: ["战吼"], en: ["Battlecry", "Battle cry"] },
+    name: { zh: "部署", en: "Deploy" },
+    aliases: { zh: ["部署", "战吼"], en: ["Deploy", "Battlecry", "Battle cry"] },
     description: {
-      zh: "从手牌打出随从时触发；移动、召回或非部署方式进场不视为战吼。",
-      en: "Triggers when a minion is played from hand. Movement, recall, and non-deployment entry do not count as Battlecry.",
+      zh: "从手牌打出随从时触发；移动、召回或非部署方式进场不触发。0.2.3 起旧称「战吼」统一改称「部署」，旧词仍可检索。",
+      en: "Triggers when a minion is played from hand. Movement, recall, and non-deployment entry do not trigger it. Renamed from “Battlecry” in 0.2.3; the old term still matches in search.",
     },
   },
   {
@@ -321,13 +321,26 @@ export const GLOSSARY: GlossaryTerm[] = [
     },
   },
   {
+    id: "command-point",
+    category: "mechanic",
+    name: { zh: "指挥点槽", en: "Command Point slot" },
+    aliases: {
+      zh: ["指挥点槽", "指挥点", "法力槽", "法力"],
+      en: ["Command Point", "Command Points", "Mana"],
+    },
+    description: {
+      zh: "0.2.3 起「法力槽」统一改称「指挥点槽」：开局 1 槽，每回合 +1，卡牌的部署费由当回合的指挥点支付。旧文本中的「法力/法力槽」都指指挥点。",
+      en: "Renamed from Mana in 0.2.3: you start with 1 slot, gain 1 more each turn, and deploy costs are paid with that turn's Command Points. Older text uses Mana for the same resource.",
+    },
+  },
+  {
     id: "heat",
     category: "mechanic",
     name: { zh: "热力", en: "Heat" },
     aliases: { zh: ["热力值", "热力"], en: ["Heat Value", "Heat"] },
     description: {
-      zh: "每场战斗共享的全局节奏压力，通过热力伤害修改器接入伤害管线，而不是某张卡牌自身的状态。",
-      en: "A battle-wide pressure meter connected to the damage pipeline through the Heat modifier, rather than a status owned by one card.",
+      zh: "每场战斗共享的全局节奏压力。0.2.3 起热力值机制停用并保留为死代码：伤害管线不再接入热力倍率，「机会」等卡改为按敌方指挥点槽数判定。",
+      en: "A battle-wide pressure meter. 0.2.3 retires the Heat mechanic as dead code: the damage pipeline no longer applies Heat multipliers, and cards such as Opportunity now check enemy Command Point slots instead.",
     },
   },
   {
