@@ -37,8 +37,17 @@ public enum CombatLogTagKind
 	Countermeasure,
 }
 
-/// <summary>战斗日志结果标签；纯数据，可由 UI 映射为纯色徽章。</summary>
-public readonly record struct CombatLogTag(CombatLogTagKind Kind, int Value = 0, string? Text = null);
+/// <summary>
+/// 战斗日志结果标签；纯数据，可由 UI 映射为纯色徽章或可悬停的卡面芯片。
+/// 带 <see cref="Card"/> 的标签用于弃牌等需要展示具体卡牌的行动；
+/// <see cref="IsPlayerCard"/> 记录该卡牌的归属阵营，供 UI 着色。
+/// </summary>
+public readonly record struct CombatLogTag(
+	CombatLogTagKind Kind,
+	int Value = 0,
+	string? Text = null,
+	Card.Card? Card = null,
+	bool? IsPlayerCard = null);
 
 /// <summary>一条带主体/目标历史卡面快照的战术行动。</summary>
 public sealed class CombatLogEntry
@@ -77,12 +86,14 @@ public sealed class CombatLogEntry
 	/// <summary>添加实际结果；数值型同类结果会聚合，击杀等离散事件保持独立。</summary>
 	public void AddTag(CombatLogTag tag)
 	{
-		if (CanMerge(tag.Kind))
+		// 带真实卡面的标签必须逐张保留，绝不能被纯数字聚合吞掉卡面。
+		if (tag.Card == null && CanMerge(tag.Kind))
 		{
-			int index = _tags.FindIndex(existing => existing.Kind == tag.Kind && existing.Text == tag.Text);
+			int index = _tags.FindIndex(existing => existing.Card == null
+				&& existing.Kind == tag.Kind && existing.Text == tag.Text);
 			if (index >= 0)
 			{
-				_tags[index] = new CombatLogTag(tag.Kind, _tags[index].Value + tag.Value, tag.Text);
+				_tags[index] = _tags[index] with { Value = _tags[index].Value + tag.Value };
 				return;
 			}
 		}
@@ -172,6 +183,18 @@ public sealed class CombatLogService
 			PendingAction?.AddTag(new CombatLogTag(CombatLogTagKind.Discard, amount));
 	}
 
+	/// <summary>
+	/// 记录一张真实被弃掉的牌：保存历史卡面快照与归属阵营，
+	/// 供战报抽屉渲染可悬停/点按的卡面芯片。每张牌独立成标签，绝不合并。
+	/// </summary>
+	public void RecordDiscard(Card.Card card, bool? isPlayerCard = null)
+	{
+		if (card == null)
+			return;
+		PendingAction?.AddTag(new CombatLogTag(
+			CombatLogTagKind.Discard, 1, null, card.CreateSnapshot(), isPlayerCard));
+	}
+
 	public void RecordSummon(int amount = 1)
 	{
 		if (amount > 0)
@@ -202,6 +225,23 @@ public sealed class CombatLogService
 	{
 		if (amount > 0)
 			PendingAction?.AddTag(new CombatLogTag(CombatLogTagKind.Countermeasure, amount));
+	}
+
+	/// <summary>
+	/// 记录一次反制的真实结算：反制徽章、逐张实际被弃掉的牌（含卡面快照）与取消徽章。
+	/// 真实触发但对方无牌可弃时，<paramref name="discardedCards"/> 为空——绝不补记数字弃牌。
+	/// </summary>
+	public void RecordCountermeasureResult(
+		bool canceled, IReadOnlyList<Card.Card>? discardedCards, bool discardedCardsArePlayerSide)
+	{
+		RecordCountermeasure();
+		if (discardedCards != null)
+		{
+			foreach (Card.Card card in discardedCards)
+				RecordDiscard(card, discardedCardsArePlayerSide);
+		}
+		if (canceled)
+			RecordCanceled();
 	}
 
 	/// <summary>

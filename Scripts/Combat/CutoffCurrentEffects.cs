@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using OdysseyCards.Card;
 using OdysseyCards.Character;
@@ -18,11 +19,19 @@ public static class CutoffCurrentEffects
 	/// exclude 用于排除正在结算的卡牌（反制触发时施法牌仍在手中）。
 	/// </summary>
 	public static int DiscardRandomFromHand(Hero? hero, int count, int maxCost, Card.Card? exclude = null)
+		=> DiscardRandomFromHandDetailed(hero, count, maxCost, exclude).Count;
+
+	/// <summary>
+	/// 同 <see cref="DiscardRandomFromHand"/>，但返回实际被弃掉的卡牌实例，
+	/// 供战报展示「弃掉了哪张牌」并挂载历史卡面预览。
+	/// </summary>
+	public static IReadOnlyList<Card.Card> DiscardRandomFromHandDetailed(
+		Hero? hero, int count, int maxCost, Card.Card? exclude = null)
 	{
 		if (hero == null || count <= 0)
-			return 0;
+			return Array.Empty<Card.Card>();
 
-		int discarded = 0;
+		var discarded = new List<Card.Card>();
 		for (int i = 0; i < count; i++)
 		{
 			var candidates = hero.Hand
@@ -31,8 +40,11 @@ public static class CutoffCurrentEffects
 				.ToList();
 			if (candidates.Count == 0)
 				break;
-			hero.DiscardCard(candidates[Random.Shared.Next(candidates.Count)]);
-			discarded++;
+			Card.Card picked = candidates[Random.Shared.Next(candidates.Count)];
+			hero.DiscardCard(picked);
+			// 奇巧会把卡牌改为自动打出，不进入弃牌堆——这类不算弃牌，也不应写进战报。
+			if (hero.DeckState.DiscardPile.Contains(picked))
+				discarded.Add(picked);
 		}
 		return discarded;
 	}

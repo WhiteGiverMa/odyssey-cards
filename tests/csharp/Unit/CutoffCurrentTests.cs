@@ -317,6 +317,48 @@ public class CutoffCurrentTests
 		Assert.Single(player.DeckState.DiscardPile);
 	}
 
+	[Fact]
+	public void Borei_ReportsExactlyWhichEnemyCardsWereDiscarded()
+	{
+		var (player, enemy, _, _) = CreateBattle();
+		var borei = new Card.Card("counter_borei", CardType.Countermeasure, cost: 2);
+		player.Core.AddToHand(borei);
+		enemy.Core.AddToHand(new Card.Card("enemy_card_a", CardType.Spell, cost: 1));
+		enemy.Core.AddToHand(new Card.Card("enemy_card_b", CardType.Spell, cost: 3));
+		var service = CreateService();
+		Assert.True(service.Arm(player, borei));
+
+		var result = service.Intercept(enemy, player, new Card.Card("enemy_spell", CardType.Spell, cost: 3));
+
+		Assert.False(result.Canceled);
+		Assert.Equal(1, result.BoreiTriggers);
+		TriggeredCountermeasure trigger = Assert.Single(result.Triggers!);
+		Assert.Equal("counter_borei", trigger.Counter.Id);
+		Assert.False(trigger.Canceled);
+		// 反制结果必须带回实际被弃掉的那张牌，而不是只给一个数字。
+		Card.Card discarded = Assert.Single(trigger.DiscardedCards!);
+		Assert.Same(discarded, Assert.Single(enemy.DeckState.DiscardPile));
+		Assert.True(discarded.Id is "enemy_card_a" or "enemy_card_b");
+	}
+
+	[Fact]
+	public void Borei_WithNothingToDiscard_ReportsEmptyDiscardDetails()
+	{
+		var (player, enemy, _, _) = CreateBattle();
+		var borei = new Card.Card("counter_borei", CardType.Countermeasure, cost: 2);
+		player.Core.AddToHand(borei);
+		var service = CreateService();
+		Assert.True(service.Arm(player, borei));
+
+		var result = service.Intercept(enemy, player, new Card.Card("enemy_spell", CardType.Spell, cost: 3));
+
+		// 真实触发但敌方没有其他手牌：触发计数为 1，实际弃牌明细为空。
+		Assert.Equal(1, result.BoreiTriggers);
+		TriggeredCountermeasure trigger = Assert.Single(result.Triggers!);
+		Assert.Empty(trigger.DiscardedCards!);
+		Assert.Empty(enemy.DeckState.DiscardPile);
+	}
+
 	private sealed class StubEncounter : EnemyEncounter
 	{
 		public StubEncounter()

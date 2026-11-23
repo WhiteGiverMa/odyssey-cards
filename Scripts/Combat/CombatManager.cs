@@ -2267,12 +2267,9 @@ public partial class CombatManager : Node
 		// 敌方回合（或玩家法术被敌方反制牌拦截）时，先让防守方已激活的反制牌判定。
 		// 被「俄亥俄级」取消的法术：不结算效果、不进弃牌堆，只消耗法力并从手中移除。
 		var defender = ResolveCountermeasureDefender(actor.CasterHero);
-		var interception = _countermeasures?.Intercept(actor.CasterHero, defender, card) ?? default;
-		foreach (var counter in interception.TriggeredCards ?? Array.Empty<Card.Card>())
-		{
-			RecordCountermeasureTriggered(defender, counter, card,
-				interception.Canceled && counter.Id == "counter_ohio_ssbn", counter.Id == "counter_borei");
-		}
+		var interception = InterceptCountermeasures(actor.CasterHero, defender, card);
+		foreach (var trigger in interception.Triggers ?? Array.Empty<TriggeredCountermeasure>())
+			RecordCountermeasureTriggered(defender, trigger, card);
 		if (interception.Canceled)
 		{
 			BeginLogAction(CombatLogEntryKind.PlayOrder, actor.CasterHero, card, target, actor.ActualDamageSource);

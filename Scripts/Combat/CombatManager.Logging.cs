@@ -13,6 +13,8 @@ public partial class CombatManager
 	private readonly Stack<IDamageSource?> _logPrimarySources = new();
 	/// <summary>正在静默进弃牌堆的卡牌；用栈支持嵌套自动出牌，避免外层状态被内层覆盖。</summary>
 	private readonly Stack<Card.Card> _logSilentDiscardCards = new();
+	/// <summary>反制拦截期间的弃牌由反制条目统一携带卡面，禁止再生成独立弃牌条目。</summary>
+	private int _logStandaloneDiscardSuppression;
 
 	public CombatLogService CombatLog { get; } = new();
 	public event Action<CardPlayPresentationEvent>? OnCardPlayPresented;
@@ -36,7 +38,7 @@ public partial class CombatManager
 		hero.OnArmorGained += CombatLog.RecordArmor;
 		hero.OnDeath += OnLogHeroDeath;
 		hero.DeckState.OnCardsDrawn += OnLogCardsDrawn;
-		hero.DeckState.OnCardDiscarded += OnLogCardDiscarded;
+		hero.DeckState.OnCardDiscarded += card => OnLogCardDiscarded(hero, card);
 	}
 
 	private void SubscribeLogMinion(Minion minion)
@@ -56,11 +58,22 @@ public partial class CombatManager
 
 	private void OnLogCardsDrawn(IReadOnlyList<Card.Card> cards) => CombatLog.RecordDraw(cards.Count);
 
-	private void OnLogCardDiscarded(Card.Card card)
+	private void OnLogCardDiscarded(Hero owner, Card.Card card)
 	{
 		if (card.Type == CardType.Countermeasure || IsLogSilentDiscard(card))
 			return;
-		CombatLog.RecordDiscard(1);
+		if (_logStandaloneDiscardSuppression > 0)
+			return;
+		if (CombatLog.HasPendingAction)
+		{
+			CombatLog.RecordDiscard(card, owner.IsPlayerSide);
+			return;
+		}
+		// 异步弃牌（如「重整」的选牌回调）发生在原行动作用域提交之后：
+		// 补一条独立条目，保证被弃卡面与归属不会从战报中消失。
+		var scope = BeginLogAction(CombatLogEntryKind.EffectTriggered, owner, actorName: GetLogHeroName(owner));
+		CombatLog.RecordDiscard(card, owner.IsPlayerSide);
+		CommitLogAction(scope);
 	}
 
 	/// <summary>递归检查整条静默弃牌栈（引用相等），嵌套自动出牌不会互相覆盖。</summary>
@@ -197,18 +210,33 @@ public partial class CombatManager
 			caster, card, target as IDamageTarget, isCountermeasureTrigger, isCanceled, presentedTargetCard));
 	}
 
-	private void RecordCountermeasureTriggered(Hero defender, Card.Card counter, Card.Card spell,
-		bool canceled, bool discards)
+	/// <summary>
+	/// 反制拦截：拦截内部产生的弃牌由 <see cref="TriggeredCountermeasure"/> 携带真实卡面，
+	/// 这里临时关闭独立弃牌条目，避免同一张牌被记两次。
+	/// </summary>
+	private InterceptionResult InterceptCountermeasures(Hero caster, Hero defender, Card.Card spell)
 	{
-		BeginLogAction(CombatLogEntryKind.CountermeasureTriggered, defender, counter, spell, primarySource: defender);
-		CombatLog.RecordCountermeasure();
-		if (discards)
-			CombatLog.RecordDiscard(1);
-		if (canceled)
-			CombatLog.RecordCanceled();
+		_logStandaloneDiscardSuppression++;
+		try
+		{
+			return _countermeasures?.Intercept(caster, defender, spell) ?? default;
+		}
+		finally
+		{
+			_logStandaloneDiscardSuppression--;
+		}
+	}
+
+	private void RecordCountermeasureTriggered(Hero defender, TriggeredCountermeasure trigger, Card.Card spell)
+	{
+		BeginLogAction(CombatLogEntryKind.CountermeasureTriggered, defender, trigger.Counter, spell, primarySource: defender);
+		// 被弃的牌属于施法方（与持有反制牌的防守方相对）。
+		CombatLog.RecordCountermeasureResult(
+			trigger.Canceled, trigger.DiscardedCards, discardedCardsArePlayerSide: !defender.IsPlayerSide);
 		CommitLogAction();
 		// 主体是被触发的反制牌，被拦截/被削弱的那张法术作为目标卡快照一并展示。
-		PresentCardPlay(defender, counter, spell, isCountermeasureTrigger: true, isCanceled: canceled, targetCard: spell);
+		PresentCardPlay(defender, trigger.Counter, spell,
+			isCountermeasureTrigger: true, isCanceled: trigger.Canceled, targetCard: spell);
 	}
 
 	private void ExecuteLoggedDeathrattle(Minion minion, Action execute)

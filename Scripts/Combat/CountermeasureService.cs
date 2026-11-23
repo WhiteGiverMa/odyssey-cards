@@ -131,6 +131,7 @@ public sealed class CountermeasureService
 
 		bool canceled = false;
 		var triggeredCards = new List<Card.Card>();
+		var triggers = new List<TriggeredCountermeasure>();
 		int boreiTriggers = 0;
 		int ohioTriggers = 0;
 		int spellCost = spell.GetEffectiveCost();
@@ -145,9 +146,11 @@ public sealed class CountermeasureService
 			{
 				Consume(defender, counter);
 				triggeredCards.Add(counter);
-				CutoffCurrentEffects.DiscardRandomFromHand(caster, 1, 0, exclude: spell);
+				IReadOnlyList<Card.Card> discarded =
+					CutoffCurrentEffects.DiscardRandomFromHandDetailed(caster, 1, 0, exclude: spell);
+				triggers.Add(new TriggeredCountermeasure(counter, false, discarded));
 				boreiTriggers++;
-				GD.Print($"[CountermeasureService] 北风之神触发：{caster.CardNameOf(null)} 随机弃 1 张牌");
+				GD.Print($"[CountermeasureService] 北风之神触发：{caster.CardNameOf(null)} 随机弃 {discarded.Count} 张牌");
 				continue;
 			}
 
@@ -158,6 +161,7 @@ public sealed class CountermeasureService
 				var coin = CreateCoin();
 				caster.DeckState.AddToDrawPileTop(coin);
 				canceled = true;
+				triggers.Add(new TriggeredCountermeasure(counter, true, Array.Empty<Card.Card>()));
 				ohioTriggers++;
 				GD.Print($"[CountermeasureService] 俄亥俄级触发：「{spell.CardName}」被反制，能量币+1 塞回卡组顶");
 				break; // 法术已被阻止，后续反制牌无需再判定
@@ -167,7 +171,7 @@ public sealed class CountermeasureService
 		if (boreiTriggers > 0 || canceled)
 			_notify?.Invoke();
 
-		return new InterceptionResult(canceled, boreiTriggers, ohioTriggers, triggeredCards);
+		return new InterceptionResult(canceled, boreiTriggers, ohioTriggers, triggeredCards, triggers);
 	}
 
 	/// <summary>消耗已激活的反制牌：移入手牌之外并进弃牌堆，不退费。</summary>
@@ -189,12 +193,19 @@ public sealed class CountermeasureService
 	}
 }
 
+/// <summary>单张反制的真实触发明细：被消耗的反制牌、是否取消法术、实际被弃掉的卡牌。</summary>
+public readonly record struct TriggeredCountermeasure(
+	Card.Card Counter,
+	bool Canceled,
+	IReadOnlyList<Card.Card>? DiscardedCards = null);
+
 /// <summary>反制拦截结果：Canceled=true 时调用方必须放弃法术结算与弃牌。</summary>
 public readonly record struct InterceptionResult(
 	bool Canceled,
 	int BoreiTriggers,
 	int OhioTriggers,
-	IReadOnlyList<Card.Card>? TriggeredCards = null);
+	IReadOnlyList<Card.Card>? TriggeredCards = null,
+	IReadOnlyList<TriggeredCountermeasure>? Triggers = null);
 
 internal static class CountermeasureServiceExtensions
 {

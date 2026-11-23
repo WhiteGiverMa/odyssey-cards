@@ -54,7 +54,7 @@ public class SokouRestructureHeroPower : IHeroPower, IChargeCooldownSkill
 			hero.DeckState.Hand.ToList(),
 			1,
 			CombatManager.PendingSelectionMode.RestructureDiscard,
-			selected => DiscardSelected(hero, selected));
+			selected => DiscardSelected(combat, hero, selected, Name));
 	}
 
 	public void TickChargeCooldown()
@@ -76,12 +76,29 @@ public class SokouRestructureHeroPower : IHeroPower, IChargeCooldownSkill
 		}
 	}
 
-	private static void DiscardSelected(Hero hero, IReadOnlyList<Card> selected)
+	private static void DiscardSelected(CombatManager combat, Hero hero, IReadOnlyList<Card> selected, string powerName)
 	{
-		foreach (var card in selected.Take(1))
+		var discarded = selected.Take(1).ToArray();
+		if (discarded.Length == 0)
+			return;
+
+		// 玩家选牌是异步的：英雄技能作用域可能已提交，这里补一个「重整」弃牌作用域，
+		// 保证战报能看到具体被弃掉的牌与卡面；同步路径沿用外层作用域，避免条目倒序。
+		CombatLogEntry? scope = combat.CombatLog.HasPendingAction
+			? null
+			: combat.BeginLogAction(CombatLogEntryKind.HeroPower, hero, primarySource: hero, actorName: powerName);
+		try
 		{
-			hero.DiscardCard(card);
-			GD.Print($"[SokouHeroPower] 重整弃掉「{card.CardName}」");
+			foreach (var card in discarded)
+			{
+				hero.DiscardCard(card);
+				GD.Print($"[SokouHeroPower] 重整弃掉「{card.CardName}」");
+			}
+		}
+		finally
+		{
+			if (scope != null)
+				combat.CommitLogAction(scope);
 		}
 	}
 }
