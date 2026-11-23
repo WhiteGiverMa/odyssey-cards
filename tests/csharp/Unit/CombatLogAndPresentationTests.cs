@@ -118,6 +118,63 @@ public class CombatLogAndPresentationTests
 	}
 
 	[Fact]
+	public void RecordDiscard_WithCard_KeepsPerCardSnapshotsAndSkipsNumericMerge()
+	{
+		var log = new CombatLogService();
+		_ = log.BeginAction(2, true, CombatLogEntryKind.PlayOrder, "刀盾危机",
+			new RuntimeCard("spell_blade_crisis", CardType.Spell, cost: 2));
+		var first = new RuntimeCard("card_first", CardType.Minion, cost: 3);
+		var second = new RuntimeCard("card_second", CardType.Minion, cost: 4);
+
+		log.RecordDiscard(first, isPlayerCard: true);
+		log.RecordDiscard(second, isPlayerCard: true);
+		log.RecordDiscard(1); // 无卡纯计数仍走聚合通道
+		_ = log.CommitAction();
+
+		CombatLogEntry entry = Assert.Single(log.Entries);
+		CombatLogTag[] discardTags = entry.Tags
+			.Where(tag => tag.Kind == CombatLogTagKind.Discard)
+			.ToArray();
+		// 两张带卡面的弃牌各自独立，绝不合并；纯计数保留自己的数字徽章。
+		Assert.Equal(3, discardTags.Length);
+		Assert.Contains(discardTags, tag => tag.Card?.Id == "card_first" && tag.IsPlayerCard == true);
+		Assert.Contains(discardTags, tag => tag.Card?.Id == "card_second" && tag.IsPlayerCard == true);
+		Assert.Contains(discardTags, tag => tag.Card == null && tag.Value == 1);
+
+		// 历史快照隔离：原卡后续变化不影响战报卡面。
+		first.CostModifier = 5;
+		CombatLogTag firstTag = discardTags.Single(tag => tag.Card?.Id == "card_first");
+		Assert.NotSame(first, firstTag.Card);
+		Assert.Equal(0, firstTag.Card!.CostModifier);
+	}
+
+	[Fact]
+	public void RecordCountermeasureResult_RecordsOnlyActuallyDiscardedCards()
+	{
+		var log = new CombatLogService();
+		_ = log.BeginAction(2, false, CombatLogEntryKind.CountermeasureTriggered, "北风之神");
+		var discarded = new RuntimeCard("enemy_card_a", CardType.Spell, cost: 1);
+
+		log.RecordCountermeasureResult(false, new[] { discarded }, discardedCardsArePlayerSide: false);
+		_ = log.CommitAction();
+
+		CombatLogEntry entry = Assert.Single(log.Entries);
+		Assert.Contains(entry.Tags, tag => tag.Kind == CombatLogTagKind.Countermeasure);
+		CombatLogTag discardTag = Assert.Single(entry.Tags, tag => tag.Kind == CombatLogTagKind.Discard);
+		Assert.Equal("enemy_card_a", discardTag.Card!.Id);
+		Assert.False(discardTag.IsPlayerCard);
+
+		// 真实触发但敌方无牌可弃：只有反制徽章，绝不出现假的数字弃牌。
+		var emptyLog = new CombatLogService();
+		_ = emptyLog.BeginAction(2, false, CombatLogEntryKind.CountermeasureTriggered, "北风之神");
+		emptyLog.RecordCountermeasureResult(false, Array.Empty<RuntimeCard>(), discardedCardsArePlayerSide: false);
+		_ = emptyLog.CommitAction();
+
+		Assert.DoesNotContain(
+			Assert.Single(emptyLog.Entries).Tags, tag => tag.Kind == CombatLogTagKind.Discard);
+	}
+
+	[Fact]
 	public void NestedScopes_CommitInnerFirst_AndOuterKeepsItsOwnTags()
 	{
 		var log = new CombatLogService();
@@ -573,7 +630,7 @@ public class CombatLogAndPresentationTests
 		foreach (string key in new[]
 		{
 			"log_player_order", "log_enemy_order", "log_domain_deploy", "log_counter_trigger",
-			"log_counter_canceled",
+			"log_counter_canceled", "log_tag_discard_card",
 		})
 		{
 			Assert.Contains($"{key}:", text, StringComparison.Ordinal);

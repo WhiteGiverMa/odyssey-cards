@@ -147,6 +147,7 @@ ui:
     log_tag_intel: "情报 {value}"
     log_tag_draw: "抽 {value}"
     log_tag_discard: "弃 {value}"
+    log_tag_discard_card: "弃: {card}"
     log_tag_summon: "召唤 {value}"
     log_tag_status: "状态"
     log_tag_move: "推进"

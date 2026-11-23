@@ -11,7 +11,7 @@ namespace OdysseyCards.UI;
 
 /// <summary>
 /// KARDS 风格左侧战术抽屉。只有面板与把手接收输入，其余全屏区域完全穿透；
-/// 卡名芯片可悬停/点按显示真实 <see cref="CardUI"/> 历史卡面。
+/// 卡名芯片与弃牌卡面芯片都可悬停/点按显示真实 <see cref="CardUI"/> 历史卡面。
 /// </summary>
 public partial class CombatLogDrawer : Control
 {
@@ -428,8 +428,12 @@ public partial class CombatLogDrawer : Control
 		return label;
 	}
 
-	private static PanelContainer CreateTagBadge(CombatLogTag tag)
+	private Control CreateTagBadge(CombatLogTag tag)
 	{
+		// 真实被弃掉的牌渲染为可悬停/点按的卡面芯片；纯数字弃牌仍走普通徽章。
+		if (tag.Kind == CombatLogTagKind.Discard && tag.Card != null)
+			return CreateDiscardCardChip(tag);
+
 		(string key, string fallback, Color color, string emoji) = tag.Kind switch
 		{
 			CombatLogTagKind.Damage => ("ui.combat.log_tag_damage", "伤 {value}", new Color("#A83E4C"), "⚔ "),
@@ -454,6 +458,48 @@ public partial class CombatLogDrawer : Control
 		badge.AddThemeStyleboxOverride("panel", CreateStyle(color, color.Lightened(0.18f), 1, 3));
 		badge.AddChild(CreatePlainLabel(text, Colors.White, Fs(BadgeBaseFontSize)));
 		return badge;
+	}
+
+	/// <summary>
+	/// 弃牌卡面芯片：弃牌紫底 + 被弃牌所属阵营描边，
+	/// 悬停（移动端点按）像主体/目标芯片一样弹出真实 <see cref="CardUI"/> 历史快照。
+	/// </summary>
+	private Button CreateDiscardCardChip(CombatLogTag tag)
+	{
+		Card.Card card = tag.Card!;
+		Color side = tag.IsPlayerCard switch
+		{
+			true => PlayerColor,
+			false => EnemyColor,
+			_ => new Color("#C08BE8"),
+		};
+		Color baseColor = new("#63344D");
+		int fontSize = Fs(BadgeBaseFontSize);
+		var chip = new Button
+		{
+			Text = UiSymbolMode.Prefix(
+				Loc.T("ui.combat.log_tag_discard_card", "弃: {card}")
+					.Replace("{card}", card.GetLocalizedName()),
+				"- "),
+			CustomMinimumSize = new Vector2(0, fontSize + 12),
+			SizeFlagsHorizontal = SizeFlags.ShrinkBegin,
+		};
+		chip.AddThemeFontSizeOverride("font_size", fontSize);
+		chip.AddThemeStyleboxOverride("normal", CreateStyle(baseColor, new Color(side, 0.70f), 1, 3));
+		chip.AddThemeStyleboxOverride("hover", CreateStyle(new Color(side, 0.30f), side, 1, 3));
+		chip.AddThemeStyleboxOverride("pressed", CreateStyle(new Color(side, 0.40f), side, 1, 3));
+		chip.MouseEntered += () => ShowPreview(card, chip.GetGlobalRect());
+		chip.MouseExited += HidePreview;
+		chip.Pressed += () =>
+		{
+			if (!MobileInputRouter.IsMobile)
+				return;
+			if (_preview.Visible)
+				HidePreview();
+			else
+				ShowPreview(card, chip.GetGlobalRect());
+		};
+		return chip;
 	}
 
 	private void ShowPreview(Card.Card card, Rect2 sourceRect)

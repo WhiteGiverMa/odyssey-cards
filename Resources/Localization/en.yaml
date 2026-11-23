@@ -147,6 +147,7 @@ ui:
     log_tag_intel: "INTEL {value}"
     log_tag_draw: "DRAW {value}"
     log_tag_discard: "DISCARD {value}"
+    log_tag_discard_card: "DISCARD: {card}"
     log_tag_summon: "SUMMON {value}"
     log_tag_status: "STATUS"
     log_tag_move: "ADVANCE"
