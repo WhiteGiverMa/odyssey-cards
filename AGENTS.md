@@ -349,7 +349,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 
 ## State
 
-- ✅ KARDS 风格战术战报、出牌亮牌慢放演出、全局字号与 Emoji 对照开关：新增纯 C# `CombatLogService` 栈式行动聚合模型与左侧可折叠 `CombatLogDrawer`（热键 `L`，流式 `主体 -> [徽章] 目标` 芯片，悬停/点按弹出真实 `CardUI` 历史快照卡面，反制仅在实际触发时记录防剧透）；新增 `CardShowcaseVfx`（双端指令/领域/反制触发三段式亮牌定格与目标指示弧线，修复指英雄施法漏飞牌）、`MinionDeployVfx` 敌方顶栏飞出与悬停亮牌、`MinionMoveVfx` 推进滑行与 `EndPlayerTurnAsync` 敌方回合逐步异步步进（默认战斗动画速度调慢至 `×0.75`，保留同步 `EndPlayerTurn` 供单测）；新增 `UIScaler.FontScale`（默认放大至 `120%` 实时驱动共享主题与战斗 HUD）与 `UIScaler.EmojiIconsEnabled`（默认关闭，使用纯色色块+简字徽章，可随时开启对照，保留 `♥/♥️`）。
+- ✅ KARDS 风格战术战报、出牌亮牌慢放演出、全局字号与 Emoji 对照开关：新增纯 C# `CombatLogService` 栈式行动聚合模型与左侧可折叠 `CombatLogDrawer`（热键 `L`，流式 `主体 -> [徽章] 目标` 芯片，主体/目标与实际被弃掉的卡牌均渲染为可悬停/点按芯片并弹出真实 `CardUI` 历史快照卡面；反制仅在实际触发时记录防剧透，且仅在实际弃掉敌牌时展示弃牌芯片）；新增 `CardShowcaseVfx`（双端指令/领域/反制触发三段式亮牌定格与目标指示弧线，修复指英雄施法漏飞牌）、`MinionDeployVfx` 敌方顶栏飞出与悬停亮牌、`MinionMoveVfx` 推进滑行与 `EndPlayerTurnAsync` 敌方回合逐步异步步进（默认战斗动画速度调慢至 `×0.75`，保留同步 `EndPlayerTurn` 供单测）；新增 `UIScaler.FontScale`（默认放大至 `120%` 实时驱动共享主题与战斗 HUD）与 `UIScaler.EmojiIconsEnabled`（默认关闭，使用纯色色块+简字徽章，可随时开启对照，保留 `♥/♥️`）。
 - ✅ 0.2.2「断流」：新增 `CardType.Countermeasure`（友方回合付费激活/取消退费、敌方回合拦截法术、新回合自动失效）、`spell_energy_coin` 动态 `+n` 能量币、卡包 `cutoff_current`（`PackCutoffCurrent=1<<25`）与 6 张断流新卡；`CountermeasureService` / `CutoffCurrentEffects` 承载纯 C# 规则，Web 收藏集同步支持反制类型与断流卡包。
 - ✅ Godot 4.7.2 全仓对齐：`nuget.config` 指向本地 `G:\dev\Godot_v4.7.2\GodotSharp\Tools\nupkgs` 离线源，SDK 升级至 `Godot.NET.Sdk/4.7.2`，构建脚本默认 `G:\dev\Godot_v4.7.2\godot.exe`。
 - ✅ 三线前线 M1/M2：四兵种（先锋/突击/支援/游击）与守护、独占前线/支援线 4 格部署铁律、行动油费/一步突击、`嘲讽 > 守护 > 游击护航（挡刀守护暴露破锁）`（1,296 种组合无死锁门禁）、对称烟幕、统一伏击反击、Intel 左起揭露与零收益溢出情报；61 张 `.tres` 与双语翻译全量迁移，标签与主题编辑已整合入 `Tools/CardCollectionWeb`。
@@ -420,5 +420,5 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - 新增卡牌**必须**同步 `CardResourcePaths[]`。
 - 新增语言**必须**同步 `TryLoadTranslationsViaDirAccess()` 回退。
 - 改版本号**只改**仓库根 `VERSION` 文件（唯一真源），**禁止**多处硬编码版本号。
-- **必须**在产出新的特性、内容时提问用户「是否需要更新wiki」。**禁止**不经询问删除wiki中与代码不符的信息。
+- **禁止**不经询问删除wiki中与代码不符的信息。
 - `project.godot`的空行噪音是常见现象；只提交有意义的变动，空行变动可忽略或回退。
