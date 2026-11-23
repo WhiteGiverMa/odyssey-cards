@@ -29,4 +29,4 @@ Roguelite 流程数据与生成器。定义房间、事件、祝福、运行状�
 - 禁止在 Roguelike 数据类中引用 Godot API——保持纯 C#。
 - 禁止 `EventSelector` 绕过 `ApplyReward` 后不更新文档。
 - 禁止主题卡组生成器硬编码卡牌 ID——走 `ThemeProfile` 资源 / `DeckProfile` + `CardMechanicTag`/`KeywordWeights`。
-- `DeckProfile` 与 `IDeckCard` 必须保持纯 C#：xUnit 环境没有 Godot 引擎实例，`new ThemeProfile()` / `new CardData()` 会触发 native 空指针。核心卡可越过稀有度过滤（显式点名的衍生牌也要带入）。
+- `DeckProfile` 与 `IDeckCard` 必须保持纯 C#：xUnit 环境没有 Godot 引擎实例，`new ThemeProfile()` / `new CardData()` 会触发 native 空指针。核心卡与随机池均严禁直接带入衍生牌（Derivative）——`CoreCardIds` 也只能从 `legalPool` 选取，不设「显式点名」后门。

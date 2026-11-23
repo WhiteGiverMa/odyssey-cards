@@ -2,7 +2,7 @@
 
 ## Scope
 
-一个 csproj：`tests/csharp/OdysseyCards.Tests.csproj`（xUnit + coverlet + Roslynator），25 个测试文件（24 Unit + 1 Integration）。**无 CI 自动运行**，手动 `dotnet test`。
+一个 csproj：`tests/csharp/OdysseyCards.Tests.csproj`（xUnit + coverlet + Roslynator），34 个测试文件（33 Unit + 1 Integration）。**无 CI 自动运行**，手动 `dotnet test`。
 
 ## 命名约定
 
@@ -44,7 +44,7 @@
 | Infrastructure/ | `EvalGatewayTests`                                                                                                                           | C# 反射求值网关                                                                             |
 | Localization/   | `YamlParserTests`                                                                                                                            | YAML 解析 + tab 缩进回归                                                                    |
 
-| AI/ / Roguelike/ | `CommanderAiTests`, `DeckDrivenEnemyTests` | 同构牌手：10~20 / 21~39 / 40 张三档卡组生成、重复上限自动放宽、派生核心卡保留、遭遇池全员 `DeckDrivenCommander`、被动标记 |
+| AI/ / Roguelike/ | `CommanderAiTests`, `DeckDrivenEnemyTests` | 同构牌手：10~20 / 21~39 / 40 张三档卡组生成、重复上限自动放宽、核心池与随机池均严禁衍生牌（真实 81 张资源门禁）、遭遇池全员 `DeckDrivenCommander`、被动标记 |
 
 **0 覆盖的模块**：Heat/（2）、Relic/（7）、Character/（5）、Card/HeroPowers/（4）、Infrastructure 剩余（~16）、UI 剩余（~35）。
 

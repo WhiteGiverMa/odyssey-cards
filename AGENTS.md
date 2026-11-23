@@ -1,7 +1,7 @@
 # OdysseyCards（少女星途卡牌） — Godot 4.7.2 C# · PVE 混搭 KARDS 三线战术卡牌
 
-**Updated:** 2026-11-15
-**Scale:** 225 `Scripts/*.cs`（含 `Scripts/AssemblyInfo.cs`）· ~46,000 非空行 · 61 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景 + `Tools/CardCollectionWeb` 全栈收藏集/Wiki
+**Updated:** 2026-11-24
+**Scale:** ~230 `Scripts/*.cs` · ~48,000 非空行 · 81 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景 + `Tools/CardCollectionWeb` 全栈收藏集/Wiki
 
 ## 项目文化标签
 
@@ -30,7 +30,7 @@ Scripts/
 ├── Roguelike/ (6)  # EventSelector, RoomData, GameRunState, EventData, BlessingData、ThemedDeckGenerator
 ├── Localization/ (5)# YAML 多语言 (LocalStr, ConcatLocalStr, ILocalizable, YamlParser)
 └── Infrastructure/ (23, Commands/9) # ChatScreen, InputManager, HotkeyManager, MobileInputRouter, SceneLifecycleGuard…
-Resources/Cards/    # 61 .tres；19 张随从已显式配置 UnitClass，非随从显式配置 FrontlineOnlySpell
+Resources/Cards/    # 81 .tres；31 张单位已显式配置 UnitClass，非单位显式配置 FrontlineOnlySpell
 Resources/Localization/ # zh.yaml / en.yaml
 Resources/Enemies/ Resources/Relics/ # 结构桩，当前为空
 Scenes/             # Main, Combat, Collection, Map + Card/Board/CombatPreview
@@ -104,15 +104,17 @@ Tests/              # tests/csharp：xUnit 24 Unit + 1 Integration(跳过)
 
 项目的设计语言混合了炉石/STS2/自创新词，多份历史文档与 wiki 都用过其中之一。本节是术语唯一真源，新增/改写时统一对齐。
 
-| 项目术语                    | 等价映射                                                        | 实现位置                                                                                     | 范围与约束                                                                                                                                                    |
-| --------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **领域**                    | STS2 的 Power（永久型）/ STS 1 的「能力」/ 塔圈社区常用「领域」 | ActiveDomain : IPermanentEffect，挂在 Hero.ActiveDomains                                     | **永久**——Counter 仅由战斗事件消耗（被攻击/回合结束事件/随从进场），**禁止自动回合衰减**。再次打出同领域叠加 Counter。                                        |
-| **限时挂载效果**            | STS2 的限时 Power（如 RegenPower / DuplicationPower）           | StatusEffect : ITemporaryEffect + OnTick 钩子                                                | **限时**——TickOn 驱动衰减，归零自动移除；触发逻辑由 CardEffectDispatcher.HandleMountHeroEffect 唯一注入 OnTick lambda。**禁止用 ActiveDomain 模拟回合计时。** |
-| **状态效果**                | STS2 的 VulnerablePower/WeakPower 等 debuff                     | StatusEffect 通道，与限时 mount 同储但语义上分开                                             | 自带衰减、可被净化（Polarity=Negative）。限时 mount 使用 Polarity=NonNegative 不可被净化。                                                                    |
-| **目标/单位**               | IDamageTarget 接口实现                                          | Hero : IDamageTarget, IDamageSource、Minion : Card, IDamageTarget, IDamageSource             | 玩家英雄、敌方英雄、友方随从、敌方随从、衍生衍生牌生成的临时单位都是「单位」。卡牌效果的目标都是 unit。                                                       |
-| **直伤卡**                  | CardMechanicTag.DirectDamage flag 标记的卡                      | CardData.MechanicTags                                                                        | 由人工权威标注，**不从 CardEffectType 自动推导**。火力筛选（理惠）与 ThemeProfile 直伤维度共用此真源。                                                        |
-| **触发时机（tick timing）** | STS2 的 AfterSideTurnStart/End                                  | TickTiming enum + Hero/Minion.TickStatusEffects(timing)                                      | 玩家回合开始/结束、敌方回合开始/结束四档。StatusEffect.OnTick 在 Tick() 衰减**之前**触发（对齐 STS2「先 heal 再 Decrement」），避免最后一帧丢触发。           |
-| **涩情文案（ecchi）**       | 设置页「涩情文案♥️」开关                                        | `UIScaler.EcchiTextEnabled` + `GameManager.EcchiTextEnabled`，持久化 key `visual/ecchi_text` | 事件文案按此开关切换过审版 / 涩情版前缀。YAML key 加 `_ecchi` 后缀区分（如 `ayame_mirror_ecchi`）。外部命名统一用 `ecchi`（日语「エッチ」），不用 `lewd`。    |
+| 项目术语                    | 等价映射                                                        | 实现位置                                                                                     | 范围与约束                                                                                                                                                                   |
+| --------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **领域**                    | STS2 的 Power（永久型）/ STS 1 的「能力」/ 塔圈社区常用「领域」 | ActiveDomain : IPermanentEffect，挂在 Hero.ActiveDomains                                     | **永久**——Counter 仅由战斗事件消耗（被攻击/回合结束事件/随从进场），**禁止自动回合衰减**。再次打出同领域叠加 Counter。                                                       |
+| **限时挂载效果**            | STS2 的限时 Power（如 RegenPower / DuplicationPower）           | StatusEffect : ITemporaryEffect + OnTick 钩子                                                | **限时**——TickOn 驱动衰减，归零自动移除；触发逻辑由 CardEffectDispatcher.HandleMountHeroEffect 唯一注入 OnTick lambda。**禁止用 ActiveDomain 模拟回合计时。**                |
+| **状态效果**                | STS2 的 VulnerablePower/WeakPower 等 debuff                     | StatusEffect 通道，与限时 mount 同储但语义上分开                                             | 自带衰减、可被净化（Polarity=Negative）。限时 mount 使用 Polarity=NonNegative 不可被净化。                                                                                   |
+| **目标/单位**               | IDamageTarget 接口实现                                          | Hero : IDamageTarget, IDamageSource、Minion : Card, IDamageTarget, IDamageSource             | 玩家英雄、敌方英雄、友方随从、敌方随从、衍生衍生牌生成的临时单位都是「单位」。卡牌效果的目标都是 unit。                                                                      |
+| **直伤卡**                  | CardMechanicTag.DirectDamage flag 标记的卡                      | CardData.MechanicTags                                                                        | 由人工权威标注，**不从 CardEffectType 自动推导**。火力筛选（理惠）与 ThemeProfile 直伤维度共用此真源。                                                                       |
+| **触发时机（tick timing）** | STS2 的 AfterSideTurnStart/End                                  | TickTiming enum + Hero/Minion.TickStatusEffects(timing)                                      | 玩家回合开始/结束、敌方回合开始/结束四档。StatusEffect.OnTick 在 Tick() 衰减**之前**触发（对齐 STS2「先 heal 再 Decrement」），避免最后一帧丢触发。                          |
+| **指挥点 / 指挥点槽**       | 旧称「法力 / 法力槽」，对齐 KARDS 风格                          | CommanderCore.CurrentMana / MaxMana，GameState.StartingMaxMana=0                             | 开局 1 个指挥点槽（首回合自然 +1 至 1/1）。新卡牌与新文案统一使用 KARDS 风格称呼：「指挥点槽」「部署（原战吼）」「指令（法术别称）」「单位（随从别称）」，保留「英雄」称呼。 |
+| **所属卡包（PackId）**      | 与「机制标签」「关键词」完全正交的第 3 个独立单值维度           | CardData.PackId + CardPackCatalog                                                            | 每张卡唯一归属一个卡包（字符串单值），**禁止**往 `CardMechanicTag` 位掩码里塞卡包位，也禁止用机制标签反推卡包。                                                              |
+| **涩情文案（ecchi）**       | 设置页「涩情文案♥️」开关                                        | `UIScaler.EcchiTextEnabled` + `GameManager.EcchiTextEnabled`，持久化 key `visual/ecchi_text` | 事件文案按此开关切换过审版 / 涩情版前缀。YAML key 加 `_ecchi` 后缀区分（如 `ayame_mirror_ecchi`）。外部命名统一用 `ecchi`（日语「エッチ」），不用 `lewd`。                   |
 
 「领域」这一玩家可见术语只指 **永久 Power**——限时挂载效果不是「领域」。
 
@@ -138,7 +140,7 @@ Tests/              # tests/csharp：xUnit 24 Unit + 1 Integration(跳过)
 - `MoveMinionToFrontline` 只触发 `OnMinionMoved`/控制权事件，不触发部署、移除或死亡；最后一名驻军移除/召回后立即释放前线。
 - `UnitClass`：先锋/支援/游击每回合移动或攻击一次；突击移动一次加攻击一次（风怒两次）。无闪击新部署有整备冷却，失能不能移动或攻击。
 - 玩家行动经 `MinionActionService` 校验后逐段扣 `ActionCost`；一步突击必须预先付得起两段费用。`OnAssaultAdvance` 提供演出挂载点。
-- 普攻必须走 `AttackTargetRules`：基础射程/烟幕/后排游击免摸 → 同线嘲讽（所有可达嘲讽保护 HQ）→ 邻格守护 → 游击护航。护航游击的相邻地面守护可被优先拆除，禁止循环锁。
+- 普攻必须走 `AttackTargetRules`：基础射程/烟幕/后排游击免摸 → 同线嘲讽（所有可达嘲讽保护 HQ）→ 守护（同线邻格保护普通单位；支援阵线的存活守护额外保护所属方英雄 HQ）→ 游击护航。护航游击的相邻地面守护可被优先拆除，禁止循环锁。
 - 支援与 `IgnoreCounterAttack` 武器免反击且不消耗目标伏击；伏击替代普通反击，失能防御方不伏击、不反击。法术、主动技能与强制互殴不经过普攻目标过滤。
 - 已删除战斗速度系统。新增卡牌不要重新加入 `Speed`/`BaseSpeed`。
 
@@ -163,7 +165,7 @@ Tests/              # tests/csharp：xUnit 24 Unit + 1 Integration(跳过)
 - **限时挂载效果（限时 Power）**：模拟 STS2 RegenPower/DuplicationPower 的回合计时效果——StatusEffect + OnTick 通道：TickOn 衰减归零自动移除，触发逻辑通过 OnTick lambda 注入。**唯一注入点**：CardEffectDispatcher.HandleMountHeroEffect；其他调用点禁止设置此字段。当前示例：四夜雷电光、星途精神下回合收益。
 - **Counter 叠加**：多次打出同一领域 = 多层 counter，每触发一次消耗一层。限时挂载同样支持叠层（AddStatusEffect 的同名 ID 叠层分支）。
 - 藏品：AbstractRelic 生命周期钩子；不要把藏品逻辑塞进 CombatManager。
-- 热力：每战斗全局节奏压力，不是卡牌状态。
+- 热力：0.2.3 起已从战斗循环与 HUD 断开并贬为死代码（保留 `HeatSystem` / `HeatDamageModifier` / `HeatBar` 原文件）。
 
 ### UI 交互
 
@@ -349,8 +351,9 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 
 ## State
 
+- ✅ 0.2.3「早期战争」平衡调整、新核心卡与三维正交解耦：开局指挥点槽数改为 1（`StartingMaxMana=0`，首回合自然 +1 至 1/1）；热力值系统从战斗与 HUD 断开贬为死代码；支援阵线存活守护暂时可保护所属英雄 HQ；全局术语对齐 KARDS 口径（「战吼→部署」「法力/法力槽→指挥点/指挥点槽」，保持「法术=指令」「随从=单位」「英雄」）；修复烟幕跨敌方回合衰减（`OpponentTurnEnd`）与敌意/纳米散尸术亡语抽牌归属；支持两段式目标型部署（`TargetingMinionBattlecry` + AI 目标评分 + `/play` 目标参数）、`M10“布克”` 先锋光环动态行动花费、骑士I型冲击 +2 动态攻击力；移除「接化发」，完成无人智胜 7 项与核心旧卡调整（40 系坦克回核心、白色军团入未来追杀、无限潜能/无限火力/计划入预备），新增 14 张核心卡（第113守备营、大喇叭团第122营、完美格挡、第232先锋营、15A式高原坦克、M10“布克”、暗影无人机、悬浮炮艇无人机、游隼无人机、猎隼重型无人机、34式榴弹机枪组、第55轨道机动兵团、T-90M晚期型、爆炸反应装甲），卡池扩至 81 张（31 单位）；彻底移除 `CardMechanicTag` 中的 `Pack*` 位与 Web 标签反推兜底，确立 `PackId × MechanicTags × Keywords` 三维正交。
 - ✅ KARDS 风格战术战报、出牌亮牌慢放演出、全局字号与 Emoji 对照开关：新增纯 C# `CombatLogService` 栈式行动聚合模型与左侧可折叠 `CombatLogDrawer`（热键 `L`，流式 `主体 -> [徽章] 目标` 芯片，主体/目标与实际被弃掉的卡牌均渲染为可悬停/点按芯片并弹出真实 `CardUI` 历史快照卡面；反制仅在实际触发时记录防剧透，且仅在实际弃掉敌牌时展示弃牌芯片）；新增 `CardShowcaseVfx`（双端指令/领域/反制触发三段式亮牌定格与目标指示弧线，修复指英雄施法漏飞牌）、`MinionDeployVfx` 敌方顶栏飞出与悬停亮牌、`MinionMoveVfx` 推进滑行与 `EndPlayerTurnAsync` 敌方回合逐步异步步进（默认战斗动画速度调慢至 `×0.75`，保留同步 `EndPlayerTurn` 供单测）；新增 `UIScaler.FontScale`（默认放大至 `120%` 实时驱动共享主题与战斗 HUD）与 `UIScaler.EmojiIconsEnabled`（默认关闭，使用纯色色块+简字徽章，可随时开启对照，保留 `♥/♥️`）。
-- ✅ 0.2.2「断流」：新增 `CardType.Countermeasure`（友方回合付费激活/取消退费、敌方回合拦截法术、新回合自动失效）、`spell_energy_coin` 动态 `+n` 能量币、卡包 `cutoff_current`（`PackCutoffCurrent=1<<25`）与 6 张断流新卡；`CountermeasureService` / `CutoffCurrentEffects` 承载纯 C# 规则，Web 收藏集同步支持反制类型与断流卡包。
+- ✅ 0.2.2「断流」：新增 `CardType.Countermeasure`（友方回合付费激活/取消退费、敌方回合拦截法术、新回合自动失效）、`spell_energy_coin` 动态 `+n` 能量币、卡包 `cutoff_current` 与 6 张断流新卡；`CountermeasureService` / `CutoffCurrentEffects` 承载纯 C# 规则，Web 收藏集同步支持反制类型与断流卡包。
 - ✅ Godot 4.7.2 全仓对齐：`nuget.config` 指向本地 `G:\dev\Godot_v4.7.2\GodotSharp\Tools\nupkgs` 离线源，SDK 升级至 `Godot.NET.Sdk/4.7.2`，构建脚本默认 `G:\dev\Godot_v4.7.2\godot.exe`。
 - ✅ 三线前线 M1/M2：四兵种（先锋/突击/支援/游击）与守护、独占前线/支援线 4 格部署铁律、行动油费/一步突击、`嘲讽 > 守护 > 游击护航（挡刀守护暴露破锁）`（1,296 种组合无死锁门禁）、对称烟幕、统一伏击反击、Intel 左起揭露与零收益溢出情报；61 张 `.tres` 与双语翻译全量迁移，标签与主题编辑已整合入 `Tools/CardCollectionWeb`。
 - ✅ 双轨敌方架构 M3：引入 `EffectActorContext` 与 `IDecisionProvider` 完成全仓施法者相对阵营化与 `CommanderCore` 单一法力真源；道中走 `IIntentDrivenEnemy`，精英/Boss 新增 `DeckDrivenCommander`（`commander_ayame`/`commander_rie`/`commander_sokou` 20 张主题卡组实时评分贪心 AI，交互牌同步秒选，手牌直接联动情报揭露）。
@@ -384,7 +387,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - ✅ ActiveDomain/StatusEffect 语义边界已明确（永久 Power vs 限时 Power）；四夜雷电光、星途精神 mount 改为限时 Power 走 StatusEffect + OnTick 通道。
 - ✅ 星途视觉系统 v1/P2（PRD: issue #2）：程序化卡图生成器（61 张卡全有独特卡面，ID 哈希种子可复现，主题风格分派 ayame=Rune/rie/sokou=Mecha）、全局主题工厂 + 星途色板、星云星空背景（主菜单/战斗/地图三档密度）、六边形法力水晶、棋盘阵营色边框、地图节点路径、按钮/场景微交互、敌我英雄底座光环、热力火焰条与生命渐变底座；STS 遗物 PlaceholderAssetGenerator 已删，Assets 死图 212→24（仅保留 _backup 引用的 Demo jpg）。
 - ✅ 术语对照表已建立（Architecture Rules → 术语对照段），涵盖领域/限时挂载/状态/目标单位/直伤卡/触发时机。
-- ✅ 0.2.1 卡包系统：`CardData.PackId` + `CardPackCatalog` 六个标准包（核心/无人智胜/未来追杀/超体计划/预备/先锋，支持 DIY 字符串）；系列位 `PackCore..PackVanguard=1<<19..1<<24` 由 `HasMechanicTag` 按 PackId 自动识别；`GameSaveData.disabled_pack_ids` 默认只禁用预备包；`GameManager.GetEnabledCards()` 接入主题卡组选择、敌方 InitializeDeck、战斗发现池与奖励池；收藏界面提供卡包筛选与启用弹窗。
+- ✅ 0.2.1 卡包系统：`CardData.PackId` + `CardPackCatalog` 标准包（核心/无人智胜/未来追杀/超体计划/预备/先锋/断流，支持 DIY 字符串），与 `CardMechanicTag` 和 `Keyword` 正交；`GameSaveData.disabled_pack_ids` 默认只禁用预备包；`GameManager.GetEnabledCards()` 接入主题卡组选择、敌方 InitializeDeck、战斗发现池与奖励池；收藏界面提供卡包筛选与启用弹窗。
 - ⚠️ `Spell.cs` 从未实例化（死代码）。
 - ⚠️ `SafeAreaContainer.cs` 当前孤立；`RailPistolPassive.cs` 已接入宇宙员。
 - ⚠️ `EventSelector` 奖励逻辑完整但战斗奖励流仍未统一接线；`ApplyReward` 已 Obsolete。
