@@ -63,9 +63,16 @@ public class Card
 	}
 
 	/// <summary>
-	/// 行动花费——随从每次推进或普通攻击分别消耗的法力值。
+	/// 行动花费——随从每次推进或普通攻击分别消耗的指挥点。
+	/// 包含 <see cref="ActionCostModifier"/> 的实时调整（如「M10“布克”」有友方先锋时 -1）。
 	/// </summary>
-	public int ActionCost => System.Math.Max(0, Data?.ActionCost ?? _actionCost);
+	public int ActionCost => System.Math.Max(0, (Data?.ActionCost ?? _actionCost) + ActionCostModifier);
+
+	/// <summary>
+	/// 运行时行动花费调整值（正数=增加，负数=减少）。
+	/// 由棋盘动态光环在随从进场/离场/移动时重算；墓地与手牌实例同样可用。
+	/// </summary>
+	public int ActionCostModifier { get; set; }
 
 	/// <summary>
 	/// 卡牌类型（随从或法术）。
@@ -142,6 +149,8 @@ public class Card
 	public void CopyRuntimeModifiersFrom(Card other)
 	{
 		CostModifier = other.CostModifier;
+		// ActionCostModifier 是棋盘光环的派生值，不随卡牌在牌堆/手牌之间流转；
+		// 每次进出场由 CombatManager.RefreshDynamicBoardAuras() 重新计算，避免带出过期光环。
 		GrantedRecycle = other.GrantedRecycle;
 		EndTurnDrawPileReturnsRemaining = other.EndTurnDrawPileReturnsRemaining;
 		IsRevealedByIntel = other.IsRevealedByIntel;
@@ -184,7 +193,7 @@ public class Card
 		if (Id == "spell_energy_coin" && BonusEnergyValue > 0)
 		{
 			string amount = (1 + BonusEnergyValue).ToString();
-			return Loc.T("cards.spell_energy_coin.description_with_bonus", "获得{amount}点法力。")
+			return Loc.T("cards.spell_energy_coin.description_with_bonus", "获得{amount}个指挥点。")
 				.Replace("{amount}", amount);
 		}
 		return Data?.GetLocalizedDescription(parameters) ?? Data?.Description ?? string.Empty;

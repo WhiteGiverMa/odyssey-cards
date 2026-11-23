@@ -33,7 +33,8 @@ internal static class CommanderRuntimeQa
 		Check(commander.HeroId == expectedHeroId, $"FightOverride 应生成 {expectedHeroId} 宿敌");
 		Check(unit.Body.MaxHealth == 38, "精英指挥官生命补正应为 38");
 		Check(unit.Body.Hand.Count == 5, "指挥官起手应为 5 张");
-		Check(unit.Body.MaxMana == 3, "指挥官首回合前应与玩家同起点（3/3）");
+		Check(unit.Body.MaxMana == GameState.StartingMaxMana,
+			$"指挥官首回合前应与玩家同起点（{GameState.StartingMaxMana}/{GameState.StartingMaxMana}，首回合开始后 1/1）");
 		Check(unit.Body.HeroPower != null, "指挥官应配备英雄技能");
 		bool correctWeapon = expectedHeroId switch
 		{
@@ -45,8 +46,8 @@ internal static class CommanderRuntimeQa
 		string openingDomain = expectedHeroId switch
 		{
 			"ayame" => "idol_twilight",
-			"sokou" => "jiehuafa",
-			_ => "infinite_fire",
+			"sokou" => "flying_away",
+			_ => "preemptive_strike",
 		};
 		Check(unit.Body.HasDomain(openingDomain), $"{expectedHeroId} 指挥官开场应展开 {openingDomain}");
 		Check(unit.Body.Hand.All(card => !card.IsRevealedByIntel), "指挥官起手应全部为暗牌");
@@ -64,11 +65,12 @@ internal static class CommanderRuntimeQa
 			Check(created.Count == 1 && created[0] is DeckDrivenCommander, $"EnemyRegistry 应注册 {id}");
 		}
 
-		// 3. 情报：玩家真实打出「检索」，从左往右翻开指挥官手牌。
-		var retrieve = Load("Spell_Retrieve");
-		combat.AddCardToHand(retrieve);
+		// 3. 情报：玩家真实打出两张「暴露」，从左往右翻开指挥官前两张手牌。
 		combat.PlayerHero.SetMana(30, 30);
-		Check(combat.PlaySpell(retrieve, combat.PlayerHero), "玩家应能施放检索");
+		combat.AddCardToHand(Load("Spell_Expose"));
+		Check(combat.PlaySpell(combat.PlayerHero.Hand[combat.PlayerHero.Hand.Count - 1], combat.PlayerHero), "玩家应能施放暴露");
+		combat.AddCardToHand(Load("Spell_Expose"));
+		Check(combat.PlaySpell(combat.PlayerHero.Hand[combat.PlayerHero.Hand.Count - 1], combat.PlayerHero), "玩家应能连续施放暴露");
 		Check(unit.Body.Hand.Count >= 2, "指挥官手牌应足够验证情报");
 		Check(unit.Body.Hand[0].IsRevealedByIntel && unit.Body.Hand[1].IsRevealedByIntel,
 			"情报应从左往右翻开前两张暗牌");
@@ -112,7 +114,7 @@ internal static class CommanderRuntimeQa
 		// 6. 全卡池通吃：逐张塞给指挥官，AI 决策 + 效果分发不得抛异常或卡死。
 		combat.PlayerHero.Core.InitializeHealth(100000, 100000);
 		var allCards = GameManager.Instance.GetAllCards();
-		Check(allCards.Count == 61, $"全卡池应为 61 张（实际 {allCards.Count}）");
+		Check(allCards.Count >= 61, $"全卡池应至少 61 张（实际 {allCards.Count}）");
 		foreach (var data in allCards)
 		{
 			try

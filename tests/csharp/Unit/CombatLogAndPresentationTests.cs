@@ -541,8 +541,8 @@ public class CombatLogAndPresentationTests
 		};
 		string[] domainIds =
 		{
-			"unlimited_potential", "flying_away", "idol_twilight", "jiehuafa", "focus", "scheme",
-			"inescapable_flaw", "preemptive_strike",
+			"unlimited_potential", "flying_away", "idol_twilight", "focus", "scheme",
+			"inescapable_flaw", "preemptive_strike", "explosive_reactive_armor",
 		};
 
 		foreach (string id in statusIds)

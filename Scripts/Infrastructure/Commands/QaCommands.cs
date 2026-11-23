@@ -55,7 +55,7 @@ public class QaBaitTacticsCommand : ChatScreenCommand
 {
 	public override string Name => "qa_bait_tactics";
 	public override string Signature => "/qa_bait_tactics";
-	public override string Description => "验证诱饵战术双阵营触发。";
+	public override string Description => "验证诱饵战术双阵营触发（受击时施法方敌方随机弃 1 张牌）。";
 
 	public override CommandResult Execute(string[] args)
 	{

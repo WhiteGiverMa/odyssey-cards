@@ -10,7 +10,8 @@ namespace OdysseyCards.Roguelike;
 ///
 /// 生成流程：
 ///   1. 从卡池过滤合法候选（排除状态牌、衍生牌等不可构筑的卡）
-///   2. 加入核心池招牌卡（几乎必带，保证角色识别度；核心卡可显式指定衍生牌）
+///   2. 加入核心池招牌卡（几乎必带，保证角色识别度）：核心卡同样只能来自合法候选池，
+///      「显式点名」不是衍生牌进入卡组的后门
 ///   3. 对剩余卡按主题权重加权随机抽取，施加约束：
 ///      - 法力曲线（低费/中费/高费/超高费分布）
 ///      - 类型分布（随从/法术/领域比例）
@@ -144,12 +145,8 @@ public static class ThemedDeckGenerator
 		if (legalPool.Count == 0)
 			return GenerationResult.Empty(profile);
 
-		// 1.5 核心卡可越过稀有度过滤——显式点名的招牌卡（如智能臭鸡蛋、机械小蠊）即使标记为衍生牌也应带上。
-		var corePool = cardPool
-			.Where(c => c.Type != CardType.Status)
-			.ToList();
-
-		// 2. 核心池：从 corePool 找到 CoreCardIds 对应的卡，几乎必带
+		// 2. 核心池：CoreCardIds 只能从 legalPool 选取——衍生牌 / 状态牌 / 专属牌
+		//    即使被「显式点名」也绝不进入玩家主题卡组或敌方卡组。
 		var result = new List<IDeckCard>();
 		var dupCount = new Dictionary<string, int>();
 		int domainCount = 0;
@@ -158,7 +155,7 @@ public static class ThemedDeckGenerator
 		{
 			if (result.Count >= target)
 				break;
-			var card = corePool.FirstOrDefault(c => c.Id == coreId);
+			var card = legalPool.FirstOrDefault(c => c.Id == coreId);
 			if (card == null)
 				continue;
 			if (dupCount.GetValueOrDefault(card.Id) >= maxDup)

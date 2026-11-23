@@ -20,7 +20,7 @@ public enum CardEffectType
 	DrawCards = 2,
 
 	/// <summary>
-	/// 获得法力水晶（仅本回合）。
+	/// 获得指挥点（仅本回合）。
 	/// </summary>
 	GainEnergy = 3,
 
@@ -85,8 +85,8 @@ public enum CardEffectType
 	Custom = 17,
 
 	/// <summary>
-	/// 获得额外的法力水晶槽（永久增加法力上限）。
-	/// Value = 增加的槽数。只增加上限，不增加当前法力。
+	/// 获得额外的指挥点槽（永久增加上限）。
+	/// Value = 增加的槽数。只增加上限，不增加当前指挥点。
 	/// 可突破自然增长上限，但不超过硬上限(30)。
 	/// </summary>
 	GainManaSlot = 18,
@@ -178,7 +178,7 @@ public enum CardEffectType
 	DrawByFriendlyMinions = 32,
 
 	/// <summary>
-	/// 获得法力槽并立即获得等量法力。
+	/// 获得指挥点槽并立即获得等量指挥点。
 	/// Value = 增加的槽数。
 	/// </summary>
 	GainManaSlotAndMana = 33,
@@ -191,6 +191,12 @@ public enum CardEffectType
 
 	/// <summary>情报：Value 为揭露点数；未用完的点数直接溢出，不产生任何额外收益。</summary>
 	Intel = 35,
+
+	/// <summary>
+	/// 友方全体随从获得 +Value/+SecondaryValue（不含英雄）。
+	/// 与 CustomEffectName = "BuffFriendlyMinions" 等价，供 .tres 任选一种表达。
+	/// </summary>
+	BuffFriendlyMinions = 36,
 }
 
 public partial class CardEffectData : Resource
@@ -209,7 +215,7 @@ public partial class CardEffectData : Resource
 			CardEffectType.Heal => $"恢复{Value}点生命值",
 			CardEffectType.DrawCards => $"抽{Value}张牌",
 			CardEffectType.Intel => $"情报{Value}",
-			CardEffectType.GainEnergy => $"获得{Value}点法力值",
+			CardEffectType.GainEnergy => $"获得{Value}个指挥点",
 			CardEffectType.GainMaxHealth => $"获得+{Value}最大生命值",
 			CardEffectType.DealDamageToTarget => $"对一个随从造成{Value}点伤害",
 			CardEffectType.DealDamageToAllEnemies => $"对所有敌方随从造成{Value}点伤害",
@@ -226,8 +232,9 @@ public partial class CardEffectData : Resource
 			CardEffectType.MountHeroEffect => CustomEffectName,
 			CardEffectType.ApplyStatusToTarget => $"使目标获得{Value}层{TargetType}",
 			CardEffectType.DrawByFriendlyMinions => $"按友方随从数量抽牌（+{Value}）",
-			CardEffectType.GainManaSlotAndMana => $"获得{Value}个法力槽和{Value}点法力",
+			CardEffectType.GainManaSlotAndMana => $"获得{Value}个指挥点槽和{Value}个指挥点",
 			CardEffectType.GainArmorToFriendlyBoard => $"友方随从获得{Value}点格挡，友方英雄获得{Value * SecondaryValue}点格挡",
+			CardEffectType.BuffFriendlyMinions => $"所有友方随从获得+{Value}/+{SecondaryValue}",
 			CardEffectType.SummonMinion => $"召唤{TargetType}",
 			CardEffectType.BuffMinion => $"使一个随从获得+{Value}/+{SecondaryValue}",
 			CardEffectType.RestoreHealth => $"恢复{Value}点生命值",
@@ -235,8 +242,8 @@ public partial class CardEffectData : Resource
 			CardEffectType.GainArmor => $"获得{Value}点护甲",
 			CardEffectType.ApplyDebuff => $"施加{TargetType}{Value}层",
 			CardEffectType.ApplyBuff => $"获得{TargetType}{Value}层",
-			CardEffectType.GainManaSlot => $"获得{Value}个额外的法力水晶槽",
-			CardEffectType.RemoveNaturalManaCap => "解除自然增长的水晶槽上限",
+			CardEffectType.GainManaSlot => $"获得{Value}个额外的指挥点槽",
+			CardEffectType.RemoveNaturalManaCap => "解除自然增长的指挥点槽上限",
 			CardEffectType.Discover => $"发现：从{Value}张卡牌中选1张",
 			CardEffectType.Custom => CustomEffectName,
 			_ => ""

@@ -56,18 +56,30 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
 	// ===== 随从基础属性 =====
 
-	/// <summary>
-	/// 随从的攻击力。
-	/// </summary>
-	public int Attack { get; private set; }
+	/// <summary>基础攻击力（不含「骑士I型」的冲击加成）。</summary>
+	private int _attack;
+
+	/// <summary>「骑士I型」：具有冲击时额外 +2 攻击力的固定数值。</summary>
+	private const int ImpactAttackBonus = 2;
 
 	/// <summary>
-	/// 修改攻击力（正数为增加，负数为减少，最小为 0）。
+	/// 是否拥有「具有冲击时攻击力 +2」的动态加成（骑士I型专属）。
+	/// 沉默或被显式关闭后不再生效。
+	/// </summary>
+	public bool HasImpactAttackBonus { get; private set; }
+
+	/// <summary>
+	/// 随从的攻击力。包含「骑士I型」的冲击加成，UI、伤害结算与 AI 评分共用同一数值。
+	/// </summary>
+	public int Attack => _attack + (HasImpactAttackBonus && HasImpact ? ImpactAttackBonus : 0);
+
+	/// <summary>
+	/// 修改基础攻击力（正数为增加，负数为减少）。
 	/// </summary>
 	/// <param name="delta">增减量</param>
 	public void ModifyAttack(int delta)
 	{
-		Attack = Attack + delta;
+		_attack += delta;
 	}
 
 	/// <summary>
@@ -257,28 +269,48 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	public bool HasImpact { get; internal set; }
 
 	/// <summary>
-	/// 诱饵战术：此随从受到攻击时，玩家的敌方英雄防御力-1。
-	/// 注意触发目标是绝对阵营的敌方英雄，不随此随从阵营变化。
+	/// 诱饵战术：此随从受到攻击时，施法方阵营的敌方英雄随机弃 1 张手牌。
+	/// 「敌方」是相对施法者而言的绝对阵营，不随此随从阵营变化。
 	/// </summary>
 	public bool HasBaitTacticsOnAttacked { get; private set; }
 
-	/// <summary>
-	/// 首次攻击时使友方英雄获得1层烟幕——拉烟哥专属 OneShot 效果。
-	/// ponytail: 后续可扩展为泛用"首次攻击附加效果"机制。
-	/// </summary>
-	internal bool HasSmokeGrantOnFirstAttack { get; set; }
+	/// <summary>「诱饵战术」的施法方是否为玩家阵营；决定受击时由哪一方弃牌。</summary>
+	public bool BaitTacticsCasterIsPlayerSide { get; private set; } = true;
 
-	internal bool _firstAttackDone;
+	/// <summary>
+	/// 首次行动（移动或攻击）时使友方英雄获得1层烟幕——拉烟哥专属 OneShot 效果。
+	/// ponytail: 后续可扩展为泛用"首次行动附加效果"机制。
+	/// </summary>
+	internal bool HasSmokeGrantOnFirstAction { get; set; }
+
+	internal bool _firstActionDone;
 
 	/// <summary>
 	/// 获得「诱饵战术」授予的关键词与被攻击触发效果。
 	/// </summary>
-	public void GrantBaitTactics()
+	/// <param name="casterIsPlayerSide">施法方是否为玩家阵营；决定受击时弃牌的是哪一方。</param>
+	public void GrantBaitTactics(bool casterIsPlayerSide = true)
 	{
 		HasAmbush = true;
 		HasImpact = true;
 		HasBaitTacticsOnAttacked = true;
-		GD.Print($"[Minion:{CardName}] 获得诱饵战术：伏击、冲击、被攻击时敌方英雄防御力-1");
+		BaitTacticsCasterIsPlayerSide = casterIsPlayerSide;
+		GD.Print($"[Minion:{CardName}] 获得诱饵战术：伏击、冲击、被攻击时{(casterIsPlayerSide ? "敌方" : "玩家")}随机弃1张牌");
+	}
+
+	/// <summary>
+	/// 沉默：移除关键词与关键词驱动的数值加成。
+	/// </summary>
+	public void Silence()
+	{
+		HasTaunt = false;
+		HasGuard = false;
+		HasAmbush = false;
+		HasImpact = false;
+		HasBaitTacticsOnAttacked = false;
+		HasSmokeGrantOnFirstAction = false;
+		HasImpactAttackBonus = false;
+		GD.Print($"[Minion:{CardName}] 已被沉默");
 	}
 
 	/// <summary>
@@ -462,7 +494,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		switch (effect.Id)
 		{
 			case "attack_zero":
-				Attack = 0;
+				_attack = 0;
 				GD.Print($"[Minion:{CardName}] 攻击力被设为 0");
 				break;
 			case "meltdown":
@@ -503,7 +535,7 @@ public class Minion : Card, IDamageSource, IDamageTarget
 			case "attack_zero":
 				if (!HasStatusEffect("attack_zero"))
 				{
-					Attack = Data.Attack; // 恢复到原始攻击力
+					_attack = Data?.Attack ?? _attack; // 恢复到原始攻击力
 					GD.Print($"[Minion:{CardName}] 攻击力已恢复为 {Attack}");
 				}
 				break;
@@ -541,12 +573,13 @@ public class Minion : Card, IDamageSource, IDamageTarget
 		: this(data.Id, isPlayerSide, data.Attack, data.Health, data.UnitClass, data.ActionCost, data.Keywords.ToArray())
 	{
 		Data = data;
-		// 拉烟哥专属：首攻烟幕 OneShot 效果
-		HasSmokeGrantOnFirstAttack = data.Id == "minion_rayan_ge";
-		_firstAttackDone = false;
+		// 拉烟哥专属：首次行动（移动或攻击）烟幕 OneShot 效果
+		HasSmokeGrantOnFirstAction = data.Id == "minion_rayan_ge";
+		_firstActionDone = false;
+		HasImpactAttackBonus = data.Id == "minion_knight_type1";
 
 		// 从卡牌数据复制战斗属性
-		Attack = data.Attack;
+		_attack = data.Attack;
 		MaxHealth = data.Health;
 		CurrentHealth = MaxHealth;
 
@@ -565,9 +598,11 @@ public class Minion : Card, IDamageSource, IDamageTarget
 	{
 		IsPlayerSide = isPlayerSide;
 		UnitClass = unitClass;
-		Attack = attack;
+		_attack = attack;
 		MaxHealth = health;
 		CurrentHealth = health;
+		HasImpactAttackBonus = id == "minion_knight_type1";
+		HasSmokeGrantOnFirstAction = id == "minion_rayan_ge";
 		_focusModifier = new FocusSpellDamageModifier(GetFocusStacks);
 
 		// 注册防御力修改器到 DamageModifiers
@@ -783,7 +818,8 @@ public class Minion : Card, IDamageSource, IDamageTarget
 
 		// 3. Numerical stat changes (compared to CardData baseline)
 		// HP changes are displayed on the health bar, not here.
-		int attackDelta = Attack - Data.Attack;
+		// 攻击力基线只看基础值：骑士I型的冲击 +2 是关键词联动，由冲击图标承载。
+		int attackDelta = _attack - (Data?.Attack ?? _attack);
 		if (attackDelta != 0)
 		{
 			bool isBuff = attackDelta > 0;

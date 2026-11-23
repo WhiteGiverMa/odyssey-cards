@@ -104,7 +104,7 @@ public class AttackTargetRulesTests
 	}
 
 	[Fact]
-	public void Guard_OnlyAdjacentOrdinaryUnits_NoHqOrMutualGuardLock()
+	public void Guard_OnlyAdjacentOrdinaryUnits_AndSupportGuardProtectsHq()
 	{
 		var board = new Board();
 		var attacker = Place(board, true, type: UnitClass.Support);
@@ -116,6 +116,30 @@ public class AttackTargetRulesTests
 		Assert.True(AttackTargetRules.CanAttackTarget(board, attacker, guard));
 		Assert.True(AttackTargetRules.CanAttackTarget(board, attacker, guard2));
 		Assert.False(AttackTargetRules.CanAttackTarget(board, attacker, distant));
+		// 0.2.3 暂时调整：支援阵线的守护同样守护英雄 HQ。
+		Assert.False(AttackTargetRules.CanAttackTarget(board, attacker, Hero(false)));
+		board.RemoveMinion(guard);
+		board.RemoveMinion(guard2);
+		Assert.True(AttackTargetRules.CanAttackTarget(board, attacker, Hero(false)));
+	}
+
+	[Fact]
+	public void Guard_InSupportProtectsHq_ButIncapacitatedGuardDoesNot()
+	{
+		var board = new Board();
+		var attacker = Place(board, true);
+		board.MoveMinionToFrontline(attacker);
+		var guard = Place(board, false, 1, keywords: new[] { Keyword.Guard });
+
+		Assert.False(AttackTargetRules.CanAttackTarget(board, attacker, Hero(false)));
+		// 守护本身仍可被拆除，防守方不会形成无解防线。
+		Assert.True(AttackTargetRules.CanAttackTarget(board, attacker, guard));
+
+		guard.AddStatusEffect(new StatusEffect(StatusEffect.IncapacitatedId, 1, TickTiming.EnemyTurnEnd));
+		Assert.True(guard.IsIncapacitated);
+		Assert.True(AttackTargetRules.CanAttackTarget(board, attacker, Hero(false)));
+
+		board.RemoveMinion(guard);
 		Assert.True(AttackTargetRules.CanAttackTarget(board, attacker, Hero(false)));
 	}
 

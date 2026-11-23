@@ -44,7 +44,24 @@ internal sealed class CardEffectDispatcher(
 					Damage(enemy, value, actor);
 				break;
 			case CardEffectType.DrawCards:
-				hero.DrawCards(value);
+				switch (effect.TargetType)
+				{
+					// 亡语由被施放随从持有，执行者可能是该随从的拥有者；
+					// 使用绝对阵营标记，确保「敌意 / 纳米散尸术」的抽牌永远归原施法方。
+					case "owner_player":
+						playerHero.DrawCards(value);
+						break;
+					case "owner_enemy":
+						// 施法方为敌方：取首个存活敌方英雄（玩家阵营视角的“敌方”）。
+						Hero? ownerHero = actor.IsPlayerSide
+							? hero
+							: enemyUnits.FirstOrDefault(unit => !unit.Body.IsDead)?.Body;
+						ownerHero?.DrawCards(value);
+						break;
+					default:
+						hero.DrawCards(value);
+						break;
+				}
 				break;
 			case CardEffectType.Intel:
 				IReadOnlyList<Card.Card>? hand = actor.IsPlayerSide
@@ -85,7 +102,19 @@ internal sealed class CardEffectDispatcher(
 				break;
 			case CardEffectType.ReplaceDeathrattleWithDraw:
 				if (target is Minion deathrattle)
-					deathrattle.ReplaceDeathrattleEffects(new[] { new CardEffectData { EffectType = CardEffectType.DrawCards, Value = Math.Max(1, value) } });
+					deathrattle.ReplaceDeathrattleEffects(new[]
+					{
+						new CardEffectData
+						{
+							EffectType = CardEffectType.DrawCards,
+							Value = Math.Max(1, value),
+							TargetType = EarlyWarfareRules.OwnerDrawTargetType(actor.IsPlayerSide),
+						},
+					});
+				break;
+			case CardEffectType.Silence:
+				if (target is Minion silenced)
+					silenced.Silence();
 				break;
 			case CardEffectType.ApplyStatusToTarget:
 				ApplyStatus(target, string.IsNullOrWhiteSpace(effect.TargetType) ? StatusEffect.IncapacitatedId : effect.TargetType, Math.Max(1, value));
@@ -97,6 +126,9 @@ internal sealed class CardEffectDispatcher(
 				foreach (var friend in Friends(actor))
 					friend.GainArmor(value);
 				hero.GainArmor(value * Math.Max(1, effect.SecondaryValue));
+				break;
+			case CardEffectType.BuffFriendlyMinions:
+				EarlyWarfareRules.BuffFriendlyMinions(Friends(actor), value, effect.SecondaryValue);
 				break;
 			case CardEffectType.DiscardRandom:
 				foreach (var card in core.Hand.Where(card => card != actor.PlayedCard).OrderBy(_ => Random.Shared.Next()).Take(Math.Max(0, value)).ToArray())
@@ -158,12 +190,13 @@ internal sealed class CardEffectDispatcher(
 		switch (effect.CustomEffectName)
 		{
 			case "CopyToAdjacentSlot":
-			case "Jiehuafa":
 				break;
+			case "AddIgniteToHand":
 			case "AddPlanToHand":
-				var plan = loadCard("res://Resources/Cards/Spell_Plan.tres");
-				if (plan != null)
-					actor.OwnerCore.AddToHand(new Card.Card(plan));
+				// 0.2.3「早期战争」：长期主义改为将一张「燃起」加入手牌（旧名保留兼容）。
+				var ignite = loadCard("res://Resources/Cards/Spell_Ignite.tres");
+				if (ignite != null)
+					actor.OwnerCore.AddToHand(new Card.Card(ignite));
 				break;
 			case "EnergyCoinMana":
 				// 能量币：基础 1 点 + 动态 +n 层数（由「俄亥俄级」等衍生时设置）。
@@ -195,14 +228,19 @@ internal sealed class CardEffectDispatcher(
 				break;
 			case "BaitTactics":
 				if (target is Minion bait)
-					bait.GrantBaitTactics();
+					bait.GrantBaitTactics(actor.IsPlayerSide);
 				break;
 			case "Animosity":
 				if (target is Minion animosity)
 				{
 					animosity.HasTaunt = true;
 					animosity._damageModifiers.Add(new RelativeAnimosityModifier(actor.IsPlayerSide));
-					animosity.AddDeathrattleEffect(new CardEffectData { EffectType = CardEffectType.DrawCards, Value = 1 });
+					animosity.AddDeathrattleEffect(new CardEffectData
+					{
+						EffectType = CardEffectType.DrawCards,
+						Value = 1,
+						TargetType = EarlyWarfareRules.OwnerDrawTargetType(actor.IsPlayerSide),
+					});
 				}
 				break;
 			case "BladeCrisis":
@@ -255,10 +293,27 @@ internal sealed class CardEffectDispatcher(
 					friend.Heal(value > 0 ? value : 4);
 				break;
 			case "SmokeDodge":
-				ApplyStatus(hero, StatusEffect.SmokescreenId, Math.Max(1, value), actor.OwnTurnEnd, StatusEffectPolarity.NonNegative);
-				foreach (var friend in Friends(actor).Where(minion => !minion.HasTaunt && !minion.HasGuard))
-					ApplyStatus(friend, StatusEffect.SmokescreenId, Math.Max(1, value), actor.OwnTurnEnd, StatusEffectPolarity.NonNegative);
-				hero.DrawCards(effect.SecondaryValue > 0 ? effect.SecondaryValue : 1);
+				// 烟遁：只给支援阵线中不具嘲讽/守护的友方随从加烟幕；持续到接下来的 n 个敌方回合结束。
+				EarlyWarfareRules.ApplySmokeDodge(Friends(actor), actor.IsPlayerSide, Math.Max(1, value), actor.OpponentTurnEnd);
+				break;
+			case "BuffFriendlyMinions":
+				EarlyWarfareRules.BuffFriendlyMinions(Friends(actor), value, effect.SecondaryValue);
+				break;
+			case "PerfectBlock":
+				// 完美格挡：+格挡，并在下一次受击完全没有生命伤害时给一张「受身」。
+				if (target is IDamageTarget blockTarget)
+					EarlyWarfareRules.ApplyPerfectBlock(blockTarget, value > 0 ? value : 3, () =>
+					{
+						actor.OwnerCore.AddToHand(CreateRuntimeCard("res://Resources/Cards/Spell_Ukemi.tres", CardType.Spell));
+						notify();
+					});
+				break;
+			case "ExplosiveReactiveArmor":
+				// 领域本体通过 Hero.AddDomain 挂载；伤害抵消在 Hero.TakeDamage 中结算，这里无需额外动作。
+				break;
+			case "MoveTargetToFrontline":
+				if (target is Minion moveTarget && board.CanMoveMinionToFrontline(moveTarget))
+					board.MoveMinionToFrontline(moveTarget);
 				break;
 			case "FragBullet":
 				Damage(target as IDamageTarget, value > 0 ? value : 5, actor);
@@ -375,12 +430,12 @@ internal sealed class CardEffectDispatcher(
 				{
 					var targets = EnemyTargets(actor);
 					if (targets.Count > 0)
-						Damage(targets[Random.Shared.Next(targets.Count)], effect.Value > 0 ? effect.Value : 5, actor);
+						Damage(targets[Random.Shared.Next(targets.Count)], effect.Value > 0 ? effect.Value : 3, actor);
 				}
 				else if (id == "sutaraito_spirit")
 				{
+					// 0.2.3：下回合开始只抽牌，不再额外获得指挥点。
 					hero.DrawCards((effect.SecondaryValue > 0 ? effect.SecondaryValue : 2) * status.Stacks);
-					hero.GainMana((effect.Value > 0 ? effect.Value : 2) * status.Stacks);
 					status.Stacks = 1;
 				}
 				else if (modifier != null)

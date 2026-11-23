@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using OdysseyCards.AI;
 using OdysseyCards.Card;
 using OdysseyCards.Character;
@@ -14,8 +16,9 @@ namespace OdysseyCards.Tests.Unit;
 /// <summary>
 /// 全员同构牌手门禁：
 ///   - 纯 C# 卡组生成器在 10~20 / 21~39 / 40 张三档厚度下都能稳定产出目标张数；
+///   - 主题卡组与敌方卡组严禁带入衍生牌（Derivative）——核心池「显式点名」也不例外；
 ///   - 所有遭遇入口都返回 DeckDrivenCommander，旧意图怪只保留为死代码。
-/// 测试全程不触碰 Godot 运行时——<see cref="DeckProfile"/> 与 stub 卡都是纯 C#。
+/// 测试全程不触碰 Godot 运行时——<see cref="DeckProfile"/>、stub 卡与真实 .tres 文本解析都是纯 C#。
 /// </summary>
 public class DeckDrivenEnemyTests
 {
@@ -84,20 +87,35 @@ public class DeckDrivenEnemyTests
 		Assert.Equal(expectedMaxDuplicates, ThemedDeckGenerator.ResolveMaxDuplicates(profile, targetSize));
 	}
 
-	[Fact]
-	public void Generate_DerivativeCoreCard_IsStillIncluded()
+	[Theory]
+	[InlineData(10)]
+	[InlineData(20)]
+	[InlineData(24)]
+	[InlineData(40)]
+	public void Generate_DerivativeAndStatusCoreCards_AreNeverIncluded(int targetSize)
 	{
 		var profile = new DeckProfile
 		{
-			TargetDeckSize = 5,
-			CoreCardIds = new[] { "token_core" },
+			TargetDeckSize = targetSize,
+			MaxDuplicatesPerCard = 2,
+			// 即使画像把衍生/特殊/状态牌写进招牌核心池，生成器也必须一律忽略。
+			CoreCardIds = new[] { "legal_core", "token_core", "special_core", "status_token_core", "status_core" },
 		};
-		var pool = CreatePool(8);
+		var pool = CreatePool(12);
+		pool.Add(new FakeDeckCard("legal_core", CardType.Minion, 1, CardRarity.Common));
 		pool.Add(new FakeDeckCard("token_core", CardType.Minion, 1, CardRarity.Derivative));
+		pool.Add(new FakeDeckCard("special_core", CardType.Spell, 1, CardRarity.Special));
+		pool.Add(new FakeDeckCard("status_token_core", CardType.Spell, 1, CardRarity.StatusToken));
+		pool.Add(new FakeDeckCard("status_core", CardType.Status, 1, CardRarity.Common));
 
 		var result = ThemedDeckGenerator.Generate(profile, pool, new Random(7));
 
-		Assert.Contains("token_core", result.CardIds);
+		Assert.Equal(targetSize, result.CardIds.Count);
+		Assert.Contains("legal_core", result.CardIds);
+		Assert.DoesNotContain("token_core", result.CardIds);
+		Assert.DoesNotContain("special_core", result.CardIds);
+		Assert.DoesNotContain("status_token_core", result.CardIds);
+		Assert.DoesNotContain("status_core", result.CardIds);
 	}
 
 	[Fact]
@@ -222,6 +240,184 @@ public class DeckDrivenEnemyTests
 	public void EnemyDeckProfiles_Goutansha_KeepsNegativeStartingDefense()
 	{
 		Assert.Equal(-1, EnemyDeckProfiles.CreateGoutansha().StartingDefense);
+	}
+
+	// ===== 真实资源门禁：主题画像与敌方卡组严禁带入衍生牌 =====
+
+	[Fact]
+	public void RealResources_ThemeAndEnemyProfiles_NeverGenerateDerivativeCards()
+	{
+		var pool = LoadResourcePool();
+		Assert.Equal(81, pool.Count);
+		var byId = pool.ToDictionary(card => card.Id, StringComparer.Ordinal);
+		Assert.Contains(pool, card => card.Rarity == CardRarity.Derivative);
+
+		var profiles = LoadThemeProfiles().Concat(LoadEnemyProfiles()).ToList();
+		Assert.True(profiles.Count >= 10, $"画像过少：{profiles.Count}");
+
+		foreach (var profile in profiles)
+		{
+			foreach (string coreId in profile.CoreCardIds)
+			{
+				Assert.True(byId.TryGetValue(coreId, out var core), $"{profile.HeroId} 的核心卡 {coreId} 不在卡池中");
+				Assert.NotEqual(CardRarity.Derivative, core!.Rarity);
+				Assert.NotEqual(CardRarity.Special, core.Rarity);
+				Assert.NotEqual(CardRarity.StatusToken, core.Rarity);
+				Assert.NotEqual(CardType.Status, core.Type);
+			}
+
+			var generated = ThemedDeckGenerator.Generate(profile, pool, new Random(2026));
+
+			Assert.Equal(profile.TargetDeckSize, generated.CardIds.Count);
+			foreach (string id in generated.CardIds)
+			{
+				Assert.True(byId.TryGetValue(id, out var card), $"{profile.HeroId} 生成了不存在的卡 {id}");
+				Assert.NotEqual(CardRarity.Derivative, card!.Rarity);
+				Assert.NotEqual(CardType.Status, card.Type);
+			}
+		}
+	}
+
+	private sealed class ResourceDeckCard(
+		string id,
+		CardType type,
+		int cost,
+		CardRarity rarity,
+		CardMechanicTag tags,
+		IReadOnlyList<int> keywordValues) : IDeckCard
+	{
+		public string Id { get; } = id;
+		public CardType Type { get; } = type;
+		public int Cost { get; } = cost;
+		public CardRarity Rarity { get; } = rarity;
+		public string PackId { get; } = CardPackCatalog.PackCore;
+		public bool HasMechanicTag(CardMechanicTag tag) => tags.HasFlag(tag);
+		public bool HasKeyword(Keyword keyword) => keywordValues.Contains((int)keyword);
+	}
+
+	/// <summary>不实例化 Godot Resource，直接从 .tres 文本还原真实 81 张启用卡池。</summary>
+	private static List<ResourceDeckCard> LoadResourcePool()
+	{
+		string cardsDirectory = Path.Combine(Root(), "Resources", "Cards");
+		return Directory.GetFiles(cardsDirectory, "*.tres")
+			.OrderBy(path => path, StringComparer.Ordinal)
+			.Select(path =>
+			{
+				string text = File.ReadAllText(path);
+				string fileName = Path.GetFileName(path);
+				string id = MatchString(text, "Id") ?? throw new InvalidOperationException($"{fileName} 缺少 Id");
+				int type = MatchInt(text, "Type") ?? InferType(fileName);
+				return new ResourceDeckCard(
+					id,
+					(CardType)type,
+					MatchInt(text, "Cost") ?? 0,
+					(CardRarity)(MatchInt(text, "Rarity") ?? (int)CardRarity.Common),
+					(CardMechanicTag)(MatchInt(text, "MechanicTags") ?? 0),
+					ReadKeywordValues(text));
+			})
+			.ToList();
+	}
+
+	private static int InferType(string fileName)
+	{
+		if (fileName.StartsWith("Minion_", StringComparison.Ordinal))
+			return (int)CardType.Minion;
+		if (fileName.StartsWith("Domain_", StringComparison.Ordinal))
+			return (int)CardType.Domain;
+		if (fileName.StartsWith("Status_", StringComparison.Ordinal))
+			return (int)CardType.Status;
+		return (int)CardType.Spell;
+	}
+
+	/// <summary>还原 Resources/Themes/ThemeProfile_*.tres 的玩家主题画像。</summary>
+	private static List<DeckProfile> LoadThemeProfiles()
+	{
+		string themesDirectory = Path.Combine(Root(), "Resources", "Themes");
+		return Directory.GetFiles(themesDirectory, "ThemeProfile_*.tres")
+			.OrderBy(path => path, StringComparer.Ordinal)
+			.Select(path =>
+			{
+				string text = File.ReadAllText(path);
+				return new DeckProfile
+				{
+					HeroId = MatchString(text, "HeroId") ?? "",
+					ThemeName = MatchString(text, "ThemeName") ?? "",
+					TargetDeckSize = MatchInt(text, "TargetDeckSize") ?? 20,
+					MaxDuplicatesPerCard = MatchInt(text, "MaxDuplicatesPerCard") ?? 2,
+					MaxDomainCards = MatchInt(text, "MaxDomainCards") ?? 3,
+					TagWeights = ReadWeightBlock<CardMechanicTag>(text, "TagWeights"),
+					KeywordWeights = ReadWeightBlock<Keyword>(text, "KeywordWeights"),
+					CoreCardIds = ReadPackedStrings(text, "CoreCardIds"),
+				};
+			})
+			.ToList();
+	}
+
+	/// <summary>收集 EnemyRegistry 全部敌人画像（宿敌指挥官走主题资源，画像为 null，由主题门禁覆盖）。</summary>
+	private static List<DeckProfile> LoadEnemyProfiles()
+		=> EnemyRegistry.AllIds
+			.SelectMany(EnemyRegistry.Create)
+			.OfType<DeckDrivenCommander>()
+			.Select(commander => commander.DeckProfile)
+			.OfType<DeckProfile>()
+			.ToList();
+
+	private static int? MatchInt(string text, string key)
+	{
+		var match = Regex.Match(text, $"(?m)^{key} = (\\d+)$");
+		return match.Success
+			? int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture)
+			: null;
+	}
+
+	private static string? MatchString(string text, string key)
+	{
+		var match = Regex.Match(text, $"(?m)^{key} = \"([^\"]*)\"$");
+		return match.Success ? match.Groups[1].Value : null;
+	}
+
+	private static IReadOnlyList<string> ReadPackedStrings(string text, string key)
+	{
+		var block = Regex.Match(text, $"(?m)^{key} = PackedStringArray\\(([^)]*)\\)");
+		return block.Success
+			? Regex.Matches(block.Groups[1].Value, "\"([^\"]+)\"")
+				.Select(match => match.Groups[1].Value)
+				.ToList()
+			: Array.Empty<string>();
+	}
+
+	private static Dictionary<TKey, int> ReadWeightBlock<TKey>(string text, string key)
+		where TKey : struct, Enum
+	{
+		var result = new Dictionary<TKey, int>();
+		var block = Regex.Match(text, $"(?m)^{key} = \\{{([^}}]*)\\}}");
+		if (!block.Success)
+			return result;
+		foreach (Match pair in Regex.Matches(block.Groups[1].Value, "(\\d+)\\s*:\\s*(-?\\d+)"))
+		{
+			int rawKey = int.Parse(pair.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+			int rawWeight = int.Parse(pair.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
+			result[(TKey)Enum.ToObject(typeof(TKey), rawKey)] = rawWeight;
+		}
+		return result;
+	}
+
+	private static IReadOnlyList<int> ReadKeywordValues(string text)
+	{
+		var line = Regex.Match(text, "(?m)^Keywords = ([^\r\n]*)");
+		return line.Success
+			? Regex.Matches(line.Groups[1].Value, "\\d+")
+				.Select(match => int.Parse(match.Value, System.Globalization.CultureInfo.InvariantCulture))
+				.ToList()
+			: Array.Empty<int>();
+	}
+
+	private static string Root()
+	{
+		var directory = new DirectoryInfo(AppContext.BaseDirectory);
+		while (directory != null && !File.Exists(Path.Combine(directory.FullName, "project.godot")))
+			directory = directory.Parent;
+		return directory?.FullName ?? throw new DirectoryNotFoundException("找不到项目根目录");
 	}
 
 	// ===== 意图可见性契约：同构牌手不暴露静态意图 =====

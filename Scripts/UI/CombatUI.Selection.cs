@@ -27,6 +27,8 @@ public partial class CombatUI
 		Normal,
 		/// <summary>随从放置模式——手牌中选了一张随从牌，等待选择玩家槽位。</summary>
 		PlacingMinion,
+		/// <summary>随从部署战吼目标模式——已选好支援线槽位，等待选择部署战吼目标。</summary>
+		TargetingMinionBattlecry,
 		/// <summary>法术目标模式——手牌中选了一张法术牌，等待选择目标。</summary>
 		TargetingSpell,
 		/// <summary>攻击目标模式——棋盘上选了一个己方随从，等待选择敌方目标。</summary>
@@ -46,6 +48,9 @@ public partial class CombatUI
 	/// -1 表示未选中任何敌人。
 	/// </summary>
 	private int _activeEnemyTargetIndex = -1;
+
+	/// <summary>目标型部署中已选定的支援线槽位；-1 表示未进入该流程。</summary>
+	private int _pendingMinionSlot = -1;
 
 	/// <summary>选择流程统一指针采样：虚拟指针激活时优先，确保自动化拖拽与桌面路径一致。</summary>
 	private Vector2 GetSelectionPointerPosition() => EvalGateway.GetEffectiveMousePosition(this);
@@ -81,6 +86,10 @@ public partial class CombatUI
 
 			case SelectionMode.TargetingSpell:
 				HandleSpellTarget(position);
+				break;
+
+			case SelectionMode.TargetingMinionBattlecry:
+				HandleMinionBattlecryTarget(position);
 				break;
 
 			case SelectionMode.SelectingAttackTarget:
@@ -127,6 +136,7 @@ public partial class CombatUI
 			|| _selectionMode == SelectionMode.SelectingWeaponTarget
 			|| _selectionMode == SelectionMode.SelectingActiveSkillTarget
 			|| _selectionMode == SelectionMode.TargetingSpell
+			|| _selectionMode == SelectionMode.TargetingMinionBattlecry
 			|| _selectionMode == SelectionMode.PlacingMinion
 			|| _selectionMode == SelectionMode.PlayingNoTargetCard)
 		{
@@ -196,6 +206,13 @@ public partial class CombatUI
 		}
 
 		GD.Print($"[CombatUI] 尝试放置随从 {_selectedCard.CardName}（{_selectedCard.GetEffectiveCost()}费）到槽位 {slotIndex}");
+		// 目标型部署：先选槽位，再选战吼目标；无合法目标时直接裸拍上场、战吼跳过。
+		if (EarlyWarfareRules.NeedsBattlecryTargetSelection(
+			_selectedCard.Data.RequiresTarget, _combat.HasAnyValidBattlecryTarget(_selectedCard)))
+		{
+			EnterMinionBattlecryTargetMode(_selectedCard, slotIndex);
+			return;
+		}
 		bool success = _combat.PlayMinion(_selectedCard, slotIndex);
 		if (success)
 		{
@@ -583,6 +600,10 @@ public partial class CombatUI
 				HandleSpellDrop(screenPos);
 				break;
 
+			case SelectionMode.TargetingMinionBattlecry:
+				HandleMinionBattlecryDrop(screenPos);
+				break;
+
 			case SelectionMode.SelectingAttackTarget:
 				HandleAttackDrop(screenPos);
 				break;
@@ -932,6 +953,131 @@ public partial class CombatUI
 	}
 
 	/// <summary>
+	/// 进入随从部署战吼的目标选择模式——与法术目标模式完全对称：
+	/// 保留准备落地的支援线高亮，显示瞄准箭头，右键退回手牌。
+	/// </summary>
+	private void EnterMinionBattlecryTargetMode(Card.Card card, int slotIndex)
+	{
+		_selectionMode = SelectionMode.TargetingMinionBattlecry;
+		_selectedCard = card;
+		_pendingMinionSlot = slotIndex;
+
+		// 已选槽位后，把随从卡固定到展示位，仅箭头跟随指针（与法术目标模式一致）。
+		if (_dragCardUI != null)
+		{
+			Vector2 viewportSize = GetViewportRect().Size;
+			Vector2 center = new(viewportSize.X * 0.5f, viewportSize.Y - _dragCardUI.Size.Y * TargetingCardScale * 0.5f);
+			_dragCardUI.PresentForTargeting(center, TargetingCardScale);
+		}
+
+		_boardUI.ClearHighlights();
+		_boardUI.HighlightSlots(new List<int> { slotIndex }, isPlayerSide: true, highlight: true);
+
+		bool anyPlayerTarget = false;
+		foreach (var minion in _combat.Board.GetEnemyMinions())
+		{
+			if (_combat.ValidateBattlecryTarget(card, minion))
+				_boardUI.HighlightMinions(new[] { minion });
+		}
+		foreach (var minion in _combat.Board.GetPlayerMinions())
+		{
+			if (_combat.ValidateBattlecryTarget(card, minion))
+			{
+				_boardUI.HighlightMinions(new[] { minion });
+				anyPlayerTarget = true;
+			}
+		}
+
+		var enemyHero = GetDefaultEnemyHeroTarget();
+		bool enemyHeroValid = enemyHero != null && _combat.ValidateBattlecryTarget(card, enemyHero);
+		SetEnemyHeroSpellTargetsVisible(enemyHeroValid, Loc.T("ui.combat.deploy_on_enemy_hero", "对敌方英雄部署"));
+		if (enemyHeroValid)
+			_enemyHeroCardAction = OnEnemyHeroSpellTargetViaOverlay;
+
+		bool playerHeroValid = _combat.ValidateBattlecryTarget(card, _combat.PlayerHero);
+		_playerHeroSpellButton.Visible = playerHeroValid;
+		_playerHeroSpellButton.Disabled = false;
+
+		_boardUI.EnableKeyboardTargeting(includePlayerSlots: anyPlayerTarget || playerHeroValid, includeEnemySlots: true);
+		GD.Print($"[CombatUI] 部署战吼目标模式——{card.GetLocalizedName()} 将落在槽位 {slotIndex}，等待选择战吼目标（右键取消）");
+	}
+
+	/// <summary>部署战吼目标模式下点击随从槽位。</summary>
+	private void HandleMinionBattlecryTarget(BoardPosition position)
+	{
+		if (_selectedCard == null)
+		{
+			ResetSelection();
+			return;
+		}
+		var target = _combat.Board.GetMinionAt(position);
+		if (target == null || target.IsDead || !_combat.ValidateBattlecryTarget(_selectedCard, target))
+		{
+			GD.Print("[CombatUI] 部署战吼目标无效");
+			return;
+		}
+		PlayPendingMinionBattlecry(target);
+	}
+
+	/// <summary>部署战吼目标模式下松手：命中合法随从或英雄才结算。</summary>
+	private void HandleMinionBattlecryDrop(Vector2 screenPos)
+	{
+		int enemyIndex = GetEnemyCardIndexAt(screenPos, requireSpellButtonVisible: true);
+		if (enemyIndex >= 0)
+		{
+			_activeEnemyTargetIndex = enemyIndex;
+			var hero = GetActiveEnemyHeroTarget();
+			if (hero != null)
+				PlayPendingMinionBattlecry(hero);
+			return;
+		}
+		if (_playerHeroSpellButton.Visible && _playerIdentityCard.GetGlobalRect().HasPoint(screenPos))
+		{
+			PlayPendingMinionBattlecry(_combat.PlayerHero);
+			return;
+		}
+
+		var hit = _boardUI.GetSlotAtPosition(screenPos);
+		var target = hit is BoardPosition position ? _combat.Board.GetMinionAt(position) : null;
+		if (target != null && !target.IsDead && _selectedCard != null && _combat.ValidateBattlecryTarget(_selectedCard, target))
+		{
+			PlayPendingMinionBattlecry(target);
+			return;
+		}
+
+		GD.Print("[CombatUI] 部署战吼松手位置无合法目标 — 取消");
+		OnCardDragCancelled();
+	}
+
+	/// <summary>用选定的战吼目标完成部署；失败时保持游戏状态不变。</summary>
+	private void PlayPendingMinionBattlecry(object target)
+	{
+		if (_selectedCard == null || _pendingMinionSlot < 0)
+		{
+			OnCardDragCancelled();
+			return;
+		}
+
+		int slotIndex = _pendingMinionSlot;
+		var card = _selectedCard;
+		Vector2 fromPos = _dragCardUI != null
+			? _dragCardUI.GlobalPosition + _dragCardUI.Size * _dragCardUI.Scale * 0.5f
+			: Vector2.Zero;
+		bool success = _combat.PlayMinion(card, slotIndex, target);
+		if (success)
+		{
+			GD.Print($"[CombatUI] [OK] 随从 {card.CardName} 已放置到槽位 {slotIndex}（战吼目标：{target}）");
+			if (_dragCardUI != null)
+				PlayMinionDeployAnimation(card, fromPos, slotIndex, isPlayerSide: true);
+		}
+		else
+		{
+			GD.Print("[CombatUI] [FAIL] 目标型部署失败 — 查看上方 [CombatManager] 错误日志");
+		}
+		RefreshAll();
+	}
+
+	/// <summary>
 	/// 进入无目标卡牌播放模式——显示播放区域指示器，等待玩家拖拽到播放区域松手打出。
 	/// 适用于：领域（Domain）、无目标的法术（Spell.RequiresTarget == false）。
 	/// </summary>
@@ -1163,6 +1309,14 @@ public partial class CombatUI
 			return;
 		}
 
+		if (_selectionMode == SelectionMode.TargetingMinionBattlecry)
+		{
+			var deployTarget = GetActiveEnemyHeroTarget();
+			if (deployTarget != null)
+				PlayPendingMinionBattlecry(deployTarget);
+			return;
+		}
+
 		var target = GetActiveEnemyHeroTarget();
 		if (target == null)
 			return;
@@ -1203,6 +1357,12 @@ public partial class CombatUI
 		if (_selectedCard == null)
 		{
 			GD.PrintErr("[CombatUI] 无法术牌选中");
+			return;
+		}
+
+		if (_selectionMode == SelectionMode.TargetingMinionBattlecry)
+		{
+			PlayPendingMinionBattlecry(_combat.PlayerHero);
 			return;
 		}
 
@@ -1603,6 +1763,7 @@ public partial class CombatUI
 		_selectionMode = SelectionMode.Normal;
 		_selectedCard = null;
 		_selectedAttacker = null;
+		_pendingMinionSlot = -1;
 		_boardUI.ClearHighlights();
 		SetEnemyHeroAttackTargetsVisible(false);
 		SetEnemyHeroSpellTargetsVisible(false, "");

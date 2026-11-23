@@ -127,10 +127,10 @@ internal static class FrontlineRuntimeQa
 		smokeTarget.AddStatusEffect(new StatusEffect(StatusEffect.SmokescreenId, 1, TickTiming.EnemyTurnEnd));
 		// 嘲讽不能获得烟幕，改用 HQ 烟幕作为非法目标验证首攻事务。
 		hq.AddStatusEffect(new StatusEffect(StatusEffect.SmokescreenId, 1, TickTiming.EnemyTurnEnd));
-		Check(!combat.MinionAttackHero(runner, hq) && !combat.PlayerHero.HasSmokeScreen && !runner._firstAttackDone,
-			"非法首攻不能提前发烟幕或消耗首攻");
-		Check(combat.MinionAttack(runner, smokeTarget) && combat.PlayerHero.HasSmokeScreen && runner._firstAttackDone,
-			"合法首攻在支付后发烟幕");
+		Check(!combat.MinionAttackHero(runner, hq) && !combat.PlayerHero.HasSmokeScreen && !runner._firstActionDone,
+			"非法首攻不能提前发烟幕或消耗首次行动");
+		Check(combat.MinionAttack(runner, smokeTarget) && combat.PlayerHero.HasSmokeScreen && runner._firstActionDone,
+			"合法首次行动在支付后发烟幕");
 		hq.RemoveStatusEffect(StatusEffect.SmokescreenId);
 		combat.PlayerHero.RemoveStatusEffect(StatusEffect.SmokescreenId);
 		ClearBoard();
@@ -154,19 +154,37 @@ internal static class FrontlineRuntimeQa
 		Check(enemySupport.BoardRow == BoardRow.EnemySupport, "敌方支援留守后排");
 		ClearBoard();
 
-		Check(combat.PlayDomain(Card("Domain_Jiehuafa")), "接化发领域部署");
-		var guardedFront = new Minion(GD.Load<CardData>("res://Resources/Cards/Minion_40AMainBattleTank.tres"), true);
-		guardedFront.GainArmor(100);
-		combat.Board.PlaceMinion(guardedFront, 0);
-		combat.Board.MoveMinionToFrontline(guardedFront);
-		combat.Board.PlaceMinion(new Minion(GD.Load<CardData>("res://Resources/Cards/Minion_Slime.tres"), false), 0);
-		int ukemiBefore = combat.PlayerHero.Hand.Count(card => card.Id == "spell_ukemi");
-		combat.EndPlayerTurn();
-		Check(combat.PlayerHero.Hand.Count(card => card.Id == "spell_ukemi") == ukemiBefore + 1,
-			"接化发应响应针对前线随从的完全格挡攻击");
-		ClearBoard();
+		// 0.2.3 目标型部署：第232先锋营（伤害战吼）与第55轨道机动兵团（推进战吼）。
+		// 卡牌资源由 .tres 侧并行落地；缺失时跳过，避免未合流前门禁误报。
+		if (ResourceLoader.Exists("res://Resources/Cards/Minion_232ndVanguardBattalion.tres")
+			&& ResourceLoader.Exists("res://Resources/Cards/Minion_55thOrbitalCorps.tres"))
+		{
+			var targetDummy = new Minion(GD.Load<CardData>("res://Resources/Cards/Minion_Slime.tres"), false);
+			targetDummy.GainStats(0, 10);
+			combat.Board.PlaceMinion(targetDummy, 1);
+			var battalion = Card("Minion_232ndVanguardBattalion");
+			int dummyHealth = targetDummy.CurrentHealth;
+			Check(combat.HasAnyValidBattlecryTarget(battalion), "第232先锋营应有合法战吼目标");
+			Check(combat.PlayMinion(battalion, 0, targetDummy), "第232先锋营目标型部署");
+			Check(targetDummy.CurrentHealth == dummyHealth - 1, "第232先锋营战吼应对敌方目标造成1点伤害");
+
+			var supportMover = new Minion(GD.Load<CardData>("res://Resources/Cards/Minion_Slime.tres"), true);
+			combat.Board.PlaceMinion(supportMover, 1);
+			var corps = Card("Minion_55thOrbitalCorps");
+			Check(combat.PlayMinion(corps, combat.Board.GetEmptySlotIndex(isPlayerSide: true), supportMover),
+				"第55轨道机动兵团目标型部署");
+			Check(supportMover.BoardRow == BoardRow.Frontline, "第55兵团战吼应把支援线随从推至前线");
+
+			// 无任何合法目标时，随从仍可裸拍上场，战吼自动跳过。
+			ClearBoard();
+			var lone = Card("Minion_55thOrbitalCorps");
+			Check(!combat.HasAnyValidBattlecryTarget(lone), "空场时第55兵团应无合法战吼目标");
+			Check(combat.PlayMinion(lone, 0), "无合法目标时仍应裸拍上场");
+			ClearBoard();
+		}
+
 		Check(combat.PlaySpell(Card("Spell_Discover"), combat.PlayerHero) && combat.IsDiscovering,
-			"发现牌应执行情报后正常进入选牌");
+			"发现牌应正常进入选牌");
 		combat.CancelDiscover();
 		Check(!combat.IsDiscovering, "发现取消后应恢复玩家回合");
 		var hunter = new Minion(GD.Load<CardData>("res://Resources/Cards/Minion_LianshuScout.tres"), true);

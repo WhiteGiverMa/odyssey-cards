@@ -55,7 +55,7 @@ public class GameStateTests
 		state.StartGame();
 
 		// 有了无限潜能，上限提升到 30
-		for (int i = 0; i < 28; i++)
+		for (int i = 0; i < GameState.HardMaxManaCap; i++)
 			state.StartPlayerTurn(GameState.HardMaxManaCap);
 
 		Assert.Equal(GameState.HardMaxManaCap, state.PlayerMaxMana);
@@ -68,14 +68,14 @@ public class GameStateTests
 		var state = new GameState();
 		state.StartGame();
 		state.StartPlayerTurn(GameState.MaxManaCrystals);
-		// StartGame=3, 第1回合+1=4
+		// StartGame=0, 第1回合+1=1
 		state.StartPlayerTurn(GameState.MaxManaCrystals);
-		// 第2回合+1=5
+		// 第2回合+1=2
 
 		bool spent = state.SpendPlayerMana(1);
 
 		Assert.True(spent);
-		Assert.Equal(4, state.PlayerMana);
+		Assert.Equal(1, state.PlayerMana);
 	}
 
 	[Fact]
@@ -84,12 +84,12 @@ public class GameStateTests
 		var state = new GameState();
 		state.StartGame();
 		state.StartPlayerTurn(GameState.MaxManaCrystals);
-		// StartGame=3, 第1回合+1=4
+		// StartGame=0, 第1回合+1=1
 
 		bool spent = state.SpendPlayerMana(5);
 
 		Assert.False(spent);
-		Assert.Equal(4, state.PlayerMana);
+		Assert.Equal(1, state.PlayerMana);
 	}
 
 	[Fact]
@@ -124,12 +124,12 @@ public class GameStateTests
 	{
 		var state = new GameState();
 		state.StartGame();
-		// 初始 PMM=3, PM=3
+		// 初始 PMM=0, PM=0
 
 		state.GainManaSlot(2);
-		// PMM 应=5, PM 保持=3
+		// PMM 应=0+2=2, PM 保持=0
 
-		Assert.Equal(5, state.PlayerMaxMana);
+		Assert.Equal(GameState.StartingMaxMana + 2, state.PlayerMaxMana);
 		Assert.Equal(GameState.StartingMaxMana, state.PlayerMana);
 	}
 

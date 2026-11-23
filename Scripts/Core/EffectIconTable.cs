@@ -53,7 +53,7 @@ public static class EffectIconTable
 		["unlimited_potential"] = new() { Icon = "♾", PlainLabel = "潜", PlainLabelEn = "INF", AccentColorRgba = DomainColor, NameKey = "domain.unlimited_potential", DescKey = "domain.unlimited_potential_desc", IsBuff = true },
 		["flying_away"] = new() { Icon = "🕊", PlainLabel = "飞", PlainLabelEn = "FLY", AccentColorRgba = DomainColor, NameKey = "domain.flying_away", DescKey = "domain.flying_away_desc", IsBuff = true },
 		["idol_twilight"] = new() { Icon = "🌅", PlainLabel = "昏", PlainLabelEn = "IDL", AccentColorRgba = DomainColor, NameKey = "domain.idol_twilight", DescKey = "domain.idol_twilight_desc", IsBuff = true },
-		["jiehuafa"] = new() { Icon = "🛡", PlainLabel = "接", PlainLabelEn = "JHF", AccentColorRgba = DefenseColor, NameKey = "domain.jiehuafa", DescKey = "domain.jiehuafa_desc", IsBuff = true },
+		["explosive_reactive_armor"] = new() { Icon = "🧱", PlainLabel = "爆", PlainLabelEn = "ERA", AccentColorRgba = DefenseColor, NameKey = "domain.explosive_reactive_armor", DescKey = "domain.explosive_reactive_armor_desc", IsBuff = true },
 		["focus"] = new() { Icon = "🎯", PlainLabel = "聚", PlainLabelEn = "FCS", AccentColorRgba = DomainColor, NameKey = "domain.focus", DescKey = "domain.focus_desc", IsBuff = true },
 		["scheme"] = new() { Icon = "🪺", PlainLabel = "谋", PlainLabelEn = "SCH", AccentColorRgba = DomainColor, NameKey = "domain.scheme", DescKey = "domain.scheme_desc", IsBuff = true },
 		["inescapable_flaw"] = new() { Icon = "🥚", PlainLabel = "瑕", PlainLabelEn = "FLW", AccentColorRgba = DebuffColor, NameKey = "domain.inescapable_flaw", DescKey = "domain.inescapable_flaw_desc", IsBuff = false },

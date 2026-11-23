@@ -83,11 +83,6 @@ public partial class CombatUI : Control
 	private EffectBar _enemyEffectBar = null!;
 
 	/// <summary>
-	/// 热力值 UI 条——战斗界面全局位置，显示当前热力值百分比。
-	/// </summary>
-	private UI.HeatBar _heatBar = null!;
-
-	/// <summary>
 	/// 藏品栏——显示当前持有的藏品图标列表。
 	/// </summary>
 	private UI.RelicBar _relicBar = null!;
@@ -648,8 +643,10 @@ public partial class CombatUI : Control
 			_arrowRenderer.RemoveArrow("move_select");
 		}
 
-		// --- 卡牌目标选择箭头（随从放置 / 单目标法术） ---
-		if ((_selectionMode == SelectionMode.PlacingMinion || _selectionMode == SelectionMode.TargetingSpell)
+		// --- 卡牌目标选择箭头（随从放置 / 单目标法术 / 目标型部署战吼） ---
+		if ((_selectionMode == SelectionMode.PlacingMinion
+			|| _selectionMode == SelectionMode.TargetingSpell
+			|| _selectionMode == SelectionMode.TargetingMinionBattlecry)
 			&& _dragCardUI != null && _arrowRenderer != null)
 		{
 			Vector2 sourcePos = _dragCardUI.GlobalPosition + _dragCardUI.Size * _dragCardUI.Scale * 0.5f;
@@ -784,7 +781,7 @@ public partial class CombatUI : Control
 		CreateDeckButtons();
 		CreateWeaponUI();
 		CreateStatusEffectUI();
-		CreateHeatBar();
+		// 0.2.3「早期战争」：热力值机制已降为死代码，战斗界面不再创建热力条。
 		CreateRelicBar();
 		CreateEnemyCards();
 		CreateGameOverPopup();

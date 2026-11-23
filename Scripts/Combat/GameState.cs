@@ -53,9 +53,11 @@ public class GameState
 	public const int HardMaxManaCap = 30;
 
 	/// <summary>
-	/// 游戏开始时的最大法力水晶数。
+	/// 游戏开始时的最大指挥点槽数。
+	/// 为 0 时，<see cref="StartGame"/> 先建立 0/0，玩家首回合 <see cref="StartPlayerTurn"/> 自然增长到 1/1
+	/// （0.2.3「早期战争」：开局指挥点槽数改为 1）。
 	/// </summary>
-	public const int StartingMaxMana = 3;
+	public const int StartingMaxMana = 0;
 
 	// ===== 属性 =====
 

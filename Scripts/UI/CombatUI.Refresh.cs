@@ -38,7 +38,6 @@ public partial class CombatUI
 			UpdateSmartAttackButton();
 			UpdateWeaponDisplay();
 			UpdateStatusEffectDisplay();
-			UpdateHeatDisplay();
 			UpdateRelicDisplay();
 			UpdateEnemyHandBar();
 
@@ -80,7 +79,6 @@ public partial class CombatUI
 		UpdateStatusEffectDisplay();
 		RefreshIntentDisplay();
 		RefreshIntentArrows();
-		UpdateHeatDisplay();
 		UpdateRelicDisplay();
 		UpdateEnemyHandBar();
 
@@ -359,7 +357,7 @@ public partial class CombatUI
 		int current = _combat.PlayerHero.CurrentMana;
 		int max = _combat.PlayerHero.MaxMana;
 		_manaCrystalBar.SetMana(current, max);
-		_playerManaLabel.Text = Localization.Localization.T("ui.combat.mana_format", "法力 {current}/{max}")
+		_playerManaLabel.Text = Localization.Localization.T("ui.combat.mana_format", "指挥点 {current}/{max}")
 			.Replace("{current}", current.ToString())
 			.Replace("{max}", max.ToString());
 	}
@@ -538,7 +536,6 @@ public partial class CombatUI
 		}
 	}
 
-	private void UpdateHeatDisplay() => _heatBar?.Refresh();
 	private void UpdateRelicDisplay() => _relicBar?.Refresh();
 
 	/// <summary>
@@ -600,7 +597,7 @@ public partial class CombatUI
 		}
 		else if (!canAfford)
 		{
-			text = $"{name} ({costStr}费) [法力不足]";
+			text = $"{name} ({costStr}费) [指挥点不足]";
 		}
 		else
 		{

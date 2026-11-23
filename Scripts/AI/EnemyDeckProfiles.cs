@@ -54,7 +54,7 @@ public static class EnemyDeckProfiles
 			TargetDeckSize = 14,
 			MaxDuplicatesPerCard = 2,
 			MaxDomainCards = 2,
-			CoreCardIds = new[] { "minion_mech_lancer", "minion_roach", "spell_nadao_fangyu", "minion_centurion" },
+			CoreCardIds = new[] { "minion_mech_lancer", "minion_centipede_aa", "spell_nadao_fangyu", "minion_centurion" },
 			TagWeights = new Dictionary<CardMechanicTag, int>
 			{
 				[CardMechanicTag.Mechanics] = 6,
@@ -85,8 +85,8 @@ public static class EnemyDeckProfiles
 			MaxDomainCards = 2,
 			CoreCardIds = new[]
 			{
-				"minion_smart_stinky_egg", "minion_what_the_dog_doing", "spell_blade_crisis",
-				"spell_expose", "minion_roach",
+				"minion_peregrine_drone", "minion_what_the_dog_doing", "spell_blade_crisis",
+				"spell_expose", "spell_nano_corpse_art",
 			},
 			TagWeights = new Dictionary<CardMechanicTag, int>
 			{
@@ -116,7 +116,11 @@ public static class EnemyDeckProfiles
 			TargetDeckSize = 12,
 			MaxDuplicatesPerCard = 2,
 			MaxDomainCards = 2,
-			CoreCardIds = new[] { "minion_slime", "minion_18th_regiment", "spell_assault", "spell_chansu" },
+			CoreCardIds = new[]
+			{
+				"minion_113th_garrison", "minion_122nd_bugle_battalion", "minion_18th_regiment",
+				"spell_assault", "spell_chansu",
+			},
 			TagWeights = new Dictionary<CardMechanicTag, int>
 			{
 				[CardMechanicTag.Summon] = 5,
@@ -188,7 +192,7 @@ public static class EnemyDeckProfiles
 
 	// ===== 精英牌手 =====
 
-	/// <summary>张郎——机械小蠊与武器多段攻击，被动「固璋(3)」。</summary>
+	/// <summary>张郎——机械族铺场与武器多段攻击，被动「固璋(3)」。</summary>
 	public static DeckDrivenCommander CreateZhangLang(int maxHealth = 24, int targetDeckSize = 24) => new(new DeckDrivenCommanderSpec
 	{
 		Id = "zhanglang",
@@ -208,7 +212,7 @@ public static class EnemyDeckProfiles
 			MaxDomainCards = 3,
 			CoreCardIds = new[]
 			{
-				"minion_roach", "minion_centurion", "minion_centipede_siege", "minion_mech_lancer",
+				"minion_centipede_aa", "minion_centurion", "minion_centipede_siege", "minion_mech_lancer",
 			},
 			TagWeights = new Dictionary<CardMechanicTag, int>
 			{
@@ -268,11 +272,11 @@ public static class EnemyDeckProfiles
 			TargetDeckSize = BossDeckSize,
 			MaxDuplicatesPerCard = 2,
 			MaxDomainCards = 4,
-			// 「解释」（status_explain）是状态牌，生成器按规则跳过；这里保留设定关联。
+			// 核心池只放非衍生构筑卡：状态牌（如「解释」）由生成器的合法池过滤掉，不再点名。
 			CoreCardIds = new[]
 			{
 				"spell_boundless_darkness", "spell_heavy_strike", "spell_mamba_missile",
-				"spell_sutaraito_spirit", "spell_longtermism", "status_explain",
+				"spell_sutaraito_spirit", "spell_longtermism",
 			},
 			TagWeights = new Dictionary<CardMechanicTag, int>
 			{

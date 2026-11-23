@@ -136,8 +136,10 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 	private static string OpeningDomainFor(string heroId) => heroId switch
 	{
 		"ayame" => "idol_twilight",
-		"rie" => "infinite_fire",
-		"sokou" => "jiehuafa",
+		// 0.2.3：无限火力移入预备包，理惠改开「先发制人」（直伤核心领域）。
+		"rie" => "preemptive_strike",
+		// 0.2.3：接化发移除，溯光改开「飞远」（同属受击给「受身」体系）。
+		"sokou" => "flying_away",
 		_ => "zhijian",
 	};
 
@@ -356,9 +358,17 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 					- card.Cost * 1.1;
 				if (body.CurrentMana == card.Cost)
 					score += 1.5;
+				// 目标型部署：有合法目标时额外评估战吼收益，裸拍则在无目标时才允许。
+				object? battlecryTarget = null;
+				if (card.Data.RequiresTarget && combat.HasAnyValidBattlecryTarget(actor, card))
+				{
+					(battlecryTarget, double battlecryScore) = ChooseBattlecryTarget(combat, actor, body, card);
+					score += Math.Max(0, battlecryScore * 0.5);
+				}
 				var played = card;
+				var deployedTarget = battlecryTarget;
 				result.Add(new Candidate($"部署 {card.GetLocalizedName()}（{card.Cost}费）", score, EnemyStepKind.Deploy,
-					() => combat.PlayMinion(actor, played, slot)));
+					() => combat.PlayMinion(actor, played, slot, deployedTarget)));
 			}
 			else if (card.Type == CardType.Domain)
 			{
@@ -411,12 +421,51 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 		return (bestTarget, bestScore);
 	}
 
+	/// <summary>
+	/// 目标型部署的战吼目标评分：把敌方随从推上前线会替对手抢线，必须拒绝。
+	/// </summary>
+	private static (object? Target, double Score) ChooseBattlecryTarget(CombatManager combat, EffectActorContext actor,
+		Hero body, Card.Card card)
+	{
+		object? bestTarget = null;
+		double bestScore = double.MinValue;
+		bool movesToFrontline = card.Data.BattlecryEffects.Any(effect => effect.CustomEffectName == "MoveTargetToFrontline");
+		foreach (var target in combat.GetOpponentTargets(body.IsPlayerSide).Concat(combat.GetFriendlyTargets(body.IsPlayerSide)))
+		{
+			if (target is not IDamageTarget damageTarget || !combat.ValidateBattlecryTarget(actor, card, target))
+				continue;
+			double score = movesToFrontline
+				? ScoreMoveToFrontlineTarget(damageTarget, body)
+				: ScoreBattlecryTarget(combat, body, card, damageTarget);
+			if (score > bestScore)
+			{
+				bestScore = score;
+				bestTarget = target;
+			}
+		}
+		return (bestTarget, bestScore == double.MinValue ? 0 : bestScore);
+	}
+
+	private static double ScoreMoveToFrontlineTarget(IDamageTarget target, Hero body)
+	{
+		if (target is not Minion minion || minion.IsPlayerSide != body.IsPlayerSide)
+			return -5;
+		return 5 + minion.Attack * 1.2 + (minion.UnitClass is UnitClass.Vanguard or UnitClass.Assault ? 3 : 0);
+	}
+
 	private static double ScoreTargetForCard(CombatManager combat, Hero body, Card.Card card, IDamageTarget target)
+		=> ScoreEffectsForTarget(combat, body, card.Data.Effects, target);
+
+	private static double ScoreBattlecryTarget(CombatManager combat, Hero body, Card.Card card, IDamageTarget target)
+		=> ScoreEffectsForTarget(combat, body, card.Data.BattlecryEffects, target);
+
+	private static double ScoreEffectsForTarget(CombatManager combat, Hero body,
+		IEnumerable<CardEffectData> effects, IDamageTarget target)
 	{
 		double score = 0;
 		bool friendly = target is Hero hero ? hero.IsPlayerSide == body.IsPlayerSide
 			: ((Minion)target).IsPlayerSide == body.IsPlayerSide;
-		foreach (var effect in card.Data.Effects)
+		foreach (var effect in effects)
 		{
 			// 只有真正读取 target 的效果才参与目标评分；抽牌/回蓝/召唤/挂载等自身效果不偏置目标。
 			bool targetDamage = effect.EffectType is CardEffectType.Damage or CardEffectType.DealDamageToTarget;
@@ -476,6 +525,8 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 			"ElbowStrike" or "FragBullet" or "StripArmor" => friendly ? -6 : (enemyMinion ? 8 : 3),
 			"ExplainEffect" => friendly ? -8 : 3,
 			"BaitTactics" or "Animosity" => friendly ? 5 : -5,
+			"PerfectBlock" => friendly ? 5 : -6,
+			"MoveTargetToFrontline" => friendly && target is Minion ? 5 : -5,
 			_ => 0,
 		};
 	}
@@ -532,6 +583,9 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 				case CardEffectType.Intel:
 					score += 4 + effect.Value * 1.5;
 					break;
+				case CardEffectType.BuffFriendlyMinions:
+					score += 4 + effect.Value * 2 + effect.SecondaryValue;
+					break;
 				case CardEffectType.Discover:
 					score += 6;
 					break;
@@ -581,7 +635,10 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 			"ExplainEffect" => friendlyTarget ? -8 : 3,
 			"StripArmor" => friendlyTarget ? -4 : 4,
 			"FlyingAway" => 4,
-			"AddPlanToHand" => 4,
+			"AddPlanToHand" or "AddIgniteToHand" => 5,
+			"PerfectBlock" => friendlyTarget ? 5 : -6,
+			"ExplosiveReactiveArmor" => 6,
+			"BuffFriendlyMinions" => 7,
 			_ => 0,
 		};
 	}
@@ -672,7 +729,7 @@ public sealed class DeckDrivenCommander : EnemyEncounter, IDeckDrivenCommander
 		int frontline = combat.Board.GetAllMinions().Count(minion =>
 			!minion.IsDead && minion.IsPlayerSide == self.IsPlayerSide && minion.BoardRow == BoardRow.Frontline);
 		string title = Localization.Localization.T(TitleKey, TitleFallback);
-		return $"{title}：手牌 {self.Hand.Count}，法力 {self.CurrentMana}/{self.MaxMana}，前线 {frontline}，威胁 {threats}";
+		return $"{title}：手牌 {self.Hand.Count}，指挥点 {self.CurrentMana}/{self.MaxMana}，前线 {frontline}，威胁 {threats}";
 	}
 
 	private static string Describe(IDamageTarget target) => target switch

@@ -351,7 +351,7 @@ public partial class CombatUI
 		_playerManaLabel = new Label
 		{
 			Name = "PlayerManaLabel",
-			Text = Localization.Localization.T("ui.combat.mana_format", "法力 {current}/{max}").Replace("{current}", "0").Replace("{max}", "1"),
+			Text = Localization.Localization.T("ui.combat.mana_format", "指挥点 {current}/{max}").Replace("{current}", "0").Replace("{max}", "1"),
 			HorizontalAlignment = HorizontalAlignment.Center,
 			CustomMinimumSize = new Vector2(120, 18),
 		};
@@ -729,19 +729,6 @@ public partial class CombatUI
 		_enemyEffectBar = new EffectBar { Name = "EnemyEffectBar" };
 		var enemyHealthContainer = GetNodeOrNull<VBoxContainer>("CombatRoot/EnemyArea/EnemyHealthContainer");
 		enemyHealthContainer?.AddChild(_enemyEffectBar);
-	}
-
-	/// <summary>
-	/// 创建热力值 UI 条——放在法力值占位区域。
-	/// </summary>
-	private void CreateHeatBar()
-	{
-		_heatBar = new UI.HeatBar { Name = "HeatBar" };
-		var manaPlaceholder = GetNodeOrNull<Container>("CombatRoot/PlayerArea/PlayerManaPlaceholder");
-		manaPlaceholder?.AddChild(_heatBar);
-
-		if (_combat.Heat != null)
-			_heatBar.Bind(_combat.Heat);
 	}
 
 	/// <summary>

@@ -17,9 +17,7 @@ internal sealed class DomainTriggerManager
 	private readonly IReadOnlyList<EnemyUnit> _enemies;
 	private readonly Action _notify;
 	private readonly Func<string, CardData?> _load;
-	private readonly Dictionary<Hero, (bool Occurred, bool Leaked)> _defended = new();
 	private readonly HashSet<Hero> _preemptiveUsed = new();
-	internal bool AllDefendedAttacksBlocked => AllBlocked(_playerHero);
 
 	public DomainTriggerManager(CommanderCore playerCore, Hero playerHero, Board board, GameState state,
 		IReadOnlyList<EnemyUnit> enemyUnits, Action notifyCombatStateChanged, Func<string, CardData?>? loadCard = null)
@@ -35,12 +33,9 @@ internal sealed class DomainTriggerManager
 	private IEnumerable<Hero> Heroes => new[] { _playerHero }.Concat(_enemies.Select(unit => unit.Body));
 	private Hero? Owner(Minion minion) => minion.OwnerHero ?? (minion.IsPlayerSide ? _playerHero : _enemies.FirstOrDefault()?.Body);
 	private IEnumerable<Minion> Minions(Hero owner) => _board.GetAllMinions().Where(minion => !minion.IsDead && minion.IsPlayerSide == owner.IsPlayerSide);
-	private bool AllBlocked(Hero owner) => _defended.TryGetValue(owner, out var result) && result.Occurred && !result.Leaked;
 
 	public void OnMinionPlaced(Minion minion)
 	{
-		minion.OnAttacked -= HandleFrontlineAttacked;
-		minion.OnAttacked += HandleFrontlineAttacked;
 		var owner = Owner(minion);
 		if (owner == null)
 			return;
@@ -79,7 +74,6 @@ internal sealed class DomainTriggerManager
 		{
 			if (owner.IsPlayerSide == player)
 				_preemptiveUsed.Remove(owner);
-			_defended[owner] = default;
 		}
 	}
 
@@ -96,12 +90,6 @@ internal sealed class DomainTriggerManager
 					for (int i = 0; i < (fire.EffectData?.Value ?? 1) * fire.StackCount; i++)
 						owner.InsertCardToDrawPile(new Card.Card(strike));
 			}
-			if (owner.IsPlayerSide != player && AllBlocked(owner) && owner.ActiveDomains.TryGetValue("jiehuafa", out var jiehuafa)
-				&& jiehuafa.LastTriggeredTurn != _state.TurnCount)
-			{
-				jiehuafa.LastTriggeredTurn = _state.TurnCount;
-				GiveUkemi(owner, jiehuafa);
-			}
 		}
 	}
 
@@ -109,7 +97,6 @@ internal sealed class DomainTriggerManager
 	{
 		if (!IsOpposingTurn(target) || source.IsPlayerSide == target.IsPlayerSide)
 			return;
-		Track(target, finalDamage);
 		if (!target.ActiveDomains.TryGetValue("flying_away", out var domain) || domain.LastTriggeredTurn == _state.TurnCount)
 			return;
 		domain.LastTriggeredTurn = _state.TurnCount;
@@ -120,18 +107,7 @@ internal sealed class DomainTriggerManager
 		_notify();
 	}
 
-	private void HandleFrontlineAttacked(Minion target, IDamageSource source, int damage)
-	{
-		var owner = Owner(target);
-		if (owner != null && target.BoardRow == BoardRow.Frontline && IsOpposingTurn(owner) && source.IsPlayerSide != target.IsPlayerSide)
-			Track(owner, damage);
-	}
 	private bool IsOpposingTurn(Hero owner) => owner.IsPlayerSide ? _state.IsEnemyTurn : _state.Phase == CombatPhase.PlayerTurn;
-	private void Track(Hero owner, int damage)
-	{
-		_defended.TryGetValue(owner, out var previous);
-		_defended[owner] = (true, previous.Leaked || damage > 0);
-	}
 	private void GiveUkemi(Hero owner, ActiveDomain domain)
 	{
 		string path = domain.EffectData?.TargetType;

@@ -522,7 +522,7 @@ public partial class EnemyHandBar : Control
 	{
 		_handText = Loc.T("combat.enemy_hand_count", "敌方手牌 {count}")
 			.Replace("{count}", _pendingHand.Count.ToString(), StringComparison.Ordinal);
-		_manaText = Loc.T("combat.enemy_mana", "法力 {current}/{max}")
+		_manaText = Loc.T("combat.enemy_mana", "指挥点 {current}/{max}")
 			.Replace("{current}", _currentMana.ToString(), StringComparison.Ordinal)
 			.Replace("{max}", _maxMana.ToString(), StringComparison.Ordinal);
 		_deckText = Loc.T("combat.enemy_draw_pile", "牌库 {count}")

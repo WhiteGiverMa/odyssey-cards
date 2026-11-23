@@ -18,7 +18,7 @@ public class EffectIconTableTests
 		"unlimited_potential",
 		"flying_away",
 		"idol_twilight",
-		"jiehuafa",
+		"explosive_reactive_armor",
 		"preemptive_strike",
 		"zhijian",
 		"infinite_fire",
@@ -84,6 +84,19 @@ public class EffectIconTableTests
 		Assert.Null(EffectIconTable.GetStatusEffect("nadaofangyu_atk_buffish"));
 		Assert.Null(EffectIconTable.GetStatusEffect(string.Empty));
 		Assert.Null(EffectIconTable.GetStatusEffect(null!));
+	}
+
+	[Fact]
+	public void ExplosiveReactiveArmor_HasIconMetadata()
+	{
+		// 0.2.3 新领域：图标表先落地，翻译键由本地化资源门禁在合流后覆盖。
+		EffectIconData? data = EffectIconTable.GetDomain("explosive_reactive_armor");
+		Assert.True(data.HasValue, "领域 explosive_reactive_armor 缺少 EffectIconData 映射。");
+		Assert.False(string.IsNullOrWhiteSpace(data!.Value.Icon));
+		Assert.False(string.IsNullOrWhiteSpace(data.Value.PlainLabel));
+		Assert.False(string.IsNullOrWhiteSpace(data.Value.PlainLabelEn));
+		Assert.False(string.IsNullOrWhiteSpace(data.Value.NameKey));
+		Assert.False(string.IsNullOrWhiteSpace(data.Value.DescKey));
 	}
 
 	[Theory]

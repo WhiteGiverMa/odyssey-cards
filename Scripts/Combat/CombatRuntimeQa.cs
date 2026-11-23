@@ -1,4 +1,5 @@
 #nullable disable
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
@@ -23,19 +24,24 @@ internal static class CombatRuntimeQa
 			return "诱饵战术QA失败：无法加载所需卡牌资源";
 
 		cm.PlayerHero.GainMana(20);
+		cm.PlayerHero.DeckState.MaxHandSize = Math.Max(cm.PlayerHero.DeckState.MaxHandSize, 20);
 		var enemyHero = cm.GetDefaultEnemyTargetUnit()?.Body;
 		if (enemyHero == null)
 			return "诱饵战术QA失败：没有存活的敌方英雄";
-		int initialDefense = enemyHero.Defense;
+		enemyHero.Core.MaxHandSize = Math.Max(enemyHero.Core.MaxHandSize, 20);
+		enemyHero.Core.AddToHand(new Card.Card(baitData));
+		enemyHero.Core.AddToHand(new Card.Card(baitData));
 
 		var friendlyTarget = new Minion(playerMinionData, isPlayerSide: true);
 		var enemyAttacker = new Minion(enemyMinionData, isPlayerSide: false);
 		var friendlySpell = new Card.Card(baitData);
 		cm.AddCardToHand(friendlySpell);
 		bool friendlySpellPlayed = cm.PlaySpell(friendlySpell, friendlyTarget);
-		bool friendlyBuffApplied = friendlyTarget.HasAmbush && friendlyTarget.HasImpact && friendlyTarget.HasBaitTacticsOnAttacked;
+		bool friendlyBuffApplied = friendlyTarget.HasAmbush && friendlyTarget.HasImpact
+			&& friendlyTarget.HasBaitTacticsOnAttacked && friendlyTarget.BaitTacticsCasterIsPlayerSide;
+		int enemyHandBefore = enemyHero.Hand.Count;
 		cm.ResolveMinionCombat(enemyAttacker, friendlyTarget);
-		bool friendlyTriggerWorked = enemyHero.Defense == initialDefense - 1;
+		bool friendlyTriggerWorked = enemyHero.Hand.Count == enemyHandBefore - 1;
 
 		var enemyTarget = new Minion(enemyMinionData, isPlayerSide: false);
 		var playerAttacker = new Minion(playerMinionData, isPlayerSide: true);
@@ -43,8 +49,12 @@ internal static class CombatRuntimeQa
 		cm.AddCardToHand(enemySpell);
 		bool enemySpellPlayed = cm.PlaySpell(enemySpell, enemyTarget);
 		bool enemyBuffApplied = enemyTarget.HasAmbush && enemyTarget.HasImpact && enemyTarget.HasBaitTacticsOnAttacked;
+		// 直接切换为敌方施法，验证受击时由玩家方随机弃牌。
+		enemyTarget.GrantBaitTactics(casterIsPlayerSide: false);
+		cm.AddCardToHand(new Card.Card(baitData));
+		int playerHandBefore = cm.PlayerHero.Hand.Count;
 		cm.ResolveMinionCombat(playerAttacker, enemyTarget);
-		bool enemyTriggerWorked = enemyHero.Defense == initialDefense - 2;
+		bool enemyTriggerWorked = cm.PlayerHero.Hand.Count == playerHandBefore - 1;
 
 		bool passed = friendlySpellPlayed
 			&& friendlyBuffApplied
@@ -54,8 +64,8 @@ internal static class CombatRuntimeQa
 			&& enemyTriggerWorked;
 
 		string result = passed
-			? $"诱饵战术QA通过：友方目标触发、敌方目标触发，玩家敌方的英雄防御 {initialDefense}->{enemyHero.Defense}"
-			: $"诱饵战术QA失败：friendlySpell={friendlySpellPlayed}, friendlyBuff={friendlyBuffApplied}, friendlyTrigger={friendlyTriggerWorked}, enemySpell={enemySpellPlayed}, enemyBuff={enemyBuffApplied}, enemyTrigger={enemyTriggerWorked}, defense={enemyHero.Defense}";
+			? $"诱饵战术QA通过：玩家施放时敌方随机弃1张、敌方施放时玩家随机弃1张（敌方手牌 {enemyHandBefore}->{enemyHero.Hand.Count}）"
+			: $"诱饵战术QA失败：friendlySpell={friendlySpellPlayed}, friendlyBuff={friendlyBuffApplied}, friendlyTrigger={friendlyTriggerWorked}, enemySpell={enemySpellPlayed}, enemyBuff={enemyBuffApplied}, enemyTrigger={enemyTriggerWorked}, enemyHand={enemyHero.Hand.Count}, playerHand={cm.PlayerHero.Hand.Count}";
 		GD.Print($"[CombatRuntimeQa] {result}");
 		return result;
 	}
@@ -96,7 +106,7 @@ internal static class CombatRuntimeQa
 		bool nanoReplaced = nanoTarget.HasDeathrattle
 			&& nanoTarget.DeathrattleEffects.Count == 1
 			&& nanoTarget.DeathrattleEffects[0].EffectType == CardEffectType.DrawCards
-			&& nanoTarget.DeathrattleEffects[0].Value == 1;
+			&& nanoTarget.DeathrattleEffects[0].Value == 2;
 
 		var handMinionCard = new Card.Card(regimentData);
 		var drawMinionCard = new Card.Card(scoutData);
@@ -131,14 +141,21 @@ internal static class CombatRuntimeQa
 		var moonCard = new Card.Card(moonData);
 		cm.AddCardToHand(moonCard);
 		bool moonPlayed = cm.PlaySpell(moonCard, cm.PlayerHero);
-		var moonOptions = cm.DiscoverRuntimeOptions?.Take(2).ToList() ?? new List<Card.Card>();
-		while (cm.PlayerHero.Hand.Count > 8)
+		// 0.2.3：捞月改为两次「3 选 1」，必须逐次驱动选择才能完成结算。
+		int moonRounds = 0;
+		int moonPicked = 0;
+		bool moonAllPicked = true;
+		while (cm.DiscoverRuntimeOptions is { Count: > 0 } moonOptions && moonRounds < 4)
 		{
-			cm.PlayerHero.RemoveFromHand(cm.PlayerHero.Hand[0]);
+			moonRounds++;
+			var moonPicks = moonOptions.Take(Math.Max(1, cm.DiscoverPickCount)).ToList();
+			while (cm.PlayerHero.Hand.Count + moonPicks.Count > 8)
+				cm.PlayerHero.RemoveFromHand(cm.PlayerHero.Hand[0]);
+			cm.ConfirmDiscoverCards(moonPicks);
+			moonPicked += moonPicks.Count;
+			moonAllPicked &= moonPicks.All(c => cm.PlayerHero.Hand.Contains(c));
 		}
-		cm.ConfirmDiscoverCards(moonOptions);
-		bool moonMovedCards = moonOptions.Count == 2
-			&& moonOptions.All(c => cm.PlayerHero.Hand.Contains(c))
+		bool moonMovedCards = moonRounds == 2 && moonPicked == 2 && moonAllPicked
 			&& cm.PlayerHero.DeckState.DiscardPile.Count == discardBeforeMoon - 2 + 1;
 
 		bool recentBatchPassed = RunRecentCardsQa(cm, scoutData, slimeData, alertData, engineData, retrieveData,
@@ -146,8 +163,8 @@ internal static class CombatRuntimeQa
 
 		bool passed = nanoPlayed && nanoReplaced && idolPlayed && idolDomainRegistered && idolBoardMarked && idolTriggered && moonPlayed && moonMovedCards && recentBatchPassed;
 		string result = passed
-			? $"新增卡牌QA通过：纳米散尸术替换亡语并抽牌；偶像的黄昏作为持续领域挂在英雄上，被攻击后+1/+1；捞月从弃牌堆2选加入手牌；{recentBatchSummary}"
-			: $"新增卡牌QA失败：nanoPlayed={nanoPlayed}, nanoReplaced={nanoReplaced}, idolPlayed={idolPlayed}, idolDomainRegistered={idolDomainRegistered}, idolBoardMarked={idolBoardMarked}, idolTriggered={idolTriggered}, moonPlayed={moonPlayed}, moonOptions={moonOptions.Count}, moonMovedCards={moonMovedCards}, recentBatch={recentBatchPassed} ({recentBatchSummary})";
+			? $"新增卡牌QA通过：纳米散尸术替换为亡语抽2；偶像的黄昏作为持续领域挂在英雄上，被攻击后+1/+1；捞月两次3选1共取2张；{recentBatchSummary}"
+			: $"新增卡牌QA失败：nanoPlayed={nanoPlayed}, nanoReplaced={nanoReplaced}, idolPlayed={idolPlayed}, idolDomainRegistered={idolDomainRegistered}, idolBoardMarked={idolBoardMarked}, idolTriggered={idolTriggered}, moonPlayed={moonPlayed}, moonRounds={moonRounds}, moonPicked={moonPicked}, moonMovedCards={moonMovedCards}, recentBatch={recentBatchPassed} ({recentBatchSummary})";
 		GD.Print($"[CombatRuntimeQa] {result}");
 		return result;
 	}
@@ -158,7 +175,7 @@ internal static class CombatRuntimeQa
 	{
 		int previousMaxHandSize = cm.PlayerHero.DeckState.MaxHandSize;
 		cm.PlayerHero.DeckState.MaxHandSize = 50;
-		cm.PlayerHero.GainMana(100);
+		cm.PlayerHero.SetMana(25, 25);
 
 		bool registryContainsRecentCards = new[]
 		{
@@ -182,6 +199,8 @@ internal static class CombatRuntimeQa
 
 		var supportMinionA = new Minion(scoutData, isPlayerSide: true);
 		var supportMinionB = new Minion(scoutData, isPlayerSide: true);
+		foreach (var existing in cm.Board.GetPlayerMinions().ToList())
+			cm.Board.RemoveMinion(existing);
 		cm.Board.PlaceMinion(supportMinionA, cm.Board.GetEmptySlotIndex(isPlayerSide: true));
 		cm.Board.PlaceMinion(supportMinionB, cm.Board.GetEmptySlotIndex(isPlayerSide: true));
 		int responseDrawCount = cm.Board.GetPlayerMinions().Count + 1;
@@ -201,7 +220,7 @@ internal static class CombatRuntimeQa
 		bool adrenalinePlayed = cm.PlaySpell(adrenalineCard, cm.PlayerHero);
 		bool adrenalineDrewTwo = cm.PlayerHero.Hand.Count == handBeforeAdrenaline + 2;
 		bool adrenalineGainedSlotAndMana = cm.PlayerHero.MaxMana == maxManaBeforeAdrenaline + 1
-			&& cm.PlayerHero.CurrentMana == manaBeforeAdrenaline + 1;
+			&& cm.PlayerHero.CurrentMana == manaBeforeAdrenaline - adrenalineCard.GetEffectiveCost() + 2;
 
 		var enemyShockTarget = new Minion(slimeData, isPlayerSide: false);
 		var shockCard = new Card.Card(shockData);
@@ -237,12 +256,15 @@ internal static class CombatRuntimeQa
 		bool heroIncapacitatedStopsWeapon = ApplyHeroIncapacitatedWeaponQa(cm);
 
 		int handBeforeTank = cm.PlayerHero.Hand.Count;
+		cm.PlayerHero.SetMana(20, 20);
 		AddDrawPileCards(cm, alertData, 2);
 		var tankCard = new Card.Card(tankData);
 		cm.AddCardToHand(tankCard);
 		bool tankPlayed = cm.PlayMinion(tankCard, cm.Board.GetEmptySlotIndex(isPlayerSide: true));
 		bool tankBattlecryDrewTwo = cm.PlayerHero.Hand.Count == handBeforeTank + 2;
 
+		cm.Board.RemoveMinion(supportMinionB);
+		cm.PlayerHero.SetMana(20, 20);
 		var centurionCard = new Card.Card(centurionData);
 		cm.AddCardToHand(centurionCard);
 		int heroArmorBeforeCenturion = cm.PlayerHero.CurrentArmor;

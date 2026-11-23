@@ -86,7 +86,7 @@ public class PlayCommand : ChatScreenCommand
 	public override string Name => "play";
 	public override string[] Aliases => ["p"];
 	public override string Signature => "/play <card_id> [enemy|player|eslotN|pslotN]";
-	public override string Description => "从手牌打出领域/法术；目标法术可指定默认英雄或槽位。";
+	public override string Description => "从手牌打出随从/领域/法术；目标型卡牌可指定默认英雄或槽位。";
 
 	public override CompletionCandidate[]? GetArgCandidates(string partialArg)
 	{
@@ -119,6 +119,21 @@ public class PlayCommand : ChatScreenCommand
 		string targetLabel = "默认目标";
 		if (hasTargetArg && !TryResolveTarget(cm, args, out target, out targetLabel, out var error))
 			return CommandResult.Fail(error);
+
+		if (cardToPlay.Type == CardType.Minion)
+		{
+			int slot = cm.Board.GetEmptySlotIndex(isPlayerSide: true);
+			if (slot < 0)
+				return CommandResult.Fail("己方支援线已满，无法部署随从");
+			bool deployed = cm.PlayMinion(cardToPlay, slot, hasTargetArg ? target : null);
+			if (deployed)
+				RefreshCombatUI(cm);
+			return deployed
+				? CommandResult.Ok(hasTargetArg
+					? $"部署「{cardToPlay.GetLocalizedName()}」到槽位 {slot} → {targetLabel}"
+					: $"部署「{cardToPlay.GetLocalizedName()}」到槽位 {slot}（无战吼目标）")
+				: CommandResult.Fail($"无法部署「{cardToPlay.GetLocalizedName()}」");
+		}
 
 		bool played = cardToPlay.Type switch
 		{

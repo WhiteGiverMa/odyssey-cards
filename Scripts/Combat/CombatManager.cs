@@ -198,7 +198,7 @@ public partial class CombatManager : Node
 		try
 		{
 			if (target is Minion minionTarget)
-				TriggerBaitTacticsOnAttacked(minionTarget, attacker);
+				TriggerBaitTacticsOnAttacked(minionTarget);
 			bool hit = AttackCombatResolver.Resolve(attacker, target, baseDamage,
 				() => RequestDamageVfx(attacker, target, DamageKind.Attack, CombatDamageVfxKind.Attack));
 			if (hit)
@@ -408,6 +408,8 @@ public partial class CombatManager : Node
 		if (!CanMoveMinionToFrontline(minion, preferredFrontlineSlot))
 			return false;
 		bool moved = _playerActions.Move(minion, preferredFrontlineSlot);
+		if (moved)
+			TriggerFirstActionPassive(minion);
 		NotifyCombatStateChanged();
 		return moved;
 	}
@@ -522,9 +524,7 @@ public partial class CombatManager : Node
 	/// </summary>
 	private bool _heroPowerUsedThisTurn;
 
-	// 机会~被动追踪：每回合各自独立计数
-	private bool _chansuTriggeredThisPlayerTurn;
-	private bool _chansuTriggeredThisEnemyTurn;
+	// 机会~被动：对指挥点槽数 > 10 的敌人造成伤害时取回（不再限制每回合一次）
 
 	/// <summary>
 	/// 胜负判定器——检查战斗结束条件、发放金币、触发胜负事件。
@@ -752,6 +752,13 @@ public partial class CombatManager : Node
 		Board.OnMinionPlaced += (minion, _) =>
 		{
 			minion.OwnerHero ??= ResolveDeploymentOwner(minion.IsPlayerSide);
+			// 机会~：敌方随从受击同样按所属敌方英雄的指挥点槽数判定。
+			if (!minion.IsPlayerSide)
+			{
+				Minion chansuTarget = minion;
+				chansuTarget.OnDamageTaken += (info, source) =>
+					HandleEnemyDamageTakenForChansu(chansuTarget.OwnerHero ?? GetOwnerHero(false), info, source);
+			}
 			// 同构牌手随从由评分贪心控制器行动，不挂旧意图脑，避免 UI 画出静态意图箭头。
 			if (!minion.IsPlayerSide && !IsCommanderMinion(minion))
 				minion.IntentBrain ??= new DefaultAttackMinionBrain(minion);
@@ -769,8 +776,6 @@ public partial class CombatManager : Node
 
 		// 初始化藏品管理器（从 GameManager 获取，或创建空列表）
 		_relicManager = GameManager.Instance?.Relics ?? new RelicManager();
-		// 藏品修改热力值（如冰袋）
-		_relicManager.ModifyHeatSystem(_heatSystem);
 		_selectionSystem = new SelectionSystem(
 			PlayerHero,
 			_playerCore,
@@ -797,7 +802,7 @@ public partial class CombatManager : Node
 			_deathHandler,
 			NotifyCombatStateChanged,
 			() => IsDiscovering,
-			(m) => TriggerBaitTacticsOnAttacked(m, null),
+			(m) => TriggerBaitTacticsOnAttacked(m),
 			this);
 		_domainTriggerManager = new DomainTriggerManager(
 			_playerCore,
@@ -812,6 +817,10 @@ public partial class CombatManager : Node
 		{
 			_domainTriggerManager.OnMinionPlaced(minion);
 		};
+		// 动态行动花费光环：先于 UI 广播重算，槽位油费徽章与规则校验共用同一数值。
+		Board.OnMinionPlaced += (_, _) => RefreshDynamicBoardAuras();
+		Board.OnMinionRemoved += (_) => RefreshDynamicBoardAuras();
+		Board.OnMinionMoved += (_, _, _) => RefreshDynamicBoardAuras();
 		// 规则订阅之后再广播，UI/意图预览必须看到已应用部署领域与闪击配额的状态。
 		Board.OnMinionPlaced += (_, _) => NotifyCombatStateChanged();
 		Board.OnMinionRemoved += (_) => NotifyCombatStateChanged();
@@ -823,14 +832,8 @@ public partial class CombatManager : Node
 		// 机会~被动：订阅所有敌方单位的 OnDamageTaken
 		foreach (var unit in EnemyUnits)
 		{
-			unit.Body.OnDamageTaken += HandleEnemyDamageTakenForChansu;
-		}
-
-		// 注册热力值伤害修改器到所有敌方单位
-		var heatMod = new HeatDamageModifier(_heatSystem);
-		foreach (var unit in EnemyUnits)
-		{
-			unit.Body._damageModifiers.Add(heatMod);
+			Hero targetHero = unit.Body;
+			targetHero.OnDamageTaken += (info, source) => HandleEnemyDamageTakenForChansu(targetHero, info, source);
 		}
 
 		foreach (var unit in EnemyUnits)
@@ -945,7 +948,6 @@ public partial class CombatManager : Node
 
 		// 重置英雄技能使用标记
 		_heroPowerUsedThisTurn = false;
-		_chansuTriggeredThisPlayerTurn = false;
 
 		// 检查英雄是否拥有「无限潜能」领域，决定自然增长上限
 		int growthCap = PlayerHero.ActiveDomains.ContainsKey("unlimited_potential")
@@ -1010,8 +1012,6 @@ public partial class CombatManager : Node
 	/// <param name="actualCost">实际消耗的法力值</param>
 	private void NotifyCardPlayed(Card.Card card, int actualCost)
 	{
-		_heatSystem.OnCardPlayed();
-		_heatSystem.OnManaSpent(actualCost);
 		_relicManager.TriggerCardPlayed(this, card, actualCost);
 		_relicManager.TriggerManaSpent(this, actualCost);
 
@@ -1036,10 +1036,11 @@ public partial class CombatManager : Node
 	/// </summary>
 	/// <param name="card">要打出的卡牌（手牌中的运行时实例）</param>
 	/// <param name="slotIndex">所属方支援线槽位索引（0-3）</param>
+	/// <param name="battlecryTarget">需要目标的部署战吼目标；无目标战吼传 null</param>
 	/// <returns>成功返回 true；验证失败返回 false</returns>
-	public bool PlayMinion(Card.Card card, int slotIndex)
+	public bool PlayMinion(Card.Card card, int slotIndex, object? battlecryTarget = null)
 	{
-		return PlayMinion(CreateActorContext(PlayerHero, PlayerHero, card), card, slotIndex);
+		return PlayMinion(CreateActorContext(PlayerHero, PlayerHero, card), card, slotIndex, battlecryTarget);
 	}
 
 	/// <summary>
@@ -1048,10 +1049,11 @@ public partial class CombatManager : Node
 	/// </summary>
 	/// <param name="effect">战吼效果数据</param>
 	/// <param name="source">战吼来源随从</param>
-	private void ResolveBattlecryEffect(CardEffectData effect, Minion source)
+	/// <param name="battlecryTarget">部署时选定的目标；null 时回退为随从自身</param>
+	private void ResolveBattlecryEffect(CardEffectData effect, Minion source, object? battlecryTarget)
 	{
 		GD.Print($"[CombatManager]     战吼效果：{effect.GetDescription()}（来源：{source.CardName}）");
-		ExecuteEffect(effect, source, source);
+		ExecuteEffect(effect, battlecryTarget ?? source, source);
 	}
 
 	/// <summary>
@@ -1176,71 +1178,26 @@ public partial class CombatManager : Node
 
 	/// <summary>
 	/// 敌方单位受击时检查「机会~」被动触发条件。
-	/// 每回合首次对热力值 > 100% 的敌人造成伤害时，
-	/// 从牌库或弃牌堆中搜索「机会~」并加入手牌。
+	/// 0.2.3 起：对指挥点槽数 &gt; 10 的敌人造成伤害时，从牌库或弃牌堆中搜索「机会~」并加入手牌（不再限制每回合一次）。
 	/// </summary>
-	private void HandleEnemyDamageTakenForChansu(DamageEventInfo info, IDamageSource? source)
+	private void HandleEnemyDamageTakenForChansu(Hero targetHero, DamageEventInfo info, IDamageSource? source)
 	{
-		// 必须来自玩家方的伤害
-		if (source == null || !source.IsPlayerSide)
+		if (!EarlyWarfareRules.ShouldFetchChansu(source?.IsPlayerSide == true, info, targetHero.MaxMana))
 			return;
 
-		// 热力值必须 > 100%
-		if (_heatSystem.CurrentHeat <= 1.0f)
-			return;
-
-		// 本回合已触发过
-		bool alreadyTriggered = State.IsPlayerTurn
-			? _chansuTriggeredThisPlayerTurn
-			: _chansuTriggeredThisEnemyTurn;
-		if (alreadyTriggered)
-			return;
-
-		// 搜索并取回
 		if (TryFetchChansuToHand())
-		{
-			if (State.IsPlayerTurn)
-				_chansuTriggeredThisPlayerTurn = true;
-			else
-				_chansuTriggeredThisEnemyTurn = true;
-		}
+			GD.Print($"[CombatManager] 机会~：敌方指挥点槽 {targetHero.MaxMana} > 10，触发取回");
 	}
 
 	/// <summary>
-	/// 从牌库顶或弃牌堆中搜索「机会~」并加入手牌。
-	/// 优先从弃牌堆查找（更可能在那里）。
+	/// 从牌库或弃牌堆中搜索「机会~」并加入手牌（优先弃牌堆）。
 	/// </summary>
 	private bool TryFetchChansuToHand()
 	{
-		const string chaseId = "spell_chansu";
-
-		// 先检查弃牌堆
-		foreach (var card in _playerCore.DiscardPile)
-		{
-			if (card.Data.Id == chaseId)
-			{
-				_playerCore.DiscardPile.Remove(card);
-				_playerCore.AddToHand(card);
-				GD.Print($"[CombatManager] 机会~：从弃牌堆加入手牌");
-				NotifyCombatStateChanged();
-				return true;
-			}
-		}
-
-		// 再检查牌库
-		foreach (var card in _playerCore.DrawPile)
-		{
-			if (card.Data.Id == chaseId)
-			{
-				_playerCore.DrawPile.Remove(card);
-				_playerCore.AddToHand(card);
-				GD.Print($"[CombatManager] 机会~：从牌库加入手牌");
-				NotifyCombatStateChanged();
-				return true;
-			}
-		}
-
-		return false;
+		bool fetched = EarlyWarfareRules.TryFetchCardToHand(_playerCore, "spell_chansu");
+		if (fetched)
+			NotifyCombatStateChanged();
+		return fetched;
 	}
 
 	// ===== 随从攻击 =====
@@ -1330,29 +1287,16 @@ public partial class CombatManager : Node
 
 	/// <summary>
 	/// 处理随从成为攻击目标时的触发效果。
-	/// 「诱饵战术」始终降低攻击方敌人的防御力。
+	/// 「诱饵战术」使施法方阵营的敌方英雄随机弃 1 张手牌。
 	/// </summary>
 	/// <param name="target">被攻击的随从</param>
-	/// <param name="attackerHero">攻击方英雄（AI 大脑/意图攻击时传入），为 null 时回退到首个存活敌人</param>
-	internal void TriggerBaitTacticsOnAttacked(Minion target, Hero? attackerHero = null)
+	internal void TriggerBaitTacticsOnAttacked(Minion target)
 	{
 		if (!target.HasBaitTacticsOnAttacked)
 			return;
-
-		// 优先降低具体攻击方英雄的防御力；否则回退到首个存活敌人（如随从互殴场景）
-		if (attackerHero != null && attackerHero.IsPlayerSide != target.IsPlayerSide)
-		{
-			attackerHero.ModifyDefense(-1);
-			GD.Print($"[CombatManager] [Trigger] 诱饵战术触发：{target.CardName} 受到敌方英雄攻击，该英雄防御力-1（当前 {attackerHero.Defense}）");
-		}
-		else
-		{
-			var enemyBody = GetOpponentHeroes(target.IsPlayerSide).FirstOrDefault();
-			if (enemyBody == null)
-				return;
-			enemyBody.ModifyDefense(-1);
-			GD.Print($"[CombatManager] [Trigger] 诱饵战术触发：{target.CardName} 受到攻击，敌方英雄防御力-1（当前 {enemyBody.Defense}）");
-		}
+		var opponents = GetOpponentHeroes(target.BaitTacticsCasterIsPlayerSide);
+		if (EarlyWarfareRules.TryTriggerBaitTactics(target, opponents))
+			GD.Print($"[CombatManager] [Trigger] 诱饵战术触发：{target.CardName} 受到攻击，施法方敌方随机弃 1 张牌");
 	}
 
 	/// <summary>
@@ -1399,19 +1343,16 @@ public partial class CombatManager : Node
 			{
 				CommitLogAction();
 			}
-		}, () => TriggerFirstAttackPassive(attacker, PlayerHero));
+		}, () => TriggerFirstActionPassive(attacker));
 		CheckDeaths();
 		NotifyCombatStateChanged();
 		return success;
 	}
 
-	private static void TriggerFirstAttackPassive(Minion attacker, Hero owner)
+	private void TriggerFirstActionPassive(Minion actor)
 	{
-		if (!attacker.HasSmokeGrantOnFirstAttack || attacker._firstAttackDone)
-			return;
-		attacker._firstAttackDone = true;
-		owner.AddStatusEffect(new StatusEffect(StatusEffect.SmokescreenId, 1,
-			owner.IsPlayerSide ? TickTiming.PlayerTurnEnd : TickTiming.EnemyTurnEnd, StatusEffectPolarity.NonNegative));
+		// 首次行动（移动或攻击）均可触发；持续到接下来的 n 个敌方回合结束。
+		EarlyWarfareRules.TryGrantFirstActionSmoke(actor, actor.OwnerHero ?? GetOwnerHero(actor.IsPlayerSide));
 	}
 
 	// ===== 武器攻击 =====
@@ -1471,7 +1412,8 @@ public partial class CombatManager : Node
 	public bool CheckVictoryOrDefeat() => _victoryResolver.CheckVictoryOrDefeat();
 
 	/// <summary>
-	/// 战斗结束清理——移除所有状态牌，重置热力值等。
+	/// 战斗结束清理——移除所有状态牌。
+	/// 热力值已降为死代码，不再需要重置。
 	/// </summary>
 	private void CleanupCombat()
 	{
@@ -1481,7 +1423,7 @@ public partial class CombatManager : Node
 		VictoryDefeatResolver.RemoveStatusCardsFromList(_playerCore.DrawPile);
 		VictoryDefeatResolver.RemoveStatusCardsFromList(_playerCore.DiscardPile);
 
-		GD.Print("[CombatManager] 战斗结束——状态牌已清理，热力值已重置");
+		GD.Print("[CombatManager] 战斗结束——状态牌已清理");
 	}
 
 	// ===== 回合管理 =====
@@ -1736,7 +1678,6 @@ public partial class CombatManager : Node
 			Localization.Localization.T("ui.combat.enemy_turn", "敌人回合"));
 		GD.Print($"[CombatManager] ---------- 敌方回合开始（{EnemyUnits.Count} 个敌人）----------");
 		_domainTriggerManager.OnEnemyTurnStart();
-		_chansuTriggeredThisEnemyTurn = false;
 		_enemyMinionsCanAttack.Clear();
 		foreach (var minion in Board.GetEnemyMinions())
 			_enemyMinionsCanAttack.Add(minion);
@@ -1794,7 +1735,6 @@ public partial class CombatManager : Node
 		foreach (var minion in Board.GetEnemyMinions())
 			minion.TickStatusEffects(TickTiming.EnemyTurnEnd);
 		TriggerPlayerTurnEndMinionEffects(isPlayerSide: false);
-		_heatSystem.OnEnemyTurnEnd();
 		_relicManager.TriggerEnemyTurnEnd(this);
 		_domainTriggerManager.OnEnemyTurnEnd();
 		NotifyCombatStateChanged();
@@ -1866,8 +1806,12 @@ public partial class CombatManager : Node
 		if (State.IsGameOver || attacker.IsDead || attacker.IsIncapacitated)
 			return false;
 		if (attacker.UnitClass is UnitClass.Vanguard or UnitClass.Assault
-			&& Board.MoveMinionToFrontline(attacker) && attacker.UnitClass != UnitClass.Assault)
-			return true;
+			&& Board.MoveMinionToFrontline(attacker))
+		{
+			TriggerFirstActionPassive(attacker);
+			if (attacker.UnitClass != UnitClass.Assault)
+				return true;
+		}
 
 		attacker.IntentBrain ??= new DefaultAttackMinionBrain(attacker);
 		if (attacker.IntentBrain != null)
@@ -2002,7 +1946,7 @@ public partial class CombatManager : Node
 	/// 战斗后清理死亡随从并触发死亡检查。
 	/// </summary>
 	/// <param name="placedMinion">刚被部署的随从</param>
-	/// <param name="slotIndex">部署槽位</param>
+	/// <param name="position">部署位置</param>
 	private void OnMinionPlacedForCentipede(Minion placedMinion, BoardPosition position)
 	{
 		// 仅拦截费用 ≤2 的随从；这是卡牌专属阈值，不跟随全局低费分档。
@@ -2164,6 +2108,23 @@ public partial class CombatManager : Node
 		return EnemyUnits.FirstOrDefault(unit => !unit.Body.IsDead && unit.Controller is IDeckDrivenCommander)?.Body;
 	}
 
+	/// <summary>
+	/// 重算棋盘动态光环（目前为「M10“布克”」：有友方先锋单位时行动花费 -1）。
+	/// 部署 / 离场 / 移动后立即刷新，手牌与场上实例同步，保证槽位油费徽章、
+	/// 行动校验、一步突击双段费用与 AI 评分读到同一数值。
+	/// </summary>
+	public void RefreshDynamicBoardAuras()
+	{
+		var minions = Board.GetAllMinions().ToList();
+		bool playerVanguard = EarlyWarfareRules.HasLivingVanguard(minions, isPlayerSide: true);
+		bool enemyVanguard = EarlyWarfareRules.HasLivingVanguard(minions, isPlayerSide: false);
+		foreach (var minion in minions.Where(minion => minion.Id == "minion_m10_booker"))
+			minion.ActionCostModifier = (minion.IsPlayerSide ? playerVanguard : enemyVanguard) ? -1 : 0;
+		EarlyWarfareRules.ApplyBookerActionCost(PlayerHero.Hand, playerVanguard);
+		foreach (var unit in EnemyUnits)
+			EarlyWarfareRules.ApplyBookerActionCost(unit.Body.Hand, enemyVanguard);
+	}
+
 	internal List<Hero> GetOpponentHeroes(bool fromPlayerSide)
 	{
 		if (fromPlayerSide)
@@ -2215,11 +2176,13 @@ public partial class CombatManager : Node
 	private bool IsActorTurn(EffectActorContext actor)
 		=> actor.IsPlayerSide ? State.IsPlayerTurn : State.IsEnemyTurn;
 
-	internal bool PlayMinion(EffectActorContext actor, Card.Card card, int slotIndex)
+	internal bool PlayMinion(EffectActorContext actor, Card.Card card, int slotIndex, object? battlecryTarget = null)
 	{
 		if (IsDiscovering || !IsActorTurn(actor) || card == null || card.Type != CardType.Minion)
 			return false;
 		if (!actor.OwnerCore.Hand.Contains(card) || card.HasUnplayable)
+			return false;
+		if (battlecryTarget != null && !ValidateBattlecryTarget(actor, card, battlecryTarget))
 			return false;
 		int cost = GetPlayCost(actor, card);
 		if (!actor.CasterHero.CanSpendMana(cost))
@@ -2238,8 +2201,13 @@ public partial class CombatManager : Node
 		{
 			Board.PlaceMinion(minion, slotIndex);
 			if (minion.HasBattlecry)
-				foreach (var effect in minion.BattlecryEffects)
-					ResolveBattlecryEffect(effect, minion);
+			{
+				// 目标型部署且本次没有目标：战吼整体跳过（绝不把随从自身当成目标）。
+				bool skipTargetedBattlecry = battlecryTarget == null && card.Data.RequiresTarget;
+				if (!skipTargetedBattlecry)
+					foreach (var effect in minion.BattlecryEffects)
+						ResolveBattlecryEffect(effect, minion, battlecryTarget);
+			}
 			if (minion.HasBattlecry && minion.BattlecryEffects.Any(effect => effect.CustomEffectName == "CopyToAdjacentSlot"))
 				CopyMinionToAdjacentSlot(minion);
 			if (minion.HasCharge)
@@ -2251,6 +2219,44 @@ public partial class CombatManager : Node
 			CommitLogAction();
 		}
 		NotifyCombatStateChanged();
+		return true;
+	}
+
+	/// <summary>面向 UI：该随从的部署战吼当前是否有任何合法目标。</summary>
+	public bool HasAnyValidBattlecryTarget(Card.Card card)
+		=> HasAnyValidBattlecryTarget(CreateActorContext(PlayerHero, PlayerHero, card), card);
+
+	/// <summary>面向 UI：指定对象是否为该随从的合法部署战吼目标。</summary>
+	public bool ValidateBattlecryTarget(Card.Card card, object target)
+		=> ValidateBattlecryTarget(CreateActorContext(PlayerHero, PlayerHero, card), card, target);
+
+	/// <summary>
+	/// 部署战吼是否有任何合法目标。无合法目标时随从仍可裸拍上场，战吼自动跳过。
+	/// </summary>
+	internal bool HasAnyValidBattlecryTarget(EffectActorContext actor, Card.Card card)
+	{
+		if (card?.Data is not { RequiresTarget: true } data || data.BattlecryEffects is not { Count: > 0 })
+			return false;
+		var candidates = GetOpponentTargets(actor.IsPlayerSide)
+			.Concat(GetFriendlyTargets(actor.IsPlayerSide));
+		return candidates.Any(target => ValidateBattlecryTarget(actor, card, target));
+	}
+
+	/// <summary>
+	/// 部署战吼目标校验：常规阵营/类型过滤 + 「移动至前线」类战吼的棋盘前置条件。
+	/// </summary>
+	internal bool ValidateBattlecryTarget(EffectActorContext actor, Card.Card card, object? target)
+	{
+		if (card?.Data is not { RequiresTarget: true } data || target == null)
+			return false;
+		if (target is Minion { IsDead: true })
+			return false;
+		if (target is not IDamageTarget damageTarget)
+			return false;
+		if (!TargetTagsHelper.IsValidTarget(actor.GetRelativeTags(damageTarget), data.TargetFilter, data.ExcludeFilter))
+			return false;
+		if (data.BattlecryEffects.Any(effect => effect.CustomEffectName == "MoveTargetToFrontline"))
+			return EarlyWarfareRules.IsValidMoveToFrontlineTarget(Board, target);
 		return true;
 	}
 
@@ -2416,6 +2422,7 @@ public partial class CombatManager : Node
 		var actions = new MinionActionService(Board, _attackTracker, owner);
 		if (!actions.Move(minion, slot))
 			return false;
+		TriggerFirstActionPassive(minion);
 		NotifyCombatStateChanged();
 		return true;
 	}
@@ -2463,7 +2470,7 @@ public partial class CombatManager : Node
 			{
 				CommitLogAction();
 			}
-		}, () => TriggerFirstAttackPassive(attacker, owner));
+		}, () => TriggerFirstActionPassive(attacker));
 		CheckDeaths();
 		NotifyCombatStateChanged();
 		return success;

@@ -383,6 +383,19 @@ public class Hero : IDamageTarget, IDamageSource
 			}
 		}
 
+		// 爆炸反应装甲：抵消下一次受到攻击（且原本会造成生命伤害）的伤害。
+		// 必须在护甲吸收之后判定——纯护甲挡住的攻击不消耗层数。
+		if (kind == DamageKind.Attack && resolvedDamage > 0
+			&& _activeDomains.TryGetValue("explosive_reactive_armor", out var reactiveArmor))
+		{
+			if (--reactiveArmor.StackCount <= 0)
+				RemoveDomain("explosive_reactive_armor");
+			GD.Print($"[Hero:{who}] 爆炸反应装甲抵消了 {resolvedDamage} 点生命伤害（剩余 {Math.Max(0, reactiveArmor.StackCount)} 层）");
+			ResolveAttackSideEffects(source, kind, 0);
+			OnDamageTaken?.Invoke(new DamageEventInfo(0, armorAbsorbed, true), source);
+			return;
+		}
+
 		ApplyDamage(resolvedDamage, source);
 
 		// 不破（1）：生命伤害 > 0 时，标记本回合已受伤

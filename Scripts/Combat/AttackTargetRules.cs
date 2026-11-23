@@ -54,6 +54,15 @@ public static class AttackTargetRules
 		if (target is Minion { HasTaunt: true })
 			return true;
 
+		// 暂时调整：支援阵线的存活守护单位同样保护所属方英雄（失能守护不提供保护）。
+		// 该守护本身仍在 reachable 中，可被优先拆除，因此不会形成无解防线。
+		if (target is Hero heroTarget)
+		{
+			var heroRow = Board.SupportRow(heroTarget.IsPlayerSide);
+			if (reachable.Any(g => g.HasGuard && !g.IsIncapacitated && g.BoardRow == heroRow))
+				return false;
+		}
+
 		if (target is Minion { HasGuard: false } guarded && reachable.Any(g => Protects(g, guarded)))
 			return false;
 		if (attacker is not Minion { UnitClass: UnitClass.Skirmisher })
