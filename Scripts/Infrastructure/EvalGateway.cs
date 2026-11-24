@@ -1347,7 +1347,15 @@ public partial class EvalGateway : Node
 				CardUI view = views[i];
 				if (!GodotObject.IsInstanceValid(view) || !view.IsVisibleInTree())
 					continue;
+				// 中心轴旋转后，GetGlobalRect 的原点/宽高不再代表真实可点位置。
+				Transform2D transform = view.GetGlobalTransformWithCanvas();
+				Rect2 bounds = new(transform.Origin, Vector2.Zero);
+				bounds = bounds.Expand(transform * new Vector2(view.Size.X, 0f));
+				bounds = bounds.Expand(transform * new Vector2(0f, view.Size.Y));
+				bounds = bounds.Expand(transform * view.Size).Intersection(GetViewport().GetVisibleRect());
 				Godot.Collections.Dictionary target = MakeUiTarget(view, $"hand.{i}");
+				target["globalRect"] = RectToDictionary(bounds);
+				target["center"] = bounds.GetCenter();
 				target["index"] = i;
 				target["cardId"] = view.Card?.Id ?? string.Empty;
 				target["cardName"] = view.Card?.GetLocalizedName() ?? string.Empty;

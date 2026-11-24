@@ -258,8 +258,7 @@ public partial class CombatUI
 
 	/// <summary>
 	/// 创建手牌区域——HandUI 全宽居中。
-	/// 高度 = HandUI.COLLAPSED_VISIBLE * UIScaler.CurrentScale，
-	/// 确保各分辨率下卡牌折叠态露出比例一致（约 30% 卡牌高度）。
+	/// 手牌区高度随 UIScaler 缩放，静止卡牌露出量由 HandLayout 计算。
 	/// </summary>
 	private Control CreateHandArea()
 	{
@@ -868,7 +867,7 @@ public partial class CombatUI
 			return;
 
 		var viewport = GetViewport().GetVisibleRect().Size;
-		float threshold = viewport.Y * PlayZoneBaseRatio;
+		float threshold = GetPlayZoneThreshold();
 		float panelH = 80f * (UIScaler.Instance?.GetScaleFactor() ?? 1f);
 		float margin = 20f;
 

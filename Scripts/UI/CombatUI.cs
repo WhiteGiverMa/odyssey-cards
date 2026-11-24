@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using OdysseyCards.Card;
@@ -44,7 +43,7 @@ public partial class CombatUI : Control
 	private EnemyHandBar _enemyHandBar = null!;
 
 	/// <summary>
-	/// 手牌区域容器——高度由 COLLAPSED_VISIBLE * UIScaler.Scale 决定，
+	/// 手牌区域容器——高度随 UIScaler 缩放，
 	/// 确保各分辨率下卡牌折叠态露出比例一致。
 	/// </summary>
 	private Control _handArea = null!;
@@ -211,7 +210,7 @@ public partial class CombatUI : Control
 	private readonly Dictionary<Minion, (Action<DamageEventInfo, IDamageSource?> Damage, Action<int> Heal, Action<int> Armor)> _minionDamageHandlers = new();
 
 	/// <summary>
-	/// 拖拽层——卡牌拖拽时重parent到此，使其脱离 HandUI 的 HBoxContainer 布局约束。
+	/// 拖拽层——暂时借出一张真实手牌，在手牌布局之外展示。
 	/// </summary>
 	private Control _dragLayer = null!;
 
@@ -238,11 +237,6 @@ public partial class CombatUI : Control
 	/// </summary>
 	private CombatManager _combat = null!;
 
-	/// <summary>
-	/// 玩家角色引用。
-	/// </summary>
-	private Player _player = null!;
-
 	/// <summary>当前绑定到顶部手牌栏的敌方英雄；null 表示普通意图战。</summary>
 	private Hero? _enemyHandSource;
 	private readonly List<Card.Card> _enemyHandCache = new();
@@ -268,12 +262,6 @@ public partial class CombatUI : Control
 	private DiscoverUI? _discoverUI;
 
 	// ===== 手牌选择模式（STS2 风格） =====
-
-	/// <summary>
-	/// 缓存上一次手牌快照，用于在 <see cref="OnHandChanged"/> 时机检测新抽到的卡牌
-	/// 并播放从抽牌堆飞向手牌的贝塞尔曲线动画（参考 STS2 的 NCardFlyVfx 模式）。
-	/// </summary>
-	private List<OdysseyCards.Card.Card> _previousHandCards = new();
 
 	/// <summary>
 	/// 是否正在手牌选择模式。
@@ -418,7 +406,7 @@ public partial class CombatUI : Control
 	private float _playZoneDragStartY;
 
 	/// <summary>是否曾离开过取消区域（必须上滑过才能触发取消，防止开局误触）。</summary>
-	private bool _hasLeftCancelZone;
+	private bool _hasEnteredPlayZone;
 
 	// ===== Godot 生命周期 =====
 
@@ -452,21 +440,27 @@ public partial class CombatUI : Control
 	/// </summary>
 	public override void _Input(InputEvent @event)
 	{
-		if (!MobileInputRouter.IsMobile && @event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Right && mb.Pressed)
+		if (MobileInputRouter.IsMobile)
+		{
+			if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } touch)
+			{
+				_handUI?.CollapseTouchPreviewOutside(touch.Position);
+			}
+			return;
+		}
+		if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: true })
 		{
 			if (IsPointerTargetSelectionMode())
 			{
 				GD.Print($"[CombatUI] 右键取消目标选择，mode={_selectionMode}");
-				_attackDragFsm.Cancel(); // 触发 OnCancel → OnAttackDragCancel → ResetSelection + RefreshHand
+				ResetSelection();
 				GetViewport().SetInputAsHandled();
 			}
 			else if (_selectionMode == SelectionMode.DevDamageTargeting)
 			{
 				ExitDevDamageMode();
 			}
-			else if (_selectionMode == SelectionMode.PlacingMinion
-				|| _selectionMode == SelectionMode.TargetingSpell
-				|| _selectionMode == SelectionMode.PlayingNoTargetCard)
+			else if (IsSelectingHandCardForPlay())
 			{
 				GD.Print("[CombatUI] 右键取消卡牌打出选择");
 				OnCardDragCancelled();
@@ -522,7 +516,7 @@ public partial class CombatUI : Control
 				&& IsPointerTargetSelectionMode())
 			{
 				GD.Print($"[CombatUI] _UnhandledInput 右键取消目标选择，mode={_selectionMode}");
-				_attackDragFsm.Cancel(); // 触发 OnCancel → OnAttackDragCancel → ResetSelection + RefreshHand
+				ResetSelection();
 				GetViewport().SetInputAsHandled();
 				return;
 			}
@@ -647,9 +641,9 @@ public partial class CombatUI : Control
 		if ((_selectionMode == SelectionMode.PlacingMinion
 			|| _selectionMode == SelectionMode.TargetingSpell
 			|| _selectionMode == SelectionMode.TargetingMinionBattlecry)
-			&& _dragCardUI != null && _arrowRenderer != null)
+			&& HandUI.IsLive(_dragCardUI) && _arrowRenderer != null)
 		{
-			Vector2 sourcePos = _dragCardUI.GlobalPosition + _dragCardUI.Size * _dragCardUI.Scale * 0.5f;
+			Vector2 sourcePos = _dragCardUI!.ScreenCenter;
 			_arrowRenderer.AddArrow(CardTargetArrowKey, sourcePos, GetInputPosition(), ArrowRenderer.AttackSelectColor);
 		}
 		else if (_arrowRenderer != null && _arrowRenderer.HasArrow(CardTargetArrowKey))
@@ -706,7 +700,6 @@ public partial class CombatUI : Control
 	private void OnAttackDragCancel()
 	{
 		ResetSelection();
-		_handUI.RefreshHand();
 	}
 
 	// ===== 初始化 =====
@@ -719,7 +712,7 @@ public partial class CombatUI : Control
 	/// <param name="combat">战斗管理器</param>
 	public void Initialize(Player player, CombatManager combat)
 	{
-		_player = player ?? throw new ArgumentNullException(nameof(player));
+		ArgumentNullException.ThrowIfNull(player);
 		_combat = combat ?? throw new ArgumentNullException(nameof(combat));
 
 		var defaultEnemy = combat.GetDefaultEnemyTargetUnit()?.Body;
@@ -853,7 +846,6 @@ public partial class CombatUI : Control
 		_attackDragFsm?.ForceReset();
 		_boardUI?.DisableKeyboardTargeting();
 		_boardUI?.ClearHighlights();
-		_handUI?.DeselectCard();
 
 		foreach (var card in _enemyCards)
 		{
@@ -960,7 +952,7 @@ public partial class CombatUI : Control
 	/// </summary>
 	private void SetupHandUI()
 	{
-		_handUI.Initialize(_player, _combat);
+		_handUI.Initialize(_combat);
 	}
 
 	// ===== 事件订阅 =====
@@ -1041,9 +1033,9 @@ public partial class CombatUI : Control
 		_combat.PlayerHero.DeckState.OnDiscardPileChanged += UpdateDeckCounts;
 		_unsubscribeActions.Add(() => _combat.PlayerHero.DeckState.OnDiscardPileChanged -= UpdateDeckCounts);
 
-		// 快照当前手牌——用于后续 OnHandChanged 时 diff 检测新抽到的牌
-		_previousHandCards = new List<OdysseyCards.Card.Card>(_combat.PlayerHero.Hand);
-
+		// 抽牌事件先于手牌变更，只有真实抽到的牌带牌库出发点。
+		_combat.PlayerHero.DeckState.OnCardsDrawn += OnCardsDrawn;
+		_unsubscribeActions.Add(() => _combat.PlayerHero.DeckState.OnCardsDrawn -= OnCardsDrawn);
 		_combat.PlayerHero.DeckState.OnHandChanged += OnHandChanged;
 		_unsubscribeActions.Add(() => _combat.PlayerHero.DeckState.OnHandChanged -= OnHandChanged);
 
@@ -1150,8 +1142,9 @@ public partial class CombatUI : Control
 		hm.PushPressedBinding(OdysseyInput.ViewDiscard, ShowDiscardPileView);
 		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.ViewDiscard, ShowDiscardPileView));
 
-		hm.PushPressedBinding(OdysseyInput.Pause, TogglePause);
-		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.Pause, TogglePause));
+		// 暂停与取消绑定可独立配置；共享物理键时由取消路由统一决定优先级。
+		hm.PushPressedBinding(OdysseyInput.Pause, OnPauseHotkey);
+		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.Pause, OnPauseHotkey));
 
 		hm.PushPressedBinding(OdysseyInput.InfoScreen, ToggleInfoScreen);
 		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.InfoScreen, ToggleInfoScreen));
@@ -1159,8 +1152,8 @@ public partial class CombatUI : Control
 		hm.PushPressedBinding(OdysseyInput.CombatLog, ToggleCombatLog);
 		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.CombatLog, ToggleCombatLog));
 
-		hm.PushPressedBinding(OdysseyInput.Cancel, HandleCancel);
-		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.Cancel, HandleCancel));
+		hm.PushPressedBinding(OdysseyInput.Cancel, HandleCancelHotkey);
+		_unsubscribeActions.Add(() => hm.RemovePressedBinding(OdysseyInput.Cancel, HandleCancelHotkey));
 	}
 
 	private void ToggleCombatLog()
@@ -1169,58 +1162,29 @@ public partial class CombatUI : Control
 			_combatLogDrawer.Toggle();
 	}
 
-	private void OnHandChanged()
+	private void OnCardsDrawn(IReadOnlyList<Card.Card> cards)
 	{
-		var currentHand = _combat.PlayerHero.Hand;
-
-		// 检测新抽到的卡牌（当前手牌减去上次快照）
-		var newCards = currentHand.Except(_previousHandCards).ToList();
-
-		if (newCards.Count > 0)
+		if (!SceneLifecycleGuard.ShouldSkip(this) && IsInstanceValid(_drawPileBtn) && _drawPileBtn.Size.X > 0f)
 		{
-			PlayDrawCardAnimations(newCards, currentHand.Count);
+			_handUI.QueueDrawOrigins(cards, GetDrawPileCenter());
 		}
-
-		// 更新快照以供下次 diff
-		_previousHandCards = new List<OdysseyCards.Card.Card>(currentHand);
-
-		_handUI.RefreshHand();
 	}
 
-	/// <summary>
-	/// 播放抽牌飞行特效：为每张刚抽到的卡牌创建从抽牌堆到目标手牌位置的贝塞尔曲线飞行动画。
-	/// 动画在独立的 CardFlyLayer (CanvasLayer=20) 上运行，与手牌 UI 刷新（RefreshHand）并行。
-	/// 参考 STS2 的 NCardFlyVfx 装饰性抽牌动画模式——动画只负责视觉过渡，
-	/// 不影响实际手牌数据模型。
-	/// </summary>
-	/// <param name="newCards">刚抽到的卡牌列表（顺序：先抽到的在前，即手牌中靠左）</param>
-	/// <param name="totalHandSize">抽牌后的手牌总数，用于计算每张牌在风扇布局中的目标位置</param>
-	private void PlayDrawCardAnimations(List<OdysseyCards.Card.Card> newCards, int totalHandSize)
+	private void OnHandChanged()
 	{
-		if (_cardFlyLayer == null || _drawPileBtn == null || newCards.Count == 0)
-			return;
-
-		// 抽牌堆按钮的屏幕中心——所有飞行起始点
-		Vector2 drawPileCenter = _drawPileBtn.GlobalPosition + _drawPileBtn.Size * 0.5f;
-
-		for (int i = 0; i < newCards.Count; i++)
-		{
-			// 新卡在手中从末尾开始排列（最后一张的索引 = totalHandSize - 1）
-			int handIndex = totalHandSize - newCards.Count + i;
-			Vector2 targetPos = _handUI.GetHandCardGlobalCenter(handIndex, totalHandSize);
-
-			CardFlyVfx.PlayDrawToHand(newCards[i], drawPileCenter, targetPos, _cardFlyLayer);
-		}
+		_handUI.OnHandMembershipChanged();
 	}
 
 	private void OnManaChanged(int currentMana, int maxMana)
 	{
+		_handUI.RefreshCardCosts();
 		UpdateManaDisplay();
 		UpdateSmartAttackButton();
 	}
 
 	private void OnCombatStateChangedRefresh()
 	{
+		_handUI.RefreshHand();
 		_boardUI.RefreshBoard();
 		// 状态变化同样影响英雄/随从面板：血量、护甲、防御、武器与效果栏都必须同步，
 		// 否则领域开启（如无限火力）后 PlayerIdentityCard 的效果栏不刷新。
@@ -1285,7 +1249,9 @@ public partial class CombatUI : Control
 			// 被反制拦截等“无亮牌回调”的成功路径同样必须释放拖拽卡；
 			// 正常路径已在 OnCardPlayPresented 里释放，重复调用为空操作。
 			if (played)
-				CleanupDragCard();
+			{
+				ReleaseDragCard(played: true);
+			}
 			return played;
 		}
 		finally
@@ -1299,19 +1265,11 @@ public partial class CombatUI : Control
 
 	private Vector2 ResolveSelectedCardVfxOrigin(Card.Card card)
 	{
-		if (_dragCardUI != null)
+		CardUI? view = _handUI.GetCardUIFor(card);
+		if (HandUI.IsLive(view) && view!.IsVisibleInTree())
 		{
-			var rect = _dragCardUI.GetGlobalRect();
-			return rect.Position + rect.Size * 0.5f;
+			return view.ScreenCenter;
 		}
-
-		var hand = _combat.PlayerHero.Hand;
-		for (int i = 0; i < hand.Count; i++)
-		{
-			if (ReferenceEquals(hand[i], card))
-				return _handUI.GetHandCardGlobalCenter(i, hand.Count);
-		}
-
 		return GetPlayerHeroScreenCenter();
 	}
 
@@ -1449,9 +1407,11 @@ public partial class CombatUI : Control
 		_activeShowcase = CardShowcaseVfx.Play(presented.Card, playerSide, origin, targetCenter, endCenter, badge,
 			presented.IsCountermeasureTrigger || presented.IsCanceled, ResolveDeploySpeed(), _cardFlyLayer);
 
-		// 玩家指令/领域已由亮牌接管收尾：干净隐藏并释放拖拽卡，手牌随后重建。
-		if (playerSide && !presented.IsCountermeasureTrigger)
-			CleanupDragCard();
+		// 亮牌接管后释放交互层。牌仍在模型里（例如还在等待选择）时隐藏保留同一张视图。
+		if (playerSide && !presented.IsCountermeasureTrigger && _dragCardUI?.Card?.Id == presented.Card.Id)
+		{
+			ReleaseDragCard(played: true);
+		}
 	}
 
 	/// <summary>亮牌起点：玩家取本次出牌记录/拖拽卡中心；敌方取顶栏手牌或身份卡中心。</summary>
@@ -1465,10 +1425,9 @@ public partial class CombatUI : Control
 			_lastPlayedCardOrigin = Vector2.Zero;
 			if (recorded != Vector2.Zero)
 				return recorded;
-			if (_dragCardUI != null && GodotObject.IsInstanceValid(_dragCardUI))
+			if (HandUI.IsLive(_dragCardUI) && _dragCardUI!.Card?.Id == presented.Card.Id)
 			{
-				Rect2 rect = _dragCardUI.GetGlobalRect();
-				return rect.Position + rect.Size * 0.5f;
+				return _dragCardUI.ScreenCenter;
 			}
 			return GetPlayerHeroScreenCenter();
 		}
@@ -1554,11 +1513,10 @@ public partial class CombatUI : Control
 
 		var cardUI = new CardUI { DisplayOnly = true };
 		cardUI.SetCard(minion.ToRuntimeCard());
-		cardUI.GlobalPosition = cardPos;
 
 		bool toDrawPile = minion.HasRecycle;
 		Vector2 targetPos = toDrawPile ? GetDrawPileCenter() : GetDiscardPileCenter();
-		CardFlyVfx.PlayToDiscard(cardUI, targetPos, _cardFlyLayer);
+		CardFlyVfx.PlayToDiscard(cardUI, targetPos, _cardFlyLayer, cardPos);
 	}
 
 	/// <summary>记录突击单位推进前所在支援槽；非突击移动立即清除旧记录。</summary>
@@ -1882,7 +1840,7 @@ public partial class CombatUI : Control
 			_ => 0.30f,
 		} / speed;
 		await ToSignal(GetTree().CreateTimer(duration), SceneTreeTimer.SignalName.Timeout);
-		// 等待期间场景可能被销毁/快速 SL；下一步开始前不再重复 RefreshAll，避免同帧重建手牌。
+		// 等待期间场景可能被销毁或快速 SL；下一步统一安排自己的刷新。
 		if (SceneLifecycleGuard.ShouldSkip(this))
 			return;
 	}
@@ -2154,28 +2112,41 @@ public partial class CombatUI : Control
 			return;
 		}
 
-		// 攻击/武器/主动技能目标选择模式——通过 FSM 取消
-		if (_selectionMode == SelectionMode.SelectingAttackTarget
-			|| _selectionMode == SelectionMode.SelectingWeaponTarget
-			|| _selectionMode == SelectionMode.SelectingActiveSkillTarget)
+		_handUI.ClearKeyboardFocus();
+		if (IsPointerTargetSelectionMode() || IsSelectingHandCardForPlay())
 		{
-			GD.Print("[CombatUI] 热键取消攻击/武器/技能选择");
-			_attackDragFsm.Cancel(); // 触发 OnCancel → OnAttackDragCancel → ResetSelection + RefreshHand
-			return;
-		}
-
-		// 卡牌相关模式（法术目标、随从放置、无目标卡牌）——直接重置 + FSM 安全清理
-		if (_selectionMode == SelectionMode.TargetingSpell
-			|| _selectionMode == SelectionMode.PlacingMinion
-			|| _selectionMode == SelectionMode.PlayingNoTargetCard)
-		{
-			GD.Print("[CombatUI] 热键取消卡牌选择");
-			_attackDragFsm.ForceReset(); // 安全清理：确保攻击拖拽状态也重置
+			GD.Print("[CombatUI] 热键取消目标/出牌选择");
 			ResetSelection();
-			_handUI.RefreshHand();
-			return;
 		}
 	}
+
+	private void HandleCancelHotkey()
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this))
+		{
+			return;
+		}
+		if (SharesPauseKey() && (_isPaused || !HasCancellableInteraction()))
+		{
+			TogglePause();
+			return;
+		}
+		HandleCancel();
+	}
+
+	private void OnPauseHotkey()
+	{
+		if (!SharesPauseKey())
+		{
+			TogglePause();
+		}
+	}
+
+	private static bool SharesPauseKey() => InputManager.Instance is InputManager input
+		&& input.GetKey(OdysseyInput.Pause) == input.GetKey(OdysseyInput.Cancel);
+
+	private bool HasCancellableInteraction() => _isHandSelecting || _selectionMode != SelectionMode.Normal
+		|| (_combatLogDrawer != null && IsInstanceValid(_combatLogDrawer) && _combatLogDrawer.IsOpen);
 
 	/// <summary>
 	/// 「保存并退出」——保存玩家生命值到 GameManager，返回主菜单。

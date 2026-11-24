@@ -48,12 +48,18 @@ public partial class CardFlyVfx : Control
 	/// <param name="card">要动画的卡牌 UI（会被 reparent 到此 VFX 节点下）</param>
 	/// <param name="targetPos">弃牌堆按钮的屏幕中心位置（GlobalPosition）</param>
 	/// <param name="parent">VFX 容器节点</param>
-	public static void PlayToDiscard(CardUI card, Vector2 targetPos, Node parent)
+	/// <param name="startCenter">未挂入树的卡牌需提供屏幕起点；在树内时默认沿用真实卡面中心。</param>
+	public static void PlayToDiscard(CardUI card, Vector2 targetPos, Node parent, Vector2? startCenter = null)
 	{
+		if (!IsInstanceValid(card) || card.IsQueuedForDeletion() || !IsInstanceValid(parent)
+			|| !parent.IsInsideTree() || parent.IsQueuedForDeletion())
+		{
+			return;
+		}
 		var vfx = new CardFlyVfx();
 		// 必须先加入场景树再初始化（Initialize 中调用 GetViewportRect 需要 is_inside_tree）
 		parent.AddChild(vfx);
-		vfx.Initialize(card, targetPos);
+		vfx.Initialize(card, targetPos, startCenter);
 	}
 
 	/// <summary>
@@ -66,12 +72,8 @@ public partial class CardFlyVfx : Control
 	/// <param name="parent">VFX 容器节点</param>
 	public static void PlayDrawToHand(Card.Card card, Vector2 fromPos, Vector2 toPos, Node parent)
 	{
-		var tempCardUI = new CardUI();
+		var tempCardUI = new CardUI { DisplayOnly = true };
 		tempCardUI.SetCard(card);
-		tempCardUI.MouseFilter = MouseFilterEnum.Ignore;
-		// 放在 fromPos
-		Vector2 cardSize = new(CardUI.DESIGN_WIDTH, CardUI.DESIGN_HEIGHT);
-		tempCardUI.Position = fromPos - cardSize * 0.5f;
 		tempCardUI.Scale = new Vector2(0.6f, 0.6f);
 
 		var vfx = new CardFlyVfx();
@@ -81,7 +83,7 @@ public partial class CardFlyVfx : Control
 
 	// ===== 初始化 =====
 
-	private void Initialize(CardUI card, Vector2 targetPos)
+	private void Initialize(CardUI card, Vector2 targetPos, Vector2? startCenter)
 	{
 		_card = card;
 
@@ -94,13 +96,19 @@ public partial class CardFlyVfx : Control
 		MouseFilter = MouseFilterEnum.Ignore;
 		SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 
-		// 将卡牌 reparent 到此 VFX 节点（GlobalPosition 由 Godot 自动保持）
-		var originalParent = card.GetParent();
-		originalParent?.RemoveChild(card);
-		AddChild(card);
-
-		// 设置卡牌在 VFX 控件内的本地坐标（全屏锚定后 Position 即等于 GlobalPosition）
-		card.Position = card.GlobalPosition;
+		if (card.GetParent() == null)
+		{
+			AddChild(card);
+		}
+		else
+		{
+			card.ReparentKeepingScreenPose(this);
+		}
+		if (startCenter is Vector2 origin)
+		{
+			card.SetScreenCenter(origin);
+		}
+		card.MouseFilter = MouseFilterEnum.Ignore;
 
 		AnimateToDiscardPile(targetPos);
 	}
@@ -109,7 +117,7 @@ public partial class CardFlyVfx : Control
 
 	private void AnimateToDiscardPile(Vector2 targetPos)
 	{
-		Vector2 initialPos = _card.Position;
+		Vector2 initialPos = _card.ScreenCenter;
 		Vector2 initialScale = _card.Scale;
 		Color initialModulate = _card.Modulate;
 		Vector2 centerPos = GetViewportRect().Size / 2f;
@@ -134,7 +142,7 @@ public partial class CardFlyVfx : Control
 					return;
 				}
 
-				card.Position = initialPos.Lerp(centerPos, t);
+				card.SetScreenCenter(initialPos.Lerp(centerPos, t));
 			}),
 			0f, 1f, CenterHoldDuration)
 			 .SetEase(Tween.EaseType.Out)
@@ -152,7 +160,7 @@ public partial class CardFlyVfx : Control
 				}
 
 				Vector2 pos = QuadraticBezier(t, startPos, ctrlPos, targetPos);
-				card.Position = pos;
+				card.SetScreenCenter(pos);
 
 				// 旋转跟随切线方向
 				float nextT = Mathf.Min(t + 0.02f, 1f);
@@ -168,7 +176,7 @@ public partial class CardFlyVfx : Control
 				if (_frameCounter >= TrailSpawnEveryNFrames)
 				{
 					_frameCounter = 0;
-					SpawnTrailParticle(pos);
+					SpawnTrailParticle(GetGlobalTransformWithCanvas().AffineInverse() * pos);
 				}
 			}),
 			0f, 1f, FlyDuration
@@ -229,6 +237,7 @@ public partial class CardFlyVfx : Control
 		MouseFilter = MouseFilterEnum.Ignore;
 		SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 		AddChild(_card);
+		_card.SetScreenCenter(fromPos);
 
 		// 贝塞尔控制点：向屏幕上方拱起
 		Vector2 ctrlPos = new(
@@ -249,13 +258,13 @@ public partial class CardFlyVfx : Control
 			Callable.From<float>(t =>
 			{
 				Vector2 pos = QuadraticBezier(t, fromPos, ctrlPos, toPos);
-				_card.Position = pos;
+				_card.SetScreenCenter(pos);
 
 				_frameCounter++;
 				if (_frameCounter >= TrailSpawnEveryNFrames)
 				{
 					_frameCounter = 0;
-					SpawnTrailParticle(pos);
+					SpawnTrailParticle(GetGlobalTransformWithCanvas().AffineInverse() * pos);
 				}
 			}),
 			0f, 1f, 0.45f

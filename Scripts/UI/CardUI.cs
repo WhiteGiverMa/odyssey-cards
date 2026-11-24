@@ -18,8 +18,8 @@ public partial class CardUI : Control
 	// ============================================================
 	// 尺寸常量（设计基准 140×196 = 5:7，运行时通过 UIScaler 缩放）
 	// ============================================================
-	public const float DESIGN_WIDTH = 140f;
-	public const float DESIGN_HEIGHT = 196f;
+	public const float DESIGN_WIDTH = HandLayout.CardWidth;
+	public const float DESIGN_HEIGHT = HandLayout.CardHeight;
 	private const float MANA_DIAMETER = 24f;
 	private const float HEADER_H = 30f;
 	private const float ARTWORK_H = 88f;
@@ -33,7 +33,6 @@ public partial class CardUI : Control
 	private const int DESC_MIN_FONT_SIZE = 5;
 	private const int NAME_BASE_FONT_SIZE = 11;
 	private const int NAME_MIN_FONT_SIZE = 7;
-	private const float HOVER_LIFT = 10f;
 
 	// ============================================================
 	// 颜色定义
@@ -74,7 +73,6 @@ public partial class CardUI : Control
 	public bool CanPlay { get; private set; } = true;
 
 	/// <summary>
-	/// <summary>
 	/// 卡牌被点击（鼠标左键按下）时触发。
 	/// </summary>
 	public event Action<CardUI>? OnCardClicked;
@@ -111,15 +109,14 @@ public partial class CardUI : Control
 	public bool PreventDrag { get; set; }
 
 	/// <summary>
-	/// 当前是否处于拖拽状态。HandUI 通过此属性在拖拽期间抑制悬停效果。
+	/// 当前是否处于指针跟随交互；移动端未跨过阈值的触碰仅用于展开预览。
 	/// </summary>
 	public bool IsDragging => _isDragging;
+	internal bool IsPointerDragging => _dragFsm.HasDragged;
+	internal bool IsClickFollowing => _isDragging && _pickupReleased && !_dragFsm.HasDragged;
 
-	/// <summary>
-	/// 注入交互状态机，将拖拽/点击/目标选择的状态管理委托给 FSM。
-	/// 设为 null 时 CardUI 回退到本地行为，保持向后兼容。
-	/// </summary>
-	public void SetInteractionFsm(InteractionFsm fsm) => _interactionFsm = fsm;
+	internal float FaceRenderScale => _uiScale;
+	internal float Elevation { get; private set; }
 
 	/// <summary>
 	/// 最后一次左键点击的全局坐标（来自 InputEventMouseButton）。
@@ -139,10 +136,16 @@ public partial class CardUI : Control
 	/// </summary>
 	public event Action<CardUI, Vector2>? OnDragMove;
 
+	/// <summary>指针未超过拖拽阈值便松手，继续以第二击选定目标。</summary>
+	internal event Action<CardUI>? OnTargetingClickReleased;
+
 	// ============================================================
 	// 私有 UI 节点
 	// ============================================================
 	private Panel _bgPanel = null!;
+	private Panel _shadowPanel = null!;
+	private StyleBoxFlat _shadowStyle = null!;
+	private StyleBoxFlat _faceStyle = null!;
 	private ColorRect _headerRect = null!;
 	private ColorRect _manaCircle = null!;
 	private Label _manaLabel = null!;
@@ -173,37 +176,24 @@ public partial class CardUI : Control
 	private ColorRect _armedBadgeBg = null!;
 	private Label _armedBadgeLabel = null!;
 
-	// 播放区高亮缓存的 StyleBoxFlat（复用避免每帧分配新对象）
-	private StyleBoxFlat? _playZoneHighlightStyle;
-
 	// ============================================================
 	// 内部状态
 	// ============================================================
-	private InteractionFsm? _interactionFsm;
-	private bool _canPlay = true;
+	private readonly InteractionFsm _dragFsm = new();
+	private bool _handSelectionHighlighted;
+	private bool _trackingMobilePress;
 	private bool _isDragging;
-	private Vector2 _dragOffset;
-	private Vector2 _dragStartScreenPos;
-	private bool _hasDragged;
-	/// <summary>点击选中模式：用户快速点击（松手无拖拽位移）后进入，卡片跟随鼠标但不响应松手掉落。</summary>
-	private bool _clickSelectMode;
-	private static float DragThreshold => InteractionFsm.PointerDragThreshold;
-
-	/// <summary>
-	/// 上一帧移动端主触控是否仍处于按下状态。
-	/// 用于从 Router 的当前态推导“本帧刚松手”，避免全局共享 release 标记竞争消费。
-	/// </summary>
-	private bool _wasMobileTouchActive;
-	/// <summary>上一帧左键是否按下——用于检测松手事件（clickSelectMode 中松手通知 CombatUI）。</summary>
-	private bool _wasLeftDownLastFrame;
-	/// <summary>上一帧右键是否按下——用于桌面端拖拽中右键取消（MouseFilter=Ignore 时 GuiInput 不可达）。</summary>
-	private bool _wasRightDownLastFrame;
-	/// <summary>卡牌从拾取位置移动超过 5px 后置 true——区分点击选中（不触发掉落）与拖拽松手（触发掉落）。</summary>
-	private bool _hasMovedFromOrigin;
-	/// <summary>BeginPointerFollowFrom 调用时的卡牌位置——用于移动追踪比较基准。</summary>
-	private Vector2 _pointerFollowStartPos;
-	private Tween? _hoverTween;
-	private bool _isHoverEffectActive;
+	private Vector2 _localGrabOffset;
+	private Vector2 _dragAnchor;
+	private Vector2 _lastPointer;
+	private float _dragDelta;
+	private bool _pointerWasDown;
+	private bool _pickupReleased;
+	private bool _parkOnClickRelease;
+	private bool _playZoneActive;
+	private float _playZoneGlow;
+	private int? _runtimeCost;
+	private (Vector2 Center, float Scale)? _targetingPose;
 	private bool _built;
 	private float _uiScale = 1.0f;
 	private Vector2 _cardSize;
@@ -226,6 +216,7 @@ public partial class CardUI : Control
 
 		CustomMinimumSize = cardSize;
 		Size = cardSize;
+		PivotOffset = _cardSize * 0.5f;
 		MouseFilter = DisplayOnly ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop;
 
 		BuildBackground(s, cardSize);
@@ -245,13 +236,9 @@ public partial class CardUI : Control
 		{
 			GuiInput += OnGuiInputHandler;
 		}
-
-		if (UIScaler.Instance != null)
-		{
-			UIScaler.Instance.OnCardDescriptionSettingsChanged += OnCardDescriptionSettingsChanged;
-			UIScaler.Instance.OnRarityColorSchemeChanged += OnRarityColorSchemeChanged;
-			UIScaler.Instance.OnEmojiIconsChanged += OnEmojiIconsChanged;
-		}
+		_dragFsm.OnDragMove += OnFsmDragMove;
+		_dragFsm.OnDrop += OnFsmDrop;
+		_dragFsm.OnCancel += OnFsmCancel;
 
 		_built = true;
 
@@ -259,9 +246,7 @@ public partial class CardUI : Control
 		// 此时 UI 刚构建完，立即回填数据。
 		if (Card != null)
 		{
-			var pendingCard = Card;
-			Card = null;
-			SetCard(pendingCard);
+			SetCard(Card);
 		}
 #if TOOLS
 		// 编辑器预览模式：创建模拟卡牌数据，使卡牌在 Godot 编辑器中可视化。
@@ -280,28 +265,24 @@ public partial class CardUI : Control
 		}
 	}
 
+	public override void _EnterTree()
+	{
+		if (UIScaler.Instance is UIScaler scaler)
+		{
+			scaler.OnCardDescriptionSettingsChanged += OnCardDescriptionSettingsChanged;
+			scaler.OnRarityColorSchemeChanged += OnRarityColorSchemeChanged;
+			scaler.OnEmojiIconsChanged += OnEmojiIconsChanged;
+		}
+	}
+
 	public override void _ExitTree()
 	{
-		// 移除主题重载，释放 Godot 原生层持有的 StyleBoxFlat 引用，减少 Mono 退出泄露
-		if (_bgPanel != null && GodotObject.IsInstanceValid(_bgPanel))
+		// Reparent 也会出入树；保留同一张卡的牌面、样式和本地 FSM，只解绑外部事件。
+		if (UIScaler.Instance is UIScaler scaler)
 		{
-			_bgPanel.RemoveThemeStyleboxOverride("panel");
-		}
-		_playZoneHighlightStyle?.Dispose();
-		_playZoneHighlightStyle = null;
-
-		if (UIScaler.Instance != null)
-		{
-			UIScaler.Instance.OnCardDescriptionSettingsChanged -= OnCardDescriptionSettingsChanged;
-			UIScaler.Instance.OnRarityColorSchemeChanged -= OnRarityColorSchemeChanged;
-			UIScaler.Instance.OnEmojiIconsChanged -= OnEmojiIconsChanged;
-		}
-
-		if (_interactionFsm != null)
-		{
-			_interactionFsm.OnDragMove -= OnFsmDragMove;
-			_interactionFsm.OnDrop -= OnFsmDrop;
-			_interactionFsm.OnCancel -= OnFsmCancel;
+			scaler.OnCardDescriptionSettingsChanged -= OnCardDescriptionSettingsChanged;
+			scaler.OnRarityColorSchemeChanged -= OnRarityColorSchemeChanged;
+			scaler.OnEmojiIconsChanged -= OnEmojiIconsChanged;
 		}
 	}
 
@@ -314,22 +295,34 @@ public partial class CardUI : Control
 	/// </summary>
 	private void BuildBackground(float s, Vector2 size)
 	{
-		_bgPanel = new Panel { Size = size, Position = Vector2.Zero };
+		int radius = Mathf.Max(1, Mathf.RoundToInt(6f * s));
+		_shadowPanel = new Panel { Size = size, MouseFilter = MouseFilterEnum.Ignore, Visible = false };
+		_shadowStyle = new StyleBoxFlat
+		{
+			BgColor = Colors.Transparent,
+			CornerRadiusTopLeft = radius,
+			CornerRadiusTopRight = radius,
+			CornerRadiusBottomLeft = radius,
+			CornerRadiusBottomRight = radius,
+		};
+		_shadowPanel.AddThemeStyleboxOverride("panel", _shadowStyle);
+		AddChild(_shadowPanel);
 
-		var style = new StyleBoxFlat
+		_bgPanel = new Panel { Size = size, MouseFilter = MouseFilterEnum.Ignore };
+		_faceStyle = new StyleBoxFlat
 		{
 			BgColor = ClrBg,
-			CornerRadiusTopLeft = (int)(6 * s),
-			CornerRadiusTopRight = (int)(6 * s),
-			CornerRadiusBottomLeft = (int)(6 * s),
-			CornerRadiusBottomRight = (int)(6 * s),
+			CornerRadiusTopLeft = radius,
+			CornerRadiusTopRight = radius,
+			CornerRadiusBottomLeft = radius,
+			CornerRadiusBottomRight = radius,
 			BorderWidthBottom = (int)(1 * s),
 			BorderWidthLeft = (int)(1 * s),
 			BorderWidthRight = (int)(1 * s),
 			BorderWidthTop = (int)(1 * s),
 			BorderColor = ClrBorder,
 		};
-		_bgPanel.AddThemeStyleboxOverride("panel", style);
+		_bgPanel.AddThemeStyleboxOverride("panel", _faceStyle);
 		AddChild(_bgPanel);
 	}
 
@@ -634,65 +627,102 @@ public partial class CardUI : Control
 	/// 将卡牌数据绑定到 UI，刷新所有标签。
 	/// </summary>
 	/// <param name="card">运行时卡牌实例（Minion 或 Spell）</param>
-	public void SetCard(Card.Card card)
+	public void SetCard(Card.Card? card)
 	{
+		if (!ReferenceEquals(Card, card))
+		{
+			_runtimeCost = null;
+		}
 		Card = card;
 		if (card == null || !_built)
 		{
 			return;
 		}
 
-		float s = RenderScaleOverride > 0f ? RenderScaleOverride
-			: UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
-
-		// 法力消耗
-		_manaLabel.Text = card.GetEffectiveCost().ToString();
-
-		// 行动花费（随从始终显示，法术隐藏）
-		_actionCostLabel.Text = card.ActionCost.ToString();
-
-		// 卡牌名称（本地化）- 响应式字号防止长名称溢出
-		_nameLabel.Text = card.GetLocalizedName();
-		_nameLabel.HorizontalAlignment = GetNameAlignment();
-		ApplyNameFontSize(s);
-
 		// 卡图区域：程序化生成（真实 Artwork 存在时优先）
 		_artworkView.Setup(card.Data);
 		_tacticalBadge.Bind(card);
-
-		// 根据类型切换显示模式
 		if (card.Type == CardType.Minion)
 		{
-			ShowMinionLayout(card, s);
+			ShowMinionLayout();
 		}
 		else
 		{
-			ShowSpellLayout(card, s);
+			ShowSpellLayout();
 		}
+		UpdateRarityIndicator(card, _uiScale);
+		RefreshRuntimeDisplay();
+	}
 
-		// 反制牌待命徽章——已激活时始终可点击/拖出以取消激活。
-		bool armed = card.Type == CardType.Countermeasure && card.IsCountermeasureArmed;
-		if (_armedBadgeBg != null)
+	/// <summary>原地重取费用、描述、实际攻防与待命状态；只在文字长度变化时重测布局。</summary>
+	internal void RefreshRuntimeDisplay()
+	{
+		if (!_built || Card is not { } card)
 		{
-			_armedBadgeBg.Visible = armed;
-			_armedBadgeLabel.Visible = armed;
-			if (armed)
-				_armedBadgeLabel.Text = UiSymbolMode.Prefix(Loc.T("ui.combat.counter_armed", "已激活"), "⚡");
+			return;
 		}
-		if (armed)
-			SetCanPlay(true);
+		UpdateLabelText(_manaLabel, (_runtimeCost ?? card.GetEffectiveCost()).ToString());
+		string name = card.GetLocalizedName();
+		if (UpdateLabelText(_nameLabel, name))
+		{
+			ApplyNameFontSize(_uiScale);
+		}
 
-		// 描述文字（本地化）；随从展示兵种，帮助出牌前判断行动与射程。
 		string description = card.GetLocalizedDescription();
 		if (card.Type == CardType.Minion)
 		{
+			UpdateLabelText(_actionCostLabel, card.ActionCost.ToString());
+			UpdateLabelText(_attackLabel, (card.RuntimeAttackSnapshot ?? card.Data.Attack).ToString());
+			UpdateLabelText(_healthLabel, (card.RuntimeHealthSnapshot ?? card.Data.Health).ToString());
 			description = $"{BoardUI.GetUnitClassName(card.Data.UnitClass)}\n{description}";
 		}
-		_descLabel.Text = description;
+		else
+		{
+			UpdateLabelText(_spellTypeLabel, card.Type switch
+			{
+				CardType.Domain => Loc.T("card_type.domain", "领域"),
+				CardType.Status => Loc.T("card_type.status", "状态"),
+				CardType.Countermeasure => Loc.T("card_type.countermeasure", "反制"),
+				_ => Loc.T("card_type.spell", "法术"),
+			});
+		}
+		if (UpdateLabelText(_descLabel, description))
+		{
+			ApplyResponsiveContentLayout();
+		}
 
-		// 稀有度标识（所有卡牌类型均显示）
-		UpdateRarityIndicator(card, s);
-		ApplyResponsiveContentLayout();
+		bool armed = card.Type == CardType.Countermeasure && card.IsCountermeasureArmed;
+		if (_armedBadgeBg.Visible != armed)
+		{
+			_armedBadgeBg.Visible = armed;
+			_armedBadgeLabel.Visible = armed;
+		}
+		if (armed)
+		{
+			UpdateLabelText(_armedBadgeLabel, UiSymbolMode.Prefix(Loc.T("ui.combat.counter_armed", "已激活"), "⚡"));
+		}
+	}
+
+	internal void SetRuntimeCost(int cost)
+	{
+		if (_runtimeCost != cost)
+		{
+			_runtimeCost = cost;
+			if (_built)
+			{
+				UpdateLabelText(_manaLabel, cost.ToString());
+			}
+		}
+	}
+
+	private static bool UpdateLabelText(Label label, string text)
+	{
+		if (label.Text == text)
+		{
+			return false;
+		}
+		label.Text = text;
+		return true;
 	}
 
 #if TOOLS
@@ -742,419 +772,273 @@ public partial class CardUI : Control
 	}
 #endif
 
-	/// <summary>
-	/// 设置卡牌是否可打出。不可打出时整体灰化。
-	/// </summary>
-	/// <param name="canPlay">是否有足够法力值打出</param>
+	/// <summary>仅更新费用可用态；选牌高亮与牌面位置不受影响。</summary>
 	public void SetCanPlay(bool canPlay)
 	{
-		CanPlay = canPlay;
-		_canPlay = canPlay;
-		Modulate = canPlay ? Colors.White : ClrCannotPlay;
+		if (CanPlay != canPlay)
+		{
+			CanPlay = canPlay;
+			UpdateInteractionTint();
+		}
 	}
 
-	/// <summary>
-	/// 处理 GUI 输入事件：仅左键按下开始拖拽。
-	/// 拖拽中 MouseFilter 设为 Ignore，使后续点击穿透到下层目标。
-	/// 右键取消由 <see cref="_Process"/> 轮询处理。
-	/// </summary>
+	private void UpdateInteractionTint()
+	{
+		Modulate = _handSelectionHighlighted ? new Color(1f, 0.85f, 0.3f) : CanPlay ? Colors.White : ClrCannotPlay;
+	}
+
+	internal void SetKeyboardFocusTint(bool active)
+	{
+		if (_built)
+		{
+			_bgPanel.SelfModulate = active ? new Color(0.72f, 0.85f, 1.4f) : Colors.White;
+		}
+	}
+
+	/// <summary>卡面真实屏幕中心，不依赖旋转后的包围矩形。</summary>
+	public Vector2 ScreenCenter => GetGlobalTransformWithCanvas() * PivotOffset;
+
+	/// <summary>以卡面中心而不是缩放后的左上角定位，缩放和旋转不引入偏移。</summary>
+	internal void SetScreenCenter(Vector2 center)
+	{
+		Position = (GetParentScreenTransform().AffineInverse() * center) - PivotOffset;
+	}
+
+	internal void ReparentKeepingScreenPose(Control destination)
+	{
+		Transform2D screenTransform = GetGlobalTransformWithCanvas();
+		Reparent(destination, keepGlobalTransform: false);
+		Transform2D local = GetParentScreenTransform().AffineInverse() * screenTransform;
+		Rotation = local.Rotation;
+		Scale = local.Scale;
+		Position = (local * PivotOffset) - PivotOffset;
+	}
+
+	private Transform2D GetParentScreenTransform()
+	{
+		return GetParent() is CanvasItem parent ? parent.GetGlobalTransformWithCanvas() : GetCanvasTransform();
+	}
+
 	private void OnGuiInputHandler(InputEvent @event)
 	{
-		if (DisplayOnly)
+		if (DisplayOnly || Engine.IsEditorHint() || SceneLifecycleGuard.ShouldSkip(this)
+			|| @event is not InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } mouse)
+		{
 			return;
-		if (Engine.IsEditorHint())
-			return; // 编辑器模式下不处理交互
-
-		if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
-		{
-			if (PreventDrag)
-			{
-				// 手牌选择模式：不进入拖拽态，仅触发 OnCardClicked 用于选择切换
-				OnCardClicked?.Invoke(this);
-				AcceptEvent();
-				return;
-			}
-
-			LastClickGlobalPosition = mb.GlobalPosition;
-
-			// 先通知 HandUI/CombatUI 完成选中与表现切换。
-			// 后续是进入无目标跟随、还是进入目标展示态，由 CombatUI 统一决定。
-			// 这里不能再无条件 StartDragState，否则会把目标牌重新打回“跟随鼠标”的拖拽态。
-			OnCardClicked?.Invoke(this);
-			if (MobileInputRouter.IsMobile)
-			{
-				// HandUI 首次触摸只展开预览；必须在本控件先跟踪主指针，
-				// 超过阈值后才通知 HandUI→CombatUI，不能等待 Router zone 才能开始拖拽。
-				StartDragState();
-				_wasMobileTouchActive = true;
-			}
-			AcceptEvent();
 		}
+		LastClickGlobalPosition = mouse.GlobalPosition;
+		if (!PreventDrag && MobileInputRouter.IsMobile && OnMobileDragBegan != null)
+		{
+			_trackingMobilePress = true;
+		}
+		AcceptEvent();
+		OnCardClicked?.Invoke(this);
 	}
 
-	/// <summary>
-	/// 进入基础拖拽状态：计算偏移量、设为鼠标穿透、清除旧偏移。
-	/// 移动端预览阶段先由本控件追踪；跨过阈值后再交给 CombatUI 出牌流程。
-	/// </summary>
-	private void StartDragState()
+	/// <summary>记下抓点在未缩放卡面上的局部偏移，再由 FSM 管理原始指针与松手判定。</summary>
+	public void BeginPointerFollowFrom(Vector2 globalAnchor, bool startAsClickFollow, bool parkOnClickRelease = false)
 	{
+		_targetingPose = null;
+		_trackingMobilePress = false;
 		_isDragging = true;
-		_hasDragged = false;
-		_dragOffset = LastClickGlobalPosition - GlobalPosition;
-		_dragStartScreenPos = LastClickGlobalPosition;
+		_parkOnClickRelease = parkOnClickRelease;
+		_pointerWasDown = Input.IsMouseButtonPressed(MouseButton.Left);
+		_pickupReleased = !_pointerWasDown;
+		_dragAnchor = globalAnchor;
+		_lastPointer = globalAnchor;
+		_localGrabOffset = (GetGlobalTransformWithCanvas().AffineInverse() * globalAnchor) - PivotOffset;
 		MouseFilter = MouseFilterEnum.Ignore;
-		_isHoverEffectActive = false;
-		KillHoverTween();
-		FlashHighlight();
-
-		_interactionFsm?.PickUpCard(LastClickGlobalPosition, isClickSelect: false, isMobile: MobileInputRouter.IsMobile);
+		_dragFsm.PickUpCard(globalAnchor, isClickSelect: startAsClickFollow, isMobile: MobileInputRouter.IsMobile);
 	}
 
-	/// <summary>
-	/// 进入无目标卡牌的指针跟随表现。
-	/// 鼠标按住拖拽时直接进入拖拽跟随态；键盘/点击时进入点击跟随态。
-	/// </summary>
-	/// <param name="globalAnchor">指针与卡牌之间保持不变的锚点</param>
-	/// <param name="startAsClickFollow">true=直接进入点击跟随态（键盘/松开后）；false=进入拖拽态（鼠标按住中）</param>
-	public void BeginPointerFollowFrom(Vector2 globalAnchor, bool startAsClickFollow)
-	{
-		_isDragging = true;
-		_dragOffset = globalAnchor - GlobalPosition;
-		_dragStartScreenPos = globalAnchor;
-		MouseFilter = MouseFilterEnum.Ignore;
-		_isHoverEffectActive = false;
-		KillHoverTween();
-		FlashHighlight();
-
-		if (_interactionFsm != null)
-		{
-			// 订阅 FSM 事件（先取消再订阅，防止重复）
-			_interactionFsm.OnDragMove -= OnFsmDragMove;
-			_interactionFsm.OnDragMove += OnFsmDragMove;
-			_interactionFsm.OnDrop -= OnFsmDrop;
-			_interactionFsm.OnDrop += OnFsmDrop;
-			_interactionFsm.OnCancel -= OnFsmCancel;
-			_interactionFsm.OnCancel += OnFsmCancel;
-
-			_interactionFsm.PickUpCard(globalAnchor, isClickSelect: startAsClickFollow, isMobile: MobileInputRouter.IsMobile);
-		}
-		else
-		{
-			// 回退到本地行为
-			if (startAsClickFollow)
-			{
-				_hasDragged = false;
-				_clickSelectMode = true;
-				_pointerFollowStartPos = GlobalPosition;
-				_hasMovedFromOrigin = false;
-			}
-			else
-			{
-				_hasDragged = true;
-				_clickSelectMode = false;
-				_hasMovedFromOrigin = true;
-			}
-		}
-	}
-
-	/// <summary>
-	/// 进入目标选择展示态：卡牌不再跟随鼠标，移动到统一的展示位置。
-	/// </summary>
+	/// <summary>点击选中后固定展示，保持中心补间；右键或换牌可以从任意中间姿态归还。</summary>
 	public void PresentForTargeting(Vector2 globalCenter, float targetScale)
 	{
-		_interactionFsm?.EnterTargeting();
 		CancelDragSilent();
 		MouseFilter = MouseFilterEnum.Ignore;
-		ZIndex = 10;
-
-		Vector2 targetSize = Size * targetScale;
-		Vector2 targetTopLeft = globalCenter - targetSize * 0.5f;
-
-		var tween = CreateTween();
-		tween.SetParallel(true);
-		tween.SetTrans(Tween.TransitionType.Cubic);
-		tween.SetEase(Tween.EaseType.Out);
-		tween.TweenProperty(this, "global_position", targetTopLeft, 0.15f);
-		tween.TweenProperty(this, "scale", Vector2.One * targetScale, 0.15f);
+		_targetingPose = (globalCenter, targetScale);
 	}
 
-	/// <summary>
-	/// 退出拖拽状态（静默，不触发事件）。
-	/// 用于切换卡牌时直接清理旧卡，避免触发 RefreshHand 链条。
-	/// </summary>
+	/// <summary>停止指针和目标展示，不改变当前位置、缩放、角度或底影。</summary>
 	public void CancelDragSilent()
 	{
-		_interactionFsm?.ForceReset();
+		_dragFsm.ForceReset();
+		_trackingMobilePress = false;
 		_isDragging = false;
-		_hasDragged = false;
-		_clickSelectMode = false;
-		_isHoverEffectActive = false;
-		KillHoverTween();
-		MouseFilter = MouseFilterEnum.Stop;
-		OffsetTop = 0;
+		_targetingPose = null;
+		SetPlayZoneHighlight(false);
+		MouseFilter = DisplayOnly ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop;
 	}
 
-	/// <summary>
-	/// 退出拖拽状态：恢复鼠标响应、通知取消。
-	/// </summary>
-	public void CancelDrag()
-	{
-		if (!_isDragging)
-			return;
-		CancelDragSilent();
-		OnCardRightClicked?.Invoke(this);
-	}
-
-	/// <summary>
-	/// 拖拽时每帧跟随鼠标/触控移动，并轮询取消和松开事件。
-	/// 由于拖拽中 MouseFilter=Ignore，GuiInput 不会收到事件，故在此轮询。
-	///
-	/// 桌面端（交互等效性，参考杀戮尖塔2 NMouseCardPlay 的区域+按键状态模型）：
-	///   快速点击选中 → 卡片保持原位 → 点击有效目标打出（clickSelectMode）
-	///   按住并移动超过阈值 → 卡片跟随鼠标 → 松手打出/取消（drag-drop）
-	///   右键取消 ≡ 拖拽中松开在无效区域
-	///
-	/// 移动端（MobileInputRouter.IsMobile）：
-	///   仅拖拽模式，无 clickSelectMode
-	///   手指移动超过统一阈值（InteractionFsm.PointerDragThreshold = 10px）→ 卡片跟随手指 → 松手打出/取消
-	///   无右键取消（拖到无效区域 = 取消）
-	/// </summary>
 	public override void _Process(double delta)
 	{
-		if (SceneLifecycleGuard.ShouldSkip(this))
-			return;
-		if (DisplayOnly || !_isDragging)
-			return;
-		if (MobileInputRouter.IsMobile)
+		if (DisplayOnly || SceneLifecycleGuard.ShouldSkip(this))
 		{
-			MobileDragProcess();
 			return;
 		}
-
-		// ==================== FSM 委托路径 ====================
-		if (_interactionFsm != null && _interactionFsm.CurrentPhase != InteractionPhase.Idle)
+		float seconds = (float)delta;
+		UpdatePlayZoneGlow(seconds);
+		if (_targetingPose is { } targeting)
 		{
-			Vector2 fsmMousePos = EvalGateway.GetEffectiveMousePosition(this);
-			bool fsmLeftDown = Input.IsMouseButtonPressed(MouseButton.Left);
-			float viewportH = GetViewportRect().Size.Y;
-			_interactionFsm.Tick(fsmMousePos, fsmLeftDown, Input.IsMouseButtonPressed(MouseButton.Right), viewportH, _dragStartScreenPos.Y);
+			AnimateTargeting(targeting.Center, targeting.Scale, seconds);
+			return;
+		}
+		if (!_trackingMobilePress && !_isDragging)
+		{
 			return;
 		}
 
-		// ==================== 桌面端鼠标交互（回退路径——无 FSM 时） ====================
-		// 核心原则：不使用像素距离阈值区分点击/拖拽。
-		// 用 _hasMovedFromOrigin 区分「点击选中」（卡牌未移动→不触发掉落）与「拖拽松手」（卡牌移动过→触发掉落）。
-		// 每次松手都通知 CombatUI，由它根据落点决定打出/取消/忽略（对齐 STS2）。
-
-		bool leftDown = Input.IsMouseButtonPressed(MouseButton.Left);
-		bool leftReleasedThisFrame = _wasLeftDownLastFrame && !leftDown;
-		_wasLeftDownLastFrame = leftDown;
-
-		// 右键取消（桌面端安全网：MouseFilter=Ignore 时 GuiInput 不可达，轮询处理）
-		bool rightDown = Input.IsMouseButtonPressed(MouseButton.Right);
-		if (!_wasRightDownLastFrame && rightDown)
+		Vector2 pointer = EvalGateway.GetEffectiveMousePosition(this);
+		bool down = Input.IsMouseButtonPressed(MouseButton.Left);
+		if (_trackingMobilePress)
 		{
-			CancelDrag();
-			_wasRightDownLastFrame = true;
-			return;
-		}
-		_wasRightDownLastFrame = rightDown;
-
-		Vector2 mousePosition = EvalGateway.GetEffectiveMousePosition(this);
-
-		// 桌面端与移动端共用 10px 阈值：按下移动超过阈值才升级为真正拖拽。
-		if (leftDown && !_hasDragged && mousePosition.DistanceTo(_dragStartScreenPos) > DragThreshold)
-		{
-			_hasDragged = true;
-			_hasMovedFromOrigin = true;
-			_clickSelectMode = false;
-		}
-
-		// 卡牌跟随鼠标 + 移动追踪
-		if (_clickSelectMode || _hasDragged)
-		{
-			Vector2 newPos = mousePosition - _dragOffset;
-			GlobalPosition = newPos;
-			OnDragMove?.Invoke(this, mousePosition);
-		}
-
-		// 左键松开处理
-		if (!leftDown)
-		{
-			if (_hasDragged)
+			if (!down || PreventDrag || !IsVisibleInTree())
 			{
-				// 拖拽松手 → 转入 clickSelectMode 并通知 CombatUI
-				Vector2 dropPos = mousePosition;
-				_hasDragged = false;
-				_clickSelectMode = true;
-				OnCardDropped?.Invoke(this, dropPos);
+				_trackingMobilePress = false;
 			}
-			else if (!_clickSelectMode)
+			else if (pointer.DistanceTo(LastClickGlobalPosition) > InteractionFsm.PointerDragThreshold)
 			{
-				// 首次松手 → 进入点击选中模式
-				_clickSelectMode = true;
-			}
-			else if (leftReleasedThisFrame && _hasMovedFromOrigin)
-			{
-				// clickSelectMode 中松手（卡牌已移动）→ 通知 CombatUI 根据落点处理
-				OnCardDropped?.Invoke(this, mousePosition);
+				_trackingMobilePress = false;
+				OnMobileDragBegan?.Invoke(this);
 			}
 		}
-	}
-
-	/// <summary>
-	/// 移动端触控拖拽逻辑。
-	/// 委托给 FSM 处理状态转换、阈值检测和松手事件。
-	/// 无 FSM 时回退到本地行为。
-	/// </summary>
-	private void MobileDragProcess()
-	{
-		if (_interactionFsm != null)
+		if (!_isDragging)
 		{
-			if (_interactionFsm.CurrentPhase == InteractionPhase.Idle)
-				return;
-
-			Vector2 touchPos = EvalGateway.GetEffectiveMousePosition(this);
-			bool isTouchActive = Input.IsMouseButtonPressed(MouseButton.Left);
-			float viewportH = GetViewportRect().Size.Y;
-			_interactionFsm.Tick(touchPos, isTouchActive, isRightDown: false, viewportH, _dragStartScreenPos.Y);
 			return;
 		}
-
-		// ==================== 回退路径（无 FSM） ====================
-		bool touchActive = Input.IsMouseButtonPressed(MouseButton.Left);
-		Vector2 pointerPosition = EvalGateway.GetEffectiveMousePosition(this);
-		if (touchActive)
+		_dragDelta = seconds;
+		bool firstRelease = !_pickupReleased && _pointerWasDown && !down;
+		_pointerWasDown = down;
+		_dragFsm.Tick(pointer, down, Input.IsMouseButtonPressed(MouseButton.Right), GetViewportRect().Size.Y, _dragAnchor.Y);
+		if (_isDragging && !down)
 		{
-			Vector2 touchPos = pointerPosition;
-
-			// 跟踪拖拽距离
-			if (!_hasDragged)
+			if (firstRelease)
 			{
-				float dist = touchPos.DistanceTo(_dragStartScreenPos);
-				if (dist > DragThreshold)
+				_pickupReleased = true;
+				if (_parkOnClickRelease)
 				{
-					_hasDragged = true;
-					OnMobileDragBegan?.Invoke(this);
+					OnTargetingClickReleased?.Invoke(this);
 				}
 			}
-
-			if (_hasDragged)
+			if (_isDragging && _dragFsm.CurrentPhase == InteractionPhase.Idle)
 			{
-				// 拖拽模式：卡牌跟随手指，逐帧通知位置
-				GlobalPosition = touchPos - _dragOffset;
-				OnDragMove?.Invoke(this, touchPos);
+				// 轻微位移产生的非拖拽松手不算确认，续接点击跟随。
+				_dragFsm.PickUpCard(_dragAnchor, isClickSelect: true, isMobile: false);
 			}
 		}
-
-		// 手指松开处理
-		if (_wasMobileTouchActive && !touchActive)
-		{
-			Vector2 dropScreenPos = pointerPosition;
-			bool wasDragging = _hasDragged;
-			_isDragging = false;
-			_hasDragged = false;
-			_clickSelectMode = false;
-			_isHoverEffectActive = false;
-			KillHoverTween();
-			MouseFilter = MouseFilterEnum.Stop;
-			OffsetTop = 0;
-
-			if (wasDragging)
-			{
-				// 拖拽后松手 → 触发 OnCardDropped
-				OnCardDropped?.Invoke(this, dropScreenPos);
-			}
-			else
-			{
-				// 快速点击 → 取消（移动端无 clickSelectMode，直接取消拖拽）
-				OnCardRightClicked?.Invoke(this);
-			}
-		}
-
-		_wasMobileTouchActive = touchActive;
 	}
 
-	/// <summary>
-	/// 选中卡牌：切换高亮状态，上移产生抬起效果。
-	/// 使用 OffsetTop 而非直接改 Position，避免与 HBoxContainer 布局冲突。
-	/// 拖拽中跳过——位置由 _Process 控制，不应额外偏移。
-	/// </summary>
-	public void Select()
+	private void AnimateTargeting(Vector2 center, float scale, float delta)
+	{
+		const float rate = 24f;
+		Vector2 current = ScreenCenter;
+		SetScreenCenter(current.DistanceSquaredTo(center) <= 0.04f ? center : current.Lerp(center, HandMotionMath.DampingWeight(delta, rate)));
+		Scale = Vector2.One * HandMotionMath.Damp(Scale.X, scale, delta, rate);
+		RotationDegrees = HandMotionMath.Damp(RotationDegrees, 0f, delta, rate);
+		SetElevation(HandMotionMath.Damp(Elevation, 0.7f, delta, rate));
+	}
+
+	private void OnFsmDragMove(Vector2 pos, bool inPlay, bool inCancel)
+	{
+		OnDragMove?.Invoke(this, pos);
+		if (!_isDragging)
+		{
+			return; // 出牌区检查可能同步触发归还。
+		}
+		float delta = _dragDelta;
+		float uiScale = Mathf.Max(UIScaler.Instance?.CurrentScale ?? 1f, 0.01f);
+		float velocity = delta > 0f ? (pos.X - _lastPointer.X) / (delta * uiScale) : 0f;
+		_lastPointer = pos;
+		if (!_pickupReleased && !_dragFsm.HasDragged)
+		{
+			return;
+		}
+
+		float scaleRatio = uiScale / _uiScale;
+		float targetScale = (_playZoneActive ? 0.94f : 1f) * scaleRatio;
+		float scale = HandMotionMath.Damp(Scale.X, targetScale, delta, 27f);
+		float angle = HandMotionMath.Damp(RotationDegrees, HandMotionMath.DragTiltTarget(velocity), delta, HandMotionMath.DragTiltRate);
+		Vector2 grabOffset = (_localGrabOffset * scale).Rotated(Mathf.DegToRad(angle));
+		Vector2 lifted = new(0f, -7f * _playZoneGlow * uiScale);
+		Vector2 localPointer = GetParentScreenTransform().AffineInverse() * pos;
+		Vector2 target = localPointer - grabOffset + lifted;
+		Vector2 current = Position + PivotOffset;
+		Position = current.Lerp(target, HandMotionMath.DampingWeight(delta, HandMotionMath.DragPositionRate)) - PivotOffset;
+		Scale = Vector2.One * scale;
+		RotationDegrees = angle;
+		SetElevation(HandMotionMath.Damp(Elevation, _playZoneActive ? 1f : 0.78f, delta, 24f));
+	}
+
+	private void OnFsmDrop(Vector2 pos, bool wasDrag)
+	{
+		if (!_isDragging || (!wasDrag && (!_pickupReleased || _parkOnClickRelease)))
+		{
+			return;
+		}
+		CancelDragSilent();
+		OnCardDropped?.Invoke(this, pos);
+	}
+
+	private void OnFsmCancel()
 	{
 		if (_isDragging)
-			return;
-		IsSelected = true;
-		_isHoverEffectActive = false;
-		KillHoverTween();
-		float s = UIScaler.Instance?.GetScaleFactor() ?? 1.0f;
-		OffsetTop = -HOVER_LIFT * s;
-		ZIndex = 1;
+		{
+			CancelDragSilent();
+			OnCardRightClicked?.Invoke(this);
+		}
 	}
 
-	/// <summary>
-	/// 取消选中：清除高亮状态，恢复原位置。
-	/// </summary>
-	public void Deselect()
-	{
-		IsSelected = false;
-		OffsetTop = 0;
-		ZIndex = 0;
-	}
-
-	/// <summary>
-	/// 设置手牌选择模式的选中/取消高亮。
-	/// 选中时：金色调色 + 上移抬起效果。
-	/// 取消时：恢复原始颜色和位置。
-	/// </summary>
-	/// <param name="selected">true=选中高亮，false=取消</param>
+	/// <summary>只为手牌选择标记调色；槽位与牌面位姿由容器负责。</summary>
 	public void SetHandSelectionHighlight(bool selected)
 	{
-		if (selected)
+		if (_handSelectionHighlighted != selected)
 		{
-			_isHoverEffectActive = false;
-			KillHoverTween();
-			Modulate = new Color(1f, 0.85f, 0.3f, 1f); // golden
-			OffsetTop = -15f; // slight lift
-			ZIndex = 1;
-		}
-		else
-		{
-			Modulate = _canPlay ? Colors.White : ClrCannotPlay;
-			OffsetTop = 0f;
-			ZIndex = 0;
+			_handSelectionHighlighted = selected;
+			UpdateInteractionTint();
 		}
 	}
 
-	/// <summary>
-	/// 设置播放区域高亮状态——卡牌拖入播放区域时显示绿色边框反馈。
-	/// </summary>
-	/// <param name="active">true=在播放区域内，false=离开</param>
+	/// <summary>随离桌高度调节柔和阴影。阴影在背景之下且不参与输入。</summary>
+	public void SetElevation(float amount)
+	{
+		float next = Mathf.Clamp(amount, 0f, 1f);
+		if (!_built || Mathf.IsEqualApprox(Elevation, next))
+		{
+			return;
+		}
+		Elevation = next;
+		UpdateShadow();
+	}
+
 	public void SetPlayZoneHighlight(bool active)
 	{
-		if (_bgPanel == null)
-			return;
+		_playZoneActive = active;
+	}
 
-		// 复用缓存的 StyleBoxFlat，避免每帧分配新对象导致 Mono 泄露
-		if (_playZoneHighlightStyle == null)
+	private void UpdatePlayZoneGlow(float delta)
+	{
+		float target = _playZoneActive ? 1f : 0f;
+		if (_playZoneGlow == target)
 		{
-			_playZoneHighlightStyle = new StyleBoxFlat
-			{
-				BgColor = ClrBg,
-				CornerRadiusTopLeft = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
-				CornerRadiusTopRight = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
-				CornerRadiusBottomLeft = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
-				CornerRadiusBottomRight = (int)(6 * (UIScaler.Instance?.GetScaleFactor() ?? 1f)),
-			};
+			return;
 		}
+		_playZoneGlow = Mathf.Abs(_playZoneGlow - target) < 0.008f
+			? target : HandMotionMath.Damp(_playZoneGlow, target, delta, 28f);
+		_faceStyle.BorderColor = ClrBorder.Lerp(new Color(0.45f, 0.85f, 0.64f, 0.95f), _playZoneGlow);
+		UpdateShadow();
+	}
 
-		_playZoneHighlightStyle.BorderWidthBottom = active ? 3 : 1;
-		_playZoneHighlightStyle.BorderWidthLeft = active ? 3 : 1;
-		_playZoneHighlightStyle.BorderWidthRight = active ? 3 : 1;
-		_playZoneHighlightStyle.BorderWidthTop = active ? 3 : 1;
-		_playZoneHighlightStyle.BorderColor = active ? new Color(0.3f, 0.9f, 0.3f, 0.8f) : ClrBorder;
-
-		_bgPanel.AddThemeStyleboxOverride("panel", _playZoneHighlightStyle);
+	private void UpdateShadow()
+	{
+		_shadowPanel.Visible = Elevation > 0.01f || _playZoneGlow > 0.01f;
+		if (!_shadowPanel.Visible)
+		{
+			return;
+		}
+		_shadowStyle.ShadowSize = Mathf.Max(1, Mathf.RoundToInt((4f + 11f * Elevation) * _uiScale));
+		_shadowStyle.ShadowOffset = new Vector2(0f, (2f + 7f * Elevation) * _uiScale);
+		_shadowStyle.ShadowColor = new Color(0.03f, 0.045f, 0.08f, 0.32f * Elevation)
+			.Lerp(new Color(0.19f, 0.68f, 0.48f, 0.34f), _playZoneGlow * 0.65f);
 	}
 
 	// ============================================================
@@ -1164,11 +1048,8 @@ public partial class CardUI : Control
 	/// <summary>
 	/// 随从布局：显示攻防属性，隐藏法术标签。
 	/// </summary>
-	private void ShowMinionLayout(Card.Card card, float s)
+	private void ShowMinionLayout()
 	{
-		_attackLabel.Text = (card.RuntimeAttackSnapshot ?? card.Data.Attack).ToString();
-		_healthLabel.Text = (card.RuntimeHealthSnapshot ?? card.Data.Health).ToString();
-
 		_attackBg.Visible = true;
 		_healthBg.Visible = true;
 		_attackLabel.Visible = true;
@@ -1183,7 +1064,7 @@ public partial class CardUI : Control
 	/// <summary>
 	/// 非随从布局：隐藏攻防属性，显示卡牌类型标签（法术/领域/状态）。
 	/// </summary>
-	private void ShowSpellLayout(Card.Card card, float s)
+	private void ShowSpellLayout()
 	{
 		_attackBg.Visible = false;
 		_healthBg.Visible = false;
@@ -1192,14 +1073,6 @@ public partial class CardUI : Control
 		_spellTypeLabel.Visible = true;
 		_actionCostBg.Visible = false;
 		_actionCostLabel.Visible = false;
-		_spellTypeLabel.Text = card.Type switch
-		{
-			CardType.Spell => Loc.T("card_type.spell", "法术"),
-			CardType.Domain => Loc.T("card_type.domain", "领域"),
-			CardType.Status => Loc.T("card_type.status", "状态"),
-			CardType.Countermeasure => Loc.T("card_type.countermeasure", "反制"),
-			_ => Loc.T("card_type.spell", "法术")
-		};
 	}
 
 	/// <summary>
@@ -1397,8 +1270,7 @@ public partial class CardUI : Control
 	/// </summary>
 	private void OnEmojiIconsChanged()
 	{
-		if (_built && Card != null)
-			SetCard(Card);
+		RefreshRuntimeDisplay();
 	}
 
 	private void OnCardDescriptionSettingsChanged()
@@ -1449,104 +1321,15 @@ public partial class CardUI : Control
 		_rarityLabel.AddThemeColorOverride("font_color", clr);
 	}
 
-	// ============================================================
-	// FSM 事件处理
-	// ============================================================
-
-	/// <summary>
-	/// FSM 拖拽移动回调：更新卡牌位置以跟随指针，并转发 OnDragMove 事件。
-	/// 仅在 CardPickedUp 或 BoardDrag 阶段更新位置。
-	/// </summary>
-	private void OnFsmDragMove(Vector2 pos, bool inPlay, bool inCancel)
-	{
-		if (_interactionFsm is { CurrentPhase: InteractionPhase.CardPickedUp or InteractionPhase.BoardDrag })
-		{
-			GlobalPosition = pos - _dragOffset;
-		}
-		OnDragMove?.Invoke(this, pos);
-	}
-
-	/// <summary>
-	/// FSM 松手/掉落回调：恢复视觉状态，转发 OnCardDropped。
-	/// </summary>
-	private void OnFsmDrop(Vector2 pos, bool wasDrag)
-	{
-		_isDragging = false;
-		_hasDragged = false;
-		_clickSelectMode = false;
-		_isHoverEffectActive = false;
-		KillHoverTween();
-		MouseFilter = MouseFilterEnum.Stop;
-		OffsetTop = 0;
-		OnCardDropped?.Invoke(this, pos);
-	}
-
-	/// <summary>
-	/// FSM 取消回调：恢复视觉状态，转发 OnCardRightClicked。
-	/// </summary>
-	private void OnFsmCancel()
-	{
-		_isDragging = false;
-		_hasDragged = false;
-		_clickSelectMode = false;
-		_isHoverEffectActive = false;
-		KillHoverTween();
-		MouseFilter = MouseFilterEnum.Stop;
-		OffsetTop = 0;
-		OnCardRightClicked?.Invoke(this);
-	}
-
-	// ============================================================
-	// 交互事件
-	// ============================================================
-
-	/// <summary>
-	/// 悬停入效果：仅设置 ZIndex。上浮和缩放由 HandUI.RefreshLayout 统一控制。
-	/// </summary>
+	// 收藏网格只借用绘制层级；战斗手牌的聚焦完全由 HandUI 控制。
 	public void ApplyHoverEffect()
 	{
-		if (_isDragging || IsSelected || _isHoverEffectActive)
-			return;
-		_isHoverEffectActive = true;
-		KillHoverTween();
 		ZIndex = 2;
 	}
 
-	/// <summary>
-	/// 悬停出效果：仅恢复 ZIndex。位置恢复由 RefreshLayout 处理。
-	/// </summary>
 	public void RemoveHoverEffect()
 	{
-		if (!_isHoverEffectActive)
-			return;
-		_isHoverEffectActive = false;
-		KillHoverTween();
-		OffsetTop = 0f;
 		ZIndex = 0;
-	}
-
-	/// <summary>
-	/// 点击反馈：短暂闪白后恢复至当前调制色。
-	/// </summary>
-	private void FlashHighlight()
-	{
-		var flash = new Color(1.3f, 1.3f, 1.3f, 1f);
-		Color target = _canPlay ? Colors.White : ClrCannotPlay;
-
-		var t = CreateTween();
-		t.TweenProperty(this, "modulate", flash, 0.08f);
-		t.TweenProperty(this, "modulate", target, 0.15f);
-	}
-
-	/// <summary>
-	/// 安全终止并释放悬停 Tween。
-	/// </summary>
-	private void KillHoverTween()
-	{
-		if (_hoverTween != null && _hoverTween.IsValid())
-		{
-			_hoverTween.Kill();
-		}
 	}
 
 	/// <summary>卡面战术徽章覆盖层：位于所有牌面控件之上，只绘制矢量图标，不拦截输入。</summary>
@@ -1558,6 +1341,8 @@ public partial class CardUI : Control
 		private bool _hasTaunt;
 		private bool _hasGuard;
 		private bool _isPlayerSide;
+
+		private TacticalBadgeOverlay() : this(1f) { }
 
 		public TacticalBadgeOverlay(float scale)
 		{

@@ -25,10 +25,16 @@ public partial class CombatUI
 	/// </summary>
 	public void RefreshAll()
 	{
-		// 发现选牌或手牌选择阶段：仅更新状态显示，跳过手牌和棋盘刷新
-		if (_combat != null && _combat.IsDiscovering)
+		if (_combat == null)
 		{
-			CleanupDragCard();
+			return;
+		}
+
+		_handUI.RefreshHand();
+		// 发现/弃牌阶段仍同步牌面，停止出牌拖拽，但不打断已借去弃牌区的视图。
+		if (_combat.IsDiscovering)
+		{
+			ReleaseDragCard();
 			UpdateHealthBars();
 			UpdateManaDisplay();
 			UpdateArmorDisplay();
@@ -41,21 +47,8 @@ public partial class CombatUI
 			UpdateRelicDisplay();
 			UpdateEnemyHandBar();
 
-			// 手牌选择模式下，额外更新卡牌高亮状态
-			if (_isHandSelecting)
-			{
-				RefreshHandSelectionHighlights();
-			}
 			return;
 		}
-
-		if (_combat == null)
-		{
-			return;
-		}
-
-		// 清理拖拽中的卡牌 UI（含取消事件订阅）
-		CleanupDragCard();
 
 		_boardUI.RefreshBoard();
 		var playerHero = _combat.PlayerHero;
@@ -63,7 +56,6 @@ public partial class CombatUI
 		{
 			_boardUI.UpdateActionCostDimming(playerHero.CurrentMana);
 		}
-		_handUI.RefreshHand();
 		UpdateHealthBars();
 		UpdateManaDisplay();
 		UpdateArmorDisplay();

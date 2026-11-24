@@ -55,6 +55,9 @@ public partial class CombatUI
 	/// <summary>选择流程统一指针采样：虚拟指针激活时优先，确保自动化拖拽与桌面路径一致。</summary>
 	private Vector2 GetSelectionPointerPosition() => EvalGateway.GetEffectiveMousePosition(this);
 
+	private bool IsSelectingHandCardForPlay() => _selectionMode is SelectionMode.PlacingMinion
+		or SelectionMode.TargetingMinionBattlecry or SelectionMode.TargetingSpell or SelectionMode.PlayingNoTargetCard;
+
 	// ===== 事件处理——棋盘点击 =====
 
 	/// <summary>
@@ -73,7 +76,7 @@ public partial class CombatUI
 		bool isPlayerSide = _boardUI.IsPlayerPosition(position);
 		if (_combat.State.IsGameOver || _combat.IsEnemyTurnStepping || !_combat.State.IsPlayerTurn)
 			return;
-		if (_attackDragFsm.HasDragged && IsPointerTargetSelectionMode())
+		if ((_attackDragFsm.HasDragged && IsPointerTargetSelectionMode()) || _dragCardUI?.IsPointerDragging == true)
 		{
 			GD.Print($"[CombatUI] 忽略槽位点击：目标拖拽尚未松手，mode={_selectionMode}, slot={slotIndex}, side={(isPlayerSide ? "P" : "E")}");
 			return;
@@ -141,8 +144,7 @@ public partial class CombatUI
 			|| _selectionMode == SelectionMode.PlayingNoTargetCard)
 		{
 			GD.Print("[CombatUI] 槽位右键→取消目标选择");
-			ResetSelection();
-			_handUI.RefreshHand();
+			HandleCancel();
 			return;
 		}
 	}
@@ -205,23 +207,24 @@ public partial class CombatUI
 			return;
 		}
 
-		GD.Print($"[CombatUI] 尝试放置随从 {_selectedCard.CardName}（{_selectedCard.GetEffectiveCost()}费）到槽位 {slotIndex}");
+		Card.Card card = _selectedCard;
+		GD.Print($"[CombatUI] 尝试放置随从 {card.CardName}（{card.GetEffectiveCost()}费）到槽位 {slotIndex}");
 		// 目标型部署：先选槽位，再选战吼目标；无合法目标时直接裸拍上场、战吼跳过。
 		if (EarlyWarfareRules.NeedsBattlecryTargetSelection(
-			_selectedCard.Data.RequiresTarget, _combat.HasAnyValidBattlecryTarget(_selectedCard)))
+			card.Data.RequiresTarget, _combat.HasAnyValidBattlecryTarget(card)))
 		{
-			EnterMinionBattlecryTargetMode(_selectedCard, slotIndex);
+			EnterMinionBattlecryTargetMode(card, slotIndex);
 			return;
 		}
-		bool success = _combat.PlayMinion(_selectedCard, slotIndex);
+		Vector2? deployOrigin = _dragCardUI?.ScreenCenter;
+		bool success = _combat.PlayMinion(card, slotIndex);
 		if (success)
 		{
-			GD.Print($"[CombatUI] [OK] 随从 {_selectedCard.CardName} 已放置到槽位 {slotIndex}");
+			GD.Print($"[CombatUI] [OK] 随从 {card.CardName} 已放置到槽位 {slotIndex}");
 			// 部署动画：从拖拽卡牌当前位置飞向目标槽位
-			if (_dragCardUI != null)
+			if (deployOrigin is Vector2 fromPos)
 			{
-				Vector2 fromPos = _dragCardUI.GlobalPosition + _dragCardUI.Size * _dragCardUI.Scale * 0.5f;
-				PlayMinionDeployAnimation(_selectedCard, fromPos, slotIndex, isPlayerSide: true);
+				PlayMinionDeployAnimation(card, fromPos, slotIndex, isPlayerSide: true);
 			}
 		}
 		else
@@ -252,12 +255,12 @@ public partial class CombatUI
 			return;
 		}
 
-		GD.Print($"[CombatUI] 对 {target.CardName} 施放 {_selectedCard.CardName}");
+		Card.Card card = _selectedCard;
+		GD.Print($"[CombatUI] 对 {target.CardName} 施放 {card.CardName}");
 		bool success = PlaySelectedSpellWithVfxOrigin(target);
 		if (success)
 		{
-			GD.Print($"[CombatUI] [OK] 法术 {_selectedCard.CardName} 已施放");
-			AnimateCardToDiscardPile();
+			GD.Print($"[CombatUI] [OK] 法术 {card.CardName} 已施放");
 		}
 		else
 		{
@@ -373,207 +376,91 @@ public partial class CombatUI
 
 	// ===== 事件处理——手牌选中 =====
 
-	/// <summary>
-	/// 手牌中卡牌被选中时的处理。
-	/// 根据卡牌类型进入不同的选择模式，并将卡牌 UI 重 parent 到拖拽层使其可自由跟随鼠标。
-	/// </summary>
-	/// <param name="card">被选中的卡牌</param>
+	/// <summary>先归还上张牌，再借出当前真卡；投放模式和视觉驱动互不替代。</summary>
 	private void OnCardSelectedFromHand(Card.Card card)
 	{
-		if (_combat.State.IsGameOver || _combat.IsEnemyTurnStepping || !_combat.State.IsPlayerTurn)
-			return;
-		if (card == null)
-			return;
-
-		// 取消之前的攻击选择
-		_selectedAttacker = null;
-
-		// 清理上一个拖拽中的卡牌（防止快速点击产生幽灵浮动卡）
-		// 但先记住旧卡数据，以便后面归还手牌
-		Card.Card? previousCardData = _dragCardUI?.Card;
-		CleanupDragCard();
-
-		// 将卡牌 UI 从 HandUI 移到 DragLayer，脱离 HBoxContainer 布局约束
-		var cardUI = _handUI.GetCardUIFor(card);
-		bool isKeyboardSel = _handUI.IsKeyboardSelection;
-		Vector2 savedGlobalPos = Vector2.Zero;
-		Vector2 savedSize = Vector2.Zero;
-		Vector2 savedScale = Vector2.One;
-		bool startedWithPointerDown = false;
-
-		if (cardUI != null)
+		if (_combat.State.IsGameOver || _combat.IsEnemyTurnStepping || !_combat.State.IsPlayerTurn || _combat.IsDiscovering)
 		{
-			bool isMobileDrag = MobileInputRouter.IsMobile && cardUI.IsDragging;
-
-			// 在 StopLayoutControl / Offset 清除之前保存全局位置——之后会变
-			savedGlobalPos = cardUI.GlobalPosition;
-			savedSize = cardUI.Size;
-			savedScale = cardUI.Scale;
-
-			_handUI.StopLayoutControl(cardUI);
-
-			// 清除 HandUI 布局遗留的 OffsetTop（Select() 设的）。
-			cardUI.OffsetTop = 0;
-			cardUI.OffsetBottom = 0;
-			cardUI.OffsetLeft = 0;
-			cardUI.OffsetRight = 0;
-
-			if (isMobileDrag)
-			{
-				// 移动端纯拖拽：卡牌已在跟随手指移动，用 Reparent 保持当前位置
-				cardUI.Reparent(_dragLayer);
-			}
-			else
-			{
-				// 鼠标/键盘都先保持卡牌在手牌中的视觉位置，随后由统一表现方法决定跟随或居中。
-				cardUI.GetParent()?.RemoveChild(cardUI);
-				_dragLayer.AddChild(cardUI);
-				cardUI.GlobalPosition = savedGlobalPos;
-			}
-
-			startedWithPointerDown = !isKeyboardSel && Input.IsMouseButtonPressed(MouseButton.Left);
-
-			_dragCardUI = cardUI;
-
-			// 从 HandUI 内部列表脱钩，防止 RefreshHand 误销毁拖拽中的卡片
-			_handUI.DetachCardFromList(cardUI);
-
-			// 订阅拖拽松手事件——用于拖拽→松手打出 / 松手取消
-			cardUI.OnCardDropped += OnCardDroppedHandler;
-
-			// 旧卡数据归还手牌——创建新的 CardUI 让它回到手牌可重新选中
-			if (previousCardData != null)
-			{
-				_handUI.AddCardBack(previousCardData);
-			}
+			return;
 		}
+		CardUI? cardUI = _handUI.GetCardUIFor(card);
+		if (cardUI == null || cardUI == _dragCardUI || !_combat.PlayerHero.Hand.Contains(card))
+		{
+			return;
+		}
+
+		ResetSelection();
+		if (!_handUI.MoveCardOutOfHand(cardUI, _dragLayer, forPlay: true))
+		{
+			return;
+		}
+		_dragCardUI = cardUI;
+		cardUI.ZIndex = 10;
+		cardUI.OnCardDropped += OnCardDroppedHandler;
+		cardUI.OnTargetingClickReleased += OnCardTargetingClickReleased;
 
 		switch (card.Type)
 		{
 			case CardType.Minion:
 				EnterMinionPlacementMode(card);
 				break;
-
-			case CardType.Spell:
-				if (card.Data.RequiresTarget)
-				{
-					EnterSpellTargetMode(card);
-				}
-				else
-				{
-					// 无目标法术（如「警戒」）：进入拖拽播放模式
-					EnterNoTargetPlayMode(card);
-				}
+			case CardType.Spell when card.Data.RequiresTarget:
+				EnterSpellTargetMode(card);
 				break;
-
-			case CardType.Domain:
-				// 领域牌：进入拖拽播放模式（类 STS2 风格，拖到中央打出）
+			case CardType.Spell or CardType.Domain or CardType.Status or CardType.Countermeasure:
 				EnterNoTargetPlayMode(card);
 				break;
-
-			case CardType.Status:
-				// 状态牌：进入无目标播放模式（自动以玩家英雄为目标）
-				EnterNoTargetPlayMode(card);
-				break;
-
-			case CardType.Countermeasure:
-				// 反制牌：拖入播放区（或点击播放区）付费激活；已激活时同样操作可取消激活并退费。
-				EnterNoTargetPlayMode(card);
-				break;
-
 			default:
 				GD.Print($"[CombatUI] 未知卡牌类型：{card.Type}");
-				break;
+				ResetSelection();
+				return;
 		}
-
-		PresentSelectedCardForPlay(card, isKeyboardSel, startedWithPointerDown, savedGlobalPos, savedSize, savedScale);
+		PresentSelectedCardForPlay(cardUI);
 	}
 
-	private static bool IsCardTargetSelectionCard(Card.Card card)
+	private void PresentSelectedCardForPlay(CardUI view)
 	{
-		return card.Type == CardType.Minion || (card.Type == CardType.Spell && card.Data.RequiresTarget);
-	}
-
-	private void PresentSelectedCardForPlay(
-		Card.Card card,
-		bool startedByKeyboard,
-		bool startedWithPointerDown,
-		Vector2 originalGlobalPos,
-		Vector2 originalSize,
-		Vector2 originalScale)
-	{
-		if (_dragCardUI == null)
-			return;
-
-		if (IsCardTargetSelectionCard(card))
+		bool keyboard = _handUI.IsKeyboardSelection;
+		bool requiresTarget = _selectionMode is SelectionMode.PlacingMinion or SelectionMode.TargetingSpell;
+		if (requiresTarget && (keyboard || !Input.IsMouseButtonPressed(MouseButton.Left)))
 		{
-			if (startedWithPointerDown)
-			{
-				// 鼠标按下路径：以 click-select 模式开始（卡牌跟随鼠标），
-				// 让 CardUI._Process 根据实际拖拽距离决定升级为拖拽松手还是保持选中。
-				// 快速点击→保持选中→点击目标打出；按住拖动>阈值→拖拽松手打出。
-				_dragCardUI.BeginPointerFollowFrom(
-					_dragCardUI.LastClickGlobalPosition,
-					startAsClickFollow: !MobileInputRouter.IsMobile);
-			}
-			else
-			{
-				// 点击选中 / 键盘快捷键路径（ClickMouseToTarget）：
-				// 卡牌居中展示，仅箭头跟随鼠标，第二击目标确认。
-				Vector2 viewportSize = GetViewportRect().Size;
-				Vector2 center = new(viewportSize.X * 0.5f, viewportSize.Y - _dragCardUI.Size.Y * TargetingCardScale * 0.5f);
-
-				if (startedByKeyboard)
-				{
-					// 键盘选中：直接定位到展示位，仅对 Scale 做 Back.ease 弹入动画，
-					// 跳过 Position Tween 以避免 reparent 后帧间位置漂移导致的跳变。
-					_dragCardUI.CancelDragSilent();
-					_dragCardUI.MouseFilter = MouseFilterEnum.Ignore;
-					_dragCardUI.ZIndex = 10;
-
-					Vector2 targetSize = _dragCardUI.Size * TargetingCardScale;
-					_dragCardUI.GlobalPosition = center - targetSize * 0.5f;
-
-					var scaleTween = _dragCardUI.CreateTween();
-					scaleTween.TweenProperty(_dragCardUI, "scale", Vector2.One * TargetingCardScale, 0.18f)
-						.SetTrans(Tween.TransitionType.Back)
-						.SetEase(Tween.EaseType.Out);
-				}
-				else
-				{
-					_dragCardUI.PresentForTargeting(center, TargetingCardScale);
-				}
-			}
-
+			PresentTargetingCard(view);
 			return;
 		}
 
-		if (_selectionMode == SelectionMode.PlayingNoTargetCard)
+		Vector2 anchor = keyboard ? GetSelectionPointerPosition() : view.LastClickGlobalPosition;
+		if (!requiresTarget)
 		{
-			Vector2 anchor = startedByKeyboard
-				? originalGlobalPos + originalSize * originalScale * 0.5f
-				: _dragCardUI.LastClickGlobalPosition;
-			// 无目标卡牌始终以 click-select 模式开始，让用户看到播放区域后再决定打出/取消。
-			// 按住拖动超过阈值时 CardUI._Process 会自动升级为拖拽松手模式。
-			_dragCardUI.BeginPointerFollowFrom(anchor, startAsClickFollow: !MobileInputRouter.IsMobile);
+			_playZoneDragStartY = keyboard ? view.ScreenCenter.Y : anchor.Y;
+			_hasEnteredPlayZone = false;
+			ShowPlayZonePanel();
+		}
+		view.BeginPointerFollowFrom(anchor, startAsClickFollow: keyboard || !MobileInputRouter.IsMobile,
+			parkOnClickRelease: requiresTarget);
+	}
 
-			// 记录拖拽起始 Y（用于动态 PlayZone 阈值）
-			_playZoneDragStartY = anchor.Y;
-			_hasLeftCancelZone = false;
+	private void OnCardTargetingClickReleased(CardUI view)
+	{
+		if (_dragCardUI == view)
+		{
+			PresentTargetingCard(view);
 		}
 	}
 
-	/// <summary>
-	/// 右键取消拖拽——卡牌回到手牌，退出所有选择模式。
-	/// </summary>
+	private void PresentTargetingCard(CardUI view)
+	{
+		Vector2 viewport = GetViewportRect().Size;
+		float uiScale = UIScaler.Instance?.GetScaleFactor() ?? 1f;
+		float scale = TargetingCardScale * uiScale / view.FaceRenderScale;
+		Vector2 center = new(viewport.X * 0.5f, viewport.Y - view.Size.Y * scale * 0.5f - 8f * uiScale);
+		view.PresentForTargeting(center, scale);
+	}
+
+	/// <summary>取消只归还当前视图，手牌其余姿态与进场继续播放。</summary>
 	private void OnCardDragCancelled()
 	{
 		GD.Print("[CombatUI] 拖拽取消");
-		CleanupDragCard();
 		ResetSelection();
-
-		// 重建手牌 UI（恢复卡牌到正确位置）
-		_handUI.RefreshHand();
 	}
 
 	/// <summary>
@@ -628,7 +515,7 @@ public partial class CombatUI
 	{
 		GD.Print($"[CombatUI] 拖拽松手 — 坐标 ({screenPos.X:F0}, {screenPos.Y:F0})");
 		var hit = _boardUI.GetSlotAtPosition(screenPos);
-		if (hit != null && hit.Value.Row == BoardRow.PlayerSupport)
+		if (hit is { Row: BoardRow.PlayerSupport } slot && _combat.Board.GetMinionAt(slot) == null)
 		{
 			GD.Print($"[CombatUI] 命中己方槽位 {hit.Value.SlotIndex}，执行放置");
 			HandleMinionPlacement(hit.Value);
@@ -669,7 +556,7 @@ public partial class CombatUI
 		if (hit != null)
 		{
 			var target = _combat.Board.GetMinionAt(hit.Value);
-			if (target != null && !target.IsDead)
+			if (target != null && !target.IsDead && _selectedCard != null && _combat.ValidateTarget(_selectedCard, target))
 			{
 				HandleSpellTarget(hit.Value);
 			}
@@ -696,7 +583,6 @@ public partial class CombatUI
 		{
 			GD.PrintErr("[CombatUI] 内部错误：播放模式但 _selectedCard 为 null");
 			ResetSelection();
-			_handUI.RefreshHand();
 			return;
 		}
 
@@ -749,7 +635,6 @@ public partial class CombatUI
 			{
 				GD.Print("[CombatUI] 攻击松手位置无效，取消选择");
 				ResetSelection();
-				_handUI.RefreshHand();
 			}
 		}
 	}
@@ -789,53 +674,26 @@ public partial class CombatUI
 
 		GD.Print("[CombatUI] 主动技能松手位置无效，取消选择");
 		ResetSelection();
-		_handUI.RefreshHand();
 	}
 
-	/// <summary>
-	/// 清理当前拖拽卡牌 UI 引用并取消订阅。
-	/// 先隐藏再 QueueFree，避免与 RefreshHand 新建的卡牌产生视觉重叠。
-	/// </summary>
-	private void CleanupDragCard()
+	/// <summary>统一结束借牌。取消归还原节点；真实出牌已由亮牌/部署接管时才退役。</summary>
+	private void ReleaseDragCard(bool played = false)
 	{
-		if (_dragCardUI != null)
+		CardUI? view = _dragCardUI;
+		_dragCardUI = null;
+		if (!HandUI.IsLive(view))
 		{
-			_dragCardUI.OnCardDropped -= OnCardDroppedHandler;
-			_dragCardUI.OnDragMove -= OnDragMoveForPlayZone;
-			_dragCardUI.CancelDragSilent(); // 退出拖拽状态，防止 _Process 残留
-			_dragCardUI.Visible = false;     // 立即隐藏，防止与 RefreshHand 新建卡牌重叠
-			_dragCardUI.QueueFree();
-			_dragCardUI = null;
-		}
-	}
-
-	/// <summary>
-	/// 将当前拖拽卡牌从 _dragLayer 提取出来并启动飞向牌堆的动画。
-	/// 目标位置根据卡牌关键词自动选择：轮战卡牌 → 抽牌堆，普通卡牌 → 弃牌堆。
-	/// 调用后 _dragCardUI 设为 null，CleanupDragCard 不再处理这张卡。
-	/// 仅在卡牌成功打出后调用。
-	/// </summary>
-	private void AnimateCardToDiscardPile()
-	{
-		if (_dragCardUI == null)
 			return;
-
-		var cardUI = _dragCardUI;
-		_dragCardUI = null; // 提取所有权，防止 CleanupDragCard 二次处理
-
-		cardUI.OnCardDropped -= OnCardDroppedHandler;
-		cardUI.OnDragMove -= OnDragMoveForPlayZone;
-		cardUI.CancelDragSilent();
-
-		// 领域 → 玩家效果栏，轮战 → 抽牌堆，普通 → 弃牌堆
-		Vector2 targetPos;
-		if (_selectedCard?.Type == CardType.Domain)
-			targetPos = GetPlayerEffectBarCenter();
-		else if (_selectedCard?.HasRecycle ?? false)
-			targetPos = GetDrawPileCenter();
-		else
-			targetPos = GetDiscardPileCenter();
-		CardFlyVfx.PlayToDiscard(cardUI, targetPos, _cardFlyLayer);
+		}
+		view!.OnCardDropped -= OnCardDroppedHandler;
+		view.OnDragMove -= OnDragMoveForPlayZone;
+		view.OnTargetingClickReleased -= OnCardTargetingClickReleased;
+		bool retained = played ? _handUI.ParkPlayedCard(view) : _handUI.ReturnCardToHand(view);
+		if (!retained)
+		{
+			HandUI.RetireDetachedCard(view);
+			_handUI.RefreshHand();
+		}
 	}
 
 	/// <summary>
@@ -962,12 +820,10 @@ public partial class CombatUI
 		_selectedCard = card;
 		_pendingMinionSlot = slotIndex;
 
-		// 已选槽位后，把随从卡固定到展示位，仅箭头跟随指针（与法术目标模式一致）。
-		if (_dragCardUI != null)
+		// 已选槽位后把同一张牌固定到展示位，仍可随时取消归还。
+		if (_dragCardUI is { } view)
 		{
-			Vector2 viewportSize = GetViewportRect().Size;
-			Vector2 center = new(viewportSize.X * 0.5f, viewportSize.Y - _dragCardUI.Size.Y * TargetingCardScale * 0.5f);
-			_dragCardUI.PresentForTargeting(center, TargetingCardScale);
+			PresentTargetingCard(view);
 		}
 
 		_boardUI.ClearHighlights();
@@ -1060,9 +916,7 @@ public partial class CombatUI
 
 		int slotIndex = _pendingMinionSlot;
 		var card = _selectedCard;
-		Vector2 fromPos = _dragCardUI != null
-			? _dragCardUI.GlobalPosition + _dragCardUI.Size * _dragCardUI.Scale * 0.5f
-			: Vector2.Zero;
+		Vector2 fromPos = _dragCardUI?.ScreenCenter ?? Vector2.Zero;
 		bool success = _combat.PlayMinion(card, slotIndex, target);
 		if (success)
 		{
@@ -1087,8 +941,6 @@ public partial class CombatUI
 
 		_selectionMode = SelectionMode.PlayingNoTargetCard;
 		_selectedCard = card;
-
-		ShowPlayZonePanel();
 
 		// 订阅拖拽卡牌的逐帧位置更新（用于播放区域判定和视觉反馈）
 		if (_dragCardUI != null)
@@ -1167,7 +1019,7 @@ public partial class CombatUI
 	{
 		if (_combat.IsEnemyTurnStepping || !_combat.State.IsPlayerTurn)
 			return;
-		if (_attackDragFsm.HasDragged && IsPointerTargetSelectionMode())
+		if ((_attackDragFsm.HasDragged && IsPointerTargetSelectionMode()) || _dragCardUI?.IsPointerDragging == true)
 		{
 			GD.Print($"[CombatUI] 忽略敌方英雄点击：目标拖拽尚未松手，mode={_selectionMode}, enemy={enemyIndex}");
 			return;
@@ -1285,7 +1137,7 @@ public partial class CombatUI
 	/// <param name="enemyIndex">法术目标敌人索引（来自闭包捕获的 EnemyIdentityCard.EnemyIndex）</param>
 	private void OnEnemyHeroSpellTargetForIndex(int enemyIndex)
 	{
-		if (_combat.State.IsGameOver)
+		if (_combat.State.IsGameOver || _dragCardUI?.IsPointerDragging == true)
 			return;
 
 		_activeEnemyTargetIndex = enemyIndex;
@@ -1340,7 +1192,7 @@ public partial class CombatUI
 	/// </summary>
 	private void OnPlayerHeroSpellTarget()
 	{
-		if (_combat.State.IsGameOver)
+		if (_combat.State.IsGameOver || _dragCardUI?.IsPointerDragging == true)
 			return;
 
 		if (_selectionMode == SelectionMode.SelectingActiveSkillTarget
@@ -1392,7 +1244,6 @@ public partial class CombatUI
 		{
 			GD.Print("[CombatUI] 再次点击武器攻击按钮 → 取消武器攻击选择");
 			ResetSelection();
-			_handUI.RefreshHand();
 			RefreshAll();
 			return;
 		}
@@ -1416,6 +1267,7 @@ public partial class CombatUI
 
 		GD.Print($"[CombatUI] 进入武器攻击目标选择模式 — {weapon.Name}，start=({startPos.X:F0},{startPos.Y:F0})");
 
+		ResetSelection();
 		_selectionMode = SelectionMode.SelectingWeaponTarget;
 		_selectedAttacker = null;
 		_selectedCard = null;
@@ -1449,7 +1301,6 @@ public partial class CombatUI
 		{
 			GD.Print("[CombatUI] 再次点击武器主动技能按钮 → 取消目标选择");
 			ResetSelection();
-			_handUI.RefreshHand();
 			RefreshAll();
 			return;
 		}
@@ -1478,6 +1329,7 @@ public partial class CombatUI
 
 		GD.Print($"[CombatUI] 进入主动技能目标选择模式 — {weapon.ActiveSkill.Name}，start=({startPos.X:F0},{startPos.Y:F0})");
 
+		ResetSelection();
 		_selectionMode = SelectionMode.SelectingActiveSkillTarget;
 		_selectedAttacker = null;
 		_selectedCard = null;
@@ -1602,6 +1454,7 @@ public partial class CombatUI
 		if (_combat.State.IsGameOver)
 			return;
 
+		ResetSelection();
 		_devDamageAmount = damageAmount;
 		_selectionMode = SelectionMode.DevDamageTargeting;
 		_selectedCard = null;
@@ -1755,6 +1608,7 @@ public partial class CombatUI
 	/// </summary>
 	private void ResetSelection()
 	{
+		ReleaseDragCard();
 		_boardUI.DisableKeyboardTargeting();
 
 		_arrowRenderer?.RemoveArrow("attack_select");
@@ -1775,7 +1629,6 @@ public partial class CombatUI
 		// 清除敌方英雄卡片绿色高亮
 		foreach (var card in _enemyCards)
 			card.SetAttackTargetHighlight(false);
-		_handUI.DeselectCard();
 		HidePlayZonePanel();
 
 		// 清除攻击拖拽状态
@@ -1807,7 +1660,6 @@ public partial class CombatUI
 
 		// 其他选择模式（攻击目标、武器目标、法术目标、随从放置等）：重置选择
 		ResetSelection();
-		_handUI.RefreshHand();
 	}
 
 	// ===== 发现选牌 UI =====
@@ -1919,6 +1771,7 @@ public partial class CombatUI
 	{
 		if (_isHandSelecting)
 			return;
+		ResetSelection();
 		_isHandSelecting = true;
 		_selectedHandCards.Clear();
 		_selectedHandCardUIs.Clear();
@@ -2015,11 +1868,16 @@ public partial class CombatUI
 		_isHandSelecting = false;
 		_selectedHandCards.Clear();
 
-		// 归还展示容器内的卡牌回手牌
+		_handUI.SetHandSelectionMode(false);
+		_handUI.OnCardSelectionToggled -= OnHandCardSelectionToggled;
+
+		// 仍在模型手牌的真卡原样归还；已弃掉的牌才释放。
 		foreach (var cardUI in _selectedHandCardUIs)
 		{
-			if (cardUI.Card != null && GodotObject.IsInstanceValid(cardUI))
-				cardUI.QueueFree();
+			if (!_handUI.ReturnCardToHand(cardUI))
+			{
+				HandUI.RetireDetachedCard(cardUI);
+			}
 		}
 		_selectedHandCardUIs.Clear();
 
@@ -2041,10 +1899,6 @@ public partial class CombatUI
 			_handSelectConfirmBtn = null;
 		}
 
-		// 恢复 HandUI 正常模式
-		_handUI.HandSelectMode = false;
-		_handUI.OnCardSelectionToggled -= OnHandCardSelectionToggled;
-
 		// 恢复回合结束按钮
 		_endTurnButton.Disabled = false;
 		UpdateSmartAttackButton();
@@ -2059,45 +1913,32 @@ public partial class CombatUI
 	/// 手牌选择模式：点击卡牌切换选中/取消。
 	/// 选中时将 CardUI reparent 到上方展示容器，取消时放回手牌。
 	/// </summary>
-	private void OnHandCardSelectionToggled(Card.Card card, bool toggled)
+	private void OnHandCardSelectionToggled(Card.Card card)
 	{
+		if (_combat.HandSelectOptions?.Contains(card) != true)
+		{
+			return;
+		}
 		if (_selectedHandCards.Remove(card))
 		{
-			// 取消选中
-			var cardUI = _handUI.GetCardUIFor(card);
-			if (cardUI != null)
-			{
-				cardUI.SetHandSelectionHighlight(false);
-			}
-			// 尝试从展示容器移除
-			var selectedUI = _selectedHandCardUIs.Find(c => c.Card == card);
+			CardUI? selectedUI = _selectedHandCardUIs.Find(view => ReferenceEquals(view.Card, card));
 			if (selectedUI != null)
 			{
 				_selectedHandCardUIs.Remove(selectedUI);
-				_handUI.AddCardBack(card);
-				// AddCardBack 创建了新 CardUI，销毁旧的
-				selectedUI.QueueFree();
+				if (!_handUI.ReturnCardToHand(selectedUI))
+				{
+					HandUI.RetireDetachedCard(selectedUI);
+				}
 			}
 		}
-		else
+		else if (_handUI.GetCardUIFor(card) is CardUI view && _selectedHandCardContainer != null
+			&& _handUI.MoveCardOutOfHand(view, _selectedHandCardContainer, forPlay: false))
 		{
-			// 选中：从手牌取出，放到上方展示容器
 			_selectedHandCards.Add(card);
-			var cardUI = _handUI.GetCardUIFor(card);
-			if (cardUI != null && _selectedHandCardContainer != null)
-			{
-				_handUI.StopLayoutControl(cardUI);
-				_handUI.DetachCardFromList(cardUI);
-				cardUI.GetParent()?.RemoveChild(cardUI);
-				cardUI.OffsetTop = 0;
-				cardUI.OffsetBottom = 0;
-				cardUI.OffsetLeft = 0;
-				cardUI.OffsetRight = 0;
-				cardUI.SetHandSelectionHighlight(true);
-				cardUI.PreventDrag = true;
-				_selectedHandCardContainer.AddChild(cardUI);
-				_selectedHandCardUIs.Add(cardUI);
-			}
+			_selectedHandCardUIs.Add(view);
+			view.SetHandSelectionHighlight(true);
+			view.PreventDrag = true;
+			view.ZIndex = 1;
 		}
 
 		// 重新排列展示容器内的卡片
@@ -2114,36 +1955,21 @@ public partial class CombatUI
 			return;
 
 		float s = UIScaler.Instance?.GetScaleFactor() ?? 1f;
-		float cardW = CardUI.DESIGN_WIDTH * s * 0.85f;
+		float cardW = CardUI.DESIGN_WIDTH * s * HandLayout.RestScale;
 		float spacing = 20f * s;
 		float totalW = cardW * _selectedHandCardUIs.Count + spacing * (_selectedHandCardUIs.Count - 1);
 		float viewportW = GetViewportRect().Size.X;
 		float startX = (viewportW - totalW) / 2f;
-		float y = _selectedHandCardContainer.Size.Y * 0.5f - CardUI.DESIGN_HEIGHT * s * 0.85f * 0.5f;
+		float y = GetViewportRect().Size.Y * 0.5f;
 
 		for (int i = 0; i < _selectedHandCardUIs.Count; i++)
 		{
 			var cardUI = _selectedHandCardUIs[i];
-			cardUI.Scale = new Vector2(0.85f, 0.85f);
-			cardUI.Position = new Vector2(startX + i * (cardW + spacing), y);
-		}
-	}
-
-	/// <summary>
-	/// 刷新手牌选择模式下的卡牌高亮（用于 RefreshAll 中）。
-	/// </summary>
-	private void RefreshHandSelectionHighlights()
-	{
-		if (_combat?.PlayerHero?.Hand == null)
-			return;
-
-		foreach (var card in _combat.PlayerHero.Hand)
-		{
-			var cardUI = _handUI.GetCardUIFor(card);
-			if (cardUI != null)
+			if (HandUI.IsLive(cardUI))
 			{
-				bool isSelected = _selectedHandCards.Contains(card);
-				cardUI.SetHandSelectionHighlight(isSelected);
+				cardUI.RotationDegrees = 0f;
+				cardUI.Scale = Vector2.One * (HandLayout.RestScale * s / cardUI.FaceRenderScale);
+				cardUI.SetScreenCenter(new Vector2(startX + (cardW * 0.5f) + i * (cardW + spacing), y));
 			}
 		}
 	}
@@ -2177,38 +2003,32 @@ public partial class CombatUI
 
 	/// <summary>
 	/// 判断屏幕坐标是否在播放区域内（STS2 动态阈值风格）。
-	/// 阈值随拖拽起始位置自适应：起始越高阈值越紧，起始越低阈值越宽。
-	/// 键盘启动时额外放宽 100px（更难误触）。
+	/// 阈值随拖拽起始位置自适应；点击提示、拖拽反馈和实际松手共用同一条判定线。
 	/// </summary>
 	private bool IsInPlayZone(Vector2 screenPos)
 	{
+		return screenPos.Y < GetPlayZoneThreshold();
+	}
+
+	private float GetPlayZoneThreshold()
+	{
 		float viewportH = GetViewport().GetVisibleRect().Size.Y;
 		float baseThreshold = viewportH * PlayZoneBaseRatio;
-
-		// STS2 自适应公式
-		float threshold;
-		if (_playZoneDragStartY > baseThreshold)
-			threshold = Mathf.Max(baseThreshold, _playZoneDragStartY - 100f);  // 底部拖拽放宽
-		else
-			threshold = Mathf.Min(baseThreshold, _playZoneDragStartY - 50f);   // 顶部拖拽收紧
-
-		return screenPos.Y < threshold;
+		return _playZoneDragStartY > baseThreshold
+			? Mathf.Max(baseThreshold, _playZoneDragStartY - 100f)
+			: Mathf.Min(baseThreshold, _playZoneDragStartY - 50f);
 	}
 
 	/// <summary>
 	/// 判断当前输入位置是否触发取消（STS2 CancelZone 风格）。
-	/// 必须曾离开过取消区域（上滑进入播放区）再回到底部 95% 才触发。
+	/// 必须进入过出牌区，再回到底部 95% 才触发。
 	/// </summary>
 	private bool IsInCancelZone(Vector2 screenPos)
 	{
 		float viewportH = GetViewport().GetVisibleRect().Size.Y;
 		float cancelThreshold = viewportH * CancelZoneScreenProportion;
 
-		// 离开取消区一次后永久标记
-		if (screenPos.Y <= cancelThreshold)
-			_hasLeftCancelZone = true;
-
-		return _hasLeftCancelZone && screenPos.Y > cancelThreshold;
+		return _hasEnteredPlayZone && screenPos.Y > cancelThreshold;
 	}
 
 
@@ -2219,7 +2039,8 @@ public partial class CombatUI
 	{
 		if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
 		{
-			if (_selectionMode == SelectionMode.PlayingNoTargetCard && _selectedCard != null)
+			if (_selectionMode == SelectionMode.PlayingNoTargetCard && _selectedCard != null
+				&& _dragCardUI?.IsClickFollowing == true && IsInPlayZone(mb.GlobalPosition))
 			{
 				GD.Print($"[CombatUI] 播放区域被点击 — 打出 {_selectedCard.CardName}");
 				PlaySelectedNoTargetCard();
@@ -2235,8 +2056,10 @@ public partial class CombatUI
 		if (_selectedCard == null || _combat.State.IsGameOver)
 			return;
 
+		// 效果结算期间（如进入发现/手牌选择）可能同步触发 ResetSelection() 清空 _selectedCard，先固定引用。
+		Card.Card card = _selectedCard;
 		bool success;
-		switch (_selectedCard.Type)
+		switch (card.Type)
 		{
 			case CardType.Spell:
 				success = PlaySelectedSpellWithVfxOrigin(_combat.PlayerHero);
@@ -2246,32 +2069,29 @@ public partial class CombatUI
 				success = PlaySelectedSpellWithVfxOrigin(_combat.PlayerHero);
 				break;
 			case CardType.Domain:
-				// 领域亮牌同样从拖拽卡当前位置弹入，收尾飞向玩家效果栏。
-				_lastPlayedCardOrigin = ResolveSelectedCardVfxOrigin(_selectedCard);
-				success = _combat.PlayDomain(_selectedCard);
-				_lastPlayedCardOrigin = Vector2.Zero;
+				// 领域亮牌直接从当前卡面中心弹入。
+				success = _combat.PlayDomain(card);
 				if (success)
-					CleanupDragCard();
+				{
+					ReleaseDragCard(played: true);
+				}
 				break;
 			case CardType.Countermeasure:
-				// 反制牌不离开手牌，不走飞向弃牌堆的动画，只需重建手牌以刷新待命徽章。
-				bool toggled = _combat.PlayCountermeasure(_selectedCard);
-				CleanupDragCard();
-				ResetSelection();
+				// 激活/取消不消耗反制牌；让同一张牌带着更新后的徽章弹回。
+				bool toggled = _combat.PlayCountermeasure(card);
 				RefreshAll();
 				if (!toggled)
 					GD.Print("[CombatUI] [FAIL] 反制牌激活/取消失败");
 				return;
 			default:
-				GD.PrintErr($"[CombatUI] 不支持的类型：{_selectedCard.Type}");
+				GD.PrintErr($"[CombatUI] 不支持的类型：{card.Type}");
 				OnCardDragCancelled();
 				return;
 		}
 
 		if (success)
 		{
-			GD.Print($"[CombatUI] [OK] 无目标卡牌 {_selectedCard.CardName} 已打出");
-			AnimateCardToDiscardPile();
+			GD.Print($"[CombatUI] [OK] 无目标卡牌 {card.CardName} 已打出");
 			RefreshAll();
 		}
 		else
@@ -2291,9 +2111,10 @@ public partial class CombatUI
 
 		bool inZone = IsInPlayZone(screenPos);
 		cardUI.SetPlayZoneHighlight(inZone);
+		_hasEnteredPlayZone |= inZone;
 
 		// STS2 CancelZone：拖回底部 95% 且曾离开取消区 → 自动取消
-		if (IsInCancelZone(screenPos))
+		if (cardUI.IsPointerDragging && IsInCancelZone(screenPos))
 		{
 			GD.Print("[CombatUI] 拖入取消区域 → 自动取消");
 			OnCardDragCancelled();
