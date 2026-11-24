@@ -221,8 +221,10 @@ public partial class CombatUI
 		var enemyMinions = _combat.Board.GetEnemyMinions();
 		foreach (var minion in enemyMinions)
 		{
-			if (minion.IsDead)
+			if (minion.IsDead || _deployments.ContainsKey(minion))
+			{
 				continue;
+			}
 
 			// 指挥官随从由评分贪心控制器行动，不画 intent_minion_* 箭头、不写槽位意图文字。
 			if (!EnemyIntentVisibility.ShouldShowMinionIntent(minion, _combat.EnemyUnits))

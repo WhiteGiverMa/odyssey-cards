@@ -191,7 +191,7 @@ public partial class CombatUI
 	/// <summary>
 	/// 随从放置模式下点击玩家槽位 → 召唤随从。
 	/// </summary>
-	private void HandleMinionPlacement(BoardPosition position)
+	private void HandleMinionPlacement(BoardPosition position, DeployOriginKind origin = DeployOriginKind.PlayerClick)
 	{
 		int slotIndex = position.SlotIndex;
 		if (position.Row != BoardRow.PlayerSupport)
@@ -216,16 +216,10 @@ public partial class CombatUI
 			EnterMinionBattlecryTargetMode(card, slotIndex);
 			return;
 		}
-		Vector2? deployOrigin = _dragCardUI?.ScreenCenter;
-		bool success = _combat.PlayMinion(card, slotIndex);
+		bool success = PlaySelectedMinion(card, position, origin);
 		if (success)
 		{
 			GD.Print($"[CombatUI] [OK] 随从 {card.CardName} 已放置到槽位 {slotIndex}");
-			// 部署动画：从拖拽卡牌当前位置飞向目标槽位
-			if (deployOrigin is Vector2 fromPos)
-			{
-				PlayMinionDeployAnimation(card, fromPos, slotIndex, isPlayerSide: true);
-			}
 		}
 		else
 		{
@@ -518,7 +512,7 @@ public partial class CombatUI
 		if (hit is { Row: BoardRow.PlayerSupport } slot && _combat.Board.GetMinionAt(slot) == null)
 		{
 			GD.Print($"[CombatUI] 命中己方槽位 {hit.Value.SlotIndex}，执行放置");
-			HandleMinionPlacement(hit.Value);
+			HandleMinionPlacement(slot, DeployOriginKind.PlayerDrag);
 		}
 		else
 		{
@@ -916,19 +910,38 @@ public partial class CombatUI
 
 		int slotIndex = _pendingMinionSlot;
 		var card = _selectedCard;
-		Vector2 fromPos = _dragCardUI?.ScreenCenter ?? Vector2.Zero;
-		bool success = _combat.PlayMinion(card, slotIndex, target);
+		var position = new BoardPosition(BoardRow.PlayerSupport, slotIndex);
+		bool success = PlaySelectedMinion(card, position, DeployOriginKind.PlayerClick, target);
 		if (success)
 		{
 			GD.Print($"[CombatUI] [OK] 随从 {card.CardName} 已放置到槽位 {slotIndex}（战吼目标：{target}）");
-			if (_dragCardUI != null)
-				PlayMinionDeployAnimation(card, fromPos, slotIndex, isPlayerSide: true);
 		}
 		else
 		{
 			GD.Print("[CombatUI] [FAIL] 目标型部署失败 — 查看上方 [CombatManager] 错误日志");
 		}
 		RefreshAll();
+	}
+
+	/// <summary>规则结算前冻结真实卡面的姿态；只有本次手牌及槽位匹配才消费接棒记录。</summary>
+	private bool PlaySelectedMinion(Card.Card card, BoardPosition position, DeployOriginKind origin, object? battlecryTarget = null)
+	{
+		CardUI? view = _dragCardUI;
+		_playerDeployHandoff = (card, position, origin, CaptureDeploymentPose(view), view);
+		try
+		{
+			bool played = _combat.PlayMinion(card, position.SlotIndex, battlecryTarget);
+			if (played)
+			{
+				// 拦截击毁或布局无效时没有飞行接管，已打出的原卡仍须退役。
+				ReleaseDragCard(played: true);
+			}
+			return played;
+		}
+		finally
+		{
+			_playerDeployHandoff = null;
+		}
 	}
 
 	/// <summary>
@@ -1531,8 +1544,11 @@ public partial class CombatUI
 	{
 		if (enemyIndex >= 0 && enemyIndex < _enemyCards.Count)
 		{
-			var rect = _enemyCards[enemyIndex].GetGlobalRect();
-			return rect.Position + rect.Size / 2;
+			EnemyIdentityCard card = _enemyCards[enemyIndex];
+			if (!SceneLifecycleGuard.ShouldSkip(card) && card.Size.X > 0f && card.Size.Y > 0f)
+			{
+				return card.GetGlobalTransformWithCanvas() * (card.Size * 0.5f);
+			}
 		}
 		return Vector2.Zero;
 	}

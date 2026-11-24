@@ -194,7 +194,15 @@ public partial class CombatUI : Control
 	/// 位于弹道层(14)和伤害数字层(15)之上，低于卡牌飞行层(20)。
 	/// </summary>
 	private Control _deployVfxLayer = null!;
+	private readonly Dictionary<Minion, DeployPresentation> _deployments = new(ReferenceEqualityComparer.Instance);
+	private (Card.Card Card, BoardPosition Position, DeployOriginKind Kind, DeployPose? Pose, CardUI? View)? _playerDeployHandoff;
 	private CombatLogDrawer _combatLogDrawer = null!;
+
+	private sealed record DeployPresentation(BoardPosition Position, DeployOriginKind Kind, DeployPose? Origin,
+		Card.Card? HandCard, CardUI? HandView)
+	{
+		public MinionDeployVfx? Flight { get; set; }
+	}
 
 	/// <summary>
 	/// 棋盘运行时引用——用于订阅随从放置/移除事件。
@@ -815,6 +823,7 @@ public partial class CombatUI : Control
 	/// </summary>
 	public override void _ExitTree()
 	{
+		CancelAllDeployments();
 		CleanupTransientInputState();
 
 		if (UIScaler.Instance != null)
@@ -1062,11 +1071,15 @@ public partial class CombatUI : Control
 		// 游戏结束 → 显示弹窗
 		_combat.OnGameOver += ShowGameOverPopup;
 		_unsubscribeActions.Add(() => _combat.OnGameOver -= ShowGameOverPopup);
+		_combat.OnCombatStarting += CancelAllDeployments;
+		_unsubscribeActions.Add(() => _combat.OnCombatStarting -= CancelAllDeployments);
 
 		// 随从伤害跳字 — 随从放置时通过闭包捕获 minion 引用订阅事件
 		_board!.OnMinionPlaced += OnBoardMinionPlacedSubscribeDamage;
 		_unsubscribeActions.Add(() => _board.OnMinionPlaced -= OnBoardMinionPlacedSubscribeDamage);
-		// 随从部署动画 — 双方随从上场时播放飞行→落地动画
+		// 先挂藏显标记，再由规则结算后的部署事件播放；拦截/亡语重入不会闪露真槽。
+		_board.OnMinionEntering += OnBoardMinionEntering;
+		_unsubscribeActions.Add(() => _board.OnMinionEntering -= OnBoardMinionEntering);
 		_board.OnMinionPlaced += OnBoardMinionPlacedForDeployAnimation;
 		_unsubscribeActions.Add(() => _board.OnMinionPlaced -= OnBoardMinionPlacedForDeployAnimation);
 		_board.OnMinionRemoved += OnBoardMinionRemovedUnsubscribeDamage;
@@ -1297,42 +1310,155 @@ public partial class CombatUI : Control
 
 	private void OnBoardMinionPlacedSubscribeDamage(Minion minion, BoardPosition position)
 	{
-		SubscribeMinionDamageEvents(minion);
+		if (_board?.Contains(minion) == true && !minion.IsDead)
+		{
+			SubscribeMinionDamageEvents(minion);
+		}
 	}
 
-	/// <summary>
-	/// 随从放置时触发部署动画——从来源中心飞向棋盘槽位中心，落地弹性缩放。
-	/// 玩家侧：动画由 HandleMinionPlacement 在 RefreshAll 前显式调用，使用拖拽卡牌位置作为起点。
-	/// 敌方侧：由 Board.OnMinionPlaced 事件触发，从屏幕上方飞入。
-	/// </summary>
+	/// <summary>规则监听广播前先登记藏槽。仅真实手牌部署带源牌引用，复制或其他召唤单独入场。</summary>
+	private void OnBoardMinionEntering(Minion minion, BoardPosition position, Card.Card? fromHand)
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this) || SceneLifecycleGuard.ShouldSkip(_deployVfxLayer)
+			|| _combat.State.IsGameOver || !_boardUI.BeginPendingDeploy(position, minion))
+		{
+			return;
+		}
+		DeployOriginKind kind = DeployOriginKind.OffscreenSummon;
+		DeployPose? origin = null;
+		CardUI? handView = null;
+		if (fromHand != null)
+		{
+			if (!minion.IsPlayerSide)
+			{
+				kind = DeployOriginKind.EnemyHand;
+				origin = ResolveEnemyDeployPose(fromHand, minion.OwnerHero != null ? GetEnemyHeroIndex(minion.OwnerHero) : -1);
+			}
+			else if (_playerDeployHandoff is { } handoff && ReferenceEquals(handoff.Card, fromHand) && handoff.Position == position)
+			{
+				kind = handoff.Kind;
+				origin = handoff.Pose;
+				handView = handoff.View;
+			}
+			else
+			{
+				kind = DeployOriginKind.PlayerClick;
+				handView = _handUI.GetCardUIFor(fromHand);
+				origin = CaptureDeploymentPose(handView);
+				if (origin == null)
+				{
+					handView = null;
+				}
+			}
+		}
+		_deployments.Add(minion, new DeployPresentation(position, kind, origin, fromHand, handView));
+	}
+
+	private static DeployPose? CaptureDeploymentPose(CardUI? view)
+	{
+		return HandUI.IsLive(view) && view!.IsVisibleInTree() ? MinionDeployVfx.CapturePose(view) : null;
+	}
+
+	private DeployPose? ResolveEnemyDeployPose(Card.Card fromHand, int enemyIndex)
+	{
+		if (IsInstanceValid(_enemyHandBar)
+			&& (_enemyHandBar.GetCardScreenRect(fromHand) ?? _enemyHandBar.GetFallbackCardScreenRect()) is Rect2 rect)
+		{
+			return new DeployPose(MinionDeployVfx.ToMotion(rect.GetCenter()),
+				MinionDeployVfx.CalculateFitRenderScale(rect.Size), 0f, 0.15f);
+		}
+
+		Vector2 identity = ResolveEnemyPlayOrigin(enemyIndex);
+		if (identity == Vector2.Zero)
+		{
+			return null;
+		}
+		float scale = (UIScaler.Instance?.CurrentScale ?? 1f) * GetGlobalTransformWithCanvas().X.Length();
+		return new DeployPose(MinionDeployVfx.ToMotion(identity), 0.36f * scale, 0f, 0.20f);
+	}
+
+	/// <summary>规则拦截完成后才挂飞行视图，已经离槽的单位不再生成替身。</summary>
 	private void OnBoardMinionPlacedForDeployAnimation(Minion minion, BoardPosition position)
 	{
-		if (_deployVfxLayer == null || !GodotObject.IsInstanceValid(_deployVfxLayer))
-			return;
-
-		// 玩家侧：由 HandleMinionPlacement 显式调用，使用拖拽卡牌位置作为起点。
-		if (minion.IsPlayerSide)
-			return;
-
-		// 敌方侧：优先从顶部手牌栏中心飞出；无手牌栏时退到敌方身份卡中心。
-		var card = minion.ToRuntimeCard();
-		Vector2 fromPos = ResolveEnemyPlayOrigin(GetEnemyHeroIndexBySide(minion));
-		if (fromPos == Vector2.Zero)
+		if (!_deployments.TryGetValue(minion, out DeployPresentation? deploy) || deploy.Position != position || deploy.Flight != null)
 		{
-			var viewportSize = GetViewportRect().Size;
-			fromPos = new Vector2(viewportSize.X * 0.5f, -CardUI.DESIGN_HEIGHT * 0.5f);
+			return;
 		}
-		PlayMinionDeployAnimation(card, fromPos, position.SlotIndex, isPlayerSide: false);
+		Rect2 GetDestination()
+		{
+			return SceneLifecycleGuard.ShouldSkip(this) || SceneLifecycleGuard.ShouldSkip(_boardUI) || minion.IsDead
+				|| !ReferenceEquals(_board?.GetMinionAt(position), minion) ? default : _boardUI.GetSlotScreenRect(position);
+		}
+
+		float speed = ResolveDeploySpeed();
+		DeployImpactProfile impact = DeployImpactProfile.Standard;
+		CardUI? handView = HandUI.IsLive(deploy.HandView) ? deploy.HandView : null;
+		Card.Card face = deploy.HandCard?.CreateSnapshot() ?? minion.ToRuntimeCard();
+		deploy.Flight = MinionDeployVfx.Play(face, deploy.Kind, deploy.Origin, minion.IsPlayerSide, impact, speed,
+			_deployVfxLayer, GetDestination, touchedDown => CompleteDeploy(minion, deploy, touchedDown, impact, speed), handView);
+		if (deploy.Flight == null)
+		{
+			CancelDeploy(minion);
+		}
+		else if (handView != null && ReferenceEquals(_dragCardUI, handView))
+		{
+			ReleaseDragCard(played: true);
+		}
+	}
+
+	private void CompleteDeploy(Minion minion, DeployPresentation deploy, bool touchedDown, DeployImpactProfile impact, float speed)
+	{
+		if (!_deployments.TryGetValue(minion, out DeployPresentation? current) || !ReferenceEquals(current, deploy))
+		{
+			return;
+		}
+		_ = _deployments.Remove(minion);
+		if (SceneLifecycleGuard.ShouldSkip(this) || SceneLifecycleGuard.ShouldSkip(_boardUI))
+		{
+			return;
+		}
+		if (touchedDown)
+		{
+			_boardUI.RevealDeployedMinion(deploy.Position, minion, impact, speed);
+			RefreshIntentArrows();
+		}
+		else
+		{
+			_ = _boardUI.ClearPendingDeploy(deploy.Position, minion);
+		}
+	}
+
+	private void CancelDeploy(Minion minion)
+	{
+		if (!_deployments.Remove(minion, out DeployPresentation? deploy))
+		{
+			return;
+		}
+		if (IsInstanceValid(deploy.Flight))
+		{
+			deploy.Flight!.CancelAndFree();
+		}
+		if (!SceneLifecycleGuard.ShouldSkip(_boardUI))
+		{
+			_ = _boardUI.ClearPendingDeploy(deploy.Position, minion);
+		}
+	}
+
+	private void CancelAllDeployments()
+	{
+		_playerDeployHandoff = null;
+		foreach (Minion minion in _deployments.Keys)
+		{
+			CancelDeploy(minion); // Dictionary 支持迭代期间移除当前项。
+		}
 	}
 
 	/// <summary>敌方出牌起点：可见手牌栏中心 &gt; 敌方身份卡中心 &gt; 零（调用方回退）。</summary>
 	private Vector2 ResolveEnemyPlayOrigin(int enemyIndex)
 	{
-		if (_enemyHandBar != null && GodotObject.IsInstanceValid(_enemyHandBar) && _enemyHandBar.Visible)
+		if (!SceneLifecycleGuard.ShouldSkip(_enemyHandBar) && _enemyHandBar.IsVisibleInTree() && _enemyHandBar.Size.X > 0f)
 		{
-			Rect2 barRect = _enemyHandBar.GetGlobalRect();
-			if (barRect.Size.X > 0f && barRect.Size.Y > 0f)
-				return barRect.Position + barRect.Size * 0.5f;
+			return _enemyHandBar.GetGlobalTransformWithCanvas() * (_enemyHandBar.Size * 0.5f);
 		}
 		if (enemyIndex >= 0)
 		{
@@ -1350,33 +1476,9 @@ public partial class CombatUI : Control
 		return Vector2.Zero;
 	}
 
-	/// <summary>从随从所属方定位敌方索引；敌方随从属于该方英雄。</summary>
-	private int GetEnemyHeroIndexBySide(Minion minion)
-		=> minion.OwnerHero != null ? GetEnemyHeroIndex(minion.OwnerHero) : -1;
-
-	/// <summary>
-	/// 播放随从部署动画：在 fromPos 创建临时 CardUI，先飞到亮牌悬停点停留，
-	/// 再俯冲落入目标槽位、弹性缩放落地并溅射微尘粒子。动画不阻塞游戏操作。
-	/// </summary>
-	/// <param name="card">要展示的卡牌数据（仅用于渲染）</param>
-	/// <param name="fromPos">动画起始屏幕中心位置</param>
-	/// <param name="slotIndex">目标槽位索引（0-4）</param>
-	/// <param name="isPlayerSide">是否玩家方（控制贝塞尔曲线拱起方向）</param>
-	public void PlayMinionDeployAnimation(OdysseyCards.Card.Card card, Vector2 fromPos, int slotIndex, bool isPlayerSide)
-	{
-		Rect2 slotRect = _boardUI.GetSlotScreenRect(slotIndex, isPlayerSide);
-		if (slotRect.Size == Vector2.Zero)
-		{
-			GD.Print("[CombatUI] PlayMinionDeployAnimation 跳过——目标槽位屏幕坐标无效");
-			return;
-		}
-
-		Vector2 toPos = slotRect.Position + slotRect.Size * 0.5f;
-		MinionDeployVfx.Play(card, fromPos, toPos, slotRect.Size, isPlayerSide, ResolveDeploySpeed(), _deployVfxLayer);
-	}
-
 	private void OnBoardMinionRemovedUnsubscribeDamage(Minion minion)
 	{
+		CancelDeploy(minion);
 		_assaultOrigins.Remove(minion);
 		CancelMoveVfx(minion);
 		UnsubscribeMinionDamageEvents(minion);
@@ -1504,8 +1606,10 @@ public partial class CombatUI : Control
 
 	private void OnBoardMinionPreRemove(Minion minion, BoardPosition position)
 	{
-		if (!minion.IsPlayerSide)
+		if (!minion.IsPlayerSide || _deployments.ContainsKey(minion))
+		{
 			return;
+		}
 
 		var cardPos = _boardUI.GetSlotScreenCenter(position);
 		if (cardPos == Vector2.Zero)
@@ -1522,6 +1626,7 @@ public partial class CombatUI : Control
 	/// <summary>记录突击单位推进前所在支援槽；非突击移动立即清除旧记录。</summary>
 	private void OnBoardMinionMoved(Minion minion, BoardPosition from, BoardPosition to)
 	{
+		CancelDeploy(minion);
 		if (minion.UnitClass == UnitClass.Assault
 			&& from.Row == BoardRow.PlayerSupport
 			&& to.Row == BoardRow.Frontline)
@@ -1831,15 +1936,15 @@ public partial class CombatUI : Control
 			EnemyStepKind.TurnPrepare => 0.40f,
 			// 与敌方 CardShowcaseVfx（0.22 + 0.95 + 0.34 = 1.51）对齐，留足完整阅读时间。
 			EnemyStepKind.PlayCard => 1.45f,
-			// 与敌方随从从顶栏飞出悬停（0.26 + 0.65 + 0.20 = 1.11）对齐。
-			EnemyStepKind.Deploy => 1.15f,
+			// 飞行和短促沉降完整结束；光尘尾迹可以与下一步重叠。
+			EnemyStepKind.Deploy => MinionDeployMath.EnemyStepDelay,
 			EnemyStepKind.Move => 0.55f,
 			EnemyStepKind.Attack or EnemyStepKind.Weapon or EnemyStepKind.HeroPower
 				or EnemyStepKind.MinionAction => 0.68f,
 			EnemyStepKind.TurnEnd => 0.30f,
 			_ => 0.30f,
 		} / speed;
-		await ToSignal(GetTree().CreateTimer(duration), SceneTreeTimer.SignalName.Timeout);
+		_ = await ToSignal(GetTree().CreateTimer(duration, processAlways: false), SceneTreeTimer.SignalName.Timeout);
 		// 等待期间场景可能被销毁或快速 SL；下一步统一安排自己的刷新。
 		if (SceneLifecycleGuard.ShouldSkip(this))
 			return;
@@ -1884,6 +1989,7 @@ public partial class CombatUI : Control
 	/// <param name="isVictory">是否胜利</param>
 	private void ShowGameOverPopup(bool isVictory)
 	{
+		CancelAllDeployments();
 		if (_gameOverPopup == null)
 			return;
 

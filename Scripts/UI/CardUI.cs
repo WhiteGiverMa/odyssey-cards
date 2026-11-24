@@ -189,6 +189,7 @@ public partial class CardUI : Control
 	private float _dragDelta;
 	private bool _pointerWasDown;
 	private bool _pickupReleased;
+	private bool _isDragReleaseFrame;
 	private bool _parkOnClickRelease;
 	private bool _playZoneActive;
 	private float _playZoneGlow;
@@ -247,6 +248,11 @@ public partial class CardUI : Control
 		if (Card != null)
 		{
 			SetCard(Card);
+		}
+		// 部署替身在入树前复制原卡费用与边缘光，首帧不重置已有的表现。
+		if (_playZoneGlow > 0f)
+		{
+			ApplyPlayZoneGlow();
 		}
 #if TOOLS
 		// 编辑器预览模式：创建模拟卡牌数据，使卡牌在 Godot 编辑器中可视化。
@@ -715,6 +721,13 @@ public partial class CardUI : Control
 		}
 	}
 
+	/// <summary>在部署替身构建前保留原卡牌面费用与已显示的微光；不借用交互状态。</summary>
+	internal void CopyDeployFaceState(CardUI source)
+	{
+		_runtimeCost = source._runtimeCost;
+		_playZoneGlow = source._playZoneGlow;
+	}
+
 	private static bool UpdateLabelText(Label label, string text)
 	{
 		if (label.Text == text)
@@ -865,6 +878,7 @@ public partial class CardUI : Control
 		_dragFsm.ForceReset();
 		_trackingMobilePress = false;
 		_isDragging = false;
+		_isDragReleaseFrame = false;
 		_targetingPose = null;
 		SetPlayZoneHighlight(false);
 		MouseFilter = DisplayOnly ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop;
@@ -908,6 +922,7 @@ public partial class CardUI : Control
 		}
 		_dragDelta = seconds;
 		bool firstRelease = !_pickupReleased && _pointerWasDown && !down;
+		_isDragReleaseFrame = _pointerWasDown && !down && _dragFsm.HasDragged;
 		_pointerWasDown = down;
 		_dragFsm.Tick(pointer, down, Input.IsMouseButtonPressed(MouseButton.Right), GetViewportRect().Size.Y, _dragAnchor.Y);
 		if (_isDragging && !down)
@@ -941,9 +956,10 @@ public partial class CardUI : Control
 	private void OnFsmDragMove(Vector2 pos, bool inPlay, bool inCancel)
 	{
 		OnDragMove?.Invoke(this, pos);
-		if (!_isDragging)
+		// FSM 仍用这帧的原始指针判定落点，但接棒只取上一帧实际呈现的真卡姿态。
+		if (!_isDragging || _isDragReleaseFrame)
 		{
-			return; // 出牌区检查可能同步触发归还。
+			return;
 		}
 		float delta = _dragDelta;
 		float uiScale = Mathf.Max(UIScaler.Instance?.CurrentScale ?? 1f, 0.01f);
@@ -1010,6 +1026,12 @@ public partial class CardUI : Control
 		UpdateShadow();
 	}
 
+	/// <summary>替身首帧保留原卡亮边，飞行时逐步收掉拖拽特有的光。</summary>
+	internal void FadeDeployGlow(float delta)
+	{
+		UpdatePlayZoneGlow(delta);
+	}
+
 	public void SetPlayZoneHighlight(bool active)
 	{
 		_playZoneActive = active;
@@ -1024,6 +1046,11 @@ public partial class CardUI : Control
 		}
 		_playZoneGlow = Mathf.Abs(_playZoneGlow - target) < 0.008f
 			? target : HandMotionMath.Damp(_playZoneGlow, target, delta, 28f);
+		ApplyPlayZoneGlow();
+	}
+
+	private void ApplyPlayZoneGlow()
+	{
 		_faceStyle.BorderColor = ClrBorder.Lerp(new Color(0.45f, 0.85f, 0.64f, 0.95f), _playZoneGlow);
 		UpdateShadow();
 	}

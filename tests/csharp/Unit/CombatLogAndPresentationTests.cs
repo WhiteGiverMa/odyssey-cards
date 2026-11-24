@@ -687,11 +687,12 @@ public class CombatLogAndPresentationTests
 		Assert.Equal(0.95f, ReadSourceFloat("Scripts/UI/CardShowcaseVfx.cs", "EnemyHoldBaseDuration"));
 		Assert.Equal(0.34f, ReadSourceFloat("Scripts/UI/CardShowcaseVfx.cs", "ExitBaseDuration"));
 
-		Assert.Equal(0.26f, ReadSourceFloat("Scripts/UI/MinionDeployVfx.cs", "ApproachBaseDuration"));
-		Assert.Equal(0.42f, ReadSourceFloat("Scripts/UI/MinionDeployVfx.cs", "PlayerHoldBaseDuration"));
-		Assert.Equal(0.65f, ReadSourceFloat("Scripts/UI/MinionDeployVfx.cs", "EnemyHoldBaseDuration"));
-		Assert.Equal(0.20f, ReadSourceFloat("Scripts/UI/MinionDeployVfx.cs", "DiveBaseDuration"));
-		Assert.Equal(0.24f, ReadSourceFloat("Scripts/UI/MinionDeployVfx.cs", "LandBaseDuration"));
+		DeployTiming flight = MinionDeployMath.TimingFor(DeployOriginKind.EnemyHand);
+		Assert.Equal(0.20f, flight.Approach);
+		Assert.Equal(0.41f, flight.Hold);
+		Assert.Equal(0.18f, flight.Strike);
+		Assert.Equal(0.11f, MinionDeployMath.SettlementDuration);
+		Assert.Equal(0.26f, MinionDeployMath.ImpactDuration);
 
 		Assert.Equal(0.34f, ReadSourceFloat("Scripts/UI/MinionMoveVfx.cs", "MoveBaseDuration"));
 		Assert.Equal(0.12f, ReadSourceFloat("Scripts/UI/MinionMoveVfx.cs", "FadeBaseDuration"));
@@ -710,7 +711,8 @@ public class CombatLogAndPresentationTests
 	{
 		string uiPath = Path.Combine(Root(), "Scripts", "UI", "CombatUI.cs");
 		float playCard = ReadStepDelay(uiPath, "PlayCard");
-		float deploy = ReadStepDelay(uiPath, "Deploy");
+		Assert.Contains("EnemyStepKind.Deploy => MinionDeployMath.EnemyStepDelay", File.ReadAllText(uiPath), StringComparison.Ordinal);
+		float deploy = MinionDeployMath.EnemyStepDelay;
 		float turnPrepare = ReadStepDelay(uiPath, "TurnPrepare");
 		float turnEnd = ReadStepDelay(uiPath, "TurnEnd");
 
@@ -718,10 +720,7 @@ public class CombatLogAndPresentationTests
 		float showCaseWindow = ReadSourceFloat("Scripts/UI/CardShowcaseVfx.cs", "EnterBaseDuration")
 			+ ReadSourceFloat("Scripts/UI/CardShowcaseVfx.cs", "EnemyHoldBaseDuration")
 			+ ReadSourceFloat("Scripts/UI/CardShowcaseVfx.cs", "ExitBaseDuration");
-		// MinionDeployVfx 敌方悬停：接近 + 敌方停留 + 俯冲。
-		float deployWindow = ReadSourceFloat("Scripts/UI/MinionDeployVfx.cs", "ApproachBaseDuration")
-			+ ReadSourceFloat("Scripts/UI/MinionDeployVfx.cs", "EnemyHoldBaseDuration")
-			+ ReadSourceFloat("Scripts/UI/MinionDeployVfx.cs", "DiveBaseDuration");
+		float deployWindow = MinionDeployMath.TimingFor(DeployOriginKind.EnemyHand).Touchdown + MinionDeployMath.SettlementDuration;
 
 		// 战报步骤 1.45s 与亮牌 1.51s 只差收尾淡出的 0.06s——卡面阅读段（进入+停留 1.17s）完整覆盖，
 		// 尾段淡出允许与下一步重叠；差值超过 0.1s 才说明步进被压回一闪而过。
@@ -731,7 +730,8 @@ public class CombatLogAndPresentationTests
 			+ ReadSourceFloat("Scripts/UI/CardShowcaseVfx.cs", "EnemyHoldBaseDuration"),
 			"PlayCard 步进必须完整覆盖亮牌的进入与停留阅读段");
 		Assert.True(deploy >= deployWindow,
-			$"Deploy 步进 {deploy:F2}s 容不下部署悬停 {deployWindow:F2}s");
+			$"Deploy 步进 {deploy:F2}s 容不下部署飞行及沉降 {deployWindow:F2}s");
+		Assert.InRange(deploy - deployWindow, 0f, 0.06f);
 		Assert.True(turnPrepare < playCard);
 		Assert.True(turnEnd < deploy);
 	}

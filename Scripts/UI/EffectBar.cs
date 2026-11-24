@@ -31,6 +31,7 @@ public partial class EffectBar : HBoxContainer
 	private EffectTooltip? _activeTooltip;
 	private string _effectSignature = string.Empty;
 	private bool _rebuildQueued;
+	private bool _presentationSuppressed;
 
 	/// <summary>
 	/// 图标实际重建并入树后触发。延迟两帧的重建流程会改变 Size.X，
@@ -85,9 +86,7 @@ public partial class EffectBar : HBoxContainer
 		string signature = BuildSignature(sorted);
 		if (signature == _effectSignature && !_rebuildQueued)
 		{
-			// 首次填充空列表时签名同为 ""，这里补一次隐藏，避免空效果栏白占一行高度。
-			if (_pendingEffects.Length == 0)
-				Visible = false;
+			SyncVisibility();
 			return;
 		}
 
@@ -98,14 +97,31 @@ public partial class EffectBar : HBoxContainer
 		HideTooltip();
 		QueueExistingIconsForRemoval();
 
-		if (_pendingEffects.Length == 0)
+		SyncVisibility();
+		if (_pendingEffects.Length != 0)
 		{
-			Visible = false;
+			QueueIconRebuild();
+		}
+	}
+
+	/// <summary>图标可在隐藏期间完成延迟重建，待部署槽位揭幕后与牌面同时可见。</summary>
+	internal void SetPresentationSuppressed(bool suppressed)
+	{
+		if (_presentationSuppressed == suppressed)
+		{
 			return;
 		}
+		_presentationSuppressed = suppressed;
+		if (suppressed)
+		{
+			HideTooltip();
+		}
+		SyncVisibility();
+	}
 
-		Visible = true;
-		QueueIconRebuild();
+	private void SyncVisibility()
+	{
+		Visible = !_presentationSuppressed && _pendingEffects.Length > 0;
 	}
 
 	/// <summary>
@@ -258,7 +274,7 @@ public partial class EffectBar : HBoxContainer
 			}
 		}
 
-		Visible = true;
+		SyncVisibility();
 
 		foreach (var effect in _pendingEffects)
 		{

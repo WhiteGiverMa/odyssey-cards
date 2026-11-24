@@ -60,6 +60,32 @@ public partial class EnemyHandBar : Control
 	/// <summary>当前显示的敌方手牌张数。</summary>
 	public int CardCount => _pendingHand.Count;
 
+	/// <summary>用原始运行时牌的引用定位已布局手牌，暗牌也能返回其卡背屏幕范围。</summary>
+	internal Rect2? GetCardScreenRect(RuntimeCard card)
+	{
+		if (!_byCard.TryGetValue(card, out HandSlot? slot) || slot.Visual is not { } visual
+			|| SceneLifecycleGuard.ShouldSkip(visual) || !visual.IsVisibleInTree() || !slot.Bounds.HasArea())
+		{
+			return null;
+		}
+		Transform2D transform = GetGlobalTransformWithCanvas();
+		Vector2 origin = transform * slot.Bounds.Position;
+		return new Rect2(origin, (transform * slot.Bounds.End) - origin);
+	}
+
+	/// <summary>缺少精确的手牌引用布局时，用顶栏中心与当前迷你卡高度。</summary>
+	internal Rect2? GetFallbackCardScreenRect()
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this) || !IsVisibleInTree() || Size.X <= 0f || Size.Y <= 0f)
+		{
+			return null;
+		}
+		Transform2D transform = GetGlobalTransformWithCanvas();
+		float height = ResolveMiniCardHeight() * transform.Y.Length();
+		Vector2 size = new(height * CardUI.DESIGN_WIDTH / CardUI.DESIGN_HEIGHT, height);
+		return new Rect2((transform * (Size * 0.5f)) - (size * 0.5f), size);
+	}
+
 	/// <summary>无参构造兼容编辑器；仅本栏接收 GUI，所有卡牌子视图均穿透。</summary>
 	public EnemyHandBar()
 	{
@@ -317,7 +343,7 @@ public partial class EnemyHandBar : Control
 		}
 		float reserved = Mathf.Min(_resourceWidth, Size.X * 0.35f);
 		float available = Mathf.Max(1f, Size.X - reserved - 28f);
-		float height = Mathf.Max(1f, Mathf.Min(_miniHeight, Size.Y - 12f));
+		float height = ResolveMiniCardHeight();
 		float width = height * CardUI.DESIGN_WIDTH / CardUI.DESIGN_HEIGHT;
 		width = Mathf.Min(width, available);
 		height = width * CardUI.DESIGN_HEIGHT / CardUI.DESIGN_WIDTH;
@@ -337,6 +363,11 @@ public partial class EnemyHandBar : Control
 			slot.Visual.LayoutVisual(height / _miniHeight);
 			MoveChild(slot.Visual, -1);
 		}
+	}
+
+	private float ResolveMiniCardHeight()
+	{
+		return Mathf.Max(1f, Mathf.Min(_miniHeight, Size.Y - 12f));
 	}
 
 	private static void DrawCardBack(CanvasItem canvas, Rect2 rect)
