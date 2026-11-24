@@ -912,6 +912,8 @@ public partial class CombatManager : Node
 	/// </summary>
 	public void StartCombat()
 	{
+		CancelEnemyTurnStepping();
+		OnCombatStarting?.Invoke();
 		GD.Print("[CombatManager] ========== 战斗开始 ==========");
 		CombatLog.Clear();
 
@@ -936,6 +938,9 @@ public partial class CombatManager : Node
 		// 开始第一个玩家回合
 		StartPlayerTurn();
 	}
+
+	/// <summary>新战斗开始前撤销上一场仍未交付的表现。</summary>
+	internal event Action? OnCombatStarting;
 
 	/// <summary>
 	/// 玩家回合开始——法力增长/回满、抽 1 张、重置攻击状态。
@@ -2199,7 +2204,7 @@ public partial class CombatManager : Node
 		BeginLogAction(CombatLogEntryKind.DeployUnit, actor.CasterHero, card, primarySource: minion);
 		try
 		{
-			Board.PlaceMinion(minion, slotIndex);
+			_ = Board.PlaceMinion(minion, slotIndex, fromHand: card);
 			if (minion.HasBattlecry)
 			{
 				// 目标型部署且本次没有目标：战吼整体跳过（绝不把随从自身当成目标）。

@@ -1,7 +1,10 @@
+using System.Collections.Generic;
 using System.Linq;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
+using OdysseyCards.Core;
 using Xunit;
+using RuntimeCard = OdysseyCards.Card.Card;
 
 namespace OdysseyCards.Tests.Unit;
 
@@ -16,6 +19,44 @@ public class BoardTests
 		Assert.Equal(4, board.EnemySlots.Count);
 		Assert.Equal(FrontlineOwner.None, board.FrontlineOwner);
 		Assert.Empty(board.GetAllMinions());
+	}
+
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public void PlaceMinion_RegistersVisualBeforeRules_AndDoesNotPassHandSourceToNestedSummons(bool player)
+	{
+		var board = new Board();
+		var handCard = new RuntimeCard("same-id", CardType.Minion, 1);
+		var main = new Minion(handCard.Id, player);
+		var copy = new Minion(handCard.Id, player);
+		var seen = new List<(Minion Unit, RuntimeCard? HandCard)>();
+		board.OnMinionEntering += (unit, position, source) =>
+		{
+			Assert.Same(unit, board.GetMinionAt(position));
+			seen.Add((unit, source));
+		};
+		board.OnMinionPlaced += (unit, position) =>
+		{
+			if (ReferenceEquals(unit, main))
+			{
+				Assert.Equal(new BoardPosition(Board.SupportRow(player), 0), position);
+				Assert.Same(main, Assert.Single(seen).Unit);
+				Assert.True(board.PlaceMinion(copy, 1));
+			}
+		};
+
+		Assert.True(board.PlaceMinion(main, 0, fromHand: handCard));
+		Assert.False(board.PlaceMinion(new Minion(handCard.Id, player), 0, fromHand: handCard));
+		Assert.Collection(seen, entry =>
+		{
+			Assert.Same(main, entry.Unit);
+			Assert.Same(handCard, entry.HandCard);
+		}, entry =>
+		{
+			Assert.Same(copy, entry.Unit);
+			Assert.Null(entry.HandCard);
+		});
 	}
 
 	[Theory]

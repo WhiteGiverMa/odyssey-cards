@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using OdysseyCards.Card;
+using RuntimeCard = OdysseyCards.Card.Card;
 
 namespace OdysseyCards.Combat;
 
@@ -26,6 +27,8 @@ public sealed class Board
 		FrontlineSlots = Array.AsReadOnly(_frontline);
 	}
 
+	/// <summary>槽位已写入、规则监听尚未执行。只登记表现；源牌仅在常规手牌部署时存在。</summary>
+	internal event Action<Minion, BoardPosition, RuntimeCard?>? OnMinionEntering;
 	public event Action<Minion, BoardPosition>? OnMinionPlaced;
 	public event Action<Minion>? OnMinionRemoved;
 	public event Action<Minion>? OnMinionDied;
@@ -81,6 +84,12 @@ public sealed class Board
 	/// <summary>只部署到所属方支援线。满格或占用时安全失败，不替换、不溢入前线。</summary>
 	public bool PlaceMinion(Minion minion, int slotIndex)
 	{
+		return PlaceMinion(minion, slotIndex, null);
+	}
+
+	/// <summary>仅手牌部署传入原始卡牌实例；其战吼、亡语等衍生召唤不继承此来源。</summary>
+	internal bool PlaceMinion(Minion minion, int slotIndex, RuntimeCard? fromHand)
+	{
 		ArgumentNullException.ThrowIfNull(minion);
 		if (slotIndex < 0 || slotIndex >= SupportCapacity || minion.IsDead || minion.BoardRow != null)
 			return false;
@@ -91,7 +100,9 @@ public sealed class Board
 		slots[slotIndex] = minion;
 		minion.BoardRow = row;
 		minion.BoardSlotIndex = slotIndex;
-		OnMinionPlaced?.Invoke(minion, new BoardPosition(row, slotIndex));
+		var position = new BoardPosition(row, slotIndex);
+		OnMinionEntering?.Invoke(minion, position, fromHand);
+		OnMinionPlaced?.Invoke(minion, position);
 		return true;
 	}
 
