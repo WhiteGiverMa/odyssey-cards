@@ -12,7 +12,7 @@ Godot Control 层。UI 负责显示、输入、动画与异步选择；规则落
 | 战斗布局     | `CombatUI.Layout.cs`                                                    | BuildLayout + Create*，程序化控件                             |
 | 战斗刷新     | `CombatUI.Refresh.cs`                                                   | Pull 刷新，不轮询规则                                         |
 | 战斗选择     | `CombatUI.Selection.cs`                                                 | 手牌/目标/攻击/发现状态机                                     |
-| 手牌         | `HandUI.cs`, `CardUI.cs`                                                | 手动布局；CardUI 支持 `[Tool]` 预览                           |
+| 手牌         | `HandUI.cs`, `HandMotionMath.cs`, `CardUI.cs`                           | 实例差量、中心姿态与静止命中分离；CardUI 支持 `[Tool]` 预览   |
 | 棋盘         | `BoardUI.cs`                                                            | `[Tool]` 三线 4/5/4，BoardPosition 寻址，GetSlotView 视觉挂载 |
 | 敌方身份卡   | `EnemyIdentityCard.cs`                                                  | 意图、英雄攻击绿框、旧意图桥接                                |
 | 异步选牌     | `DiscoverUI.cs`, `RewardUI.cs`, `CardSelectionScreen.cs`                | `TaskCompletionSource` 一次性屏幕                             |
@@ -44,6 +44,8 @@ Godot Control 层。UI 负责显示、输入、动画与异步选择；规则落
 - 三线槽位事件/命中测试使用 BoardPosition，不以 bool 阵营猜测前线位置；阵营从驻扎单位/FrontlineOwner 读取。
 - 移动与一步突击高亮必须查询 CombatManager；不在 UI 扣油费。兵种显示使用 unit_class.* 本地化，不再显示战斗速度。
 - 战斗指针使用 Godot 主指针（含触控模拟鼠标），不依赖未注册 zone 的 Router.IsTouchActive。CardUI 移动端预览先追踪，超过统一 10px 阈值后再进入 CombatUI 出牌流程；须真机验证。
+- 手牌按运行时引用复用，借出不改牌序；`ReturnCardToHand` 保持屏幕中心、旋转、比例后由布局接管。展示/弃牌演出以卡面中心为锚，不再用缩放后半宽补偿。
+- 桌面悬停倒序匹配静止命中框，迟滞只在没有新命中时生效；位移、抬升和出牌区反馈不写回命中或落点。
 
 ## Anti-Patterns
 

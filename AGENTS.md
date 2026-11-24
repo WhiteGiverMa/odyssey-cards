@@ -76,7 +76,7 @@ Tests/              # tests/csharp：xUnit 24 Unit + 1 Integration(跳过)
 | 意图数据模型  | `AI/Intents/AbstractIntent.cs`                                                                                                                                                              | 19 文件，MoveState 多意图；详见 `Scripts/AI/Intents/AGENTS.md`                                                    |
 | 意图图标/提示 | `UI/IntentIcon.cs`, `IntentTooltip.cs`, `EnemyIdentityCard.cs`, `HeroAuraRing.cs`                                                                                                           | 悬停/长按；敌我英雄身份条带程序化底座光环                                                                         |
 | UI 总控       | `UI/CombatUI*.cs`                                                                                                                                                                           | 4 个 partial：核心/Layout/Refresh/Selection；详见 `Scripts/UI/AGENTS.md`                                          |
-| 手牌          | `UI/HandUI.cs`                                                                                                                                                                              | 风扇交叠，Control 手动布局（非 Container）                                                                        |
+| 手牌          | `UI/HandUI.cs`, `UI/HandMotionMath.cs`                                                                                                                                                      | 按运行时实例复用 CardUI；微弧布局、基线命中、真卡抽牌和归还                                                       |
 | 卡牌交互      | `UI/CardUI.cs`                                                                                                                                                                              | `[Tool]` 预览 + 点击/拖拽状态机；卡图区由 CardArtworkView 程序化生成                                              |
 | 星途视觉系统  | `Core/CardArtworkGenerator.cs`, `UI/CardArtworkView.cs`, `UI/StarfieldBackground.cs`, `UI/UIThemeFactory.cs`, `UI/ManaCrystalBar.cs`, `UI/MapPathView.cs`, `UI/MicroFX.cs`, `UI/HeatBar.cs` | 0 美术资产程序化视觉：卡图、星云星空、全局主题、路线节点、微交互、热力/生命 HUD                                   |
 | 交互状态机    | `UI/InteractionFSM.cs`                                                                                                                                                                      | 纯 C#；统一 Idle/CardPickedUp/Targeting/BoardDrag 阶段转换                                                        |
@@ -225,7 +225,7 @@ Tests/              # tests/csharp：xUnit 24 Unit + 1 Integration(跳过)
 ### UI 刷新
 
 - Pull 模式：`CombatUI.RefreshAll()` → `BoardUI.RefreshBoard` / `HandUI.RefreshHand`。
-- HandUI 刷新手牌 = QueueFree 全部 CardUI 后重建。
+- HandUI 刷新手牌 = 原地更新牌面/费用 + deferred 引用差量同步；拖拽借出保留槽位，取消归还同一节点。
 - BoardUI = 属性更新（`BoardSlot.UpdateDisplay` 原地刷新）。
 
 ### 资源加载
@@ -341,7 +341,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 - 双层 CommanderCore：Player 和 CombatManager 各持一份，`internal Deck setter` 共享牌堆。
 - 手动法力同步：GameState 和 CommanderCore 各维护法力，CombatManager 手动 SetMana。
 - 意图动态计算：lambda 延迟求值，不缓存静态数值。
-- 风扇手牌：Control 手动 LayoutChildren，`OVERLAP_FACTOR=0.85`，`BASE_SCALE=0.85`。
+- 手牌与拖拽：`HandMotionMath` 只计算中心姿态、静止命中和连续阻尼；`HandUI` 持有手牌顺序，`CardUI` 绘制/原地更新牌面，由实际抽牌事件驱动真卡错峰入列。
 - 攻击双交互：箭头追随+松手攻击/右键取消，敌方英雄整卡绿色攻击高亮。
 - 导出回退：DirAccess 优先 + 硬编码回退。
 - 关键词检测：比较运行时 vs `CardData` 基线区分“自带”vs“授予”。
