@@ -1,6 +1,6 @@
 # OdysseyCards（少女星途卡牌） — Godot 4.7.2 C# · PVE 混搭 KARDS 三线战术卡牌
 
-**Updated:** 2026-11-24
+**Updated:** 2026-11-25
 **Scale:** ~230 `Scripts/*.cs` · ~48,000 非空行 · 81 `.tres` 卡牌/状态资源 · 7 `.tscn` 场景 + `Tools/CardCollectionWeb` 全栈收藏集/Wiki
 
 ## 项目文化标签
@@ -81,6 +81,7 @@ Tests/              # tests/csharp：xUnit 24 Unit + 1 Integration(跳过)
 | 星途视觉系统  | `Core/CardArtworkGenerator.cs`, `UI/CardArtworkView.cs`, `UI/StarfieldBackground.cs`, `UI/UIThemeFactory.cs`, `UI/ManaCrystalBar.cs`, `UI/MapPathView.cs`, `UI/MicroFX.cs`, `UI/HeatBar.cs` | 0 美术资产程序化视觉：卡图、星云星空、全局主题、路线节点、微交互、热力/生命 HUD                                   |
 | 交互状态机    | `UI/InteractionFSM.cs`                                                                                                                                                                      | 纯 C#；统一 Idle/CardPickedUp/Targeting/BoardDrag 阶段转换                                                        |
 | 棋盘 UI       | `UI/BoardUI.cs`                                                                                                                                                                             | `[Tool]` 三行 BoardSlot，统一 BoardPosition；GetSlotView 为后续视觉挂载点                                         |
+| 单位部署演出  | `UI/MinionDeployMath.cs`, `UI/MinionDeployVfx.cs`, `UI/BoardUI.cs`                                                                                                                          | 四类来源共用屏幕中心；规则刷新前藏槽，触桌交还真实槽位；力度统一 `DeployImpactProfile.Standard`                   |
 | 收藏          | `UI/CollectionUI.cs`, `CardGrid.cs`                                                                                                                                                         | 浏览/编辑/分页/过滤                                                                                               |
 | 地图/事件     | `UI/MapUI.cs`, `UI/MapPathView.cs`, `EventUI.cs`, `ShopUI.cs`, `RestSiteUI.cs`                                                                                                              | MapPathView 绘制层间路线与房间节点；后三者存在但未完整接入流程                                                    |
 | 发现/奖励     | `UI/DiscoverUI.cs`, `RewardUI.cs`                                                                                                                                                           | TaskCompletionSource 异步，一次性屏幕                                                                             |
@@ -227,6 +228,7 @@ Tests/              # tests/csharp：xUnit 24 Unit + 1 Integration(跳过)
 - Pull 模式：`CombatUI.RefreshAll()` → `BoardUI.RefreshBoard` / `HandUI.RefreshHand`。
 - HandUI 刷新手牌 = 原地更新牌面/费用 + deferred 引用差量同步；拖拽借出保留槽位，取消归还同一节点。
 - BoardUI = 属性更新（`BoardSlot.UpdateDisplay` 原地刷新）。
+- `Board.OnMinionEntering` 在规则监听前登记部署藏显；源手牌实例只随主单位传递。部署动画在触桌前不更改规则，移除、移动和离场按单位引用撤销演出。
 
 ### 资源加载
 
