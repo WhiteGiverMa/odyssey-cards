@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Godot;
+using OdysseyCards.Audio;
 using OdysseyCards.Core;
 
 namespace OdysseyCards.UI;
 
-/// <summary>统一 1600×900 逻辑设计基准及显示设置的自动加载缩放服务。</summary>
+/// <summary>统一 1600×900 逻辑设计基准并保存显示和音量设置的自动加载服务。</summary>
 public partial class UIScaler : Node
 {
 	public static UIScaler Instance { get; private set; }
@@ -38,6 +39,11 @@ public partial class UIScaler : Node
 	public const float MinFontScale = 0.8f;
 	public const float MaxFontScale = 1.8f;
 
+	/// <summary>音效音量使用 0% 到 100% 的线性幅度。</summary>
+	public const float DefaultSfxVolume = 0.80f;
+	public const float MinSfxVolume = ProceduralSfxMath.MinVolume;
+	public const float MaxSfxVolume = ProceduralSfxMath.MaxVolume;
+
 	/// <summary>预设分辨率列表（从高到低）</summary>
 	private static readonly (int Width, int Height)[] _presetResolutions = new[]
 	{
@@ -58,6 +64,7 @@ public partial class UIScaler : Node
 	public event Action? OnEmojiIconsChanged;
 	/// <summary>界面字体缩放变化——各 UI 表面据此刷新字号与布局。</summary>
 	public event Action? OnFontScaleChanged;
+	public event Action<float>? OnSfxVolumeChanged;
 
 	public float CurrentScale { get; private set; } = 1f;
 	public Vector2 CurrentCardSize => _currentCardSize;
@@ -87,6 +94,7 @@ public partial class UIScaler : Node
 	public float DeployAnimationSpeed { get; private set; } = DefaultDeployAnimationSpeed;
 	/// <summary>界面字体缩放倍率（仅界面文字；卡面内部排版仍按卡框自身尺寸自适应）</summary>
 	public float FontScale { get; private set; } = DefaultFontScale;
+	public float SfxVolume { get; private set; } = DefaultSfxVolume;
 
 	public override void _Ready()
 	{
@@ -511,6 +519,19 @@ public partial class UIScaler : Node
 		OnFontScaleChanged?.Invoke();
 	}
 
+	/// <summary>更新并持久化线性音量；播放服务据此立即调整音效总线。</summary>
+	public void SetSfxVolume(float volume)
+	{
+		volume = ProceduralSfxMath.ClampVolume(volume);
+		if (SfxVolume == volume)
+		{
+			return;
+		}
+		SfxVolume = volume;
+		SaveSettings();
+		OnSfxVolumeChanged?.Invoke(volume);
+	}
+
 	/// <summary>设置稀有度颜色方案并持久化（0=经典, 1=新版）。</summary>
 	public void SetRarityColorScheme(int schemeIndex)
 	{
@@ -530,7 +551,7 @@ public partial class UIScaler : Node
 	#region 持久化
 
 	/// <summary>
-	/// 保存当前显示设置到 user://settings.cfg（移动端跳过窗口尺寸保存）。
+	/// 保存当前设置到 user://settings.cfg（移动端跳过窗口尺寸保存）。
 	/// </summary>
 	public void SaveSettings()
 	{
@@ -559,6 +580,7 @@ public partial class UIScaler : Node
 		config.SetValue("visual", "combat_animation_speed", DeployAnimationSpeed);
 		config.SetValue("visual", "font_scale", FontScale);
 		config.SetValue("visual", "rarity_color_scheme", RarityColorSchemeIndex);
+		config.SetValue("audio", "sfx_volume", SfxVolume);
 
 		Error err = config.Save(_configPath);
 		if (err != Error.Ok)
@@ -568,7 +590,7 @@ public partial class UIScaler : Node
 	}
 
 	/// <summary>
-	/// 从 user://settings.cfg 加载并应用显示设置（移动端跳过）。
+	/// 从 user://settings.cfg 加载设置（移动端跳过窗口尺寸和模式）。
 	/// 首次启动时文件不存在，使用 project.godot 中的默认值。
 	/// </summary>
 	private void LoadSettings()
@@ -613,6 +635,8 @@ public partial class UIScaler : Node
 			(float)config.GetValue("visual", "font_scale", DefaultFontScale).AsDouble(),
 			MinFontScale, MaxFontScale);
 		RarityColorSchemeIndex = config.GetValue("visual", "rarity_color_scheme", 0).AsInt32();
+		SfxVolume = ProceduralSfxMath.ClampVolume(
+			(float)config.GetValue("audio", "sfx_volume", DefaultSfxVolume).AsDouble());
 
 		if (IsMobile)
 		{

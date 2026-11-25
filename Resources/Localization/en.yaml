@@ -41,6 +41,7 @@ ui:
     window_mode: "Window Mode"
     font_scale: "UI Font Size"
     font_scale_hint: "Drag to preview instantly; 120% is the default"
+    sfx_volume: "Sound Effects Volume"
     windowed: "Windowed"
     borderless: "Borderless Fullscreen"
     fullscreen: "Fullscreen"

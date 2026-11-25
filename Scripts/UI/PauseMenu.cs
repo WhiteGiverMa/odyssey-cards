@@ -406,7 +406,6 @@ public partial class PauseMenu : Control
 			// 设置子页面由 SettingsPage 自身处理输入，PauseMenu 只处理主菜单按钮
 			if (_submenuStack.HasSubmenus)
 			{
-				GetViewport().SetInputAsHandled();
 				return;
 			}
 

@@ -41,6 +41,7 @@ ui:
     window_mode: "窗口模式"
     font_scale: "界面字体大小"
     font_scale_hint: "拖动即可实时预览；120% 为默认界面字号"
+    sfx_volume: "音效音量"
     windowed: "窗口"
     borderless: "无边框全屏"
     fullscreen: "全屏"

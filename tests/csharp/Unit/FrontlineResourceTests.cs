@@ -74,5 +74,7 @@ public class FrontlineResourceTests
 		}
 		foreach (string key in new[] { "unit_class.vanguard", "unit_class.assault", "unit_class.support", "unit_class.skirmisher", "keyword.guard", "keyword.intel", "keyword.intel_overflow" })
 			Assert.True(keys.ContainsKey(key), $"{file}: {key} 缺失");
+		Assert.True(keys.TryGetValue("ui.settings.sfx_volume", out string? volumeLabel) && !string.IsNullOrWhiteSpace(volumeLabel),
+			$"{file}: 音效音量标签缺失");
 	}
 }

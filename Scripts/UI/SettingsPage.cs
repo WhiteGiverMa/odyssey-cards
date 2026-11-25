@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using OdysseyCards.Audio;
 using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
 using Loc = OdysseyCards.Localization.Localization;
@@ -84,6 +85,10 @@ public partial class SettingsPage : Control
 	private HSlider _fontScaleSlider = null!;
 	private Label _fontScaleValueLabel = null!;
 	private Label _fontScaleHintLabel = null!;
+	private Label _sfxVolumeLabel = null!;
+	private HSlider _sfxVolumeSlider = null!;
+	private Label _sfxVolumeValueLabel = null!;
+	private bool _draggingSfxVolume;
 
 	// ===== 键位设置控件 =====
 
@@ -223,6 +228,7 @@ public partial class SettingsPage : Control
 		LoadResolutions();
 		LoadWindowModes();
 		ConnectSignals();
+		RegisterSfxKeyboardBindings();
 		UpdateCurrentLanguage();
 		SwitchToTab("display");
 
@@ -236,6 +242,7 @@ public partial class SettingsPage : Control
 	public override void _ExitTree()
 	{
 		StopListening();
+		UnregisterSfxKeyboardBindings();
 
 		Core.GameManager.Instance.LanguageChanged -= OnLanguageChanged;
 
@@ -265,6 +272,9 @@ public partial class SettingsPage : Control
 		_emoteScaleSlider.ValueChanged -= OnEmoteScaleChanged;
 		_deploySpeedSlider.ValueChanged -= OnDeploySpeedChanged;
 		_fontScaleSlider.ValueChanged -= OnFontScaleChanged;
+		_sfxVolumeSlider.ValueChanged -= OnSfxVolumeChanged;
+		_sfxVolumeSlider.DragStarted -= OnSfxVolumeDragStarted;
+		_sfxVolumeSlider.DragEnded -= OnSfxVolumeDragEnded;
 	}
 
 	/// <summary>
@@ -273,7 +283,10 @@ public partial class SettingsPage : Control
 	public override void _UnhandledKeyInput(InputEvent @event)
 	{
 		if (!_isListeningForKey)
+		{
+			ForwardSfxKeyboard(@event);
 			return;
+		}
 		if (@event is not InputEventKey keyEvent || !keyEvent.Pressed || keyEvent.Echo)
 			return;
 
@@ -326,6 +339,7 @@ public partial class SettingsPage : Control
 
 		// === 显示设置（可滚动）===
 		_displayScroll = CreateTabScroll();
+		_displayScroll.FollowFocus = true;
 		_displayContainer = CreateTabContentContainer();
 		SetupDisplayUI();
 		_displayScroll.AddChild(_displayContainer);
@@ -456,13 +470,14 @@ public partial class SettingsPage : Control
 		};
 		_fontScaleValueLabel = new Label
 		{
-			Text = FormatFontScale(_fontScaleSlider.Value),
+			Text = FormatPercent(_fontScaleSlider.Value),
 			CustomMinimumSize = new Vector2(64, 0),
 		};
 		_fontScaleValueLabel.AddThemeFontSizeOverride("font_size", 16);
 		_displayContainer.AddChild(CreateSliderRow(_fontScaleLabel, _fontScaleSlider, _fontScaleValueLabel));
 		_fontScaleHintLabel = CreateHintLabel("ui.settings.font_scale_hint", "拖动即可实时预览；120% 为默认界面字号");
 		_displayContainer.AddChild(CreateCenteredRow(_fontScaleHintLabel));
+		SetupSfxVolumeSlider();
 
 		_displayContainer.AddChild(CreateSectionHeader("ui.settings.section_visual", "卡牌视觉"));
 
@@ -560,11 +575,33 @@ public partial class SettingsPage : Control
 		_displayContainer.AddChild(CreateCenteredRow(_deploySpeedHintLabel));
 	}
 
+	private void SetupSfxVolumeSlider()
+	{
+		_sfxVolumeLabel = CreateSettingLabel("ui.settings.sfx_volume", "音效音量");
+		_sfxVolumeSlider = new HSlider
+		{
+			Name = "SfxVolumeSlider",
+			AccessibilityName = _sfxVolumeLabel.Text,
+			MinValue = UIScaler.MinSfxVolume,
+			MaxValue = UIScaler.MaxSfxVolume,
+			Step = 0.01,
+			Value = UIScaler.Instance?.SfxVolume ?? UIScaler.DefaultSfxVolume,
+			CustomMinimumSize = new Vector2(160, 0),
+		};
+		_sfxVolumeValueLabel = new Label
+		{
+			Text = FormatPercent(_sfxVolumeSlider.Value),
+			CustomMinimumSize = new Vector2(64, 0),
+		};
+		_sfxVolumeValueLabel.AddThemeFontSizeOverride("font_size", 16);
+		_displayContainer.AddChild(CreateSliderRow(_sfxVolumeLabel, _sfxVolumeSlider, _sfxVolumeValueLabel));
+	}
+
 	/// <summary>动画速度显示：保留两位小数（×0.75 / ×1.00 / ×2.50）。</summary>
 	private static string FormatAnimationSpeed(double value) => $"×{value:F2}";
 
-	/// <summary>字体倍率显示为百分比（120%）。</summary>
-	private static string FormatFontScale(double value) => $"{Mathf.RoundToInt((float)value * 100f)}%";
+	/// <summary>比例显示为整数百分比。</summary>
+	private static string FormatPercent(double value) => $"{Mathf.RoundToInt((float)value * 100f)}%";
 
 	// ===== 游戏设置 UI =====
 
@@ -1001,6 +1038,9 @@ public partial class SettingsPage : Control
 		_emoteScaleSlider.ValueChanged += OnEmoteScaleChanged;
 		_deploySpeedSlider.ValueChanged += OnDeploySpeedChanged;
 		_fontScaleSlider.ValueChanged += OnFontScaleChanged;
+		_sfxVolumeSlider.ValueChanged += OnSfxVolumeChanged;
+		_sfxVolumeSlider.DragStarted += OnSfxVolumeDragStarted;
+		_sfxVolumeSlider.DragEnded += OnSfxVolumeDragEnded;
 		_profileSelector.ItemSelected += OnProfileSelected;
 		_newProfileBtn.Pressed += OnNewProfile;
 		_deleteProfileBtn.Pressed += OnDeleteProfile;
@@ -1173,8 +1213,121 @@ public partial class SettingsPage : Control
 	private void OnFontScaleChanged(double value)
 	{
 		float v = (float)value;
-		_fontScaleValueLabel.Text = FormatFontScale(v);
+		_fontScaleValueLabel.Text = FormatPercent(v);
 		UIScaler.Instance?.SetFontScale(v);
+	}
+
+	private void OnSfxVolumeChanged(double value)
+	{
+		_sfxVolumeValueLabel.Text = FormatPercent(value);
+		if (!_draggingSfxVolume)
+		{
+			ApplySfxVolume((float)value);
+		}
+	}
+
+	private void OnSfxVolumeDragStarted()
+	{
+		_draggingSfxVolume = true;
+	}
+
+	private void OnSfxVolumeDragEnded(bool valueChanged)
+	{
+		_draggingSfxVolume = false;
+		if (valueChanged)
+		{
+			// 拖动只更新百分比；松手再保存并试听一次，键盘与滚轮则立即应用。
+			ApplySfxVolume((float)_sfxVolumeSlider.Value);
+		}
+	}
+
+	private static void ApplySfxVolume(float value)
+	{
+		if (UIScaler.Instance is { } scaler && scaler.SfxVolume != value)
+		{
+			scaler.SetSfxVolume(value);
+			SfxManager.Instance?.PreviewVolume();
+		}
+	}
+
+	private void RegisterSfxKeyboardBindings()
+	{
+		HotkeyManager hotkeys = HotkeyManager.Instance;
+		hotkeys.PushPressedBinding(OdysseyInput.Left, DecreaseSfxVolume);
+		hotkeys.PushPressedBinding(OdysseyInput.Right, IncreaseSfxVolume);
+		hotkeys.PushPressedBinding(OdysseyInput.FocusNext, FocusNextSettingsControl);
+		hotkeys.PushPressedBinding(OdysseyInput.FocusPrev, FocusPreviousSettingsControl);
+	}
+
+	private void UnregisterSfxKeyboardBindings()
+	{
+		HotkeyManager hotkeys = HotkeyManager.Instance;
+		hotkeys.RemovePressedBinding(OdysseyInput.Left, DecreaseSfxVolume);
+		hotkeys.RemovePressedBinding(OdysseyInput.Right, IncreaseSfxVolume);
+		hotkeys.RemovePressedBinding(OdysseyInput.FocusNext, FocusNextSettingsControl);
+		hotkeys.RemovePressedBinding(OdysseyInput.FocusPrev, FocusPreviousSettingsControl);
+	}
+
+	// 项目清空了原生 ui_left / ui_right 的键位；暂停时输入 Autoload 也不处理事件。
+	// 设置页继续使用当前键位配置，只把它自己接管的操作交给热键栈。
+	private void ForwardSfxKeyboard(InputEvent inputEvent)
+	{
+		if (inputEvent is not InputEventKey { Pressed: true } key || !IsDisplayTabActive()
+			|| InputManager.Instance is not { Enabled: true } input)
+		{
+			return;
+		}
+		StringName? action = null;
+		if (key.Keycode == input.GetKey(OdysseyInput.TabTarget))
+		{
+			action = key.ShiftPressed ? OdysseyInput.FocusPrev : OdysseyInput.FocusNext;
+		}
+		else if (_sfxVolumeSlider.HasFocus())
+		{
+			if (key.Keycode == input.GetKey(OdysseyInput.Left))
+			{
+				action = OdysseyInput.Left;
+			}
+			else if (key.Keycode == input.GetKey(OdysseyInput.Right))
+			{
+				action = OdysseyInput.Right;
+			}
+		}
+		if (action != null)
+		{
+			HotkeyManager.Instance.DispatchAction(action, pressed: true);
+			GetViewport().SetInputAsHandled();
+		}
+	}
+
+	private void DecreaseSfxVolume() => StepSfxVolume(-1);
+	private void IncreaseSfxVolume() => StepSfxVolume(1);
+
+	private void StepSfxVolume(int direction)
+	{
+		if (!SceneLifecycleGuard.ShouldSkip(this) && IsDisplayTabActive() && _sfxVolumeSlider.HasFocus())
+		{
+			_sfxVolumeSlider.Value += direction * _sfxVolumeSlider.Step;
+		}
+	}
+
+	private void FocusNextSettingsControl() => MoveSettingsFocus(backwards: false);
+	private void FocusPreviousSettingsControl() => MoveSettingsFocus(backwards: true);
+
+	private void MoveSettingsFocus(bool backwards)
+	{
+		if (SceneLifecycleGuard.ShouldSkip(this) || !IsDisplayTabActive())
+		{
+			return;
+		}
+		Control? focused = GetViewport().GuiGetFocusOwner();
+		Control? next = null;
+		if (focused != null && IsAncestorOf(focused))
+		{
+			next = backwards ? focused.FindPrevValidFocus() : focused.FindNextValidFocus();
+		}
+		Control target = next != null && IsAncestorOf(next) ? next : _sfxVolumeSlider;
+		target.GrabFocus();
 	}
 
 	private void OnProfileSelected(long index)
@@ -1297,6 +1450,10 @@ public partial class SettingsPage : Control
 
 	private void OnLanguageChanged(string newLanguage)
 	{
+		if (!IsInsideTree())
+		{
+			return;
+		}
 		UpdateLabels();
 		LoadWindowModes();
 		LoadCardDescriptionAlignmentOptions();
@@ -1331,6 +1488,8 @@ public partial class SettingsPage : Control
 		_deploySpeedHintLabel.Text = Loc.T("ui.settings.deploy_speed_hint", "0.75× 为默认从容速度，数值越高演出越快");
 		_fontScaleLabel.Text = Loc.T("ui.settings.font_scale", "界面字体大小");
 		_fontScaleHintLabel.Text = Loc.T("ui.settings.font_scale_hint", "拖动即可实时预览；120% 为默认界面字号");
+		_sfxVolumeLabel.Text = Loc.T("ui.settings.sfx_volume", "音效音量");
+		_sfxVolumeSlider.AccessibilityName = _sfxVolumeLabel.Text;
 	}
 
 	private void UpdateCurrentLanguage()
@@ -1509,6 +1668,7 @@ public partial class SettingsPage : Control
 		_intentValueFloatingToggle.CustomMinimumSize = new Vector2(260, 56);
 		_intentTooltipShowAllToggle.CustomMinimumSize = new Vector2(260, 56);
 		_fontScaleSlider.CustomMinimumSize = new Vector2(200, 56);
+		_sfxVolumeSlider.CustomMinimumSize = new Vector2(200, 56);
 		_deploySpeedSlider.CustomMinimumSize = new Vector2(200, 56);
 		_backButton.CustomMinimumSize = new Vector2(220, 56);
 		_backButton.AddThemeFontSizeOverride("font_size", 22);
