@@ -13,13 +13,11 @@ public sealed partial class SfxManager : Node
 {
 	private const int _voiceCount = 10;
 	private const int _variantCount = 4;
-	private const int _extraImpactBankLimit = 6;
 	private static readonly StringName _busName = new("CombatSfx");
 
 	private readonly List<Voice> _voices = new(_voiceCount);
 	private readonly Dictionary<CombatSfxCue, SoundBank> _banks = new();
-	private readonly Dictionary<float, SoundBank> _extraImpactBanks = new();
-	private readonly Queue<float> _impactBankOrder = new();
+	private readonly Dictionary<DeploySfxForm, SoundBank> _deployBanks = new();
 	private readonly ulong[] _nextCueTime = new ulong[Enum.GetValues<CombatSfxCue>().Length];
 	private UIScaler? _settings;
 	private int _bus = -1;
@@ -43,6 +41,10 @@ public sealed partial class SfxManager : Node
 		try
 		{
 			_available = AudioServer.GetDriverName() is not "Dummy";
+			if (_available)
+			{
+				PreparePlayback();
+			}
 			ApplyVolume(_settings?.SfxVolume ?? UIScaler.DefaultSfxVolume);
 		}
 		catch (Exception error)
@@ -65,13 +67,28 @@ public sealed partial class SfxManager : Node
 		}
 	}
 
-	internal void PlayUnitDeploySlam(float intensity) => Play(CombatSfxCue.UnitDeploySlam, intensity);
+	internal void PlayUnitDeploySlam(float intensity)
+	{
+		float weight = ProceduralSfxMath.ClampImpact(intensity);
+		DeploySfxForm form = weight switch
+		{
+			< 0.25f => DeploySfxForm.Light,
+			< 0.75f => DeploySfxForm.Medium,
+			_ => ProceduralSfxMath.DefaultHeavyForm,
+		};
+		_ = Play(CombatSfxCue.UnitDeploySlam, form: form);
+	}
+
 	internal void PlayCardDrawSlide() => Play(CombatSfxCue.CardDrawSlide);
 	internal void PlayCardHoverTick() => Play(CombatSfxCue.CardHoverTick);
 	internal void PlayCardSelectClick() => Play(CombatSfxCue.CardSelectClick);
 	internal void PlayOrderCast() => Play(CombatSfxCue.OrderCast);
 	internal void PlayUnitMoveAdvance() => Play(CombatSfxCue.UnitMoveAdvance);
 	internal void PreviewVolume() => Play(CombatSfxCue.CardSelectClick, preview: true);
+	internal bool PreviewCue(CombatSfxCue cue, DeploySfxForm form = DeploySfxForm.Medium)
+	{
+		return Play(cue, preview: true, form: form);
+	}
 
 	private void ApplyVolume(float volume)
 	{
@@ -83,20 +100,13 @@ public sealed partial class SfxManager : Node
 
 		try
 		{
-			if (!IsInstanceValid(this) || IsQueuedForDeletion())
+			if (_bus < 0 || !IsInstanceValid(this) || IsQueuedForDeletion())
 			{
 				return;
 			}
 			bool muted = volume <= ProceduralSfxMath.MuteThreshold;
-			if (_bus < 0 && !muted)
-			{
-				PreparePlayback();
-			}
-			if (_bus >= 0)
-			{
-				AudioServer.SetBusVolumeDb(_bus, ProceduralSfxMath.VolumeToDb(volume));
-				AudioServer.SetBusMute(_bus, muted);
-			}
+			AudioServer.SetBusVolumeDb(_bus, ProceduralSfxMath.VolumeToDb(volume));
+			AudioServer.SetBusMute(_bus, muted);
 		}
 		catch (Exception error)
 		{
@@ -118,7 +128,15 @@ public sealed partial class SfxManager : Node
 		}
 		foreach (CombatSfxCue cue in Enum.GetValues<CombatSfxCue>())
 		{
-			_banks.Add(cue, BakeBank(cue, ProceduralSfxMath.StandardImpact));
+			if (cue != CombatSfxCue.UnitDeploySlam)
+			{
+				_banks.Add(cue, BakeBank(cue.ToString(), cue, seed => ProceduralSfxMath.Synthesize(cue, seed)));
+			}
+		}
+		foreach (DeploySfxForm form in Enum.GetValues<DeploySfxForm>())
+		{
+			const CombatSfxCue cue = CombatSfxCue.UnitDeploySlam;
+			_deployBanks.Add(form, BakeBank($"{cue}.{form}", cue, seed => ProceduralSfxMath.Synthesize(form, seed)));
 		}
 		for (int i = 0; i < _voiceCount; i++)
 		{
@@ -128,22 +146,22 @@ public sealed partial class SfxManager : Node
 		}
 	}
 
-	private void Play(CombatSfxCue cue, float intensity = ProceduralSfxMath.StandardImpact, bool preview = false)
+	private bool Play(CombatSfxCue cue, bool preview = false, DeploySfxForm form = DeploySfxForm.Medium)
 	{
 		if (!_available || _bus < 0 || _volume <= ProceduralSfxMath.MuteThreshold)
 		{
-			return;
+			return false;
 		}
 		try
 		{
 			if (!IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion())
 			{
-				return;
+				return false;
 			}
 			ulong now = Time.GetTicksMsec();
 			if (now < (preview ? _nextPreviewTime : _nextCueTime[(int)cue]))
 			{
-				return;
+				return false;
 			}
 			(ulong cooldown, int priority) = cue switch
 			{
@@ -158,12 +176,13 @@ public sealed partial class SfxManager : Node
 			Voice? voice = FindVoice(priority);
 			if (voice == null)
 			{
-				return;
+				return false;
 			}
 
 			AudioStreamPlayer player = voice.Player;
-			player.Stream = GetBank(cue, intensity).PickVariant();
-			player.PitchScale = Random.Shared.NextSingle() * 0.08f + 0.96f;
+			SoundBank bank = cue == CombatSfxCue.UnitDeploySlam ? _deployBanks[form] : _banks[cue];
+			player.Stream = bank.PickVariant();
+			player.PitchScale = preview ? 1f : (Random.Shared.NextSingle() * 0.04f) + 0.98f;
 			player.Play();
 			voice.Priority = priority;
 			voice.StartedAt = now;
@@ -175,10 +194,12 @@ public sealed partial class SfxManager : Node
 			{
 				_nextCueTime[(int)cue] = now + cooldown;
 			}
+			return true;
 		}
 		catch (Exception error)
 		{
 			DisableAudio(error);
+			return false;
 		}
 	}
 
@@ -205,27 +226,7 @@ public sealed partial class SfxManager : Node
 		return replacement;
 	}
 
-	private SoundBank GetBank(CombatSfxCue cue, float intensity)
-	{
-		float weight = ProceduralSfxMath.ClampImpact(intensity);
-		if (cue != CombatSfxCue.UnitDeploySlam || weight == ProceduralSfxMath.StandardImpact)
-		{
-			return _banks[cue];
-		}
-		if (!_extraImpactBanks.TryGetValue(weight, out SoundBank? bank))
-		{
-			if (_extraImpactBanks.Count >= _extraImpactBankLimit)
-			{
-				_ = _extraImpactBanks.Remove(_impactBankOrder.Dequeue());
-			}
-			bank = BakeBank(cue, weight);
-			_extraImpactBanks.Add(weight, bank);
-			_impactBankOrder.Enqueue(weight);
-		}
-		return bank;
-	}
-
-	private static SoundBank BakeBank(CombatSfxCue cue, float intensity)
+	private static SoundBank BakeBank(string name, CombatSfxCue cue, Func<int, byte[]> synthesize)
 	{
 		var streams = new AudioStreamWav[_variantCount];
 		for (int i = 0; i < streams.Length; i++)
@@ -233,11 +234,11 @@ public sealed partial class SfxManager : Node
 			int seed = unchecked((int)(0x85EBCA6Bu ^ (0x9E3779B9u * (uint)((((int)cue) * _variantCount) + i + 1))));
 			streams[i] = new AudioStreamWav
 			{
-				ResourceName = cue.ToString(),
+				ResourceName = name,
 				Format = AudioStreamWav.FormatEnum.Format16Bits,
 				MixRate = ProceduralSfxMath.SampleRate,
 				Stereo = false,
-				Data = ProceduralSfxMath.Synthesize(cue, seed, intensity),
+				Data = synthesize(seed),
 			};
 		}
 		return new SoundBank(streams);
