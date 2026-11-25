@@ -83,7 +83,7 @@ Tests/              # tests/csharp：xUnit 24 Unit + 1 Integration(跳过)
 | 星途视觉系统  | `Core/CardArtworkGenerator.cs`, `UI/CardArtworkView.cs`, `UI/StarfieldBackground.cs`, `UI/UIThemeFactory.cs`, `UI/ManaCrystalBar.cs`, `UI/MapPathView.cs`, `UI/MicroFX.cs`, `UI/HeatBar.cs` | 0 美术资产程序化视觉：卡图、星云星空、全局主题、路线节点、微交互、热力/生命 HUD                                   |
 | 交互状态机    | `UI/InteractionFSM.cs`                                                                                                                                                                      | 纯 C#；统一 Idle/CardPickedUp/Targeting/BoardDrag 阶段转换                                                        |
 | 棋盘 UI       | `UI/BoardUI.cs`                                                                                                                                                                             | `[Tool]` 三行 BoardSlot，统一 BoardPosition；GetSlotView 为后续视觉挂载点                                         |
-| 单位部署演出  | `UI/MinionDeployMath.cs`, `UI/MinionDeployVfx.cs`, `UI/BoardUI.cs`                                                                                                                          | 四类来源共用屏幕中心；规则刷新前藏槽，触桌交还真实槽位；力度统一 `DeployImpactProfile.Standard`                   |
+| 单位部署演出   | `UI/MinionDeployMath.cs`, `UI/MinionDeployVfx.cs`, `UI/BoardUI.cs`                                                                                                                          | 规则刷新前藏槽，触桌交还真实槽位；基础费用 ≤2 / 3–4 / ≥5 同时决定轻 / 中 / 重音画力度                             |
 | 程序化战斗音效 | `Audio/ProceduralSfxMath.cs`, `Audio/SfxManager.cs`, `UI/SettingsPage.cs`                                                                                                                   | 零音频素材；滑条在「显示 → 基础」，持久化 `audio/sfx_volume`；触桌、抽牌起飞等真实表现点触发                      |
 | 收藏          | `UI/CollectionUI.cs`, `CardGrid.cs`                                                                                                                                                         | 浏览/编辑/分页/过滤                                                                                               |
 | 地图/事件     | `UI/MapUI.cs`, `UI/MapPathView.cs`, `EventUI.cs`, `ShopUI.cs`, `RestSiteUI.cs`                                                                                                              | MapPathView 绘制层间路线与房间节点；后三者存在但未完整接入流程                                                    |
@@ -308,6 +308,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 | `/qa_tombstone` `/qa_bait_tactics` `/qa_new_cards`                   | 运行时 QA                                                         |
 | `/emote <id>`                                                        | 表情 QA                                                           |
 | `/version`                                                           | 显示当前游戏版本号                                                |
+| `/sfx`                                                               | 试听拍桌 `boo` / `pom` / `bomb` / `pia` 或其他战斗音效             |
 | `/help`                                                              | 帮助                                                              |
 
 ## Verification / MCP Testing
@@ -356,7 +357,7 @@ AI 调用：`game_call_method(nodePath="/root/ChatScreen", method="DevCommand", 
 
 ## State
 
-- ✅ 零素材战斗音效：纯 C# 合成 44.1 kHz 单声道 PCM16，`SfxManager` 复用 10 路播放器，以波形变体、微小音高扰动和节流减少重复；拍桌力度接 `DeployImpactProfile.SfxIntensity`，目前统一标准拍。设置页支持音效音量、松手试听与静音。
+- ✅ 零素材战斗音效：纯 C# 合成 44.1 kHz 单声道 PCM16，`SfxManager` 复用 10 路播放器、预烘焙实木拍桌 `boo` / `pom` / `bomb` / `pia` 四种音色。重档默认 `bomb`，`pia` 可独立试听。设置页支持音效音量、松手试听与静音。
 - ✅ 0.2.3「早期战争」平衡调整、新核心卡与三维正交解耦：开局指挥点槽数改为 1（`StartingMaxMana=0`，首回合自然 +1 至 1/1）；热力值系统从战斗与 HUD 断开贬为死代码；支援阵线存活守护暂时可保护所属英雄 HQ；全局术语对齐 KARDS 口径（「战吼→部署」「法力/法力槽→指挥点/指挥点槽」，保持「法术=指令」「随从=单位」「英雄」）；修复烟幕跨敌方回合衰减（`OpponentTurnEnd`）与敌意/纳米散尸术亡语抽牌归属；支持两段式目标型部署（`TargetingMinionBattlecry` + AI 目标评分 + `/play` 目标参数）、`M10“布克”` 先锋光环动态行动花费、骑士I型冲击 +2 动态攻击力；移除「接化发」，完成无人智胜 7 项与核心旧卡调整（40 系坦克回核心、白色军团入未来追杀、无限潜能/无限火力/计划入预备），新增 14 张核心卡（第113守备营、大喇叭团第122营、完美格挡、第232先锋营、15A式高原坦克、M10“布克”、暗影无人机、悬浮炮艇无人机、游隼无人机、猎隼重型无人机、34式榴弹机枪组、第55轨道机动兵团、T-90M晚期型、爆炸反应装甲），卡池扩至 81 张（31 单位）；彻底移除 `CardMechanicTag` 中的 `Pack*` 位与 Web 标签反推兜底，确立 `PackId × MechanicTags × Keywords` 三维正交。
 - ✅ KARDS 风格战术战报、出牌亮牌慢放演出、全局字号与 Emoji 对照开关：新增纯 C# `CombatLogService` 栈式行动聚合模型与左侧可折叠 `CombatLogDrawer`（热键 `L`，流式 `主体 -> [徽章] 目标` 芯片，主体/目标与实际被弃掉的卡牌均渲染为可悬停/点按芯片并弹出真实 `CardUI` 历史快照卡面；反制仅在实际触发时记录防剧透，且仅在实际弃掉敌牌时展示弃牌芯片）；新增 `CardShowcaseVfx`（双端指令/领域/反制触发三段式亮牌定格与目标指示弧线，修复指英雄施法漏飞牌）、`MinionDeployVfx` 敌方顶栏飞出与悬停亮牌、`MinionMoveVfx` 推进滑行与 `EndPlayerTurnAsync` 敌方回合逐步异步步进（默认战斗动画速度调慢至 `×0.75`，保留同步 `EndPlayerTurn` 供单测）；新增 `UIScaler.FontScale`（默认放大至 `120%` 实时驱动共享主题与战斗 HUD）与 `UIScaler.EmojiIconsEnabled`（默认关闭，使用纯色色块+简字徽章，可随时开启对照，保留 `♥/♥️`）。
 - ✅ 0.2.2「断流」：新增 `CardType.Countermeasure`（友方回合付费激活/取消退费、敌方回合拦截法术、新回合自动失效）、`spell_energy_coin` 动态 `+n` 能量币、卡包 `cutoff_current` 与 6 张断流新卡；`CountermeasureService` / `CutoffCurrentEffects` 承载纯 C# 规则，Web 收藏集同步支持反制类型与断流卡包。
