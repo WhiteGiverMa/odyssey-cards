@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using OdysseyCards.Audio;
 using OdysseyCards.Card;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
@@ -208,6 +209,7 @@ public partial class BoardUI : Control
 			return;
 		}
 		GetSlotView(position)?.PlayDeployImpact(impact, speed);
+		SfxManager.Instance?.PlayUnitDeploySlam(impact.SfxIntensity);
 	}
 
 	/// <summary>清除该实例所持的视觉占位并刷新实际内容；不能揭开后来占用同一槽位的牌。</summary>

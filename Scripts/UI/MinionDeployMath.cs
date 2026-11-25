@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using OdysseyCards.Audio;
 
 #pragma warning disable IDE0130 // 命名空间按模块组织，不包含 Scripts 物理目录。
 namespace OdysseyCards.UI;
@@ -16,7 +17,7 @@ public enum DeployOriginKind
 
 /// <summary>拍桌力度；位移以设计像素计，压缩和光尘为无量纲强度。</summary>
 internal readonly record struct DeployImpactProfile(float Lift, float StrikeDepth, float Sink, float Squash,
-	float Shake, float RingStrength, float DustStrength)
+	float Shake, float RingStrength, float DustStrength, float SfxIntensity = ProceduralSfxMath.StandardImpact)
 {
 	public static DeployImpactProfile Standard { get; } = new(8f, 14f, 3.8f, 0.06f, 1.7f, 0.84f, 0.76f);
 }

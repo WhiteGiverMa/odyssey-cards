@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using OdysseyCards.Audio;
 using OdysseyCards.Combat;
 using OdysseyCards.Core;
 using OdysseyCards.Infrastructure;
@@ -38,7 +39,7 @@ public partial class HandUI : Control
 	private bool _handSelectMode;
 	private bool _syncPending;
 	private double _motionTime;
-	private double _nextDrawTime;
+	private double _nextDrawStart;
 	private Action[]? _cardSelectActions;
 	private Action? _leftAction;
 	private Action? _rightAction;
@@ -85,11 +86,11 @@ public partial class HandUI : Control
 		{
 			return;
 		}
-		_motionTime += delta;
 		if (_slots.Count == 0 || _cardContainer.Size.X <= 1f || _cardContainer.Size.Y <= 1f)
 		{
 			return;
 		}
+		_motionTime += delta;
 
 		HandLayout layout = GetLayout(_slots.Count);
 		if (!MobileInputRouter.IsMobile)
@@ -294,9 +295,7 @@ public partial class HandUI : Control
 		{
 			return false;
 		}
-		double start = Math.Max(_motionTime, _nextDrawTime);
-		_nextDrawTime = start + HandMotionMath.DrawStagger;
-		var flight = new DrawFlight(origin, start);
+		var flight = new DrawFlight(origin);
 		slot.Draw = flight;
 		slot.View.MouseFilter = MouseFilterEnum.Ignore;
 		float scale = UiScale;
@@ -328,6 +327,7 @@ public partial class HandUI : Control
 		{
 			_loanedForPlay = slot;
 		}
+		SfxManager.Instance?.PlayCardSelectClick();
 		return true;
 	}
 
@@ -447,6 +447,10 @@ public partial class HandUI : Control
 		int next = HandMotionMath.FindHovered(_hitFrames.AsSpan(0, _slots.Count), pointer, previous,
 			_hitCandidates.AsSpan(0, _slots.Count));
 		_hoveredSlot = next < 0 ? null : _slots[next];
+		if (next >= 0 && next != previous)
+		{
+			SfxManager.Instance?.PlayCardHoverTick();
+		}
 	}
 
 	private HandPose AdvanceSlot(CardSlot slot, HandPose target, float delta, float scale)
@@ -454,15 +458,20 @@ public partial class HandUI : Control
 		CardUI view = slot.View;
 		if (slot.Draw is DrawFlight flight)
 		{
-			float progress = (float)((_motionTime - flight.StartTime) / HandMotionMath.DrawDuration);
-			if (progress < 0f)
+			if (flight.StartTime is not double startTime)
 			{
-				return GetDrawPose(flight, target, 0f, scale);
-			}
-			if (!view.Visible)
-			{
+				// 布局未就绪或单帧卡顿后，不把已经过期的起飞和音效叠到同一帧。
+				if (_motionTime < _nextDrawStart)
+				{
+					return GetDrawPose(flight, target, 0f, scale);
+				}
+				_nextDrawStart = _motionTime + HandMotionMath.DrawStagger - Math.Min(delta * 0.5, 0.008);
+				startTime = _motionTime;
+				slot.Draw = flight with { StartTime = startTime };
 				view.Show();
+				SfxManager.Instance?.PlayCardDrawSlide();
 			}
+			float progress = (float)((_motionTime - startTime) / HandMotionMath.DrawDuration);
 			if (progress < 1f)
 			{
 				return GetDrawPose(flight, target, progress, scale);
@@ -658,6 +667,10 @@ public partial class HandUI : Control
 			if (MobileInputRouter.IsMobile && !IsKeyboardSelection)
 			{
 				_tappedSlot = _tappedSlot == slot ? null : slot;
+				if (_tappedSlot != null)
+				{
+					SfxManager.Instance?.PlayCardHoverTick();
+				}
 			}
 			else
 			{
@@ -808,5 +821,5 @@ public partial class HandUI : Control
 		public DrawFlight? Draw { get; set; }
 	}
 
-	private readonly record struct DrawFlight(Vector2 Origin, double StartTime);
+	private readonly record struct DrawFlight(Vector2 Origin, double? StartTime = null);
 }

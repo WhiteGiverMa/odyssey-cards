@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Godot;
+using OdysseyCards.Audio;
 using OdysseyCards.Card;
 using OdysseyCards.Character;
 using OdysseyCards.Combat;
@@ -1508,6 +1509,10 @@ public partial class CombatUI : Control
 			_activeShowcase.CancelAndFree();
 		_activeShowcase = CardShowcaseVfx.Play(presented.Card, playerSide, origin, targetCenter, endCenter, badge,
 			presented.IsCountermeasureTrigger || presented.IsCanceled, ResolveDeploySpeed(), _cardFlyLayer);
+		if (_activeShowcase != null)
+		{
+			SfxManager.Instance?.PlayOrderCast();
+		}
 
 		// 亮牌接管后释放交互层。牌仍在模型里（例如还在等待选择）时隐藏保留同一张视图。
 		if (playerSide && !presented.IsCountermeasureTrigger && _dragCardUI?.Card?.Id == presented.Card.Id)
@@ -1643,6 +1648,8 @@ public partial class CombatUI : Control
 			&& from.Row is BoardRow.PlayerSupport or BoardRow.EnemySupport;
 		if (!advanceFrontline || _deployVfxLayer == null || !GodotObject.IsInstanceValid(_deployVfxLayer))
 			return;
+		// 一步突击会立即换掉下方的滑行替身，实际推进只在这里响一次。
+		SfxManager.Instance?.PlayUnitMoveAdvance();
 		CancelMoveVfx(minion);
 		Rect2 fromRect = _boardUI.GetSlotScreenRect(from);
 		Rect2 toRect = _boardUI.GetSlotScreenRect(to);
