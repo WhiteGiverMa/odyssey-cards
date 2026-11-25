@@ -1392,7 +1392,8 @@ public partial class CombatUI : Control
 		}
 
 		float speed = ResolveDeploySpeed();
-		DeployImpactProfile impact = DeployImpactProfile.Standard;
+		// Card.Cost 读取基础费用，不含运行时 CostModifier；非手牌召唤也从同一单位数据取值。
+		DeployImpactProfile impact = MinionDeployMath.ResolveImpactProfile(minion.Cost);
 		CardUI? handView = HandUI.IsLive(deploy.HandView) ? deploy.HandView : null;
 		Card.Card face = deploy.HandCard?.CreateSnapshot() ?? minion.ToRuntimeCard();
 		deploy.Flight = MinionDeployVfx.Play(face, deploy.Kind, deploy.Origin, minion.IsPlayerSide, impact, speed,

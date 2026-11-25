@@ -15,11 +15,22 @@ public enum DeployOriginKind
 	OffscreenSummon,
 }
 
+/// <summary>由单位基础费用决定的部署表现档位。</summary>
+internal enum DeployWeightTier
+{
+	Light,
+	Medium,
+	Heavy,
+}
+
 /// <summary>拍桌力度；位移以设计像素计，压缩和光尘为无量纲强度。</summary>
 internal readonly record struct DeployImpactProfile(float Lift, float StrikeDepth, float Sink, float Squash,
-	float Shake, float RingStrength, float DustStrength, float SfxIntensity = ProceduralSfxMath.StandardImpact)
+	float Shake, float RingStrength, float DustStrength, float SfxIntensity)
 {
-	public static DeployImpactProfile Standard { get; } = new(8f, 14f, 3.8f, 0.06f, 1.7f, 0.84f, 0.76f);
+	public static DeployImpactProfile Light { get; } = new(4f, 8f, 1.7f, 0.027f, 0.5f, 0.36f, 0.28f, ProceduralSfxMath.LightImpact);
+	public static DeployImpactProfile Medium { get; } = new(8f, 14f, 3.8f, 0.06f, 1.7f, 0.80f, 0.68f, ProceduralSfxMath.MediumImpact);
+	public static DeployImpactProfile Heavy { get; } = new(17f, 30f, 8.0f, 0.115f, 3.8f, 1.17f, 1.12f, ProceduralSfxMath.HeavyImpact);
+	public static DeployImpactProfile Standard => Medium;
 }
 
 /// <summary>屏幕中心姿态；Scale 指设计尺寸到屏幕尺寸的倍率，不是某个节点的局部 Scale。</summary>
@@ -95,6 +106,29 @@ internal static class MinionDeployMath
 	public static Vector2 CardDesignSize => new(HandLayout.CardWidth, HandLayout.CardHeight);
 	public static float EnemyStepDelay => _enemyTiming.Touchdown + SettlementDuration + 0.02f;
 
+	/// <summary>临时减费或加费不改变触桌重量。</summary>
+	public static DeployWeightTier ResolveWeightTier(int baseCost)
+	{
+		return baseCost switch
+		{
+			<= 2 => DeployWeightTier.Light,
+			<= 4 => DeployWeightTier.Medium,
+			_ => DeployWeightTier.Heavy,
+		};
+	}
+
+	/// <summary>同一档位给出飞行姿态、触桌回正和音色锚点。</summary>
+	public static DeployImpactProfile ResolveImpactProfile(int baseCost)
+	{
+		return ResolveWeightTier(baseCost) switch
+		{
+			DeployWeightTier.Light => DeployImpactProfile.Light,
+			DeployWeightTier.Medium => DeployImpactProfile.Medium,
+			DeployWeightTier.Heavy => DeployImpactProfile.Heavy,
+			_ => throw new InvalidOperationException("未知部署力度。"),
+		};
+	}
+
 	public static DeployTiming TimingFor(DeployOriginKind kind)
 	{
 		return kind switch
@@ -123,7 +157,7 @@ internal static class MinionDeployMath
 				Center = launch.Center - new Vector2(0f, impact.Lift * uiScale),
 				Elevation = MathF.Max(launch.Elevation, 0.9f),
 			},
-			DeployOriginKind.EnemyHand => ResolveEnemyHover(launch, contact, viewport, uiScale),
+			DeployOriginKind.EnemyHand => ResolveEnemyHover(launch, contact, viewport, uiScale, impact),
 			DeployOriginKind.PlayerClick or DeployOriginKind.OffscreenSummon => launch,
 			_ => throw new ArgumentOutOfRangeException(nameof(kind)),
 		};
@@ -147,7 +181,8 @@ internal static class MinionDeployMath
 		return new DeployPose(center, (enemy ? 0.36f : 0.80f) * uiScale, 0f, enemy ? 0.20f : 0.60f);
 	}
 
-	private static DeployPose ResolveEnemyHover(DeployPose launch, DeployPose contact, DeployViewport viewport, float uiScale)
+	private static DeployPose ResolveEnemyHover(DeployPose launch, DeployPose contact, DeployViewport viewport, float uiScale,
+		DeployImpactProfile impact)
 	{
 		float margin = MathF.Min(16f * uiScale, MathF.Min(viewport.Size.X, viewport.Size.Y) * 0.1f);
 		Vector2 safeSize = viewport.Size - new Vector2(2f * margin);
@@ -155,7 +190,7 @@ internal static class MinionDeployMath
 		float readable = MathF.Min(MathF.Max(_readableScale * uiScale, contact.Scale), maxScale);
 		var halfExtent = Vector2.Min((CardDesignSize * (readable * 0.5f)) + new Vector2(margin), viewport.Size * 0.5f);
 		Vector2 center = new(float.Lerp(launch.Center.X, contact.Center.X, 0.43f),
-			MathF.Min(float.Lerp(launch.Center.Y, contact.Center.Y, 0.54f), contact.Center.Y - (52f * uiScale)));
+			MathF.Min(float.Lerp(launch.Center.Y, contact.Center.Y, 0.54f), contact.Center.Y - ((44f + impact.Lift) * uiScale)));
 		center = Vector2.Clamp(center, viewport.Min + halfExtent, viewport.Min + viewport.Size - halfExtent);
 		return new DeployPose(center, readable, 0f, 0.86f);
 	}

@@ -670,15 +670,17 @@ public partial class BoardUI : Control
 			DrawImpactOutline(new Rect2(Vector2.Zero, Size).Grow(1f + (9f * travel)), new Color(_impactColor, rim * 0.66f));
 			DrawImpactOutline(new Rect2(Vector2.Zero, Size).Grow(-3f + (2f * travel)), new Color(_impactColor, rim * fade * 0.34f));
 
-			// 两扇贴住底边向外散开的低矮尘流，叠细线与羽化光点，速度和高度逐粒错开。
+			// 两扇贴底尘流。越重越密、越远；沿底边错落扩散，不改槽位布局。
 			Color dust = _impactColor.Lerp(UIThemeFactory.WarmGold, 0.32f);
-			for (int i = 0; i < 12; i++)
+			int pairs = 2 + Mathf.RoundToInt(5f * _impact.DustStrength);
+			float reach = 0.72f + (0.36f * _impact.DustStrength);
+			for (int i = 0; i < pairs * 2; i++)
 			{
 				float side = (i & 1) == 0 ? -1f : 1f;
-				float band = (i / 2) / 5f;
+				float band = (i / 2) / (float)(pairs - 1);
 				float streak = 0.8f + (band * 2.7f);
 				float edge = Size.X * (0.18f + (0.26f * band));
-				float spread = travel * (16f + (24f * band));
+				float spread = travel * reach * (16f + (24f * band));
 				float x = (Size.X * 0.5f) + (side * (edge + spread));
 				float y = Size.Y + 1.5f - (travel * (2f + ((i * 3) % 7)));
 				var point = new Vector2(x, y);

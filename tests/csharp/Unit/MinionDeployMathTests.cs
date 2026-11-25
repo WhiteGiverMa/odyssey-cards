@@ -1,7 +1,10 @@
 using System;
 using System.Numerics;
+using OdysseyCards.Audio;
+using OdysseyCards.Core;
 using OdysseyCards.UI;
 using Xunit;
+using RuntimeCard = OdysseyCards.Card.Card;
 
 namespace OdysseyCards.Tests.Unit;
 
@@ -134,14 +137,60 @@ public sealed class MinionDeployMathTests
 		Assert.True(Vector2.Distance(flight.Sample(0.1f).Center, center) < Vector2.Distance(start, center));
 	}
 
-	[Fact]
-	public void Settlement_ReturnsFromSingleCompression_ToExactRest()
+	[Theory]
+	[InlineData(-1, (int)DeployWeightTier.Light, ProceduralSfxMath.LightImpact)]
+	[InlineData(0, (int)DeployWeightTier.Light, ProceduralSfxMath.LightImpact)]
+	[InlineData(1, (int)DeployWeightTier.Light, ProceduralSfxMath.LightImpact)]
+	[InlineData(2, (int)DeployWeightTier.Light, ProceduralSfxMath.LightImpact)]
+	[InlineData(3, (int)DeployWeightTier.Medium, ProceduralSfxMath.MediumImpact)]
+	[InlineData(4, (int)DeployWeightTier.Medium, ProceduralSfxMath.MediumImpact)]
+	[InlineData(5, (int)DeployWeightTier.Heavy, ProceduralSfxMath.HeavyImpact)]
+	[InlineData(7, (int)DeployWeightTier.Heavy, ProceduralSfxMath.HeavyImpact)]
+	[InlineData(99, (int)DeployWeightTier.Heavy, ProceduralSfxMath.HeavyImpact)]
+	public void ResolveImpactProfile_BaseCost_SelectsTheSharedVisualAndAudioTier(int cost, int tier, float intensity)
 	{
-		DeployImpactProfile impact = DeployImpactProfile.Standard;
+		Assert.Equal((DeployWeightTier)tier, MinionDeployMath.ResolveWeightTier(cost));
+		Assert.Equal(intensity, MinionDeployMath.ResolveImpactProfile(cost).SfxIntensity);
+	}
+
+	[Fact]
+	public void ResolveImpactProfile_TemporarilyDiscountedCard_KeepsItsBaseWeight()
+	{
+		var card = new RuntimeCard("tank", CardType.Minion, cost: 6) { CostModifier = -6 };
+		Assert.Equal(0, card.GetEffectiveCost());
+		Assert.Equal(DeployImpactProfile.Heavy, MinionDeployMath.ResolveImpactProfile(card.Cost));
+	}
+
+	[Fact]
+	public void ResolveImpactProfile_HeavierTiers_IncreaseEveryImpactDimension()
+	{
+		DeployImpactProfile light = MinionDeployMath.ResolveImpactProfile(2);
+		DeployImpactProfile medium = MinionDeployMath.ResolveImpactProfile(4);
+		DeployImpactProfile heavy = MinionDeployMath.ResolveImpactProfile(5);
+		Assert.Equal(DeployImpactProfile.Light, light);
+		Assert.Equal(DeployImpactProfile.Standard, medium);
+		Assert.Equal(DeployImpactProfile.Heavy, heavy);
+		Assert.True(light.Lift < medium.Lift && medium.Lift < heavy.Lift);
+		Assert.True(light.StrikeDepth < medium.StrikeDepth && medium.StrikeDepth < heavy.StrikeDepth);
+		Assert.True(light.Sink < medium.Sink && medium.Sink < heavy.Sink);
+		Assert.True(light.Squash < medium.Squash && medium.Squash < heavy.Squash);
+		Assert.True(light.Shake < medium.Shake && medium.Shake < heavy.Shake);
+		Assert.True(light.RingStrength < medium.RingStrength && medium.RingStrength < heavy.RingStrength);
+		Assert.True(light.DustStrength < medium.DustStrength && medium.DustStrength < heavy.DustStrength);
+		Assert.True(light.SfxIntensity < medium.SfxIntensity && medium.SfxIntensity < heavy.SfxIntensity);
+	}
+
+	[Theory]
+	[InlineData(1)]
+	[InlineData(3)]
+	[InlineData(5)]
+	public void Settlement_AllWeights_ReturnFromSingleCompressionToExactRest(int cost)
+	{
+		DeployImpactProfile impact = MinionDeployMath.ResolveImpactProfile(cost);
 		DeploySettlement previous = MinionDeployMath.SampleSettlement(0f, impact);
 		Assert.Equal(impact.Sink, previous.Offset.Y);
 		Assert.Equal(1f - impact.Squash, previous.Scale.Y);
-		Assert.InRange(previous.Offset.Y, 3f, 4f);
+		Assert.True(previous.Offset.Y > 0f);
 
 		for (int i = 1; i <= 100; i++)
 		{
