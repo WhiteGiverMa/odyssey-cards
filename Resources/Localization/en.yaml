@@ -72,6 +72,10 @@ ui:
     keybind_profile: "Key Profile"
     keybind_hint: "Click a key button then press a new key to rebind"
     reset_defaults: "Reset to Defaults"
+  console:
+    sfx_hint: "Preview combat sounds. Use boo, pom, bomb, or pia to compare table impacts."
+    sfx_played: "Preview: {name}"
+    sfx_unavailable: "Sound did not play. Check the effects volume or audio device, or try again shortly."
   combat:
     end_turn: "End Turn"
     smart_attack: "Smart Attack"

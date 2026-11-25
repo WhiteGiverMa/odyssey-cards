@@ -559,6 +559,7 @@ public partial class ChatScreen : Node
 		_engine.Register(new Commands.TagsCommand());
 		_engine.Register(new Commands.EmoteCommand());
 		_engine.Register(new Commands.ThemePreviewCommand());
+		_engine.Register(new Commands.SfxCommand());
 		_engine.Register(new Commands.VersionCommand());
 		_engine.Register(new Commands.HelpCommand());
 

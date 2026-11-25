@@ -72,6 +72,10 @@ ui:
     keybind_profile: "键位配置"
     keybind_hint: "点击键位按钮后按下新按键即可重新绑定"
     reset_defaults: "重置为默认键位"
+  console:
+    sfx_hint: "试听战斗音效；轻、中、重可用 boo / pom / bomb / pia。"
+    sfx_played: "试听：{name}"
+    sfx_unavailable: "未播放：请检查音效音量、音频设备或稍后重试。"
   combat:
     end_turn: "结束回合"
     smart_attack: "智能攻击"

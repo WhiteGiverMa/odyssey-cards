@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using OdysseyCards.Audio;
 using OdysseyCards.Core;
+using Loc = OdysseyCards.Localization.Localization;
 
 namespace OdysseyCards.Infrastructure.Commands;
 
-// ===== /help /clear /unlock_all /tags =====
+// ===== /help /clear /unlock_all /tags /sfx =====
 
 public class HelpCommand : ChatScreenCommand
 {
@@ -92,5 +94,52 @@ public class TagsCommand : ChatScreenCommand
 		var untagged = cardCache.Values.Where(c => c.MechanicTags == Core.CardMechanicTag.None).ToList();
 		lines.Add($"  无标签 ({untagged.Count} 张)");
 		return CommandResult.Ok(string.Join("\n", lines));
+	}
+}
+
+/// <summary>通过正式播放池试听指定音色，不依赖战斗或改动音量。</summary>
+internal sealed class SfxCommand : ChatScreenCommand
+{
+	private static readonly string[] _choices = ["light", "medium", "heavy", "bomb", "pia", "draw", "hover", "select", "order", "move"];
+
+	public override string Name => "sfx";
+	public override string Signature => "/sfx [light|medium|heavy|bomb|pia|draw|hover|select|order|move]";
+	public override string Description => Loc.T("ui.console.sfx_hint", "试听战斗音效；轻、中、重可用 boo / pom / bomb / pia。");
+
+	public override CompletionCandidate[] GetArgCandidates(string partialArg)
+	{
+		return _choices.Select(choice => new CompletionCandidate(choice, choice, "")).ToArray();
+	}
+
+	public override CommandResult Execute(string[] args)
+	{
+		if (args.Length > 1)
+		{
+			return CommandResult.Fail(Signature);
+		}
+		const CombatSfxCue deploy = CombatSfxCue.UnitDeploySlam;
+		string option = args.Length == 0 ? "medium" : args[0].ToLowerInvariant();
+		(CombatSfxCue Cue, DeploySfxForm Form)? sound = option switch
+		{
+			"light" or "boo" => (deploy, DeploySfxForm.Light),
+			"medium" or "pom" => (deploy, DeploySfxForm.Medium),
+			"heavy" => (deploy, ProceduralSfxMath.DefaultHeavyForm),
+			"bomb" => (deploy, DeploySfxForm.HeavyBomb),
+			"pia" => (deploy, DeploySfxForm.HeavyPia),
+			"draw" => (CombatSfxCue.CardDrawSlide, DeploySfxForm.Medium),
+			"hover" => (CombatSfxCue.CardHoverTick, DeploySfxForm.Medium),
+			"select" => (CombatSfxCue.CardSelectClick, DeploySfxForm.Medium),
+			"order" => (CombatSfxCue.OrderCast, DeploySfxForm.Medium),
+			"move" => (CombatSfxCue.UnitMoveAdvance, DeploySfxForm.Medium),
+			_ => null,
+		};
+		if (sound is not { } requested)
+		{
+			return CommandResult.Fail(Signature);
+		}
+		string name = requested.Cue == deploy ? requested.Form.ToString() : requested.Cue.ToString();
+		return SfxManager.Instance?.PreviewCue(requested.Cue, requested.Form) == true
+			? CommandResult.Ok(Loc.T("ui.console.sfx_played", "试听：{name}").Replace("{name}", name, StringComparison.Ordinal))
+			: CommandResult.Fail(Loc.T("ui.console.sfx_unavailable", "未播放：请检查音效音量、音频设备或稍后重试。"));
 	}
 }
